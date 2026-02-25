@@ -11,6 +11,8 @@ export const o2dAPI = {
   // Dashboard
   getDashboardSummary: (params?: any) =>
     api.get(API_ENDPOINTS.O2D.DASHBOARD.SUMMARY, { params }),
+  getCustomerFeedback: (params?: any) =>
+    api.get(API_ENDPOINTS.O2D.DASHBOARD.CUSTOMER_FEEDBACK, { params }),
   getDeliveryStats: (params?: any) =>
     api.get(API_ENDPOINTS.O2D.DASHBOARD.DELIVERY_STATS, { params }),
   getSalespersonDeliveryStats: (params?: any) =>
@@ -52,4 +54,3 @@ export const o2dAPI = {
   // Additional Client Stats
   getClientCount: () => api.get(`${API_ENDPOINTS.O2D.CLIENT}/count`),
 };
-

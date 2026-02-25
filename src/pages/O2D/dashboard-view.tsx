@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent } from "lucide-react"
+import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent, Truck, Target, TrendingUp, ArrowUpRight, Activity, Quote, MessageSquare, Star } from "lucide-react"
 import { format } from "date-fns"
 import { useAuth } from "../../context/AuthContext"
 import { Badge } from "./ui/badge"
@@ -130,6 +130,10 @@ export function DashboardView() {
   const [enquiryReport, setEnquiryReport] = useState<any[]>([])
   const [loadingEnquiry, setLoadingEnquiry] = useState(false)
 
+  const [customerFeedback, setCustomerFeedback] = useState<any[]>([])
+  const [loadingFeedback, setLoadingFeedback] = useState(false)
+  const [feedbackStats, setFeedbackStats] = useState<any[]>([])
+
   const dashboardRef = useRef<HTMLDivElement | null>(null)
 
   // New Stats State
@@ -151,6 +155,95 @@ export function DashboardView() {
       console.error("Error fetching enquiry report:", err)
     } finally {
       setLoadingEnquiry(false)
+    }
+  }
+
+  const fetchCustomerFeedback = async () => {
+    setLoadingFeedback(true);
+
+    try {
+      const response = await o2dAPI.getCustomerFeedback({ sheetName: "Form Responses 1" });
+      const payload = response?.data;
+
+      if (!payload?.success || !Array.isArray(payload.data)) {
+        throw new Error(payload?.error || payload?.message || "Invalid feedback response");
+      }
+
+      const rows = payload.data.slice(1); // Skip headers row
+      console.log("Sync success. Records loaded:", rows.length);
+
+      if (rows.length === 0) {
+        setFeedbackStats([]);
+        setCustomerFeedback([]);
+        return;
+      }
+
+      // Map column headers from your sheet (G to N)
+      const categoryNames = ["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"];
+      const categorySums = new Array(8).fill(0);
+      const categoryCounts = new Array(8).fill(0);
+
+      const formattedData = rows.map((row: any[]) => {
+        // Average ratings from indices 6 to 13 (Columns G to N)
+        const ratingCols = row.slice(6, 14);
+        ratingCols.forEach((val, idx) => {
+          const numericVal = typeof val === "number" ? val : Number(val);
+          if (Number.isFinite(numericVal)) {
+            categorySums[idx] += numericVal;
+            categoryCounts[idx]++;
+          }
+        });
+
+        const validRatings = ratingCols
+          .map((v) => (typeof v === "number" ? v : Number(v)))
+          .filter((v) => Number.isFinite(v));
+        const avg = validRatings.length > 0
+          ? Math.round(validRatings.reduce((a, b) => a + b, 0) / validRatings.length)
+          : 5;
+
+        // Clean up names and feedback
+        const customerName = typeof row[3] === "string" ? row[3].trim() : "Valued Customer";
+        const firmName = typeof row[4] === "string" ? row[4].trim() : "Partner Firm";
+        const rawFeedback = row[14];
+        const feedback = (typeof rawFeedback === "string" && rawFeedback.trim())
+          ? rawFeedback.trim()
+          : (typeof rawFeedback === "number" ? `Rating: ${rawFeedback}` : "Quality product and professional service.");
+
+        // Store individual category ratings
+        const categoryRatings: Record<string, number> = {};
+        categoryNames.forEach((name, idx) => {
+          const val = ratingCols[idx];
+          const numericVal = typeof val === "number" ? val : Number(val);
+          categoryRatings[name] = Number.isFinite(numericVal) ? numericVal : 0;
+        });
+
+        return {
+          timestamp: row[1],
+          email: row[2],
+          customer_name: customerName || "Valued Customer",
+          firm_name: firmName || "Partner Firm",
+          contact: row[5] != null ? String(row[5]).trim() : "",
+          additional_feedback: feedback,
+          rating: avg,
+          categoryRatings,
+          status: avg >= 4 ? "Positive" : avg >= 3 ? "Neutral" : "Negative"
+        };
+      });
+
+      const stats = categoryNames.map((name, i) => ({
+        name,
+        score: categoryCounts[i] > 0 ? (categorySums[i] / categoryCounts[i]).toFixed(1) : "5.0"
+      }));
+
+      setFeedbackStats(stats);
+      setCustomerFeedback(formattedData);
+    } catch (err: any) {
+      console.error("Feedback Fetch Failure:", err.message);
+      // Let the UI show "No Records Found" with retry option
+      setCustomerFeedback([]);
+      setFeedbackStats([]);
+    } finally {
+      setLoadingFeedback(false)
     }
   }
 
@@ -264,8 +357,9 @@ export function DashboardView() {
       setData(payload.data as DashboardResponse)
       setLastUpdated(payload.data.lastUpdated ? new Date(payload.data.lastUpdated) : new Date())
 
-      // Also fetch enquiry report
+      // Also fetch secondary reports
       fetchEnquiryReport()
+      fetchCustomerFeedback()
     } catch (err: unknown) {
       console.error("Error fetching dashboard:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data"
@@ -337,8 +431,16 @@ export function DashboardView() {
       ? monthlyStats.filter((s: any) => s.SALES_PERSON === selectedSales)
       : monthlyStats;
 
+    // Calculate Vehicle Status Metrics
+    const wbIn = rows.filter(r => r.indate).length;
+    const wbOut = rows.filter(r => r.outdate).length;
+    const wbPending = rows.filter(r => r.indate && !r.outdate).length;
+
+    // Use totalCustomers for pool size if available, fallback to 900
+    const clientPool = totalCustomers || 900;
+
     const calculatedWorkingParty = relevantStats.reduce((sum: number, stat: any) => sum + (stat.MONTHLY_WORKING_PARTY || 0), 0);
-    const calculatedPartyAverage = ((calculatedWorkingParty / 900) * 100).toFixed(2) + '%';
+    const calculatedPartyAverage = ((calculatedWorkingParty / clientPool) * 100).toFixed(2) + '%';
 
     // Calculate Dynamic Pending Order Stats
     const pendingStats = summary.pendingStats || [];
@@ -348,7 +450,7 @@ export function DashboardView() {
 
 
     const calculatedPendingTotal = relevantPendingStats.reduce((sum: number, stat: any) => sum + (stat.TOTAL || 0), 0);
-    const calculatedConversionRatio = ((calculatedPendingTotal / 900) * 100).toFixed(2) + '%';
+    const calculatedConversionRatio = ((calculatedPendingTotal / clientPool) * 100).toFixed(2) + '%';
 
     // Calculate Dynamic GD Stats
     const gdStats = summary.gdStats || [];
@@ -387,9 +489,9 @@ export function DashboardView() {
       monthlyGd: calculatedMonthlyGd,
       dailyGd: calculatedDailyGd,
       activeItemName: targetItem === 'STRIPS' ? 'Strips' : targetItem === 'BILLET' ? 'Billet' : 'Pipe',
-      wbIn: 0,
-      wbOut: 0,
-      wbPending: 0,
+      wbIn,
+      wbOut,
+      wbPending,
       totalAmount: 0,
       totalPaymentsReceived: 0,
       pendingPayments: 0,
@@ -519,6 +621,89 @@ export function DashboardView() {
         totalQty: customer.totalQty.toFixed(2),
       }))
   }, [filteredData])
+
+  const salespersonAnalytics = useMemo(() => {
+    const summary: DashboardSummary = data?.summary || {};
+    const analytics: Record<string, any> = {};
+
+    // Helper to initialize salesperson object
+    const initPerson = (name: string) => {
+      if (!name) return;
+      if (!analytics[name]) {
+        analytics[name] = {
+          name,
+          saudaAvg: [],
+          salesAvg: [],
+          workingParty: { count: 0, average: '0%' },
+          pendingOrders: { count: 0, ratio: '0%' },
+          gd: { monthly: 0, daily: 0 },
+          delivery: salespersonDeliveryStats[name] || {
+            monthly: { score: '0%', total: 0, late: 0 },
+            daily: { score: '0%', total: 0, late: 0 }
+          }
+        };
+      }
+    };
+
+    // 1. Sauda Averages
+    (summary.allSaudaAvg || []).forEach(s => {
+      initPerson(s.SALES_PERSON);
+      if (analytics[s.SALES_PERSON]) analytics[s.SALES_PERSON].saudaAvg.push(s);
+    });
+
+    // 2. Sales Averages
+    (summary.salesAvg || []).forEach(s => {
+      initPerson(s.SALES_PERSON);
+      if (analytics[s.SALES_PERSON]) analytics[s.SALES_PERSON].salesAvg.push(s);
+    });
+
+    // 3. Working Party
+    (summary.monthlyStats || []).forEach(s => {
+      initPerson(s.SALES_PERSON);
+      if (analytics[s.SALES_PERSON]) {
+        analytics[s.SALES_PERSON].workingParty = {
+          count: s.MONTHLY_WORKING_PARTY,
+          average: s.MONTHLY_PARTY_AVERAGE
+        };
+      }
+    });
+
+    // 4. Pending Orders
+    (summary.pendingStats || []).forEach(s => {
+      initPerson(s.SALES_PERSON);
+      if (analytics[s.SALES_PERSON]) {
+        analytics[s.SALES_PERSON].pendingOrders = {
+          count: s.TOTAL,
+          ratio: s.CONVERSION_RATIO
+        };
+      }
+    });
+
+    // 5. GD Stats
+    (summary.gdStats || []).forEach(s => {
+      initPerson(s.SALES_PERSON);
+      if (analytics[s.SALES_PERSON]) {
+        analytics[s.SALES_PERSON].gd = {
+          monthly: s.MONTHLY_GD,
+          daily: s.DAILY_GD
+        };
+      }
+    });
+
+    // Also ensure people from delivery stats are included even if no other data
+    Object.keys(salespersonDeliveryStats).forEach(name => {
+      initPerson(name);
+    });
+
+    let persons = Object.entries(analytics)
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    if (selectedSales !== "All Salespersons") {
+      persons = persons.filter(([name]) => name === selectedSales);
+    }
+
+    return persons.map(([, data]) => data);
+  }, [data?.summary, salespersonDeliveryStats, selectedSales]);
 
   const stateDistributionData = useMemo(() => {
     if (!filteredData) return [];
@@ -827,6 +1012,50 @@ export function DashboardView() {
           <CardContent className="p-2 sm:p-4 lg:p-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-4 lg:gap-6">
               {/* Salesperson Filter */}
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-[10px] sm:text-sm font-bold text-slate-600 uppercase tracking-wider">Sales Manager</label>
+                <Select value={selectedSales} onValueChange={setSelectedSales}>
+                  <SelectTrigger className="w-full bg-white border-indigo-200 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all h-8 sm:h-10 text-[10px] sm:text-sm shadow-sm px-2 sm:px-4">
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-indigo-500 hidden sm:block" />
+                      <SelectValue placeholder="All Managers" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All Salespersons">All Managers</SelectItem>
+                    {data?.filters?.salesPersons?.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Month Selector */}
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-[10px] sm:text-sm font-bold text-slate-600 uppercase tracking-wider">Fast Range</label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-full bg-white border-indigo-200 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all h-8 sm:h-10 text-[10px] sm:text-sm shadow-sm px-2 sm:px-4">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-3.5 w-3.5 text-indigo-500 hidden sm:block" />
+                      <SelectValue placeholder="Select Month" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All Months">All Time</SelectItem>
+                    <SelectItem value="Custom Range">Custom Filter</SelectItem>
+                    {(() => {
+                      const months = []
+                      const startDate = new Date(2025, 0, 1)
+                      const currentDate = new Date()
+                      for (let d = new Date(startDate); d <= currentDate; d.setMonth(d.getMonth() + 1)) {
+                        const m = format(d, "yyyy-MM")
+                        months.push(<SelectItem key={m} value={m}>{format(d, "MMMM yyyy")}</SelectItem>)
+                      }
+                      return months.reverse()
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Date Pickers */}
               <DatePicker
@@ -1097,572 +1326,298 @@ export function DashboardView() {
           </div>
         </div>
 
-        {/* All Sauda Section - Salesperson-wise Sauda Averages */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
+
+        {/* Salesperson Performance Analytics - Unified Master View */}
+        <div className="space-y-3 sm:space-y-10 mb-4 sm:mb-10 overflow-hidden bg-slate-50/50 p-2 sm:p-8 rounded-xl sm:rounded-[3rem]">
+          <div className="flex items-center justify-between px-1 mb-3 sm:mb-6">
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="w-7 h-7 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl bg-white flex items-center justify-center shadow-md sm:shadow-lg border border-slate-100 ring-2 sm:ring-4 ring-white">
+                <User className="w-3.5 h-3.5 sm:w-7 sm:h-7 text-slate-400" />
+              </div>
               <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">All Sauda Average</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Sauda Average by Sales Executive & Item Type</CardDescription>
+                <h2 className="text-sm sm:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                  SALES PERSION ANALYTICS
+                  <Badge className="bg-white text-slate-500 border border-slate-200 font-black text-[10px] sm:text-xs px-2 py-0.5 shadow-sm">
+                    {salespersonAnalytics.length} ACTIVE
+                  </Badge>
+                </h2>
+                <p className="text-[8px] sm:text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mt-0.5 sm:mt-1">Comprehensive Performance Scorecards</p>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
+          </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const summary: DashboardSummary = data?.summary || {};
-                const saudaAvgList = summary.allSaudaAvg || [];
-
-                // Group by salesperson
-                const salespersonData: Record<string, Array<{ ITEM: string; AVERAGE: number }>> = {};
-                saudaAvgList.forEach((entry: any) => {
-                  const person = entry.SALES_PERSON || 'Unknown';
-                  if (!salespersonData[person]) {
-                    salespersonData[person] = [];
-                  }
-                  salespersonData[person].push({
-                    ITEM: entry.ITEM,
-                    AVERAGE: entry.AVERAGE
-                  });
-                });
-
-                const salespersons = Object.keys(salespersonData).sort();
-                const gradients = [
-                  'from-blue-500 via-blue-600 to-indigo-600',
-                  'from-purple-500 via-purple-600 to-pink-600',
-                  'from-green-500 via-emerald-600 to-teal-600',
-                  'from-orange-500 via-amber-600 to-yellow-600',
-                  'from-rose-500 via-pink-600 to-fuchsia-600',
-                  'from-cyan-500 via-cyan-600 to-sky-600',
-                  'from-violet-500 via-violet-600 to-purple-600',
-                  'from-lime-500 via-lime-600 to-green-600',
-                  'from-red-500 via-red-600 to-rose-600',
-                  'from-indigo-500 via-indigo-600 to-blue-600',
-                  'from-teal-500 via-teal-600 to-cyan-600',
-                  'from-yellow-500 via-yellow-600 to-amber-600',
-                  'from-pink-500 via-pink-600 to-rose-600',
-                  'from-emerald-500 via-emerald-600 to-green-600',
-                  'from-fuchsia-500 via-fuchsia-600 to-pink-600',
+          <div className="grid grid-cols-1 gap-3 sm:gap-10">
+            {salespersonAnalytics.length === 0 ? (
+              <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                <Database className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-black uppercase tracking-widest text-sm">No Performance Data Available</p>
+                <p className="text-slate-300 text-xs mt-2 uppercase font-bold">Try adjusting your filters or date range</p>
+              </div>
+            ) : (
+              salespersonAnalytics.map((person, index) => {
+                const cardStyles = [
+                  {
+                    bg: "bg-gradient-to-br from-indigo-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-indigo-500",
+                    shadow: "shadow-indigo-100",
+                    accent: "text-indigo-600",
+                    badge: "bg-indigo-100 text-indigo-700",
+                    avatar: "bg-indigo-500 shadow-indigo-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-emerald-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-emerald-500",
+                    shadow: "shadow-emerald-100",
+                    accent: "text-emerald-600",
+                    badge: "bg-emerald-100 text-emerald-700",
+                    avatar: "bg-emerald-500 shadow-emerald-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-rose-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-rose-500",
+                    shadow: "shadow-rose-100",
+                    accent: "text-rose-600",
+                    badge: "bg-rose-100 text-rose-700",
+                    avatar: "bg-rose-500 shadow-rose-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-amber-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-amber-500",
+                    shadow: "shadow-amber-100",
+                    accent: "text-amber-600",
+                    badge: "bg-amber-100 text-amber-700",
+                    avatar: "bg-amber-500 shadow-amber-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-sky-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-sky-500",
+                    shadow: "shadow-sky-100",
+                    accent: "text-sky-600",
+                    badge: "bg-sky-100 text-sky-700",
+                    avatar: "bg-sky-500 shadow-sky-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-violet-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-violet-500",
+                    shadow: "shadow-violet-100",
+                    accent: "text-violet-600",
+                    badge: "bg-violet-100 text-violet-700",
+                    avatar: "bg-violet-500 shadow-violet-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-teal-50/70 via-white to-white",
+                    border: "border-l-[6px] border-l-teal-500",
+                    shadow: "shadow-teal-100",
+                    accent: "text-teal-600",
+                    badge: "bg-teal-100 text-teal-700",
+                    avatar: "bg-teal-500 shadow-teal-200"
+                  },
+                  {
+                    bg: "bg-gradient-to-br from-slate-100/70 via-white to-white",
+                    border: "border-l-[6px] border-l-slate-700",
+                    shadow: "shadow-slate-200",
+                    accent: "text-slate-700",
+                    badge: "bg-slate-200 text-slate-700",
+                    avatar: "bg-slate-700 shadow-slate-300"
+                  },
                 ];
+                const style = cardStyles[index % cardStyles.length];
 
-                if (salespersons.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12 text-slate-500">
-                      <p className="text-sm font-semibold">No sauda data available</p>
-                    </div>
-                  );
-                }
-
-                return salespersons.map((person, index) => {
-                  const items = salespersonData[person];
-
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index % gradients.length]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 space-y-0.5 sm:space-y-2">
-                        {items.map((item) => (
-                          <div
-                            key={item.ITEM}
-                            className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center"
-                          >
-                            <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                              {item.ITEM}
-                            </p>
-                            <div className="text-lg sm:text-lg lg:text-2xl font-black text-white leading-none">
-                              ₹{item.AVERAGE || '0'}
+                return (
+                  <Card
+                    key={person.name}
+                    className={cn(
+                      "group border-none shadow-lg sm:shadow-2xl overflow-hidden transition-all duration-500 flex flex-col rounded-xl sm:rounded-[2.5rem] p-2.5 sm:p-8 lg:p-12",
+                      style.bg,
+                      style.border,
+                      style.shadow
+                    )}
+                  >
+                    {/* Header Row - Premium Identity Section */}
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-8 mb-3 sm:mb-12">
+                      <div className="flex items-center gap-2.5 sm:gap-6">
+                        <div className={cn(
+                          "w-10 h-10 sm:w-18 sm:h-18 rounded-lg sm:rounded-[2rem] flex items-center justify-center text-white text-xs sm:text-2xl font-black shadow-md sm:shadow-lg ring-2 sm:ring-8 ring-white/50 transition-transform group-hover:scale-105 duration-500",
+                          style.avatar
+                        )}>
+                          {person.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="space-y-0.5 sm:space-y-2">
+                          <h3 className="text-sm sm:text-3xl lg:text-4xl font-black tracking-tight uppercase text-slate-800 lg:group-hover:text-slate-900 transition-colors">
+                            {person.name}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                            <Badge className={cn("px-2 py-0.5 text-[8px] sm:text-[10px] font-black uppercase tracking-widest border-none", style.badge)}>
+                              Performance Lead
+                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></span>
+                              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Status</span>
                             </div>
-                            <p className="text-[7px] sm:text-[8px] text-white/60 font-medium mt-1">
-                              Average Rate
-                            </p>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
+                        </div>
+                      </div>
 
-        {/* Current Month Sales Average Section */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">Current Month Sales Average</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Sales average rates for Pipe, Billet, and Strip by Sales Executive</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
-
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const summary: DashboardSummary = data?.summary || {};
-                const salesAvgList = summary.salesAvg || [];
-
-                // Group by salesperson
-                const salespersonData: Record<string, Array<{ ITEM: string; AVERAGE: number }>> = {};
-                salesAvgList.forEach((entry: any) => {
-                  const person = entry.SALES_PERSON || 'Unknown';
-                  if (!salespersonData[person]) {
-                    salespersonData[person] = [];
-                  }
-                  salespersonData[person].push({
-                    ITEM: entry.ITEM,
-                    AVERAGE: entry.AVERAGE
-                  });
-                });
-
-                const salespersons = Object.keys(salespersonData).sort();
-                const gradients = [
-                  'from-slate-500 via-slate-600 to-gray-600',
-                  'from-amber-500 via-amber-600 to-orange-600',
-                  'from-sky-500 via-sky-600 to-blue-600',
-                  'from-fuchsia-500 via-fuchsia-600 to-purple-600',
-                  'from-emerald-500 via-emerald-600 to-teal-600',
-                  'from-red-500 via-red-600 to-pink-600',
-                  'from-indigo-500 via-indigo-600 to-violet-600',
-                  'from-lime-500 via-lime-600 to-emerald-600',
-                  'from-pink-500 via-pink-600 to-fuchsia-600',
-                  'from-cyan-500 via-cyan-600 to-teal-600',
-                  'from-yellow-500 via-yellow-600 to-orange-600',
-                  'from-purple-500 via-purple-600 to-indigo-600',
-                  'from-teal-500 via-teal-600 to-green-600',
-                  'from-rose-500 via-rose-600 to-red-600',
-                  'from-violet-500 via-violet-600 to-purple-600',
-                ];
-
-                if (salespersons.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12 text-slate-500">
-                      <p className="text-sm font-semibold">No sales data available</p>
+                      <div className="flex gap-2 sm:gap-4 w-full lg:w-auto">
+                        <div className="flex-1 lg:flex-none bg-white/50 backdrop-blur-xl rounded-lg sm:rounded-[2rem] p-2 sm:p-6 border border-white/60 text-center min-w-[80px] sm:min-w-[140px] shadow-sm hover:shadow-md transition-all">
+                          <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Monthly Late</p>
+                          <p className="text-base sm:text-3xl font-black text-slate-800 leading-none">{person.delivery.monthly.score}</p>
+                          <div className="w-full h-0.5 sm:h-1 bg-slate-100 rounded-full mt-1.5 sm:mt-3 overflow-hidden">
+                            <div
+                              className={cn("h-full transition-all duration-1000", parseFloat(person.delivery.monthly.score) > 20 ? "bg-rose-400" : "bg-emerald-400")}
+                              style={{ width: person.delivery.monthly.score }}
+                            ></div>
+                          </div>
+                        </div>
+                        <div className="flex-1 lg:flex-none bg-white/50 backdrop-blur-xl rounded-lg sm:rounded-[2rem] p-2 sm:p-6 border border-white/60 text-center min-w-[80px] sm:min-w-[140px] shadow-sm hover:shadow-md transition-all">
+                          <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Daily Late</p>
+                          <p className="text-base sm:text-3xl font-black text-slate-800 leading-none">{person.delivery.daily.score}</p>
+                          <div className="w-full h-0.5 sm:h-1 bg-slate-100 rounded-full mt-1.5 sm:mt-3 overflow-hidden">
+                            <div
+                              className={cn("h-full transition-all duration-1000", parseFloat(person.delivery.daily.score) > 20 ? "bg-rose-400" : "bg-emerald-400")}
+                              style={{ width: person.delivery.daily.score }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  );
-                }
 
-                return salespersons.map((person, index) => {
-                  const items = salespersonData[person];
+                    <CardContent className="p-0 space-y-4 sm:space-y-16">
+                      {/* Operational Metrics Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-10">
+                        {/* Logistics Section */}
+                        <div className="bg-white/30 backdrop-blur-md rounded-xl sm:rounded-[3rem] p-3 sm:p-10 border border-white shadow-[0_8px_32px_rgba(0,0,0,0.02)] relative overflow-hidden group/box">
+                          <div className="absolute top-0 right-0 p-3 sm:p-8 opacity-5 group-hover/box:opacity-10 transition-opacity">
+                            <Truck className="w-8 h-8 sm:w-24 sm:h-24 text-slate-900" />
+                          </div>
 
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index % gradients.length]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 space-y-0.5 sm:space-y-2">
-                        {items.map((item) => (
-                          <div
-                            key={item.ITEM}
-                            className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center"
-                          >
-                            <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                              {item.ITEM}
-                            </p>
-                            <div className="text-lg sm:text-lg lg:text-2xl font-black text-white leading-none">
-                              ₹{item.AVERAGE || '0'}
+                          <h4 className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 sm:mb-8 flex items-center gap-1.5 sm:gap-2">
+                            <span className={cn("w-2 h-2 rounded-full", style.avatar)}></span>
+                            Logistics & Client Base
+                          </h4>
+
+                          <div className="grid grid-cols-2 gap-2 sm:gap-8 relative z-10">
+                            <div className="space-y-0.5 sm:space-y-1">
+                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Working Party</p>
+                              <div className="flex flex-col">
+                                <span className={cn("text-lg sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight", style.accent)}>
+                                  {person.workingParty.count}
+                                </span>
+                                <span className="text-[7px] sm:text-[10px] font-black text-slate-300 mt-0.5 uppercase tracking-wider">
+                                  Avg: {person.workingParty.average}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-[7px] sm:text-[8px] text-white/60 font-medium mt-1">
-                              Sales Average
-                            </p>
+                            <div className="space-y-0.5 sm:space-y-1">
+                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pending Orders</p>
+                              <div className="flex flex-col">
+                                <span className="text-lg sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-purple-600">
+                                  {person.pendingOrders.count}
+                                </span>
+                                <span className="text-[7px] sm:text-[10px] font-black text-slate-300 mt-0.5 uppercase tracking-wider">
+                                  Conv: {person.pendingOrders.ratio}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
+                        </div>
 
-        {/* Monthly Working Party Metrics Section */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">Monthly Working Party Metrics</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Active Parties and Participation Average by Sales Executive</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
+                        {/* Dispatch Section */}
+                        <div className="bg-white/30 backdrop-blur-md rounded-xl sm:rounded-[3rem] p-3 sm:p-10 border border-white shadow-[0_8px_32px_rgba(0,0,0,0.02)] relative overflow-hidden group/box">
+                          <div className="absolute top-0 right-0 p-3 sm:p-8 opacity-5 group-hover/box:opacity-10 transition-opacity">
+                            <Trophy className="w-8 h-8 sm:w-24 sm:h-24 text-slate-900" />
+                          </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const summary: DashboardSummary = data?.summary || {};
-                // Fallback to empty array if undefined
-                const monthlyStats = summary.monthlyStats || [];
+                          <h4 className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 sm:mb-8 flex items-center gap-1.5 sm:gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Dispatch Economics
+                          </h4>
 
-                // Filter and Sort by sales person name
-                const filteredStats = selectedSales !== "All Salespersons"
-                  ? monthlyStats.filter((s: any) => s.SALES_PERSON === selectedSales)
-                  : monthlyStats;
+                          <div className="grid grid-cols-2 gap-2 sm:gap-8 relative z-10">
+                            <div className="space-y-0.5 sm:space-y-1 group-hover/box:translate-x-1 transition-transform">
+                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Monthly Revenue GD</p>
+                              <p className="text-lg sm:text-4xl lg:text-5xl font-black text-emerald-600 tracking-tight leading-tight">
+                                ₹{person.gd.monthly.toLocaleString("en-IN")}
+                              </p>
+                            </div>
+                            <div className="space-y-0.5 sm:space-y-1 group-hover/box:translate-x-1 transition-transform">
+                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Today's Performance</p>
+                              <p className="text-lg sm:text-4xl lg:text-5xl font-black text-amber-600 tracking-tight leading-tight">
+                                ₹{person.gd.daily.toLocaleString("en-IN")}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-                const sortedStats = [...filteredStats].sort((a, b) =>
-                  (a.SALES_PERSON || '').localeCompare(b.SALES_PERSON || '')
+                      {/* Pricing Benchmarks Section */}
+                      <div className="space-y-3 sm:space-y-12">
+                        <div className="flex items-center gap-3 sm:gap-6">
+                          <h4 className="text-[9px] sm:text-[14px] font-black text-slate-800 uppercase tracking-[0.2em] sm:tracking-[0.4em] whitespace-nowrap">Pricing Benchmarks</h4>
+                          <div className="h-px w-full bg-gradient-to-r from-slate-200 to-transparent"></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 lg:gap-12">
+                          {/* Sauda Benchmarks */}
+                          <div className="space-y-1.5 sm:space-y-4">
+                            <div className="flex items-center justify-between px-1 sm:px-2">
+                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
+                                <Database className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                Sauda Average Rate
+                              </p>
+                            </div>
+                            <div className="space-y-1 sm:space-y-2">
+                              {person.saudaAvg.length === 0 ? (
+                                <p className="text-[10px] font-bold text-slate-300 uppercase italic px-4 py-3 bg-slate-50/50 rounded-2xl">No data available</p>
+                              ) : (
+                                person.saudaAvg.map((s: any, i: number) => (
+                                  <div key={i} className="flex items-center justify-between bg-white/60 backdrop-blur-sm px-2.5 sm:px-6 py-2 sm:py-4 rounded-lg sm:rounded-2xl border border-white hover:bg-white hover:shadow-lg transition-all group/item">
+                                    <span className="text-[8px] sm:text-xs font-black text-slate-600 uppercase tracking-widest">{s.ITEM}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[11px] sm:text-xl font-black font-mono text-indigo-600 tracking-tighter">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
+                                      <span className="w-1 h-1 rounded-full bg-indigo-200"></span>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Sales Benchmarks */}
+                          <div className="space-y-1.5 sm:space-y-4">
+                            <div className="flex items-center justify-between px-1 sm:px-2">
+                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
+                                <Percent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                Month Sales Avg Rate
+                              </p>
+                            </div>
+                            <div className="space-y-1 sm:space-y-2">
+                              {person.salesAvg.length === 0 ? (
+                                <p className="text-[10px] font-bold text-slate-300 uppercase italic px-4 py-3 bg-slate-50/50 rounded-2xl">No data available</p>
+                              ) : (
+                                person.salesAvg.map((s: any, i: number) => (
+                                  <div key={i} className="flex items-center justify-between bg-white/60 backdrop-blur-sm px-2.5 sm:px-6 py-2 sm:py-4 rounded-lg sm:rounded-2xl border border-white hover:bg-white hover:shadow-lg transition-all group/item">
+                                    <span className="text-[8px] sm:text-xs font-black text-slate-600 uppercase tracking-widest">{s.ITEM}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[11px] sm:text-xl font-black font-mono text-emerald-600 tracking-tighter">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
+                                      <span className="w-1 h-1 rounded-full bg-emerald-200"></span>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
+              })
+            )}
+          </div>
+        </div>
 
-                // Unique gradients (15 unique defined earlier) without repeats
-                const gradients = [
-                  'from-emerald-600 via-teal-600 to-cyan-600',
-                  'from-orange-500 via-amber-500 to-yellow-500',
-                  'from-purple-600 via-violet-600 to-indigo-600',
-                  'from-blue-600 via-cyan-600 to-sky-600',
-                  'from-rose-600 via-pink-600 to-fuchsia-600',
-                  'from-lime-600 via-green-600 to-emerald-600',
-                  'from-indigo-600 via-blue-600 to-azure-600',
-                  'from-red-600 via-orange-600 to-amber-600',
-                  'from-cyan-600 via-blue-600 to-indigo-600',
-                  'from-teal-600 via-emerald-600 to-green-600',
-                  'from-violet-600 via-purple-600 to-fuchsia-600',
-                  'from-fuchsia-600 via-pink-600 to-rose-600',
-                  'from-sky-600 via-blue-600 to-indigo-600',
-                  'from-amber-600 via-orange-600 to-red-600',
-                  'from-slate-600 via-gray-600 to-zinc-600',
-                ];
 
-                if (sortedStats.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12 text-slate-500">
-                      <p className="text-sm font-semibold">No working party data available</p>
-                    </div>
-                  );
-                }
-
-                return sortedStats.map((stat, index) => {
-                  const person = stat.SALES_PERSON || 'Unknown';
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index % gradients.length]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 flex flex-col gap-1.5 sm:block sm:space-y-2">
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Working Party
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white">
-                            {stat.MONTHLY_WORKING_PARTY || 0}
-                          </div>
-                        </div>
-
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Party Average
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white">
-                            {stat.MONTHLY_PARTY_AVERAGE || '0%'}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Order Metrics Section */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">Pending Order Metrics</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Pending Parties and Conversion Ratio by Sales Executive</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
-
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const summary: DashboardSummary = data?.summary || {};
-                const pendingStats = summary.pendingStats || [];
-
-                // Filter and Sort by sales person name
-                const filteredStats = selectedSales !== "All Salespersons"
-                  ? pendingStats.filter((s: any) => s.SALES_PERSON === selectedSales)
-                  : pendingStats;
-
-                const sortedStats = [...filteredStats].sort((a, b) =>
-                  (a.SALES_PERSON || '').localeCompare(b.SALES_PERSON || '')
-                );
-
-                // Unique gradients (15 unique defined earlier)
-                const gradients = [
-                  'from-teal-600 via-emerald-600 to-green-600',
-                  'from-pink-500 via-rose-500 to-red-500',
-                  'from-indigo-600 via-blue-600 to-cyan-600',
-                  'from-amber-500 via-orange-500 to-red-500',
-                  'from-violet-600 via-purple-600 to-fuchsia-600',
-                  'from-cyan-600 via-teal-600 to-emerald-600',
-                  'from-rose-600 via-fuchsia-600 to-purple-600',
-                  'from-lime-600 via-green-600 to-teal-600',
-                  'from-blue-600 via-indigo-600 to-violet-600',
-                  'from-orange-600 via-amber-600 to-yellow-600',
-                  'from-emerald-600 via-green-600 to-lime-600',
-                  'from-fuchsia-600 via-purple-600 to-indigo-600',
-                  'from-sky-600 via-blue-600 to-indigo-600',
-                  'from-red-600 via-rose-600 to-pink-600',
-                  'from-slate-600 via-zinc-600 to-neutral-600',
-                ];
-
-                if (sortedStats.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12 text-slate-500">
-                      <p className="text-sm font-semibold">No pending order data available</p>
-                    </div>
-                  );
-                }
-
-                return sortedStats.map((stat, index) => {
-                  const person = stat.SALES_PERSON || 'Unknown';
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index % gradients.length]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 flex flex-col gap-1.5 sm:block sm:space-y-2">
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Parties Pending
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white">
-                            {stat.TOTAL || 0}
-                          </div>
-                        </div>
-
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Conversion Ratio
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white">
-                            {stat.CONVERSION_RATIO || '0%'}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gauge Difference Metrics Section */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">Gauge Difference Metrics</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Monthly and Daily Gauge Difference by Sales Person wise</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
-
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const summary: DashboardSummary = data?.summary || {};
-                const gdStats = summary.gdStats || [];
-
-                // Filter and Sort by sales person name
-                const filteredStats = selectedSales !== "All Salespersons"
-                  ? gdStats.filter((s: any) => s.SALES_PERSON === selectedSales)
-                  : gdStats;
-
-                const sortedStats = [...filteredStats].sort((a, b) =>
-                  (a.SALES_PERSON || '').localeCompare(b.SALES_PERSON || '')
-                );
-
-                // Unique gradients
-                const gradients = [
-                  'from-emerald-600 via-green-600 to-lime-600',
-                  'from-orange-600 via-amber-600 to-yellow-600',
-                  'from-cyan-600 via-blue-600 to-indigo-600',
-                  'from-rose-600 via-red-600 to-orange-600',
-                  'from-violet-600 via-purple-600 to-fuchsia-600',
-                  'from-teal-600 via-emerald-600 to-green-600',
-                  'from-pink-600 via-rose-600 to-red-600',
-                  'from-indigo-600 via-blue-600 to-sky-600',
-                  'from-fuchsia-600 via-pink-600 to-rose-600',
-                  'from-yellow-600 via-amber-600 to-orange-600',
-                  'from-lime-600 via-green-600 to-emerald-600',
-                  'from-blue-600 via-cyan-600 to-teal-600',
-                  'from-red-600 via-orange-600 to-amber-600',
-                  'from-purple-600 via-indigo-600 to-blue-600',
-                  'from-slate-600 via-gray-600 to-zinc-600',
-                ];
-
-                if (sortedStats.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12 text-slate-500">
-                      <p className="text-sm font-semibold">No gauge difference data available</p>
-                    </div>
-                  );
-                }
-
-                return sortedStats.map((stat, index) => {
-                  const person = stat.SALES_PERSON || 'Unknown';
-                  const monthlyGd = stat.MONTHLY_GD || 0;
-                  const dailyGd = stat.DAILY_GD || 0;
-
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index % gradients.length]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 flex flex-col gap-1.5 sm:block sm:space-y-2">
-                        {/* Monthly GD */}
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Monthly GD
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white leading-none">
-                            ₹{monthlyGd.toLocaleString("en-IN")}
-                          </div>
-                        </div>
-
-                        {/* Daily GD */}
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-2 lg:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Daily GD
-                          </p>
-                          <div className="text-lg sm:text-2xl lg:text-3xl font-black text-white leading-none">
-                            ₹{dailyGd.toLocaleString("en-IN")}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sale Performance Section (Monthly/Daily Late Percentage) */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">Sale Performance</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">Monthly and Daily Late Delivery Percentages</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-4 lg:p-6">
-
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-4">
-              {(() => {
-                const salespersons = Object.keys(salespersonDeliveryStats).sort();
-                const gradients = [
-                  'from-blue-600 via-blue-700 to-indigo-700',
-                  'from-purple-600 via-purple-700 to-pink-700',
-                  'from-green-600 via-emerald-700 to-teal-700',
-                  'from-orange-600 via-amber-700 to-yellow-700',
-                  'from-rose-600 via-pink-700 to-fuchsia-700'
-                ];
-
-                return salespersons.map((person, index) => {
-                  // Get real data from backend salespersonDeliveryStats
-                  const stats = salespersonDeliveryStats[person] || {
-                    monthly: { score: '0%', total: 0, late: 0 },
-                    daily: { score: '0%', total: 0, late: 0, date: 'No Data' }
-                  };
-
-                  return (
-                    <Card
-                      key={person}
-                      className={cn(
-                        "bg-gradient-to-br text-white border-none shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
-                        gradients[index]
-                      )}
-                    >
-                      <CardHeader className="p-1 sm:p-2 lg:p-4 pb-0.5 sm:pb-1">
-                        <CardTitle className="text-[7px] sm:text-[10px] lg:text-sm font-bold text-white/90 uppercase tracking-wide truncate">
-                          {person}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-1 sm:p-2 lg:p-4 pt-0 sm:pt-1 flex flex-col gap-1.5 sm:block sm:space-y-2">
-                        {/* Monthly Late */}
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Monthly Late
-                          </p>
-                          <div className="text-sm sm:text-2xl lg:text-3xl font-black text-white leading-none">
-                            {stats.monthly.score}
-                          </div>
-                          <p className="text-[7px] sm:text-[8px] text-white/60 font-medium mt-1">
-                            {stats.monthly.late} of {stats.monthly.total}
-                          </p>
-                        </div>
-
-                        {/* Daily Late */}
-                        <div className="bg-white/10 backdrop-blur-sm rounded-md sm:rounded-lg p-2 sm:p-3 border border-white/20 flex flex-col items-center text-center">
-                          <p className="text-[9px] sm:text-[10px] text-white/70 font-bold uppercase tracking-wider mb-1">
-                            Daily Late
-                          </p>
-                          <div className="text-sm sm:text-2xl lg:text-3xl font-black text-white leading-none">
-                            {stats.daily.score}
-                          </div>
-                          <p className="text-[7px] sm:text-[8px] text-white/60 font-medium mt-1">
-                            {stats.daily.late} of {stats.daily.total}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Sale Performance State Wise Section */}
         <Card className="border-none shadow-sm bg-white overflow-hidden mb-10">
@@ -1935,37 +1890,70 @@ export function DashboardView() {
             </div>
           </CardHeader>
           <CardContent className="p-1.5 sm:p-3 lg:p-6">
-            <div className="grid grid-cols-3 gap-1 sm:gap-3 lg:gap-6">
+            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1 sm:gap-3 lg:gap-6">
               {/* Total Customers Card */}
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-md overflow-hidden relative">
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-md overflow-hidden relative group">
                 <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                   </div>
                   <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-blue-100 leading-none mb-0.5">Total Customers</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-4xl font-black tracking-tighter">{totalCustomers.toLocaleString()}</div>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{totalCustomers.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Total Follow-ups Card */}
-              <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-none shadow-md overflow-hidden relative">
+              <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-none shadow-md overflow-hidden relative group">
                 <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                   </div>
                   <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-purple-100 leading-none mb-0.5">Total Follow-ups</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-4xl font-black tracking-tighter">{followupStats.totalFollowUps.toLocaleString()}</div>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{followupStats.totalFollowUps.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Orders Booked Card */}
-              <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-none shadow-md overflow-hidden relative">
+              <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-none shadow-md overflow-hidden relative group">
                 <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><polyline points="20 6 9 17 4 12" /></svg>
                   </div>
                   <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-emerald-100 leading-none mb-0.5">Orders Booked</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-4xl font-black tracking-tighter">{followupStats.ordersBooked.toLocaleString()}</div>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{followupStats.ordersBooked.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+
+              {/* Vehicles In Card */}
+              <Card className="bg-gradient-to-br from-indigo-500 to-blue-700 text-white border-none shadow-md overflow-hidden relative group">
+                <CardContent className="p-1.5 sm:p-3 lg:p-4">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 13.1V16c0 .6.4 1 1 1h2" /><circle cx="7" cy="17" r="2" /><path d="M9 17h6" /><circle cx="17" cy="17" r="2" /></svg>
+                  </div>
+                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-indigo-100 leading-none mb-0.5">Vehicles In</p>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbIn.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+
+              {/* Vehicles Out Card */}
+              <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white border-none shadow-md overflow-hidden relative group">
+                <CardContent className="p-1.5 sm:p-3 lg:p-4">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M10 17h4V5H2v12h3" /><path d="M20 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C19.7 10.6 17 10 17 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H10" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /></svg>
+                  </div>
+                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-orange-100 leading-none mb-0.5">Vehicles Out</p>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbOut.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+
+              {/* Vehicles Pending Card */}
+              <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-none shadow-md overflow-hidden relative group">
+                <CardContent className="p-1.5 sm:p-3 lg:p-4">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                  </div>
+                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-amber-100 leading-none mb-0.5">In Premises</p>
+                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbPending.toLocaleString()}</div>
                 </CardContent>
               </Card>
             </div>
@@ -2334,7 +2322,7 @@ export function DashboardView() {
                           const totalOrderClients = dataRows.reduce((sum, row) => sum + Number(row.orderClients || 0), 0);
                           const totalConversionRatio = totalCallings > 0 ? ((totalOrderClients / totalCallings) * 100).toFixed(2) : '0.00';
                           const totalTotalRsSale = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0);
-                          const sumAvgRsSale = dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0).toFixed(2);
+                          const totalAvgRsSale = totalOrderClients > 0 ? (totalTotalRsSale / totalOrderClients).toFixed(2) : '0.00';
 
                           return (
                             <tr className="bg-emerald-50 font-bold border-t-2 border-emerald-200 hover:bg-emerald-100/80 transition-colors text-[9px] sm:text-sm">
@@ -2355,7 +2343,43 @@ export function DashboardView() {
                                 {Number(totalTotalRsSale).toLocaleString()}
                               </td>
                               <td className="px-2 sm:px-6 py-2 sm:py-4 text-center font-mono">
-                                <span className="text-emerald-700 font-bold">{sumAvgRsSale}</span>
+                                <span className="text-emerald-700 font-bold">{totalAvgRsSale}</span>
+                              </td>
+                            </tr>
+                          );
+                        })()}
+
+                        {/* Average Row */}
+                        {dailySalesPerformance.length > 0 && (() => {
+                          const dataRows = dailySalesPerformance.filter(row => row.salesPerson !== 'Total');
+                          if (dataRows.length === 0) return null;
+
+                          const avgCallings = (dataRows.reduce((sum, row) => sum + Number(row.noOfCallings || 0), 0) / dataRows.length).toFixed(1);
+                          const avgOrderClients = (dataRows.reduce((sum, row) => sum + Number(row.orderClients || 0), 0) / dataRows.length).toFixed(1);
+                          const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
+                          const avgTotalRsSale = (dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0) / dataRows.length).toFixed(0);
+                          const avgAvgRsSale = (dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0) / dataRows.length).toFixed(2);
+
+                          return (
+                            <tr className="bg-teal-50 font-bold border-t-2 border-teal-200 hover:bg-teal-100/80 transition-colors text-[9px] sm:text-sm">
+                              <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium flex items-center gap-1.5 sm:gap-3">
+                                <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-[8px] sm:text-xs font-bold shadow-sm">
+                                  ø
+                                </div>
+                                <span className="text-teal-700">AVERAGE</span>
+                              </td>
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center text-teal-700">{avgCallings}</td>
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center text-teal-700">{avgOrderClients}</td>
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center">
+                                <div className="flex flex-col items-center">
+                                  <span className="text-teal-700 font-bold">{avgConversionRatio}%</span>
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono text-teal-700">
+                                {Number(avgTotalRsSale).toLocaleString()}
+                              </td>
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono">
+                                <span className="text-teal-700 font-bold">{avgAvgRsSale}</span>
                               </td>
                             </tr>
                           );
@@ -2363,144 +2387,220 @@ export function DashboardView() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Daily Summary Statistics Tables */}
+                  {dailySalesPerformance.length > 0 && (() => {
+                    const dataRows = dailySalesPerformance.filter(row => row.salesPerson !== 'Total');
+                    if (dataRows.length === 0) return null;
+
+                    const totalCallings = dataRows.reduce((sum, row) => sum + Number(row.noOfCallings || 0), 0);
+                    const avgCallPerPerson = (totalCallings / dataRows.length).toFixed(2);
+
+                    return (
+                      <div className="mt-6 space-y-4 px-6 pb-6">
+                        <div className="overflow-x-auto px-2 sm:px-0">
+                          <table className="w-full max-w-sm sm:max-w-md text-[11px] sm:text-xs md:text-sm">
+                            <tbody>
+                              <tr className="bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 transition-colors shadow-sm">
+                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-white border border-emerald-600 rounded-l-lg">
+                                  <div className="flex items-center gap-1.5 sm:gap-2">
+                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
+                                      👤
+                                    </div>
+                                    Avg Call / Person
+                                  </div>
+                                </td>
+                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-black text-white text-right border border-emerald-600 rounded-r-lg text-sm sm:text-lg font-mono">
+                                  {avgCallPerPerson}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="overflow-x-auto mt-4 px-2 sm:px-0">
+                          <table className="w-full max-w-sm sm:max-w-md text-[11px] sm:text-xs md:text-sm">
+                            <tbody>
+                              <tr className="bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 transition-colors shadow-lg">
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-white border-2 border-teal-600 rounded-l-lg">
+                                  <div className="flex items-center gap-1.5 sm:gap-2">
+                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-teal-800 text-[10px] sm:text-xs font-bold">
+                                      📞
+                                    </div>
+                                    <span className="whitespace-nowrap uppercase tracking-wider">Today's Total Calling</span>
+                                  </div>
+                                </td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 font-black text-white text-right border-2 border-teal-600 rounded-r-lg text-base sm:text-xl font-mono">
+                                  {totalCallings.toLocaleString()}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="w-full overflow-hidden border-none bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative group">
-          {/* Decorative accent line */}
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 opacity-80 group-hover:opacity-100 transition-opacity"></div>
-
-          <CardHeader className="p-4 sm:p-8 bg-white/5 backdrop-blur-sm border-b border-white/10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-              <div className="space-y-1">
-                <CardTitle className="text-base sm:text-xl lg:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                  <span className="w-3 h-8 bg-blue-500 rounded-full inline-block"></span>
-                  Dispatch Distribution Analysis
-                </CardTitle>
-                <CardDescription className="text-sm font-medium text-blue-200/60 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse text-xs"></div>
-                  Top Performing Customers by Volume • {filteredData?.length || 0} Total Records
-                </CardDescription>
+        {/* Customer Feedback Section - Tabular Format */}
+        <section className="space-y-2 sm:space-y-6 mb-4 sm:mb-10 bg-white shadow-lg sm:shadow-2xl shadow-indigo-100/20 p-2 sm:p-10 rounded-xl sm:rounded-[3rem] border border-slate-100">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-6 px-1">
+            <div className="flex items-center gap-2 sm:gap-5">
+              <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center shadow-md sm:shadow-lg shadow-orange-100 ring-2 sm:ring-4 ring-white">
+                <MessageSquare className="w-4 h-4 sm:w-7 sm:h-7 text-white" />
               </div>
-              <Badge variant="outline" className="w-fit bg-blue-500/10 text-blue-300 border-blue-400/30 px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] rounded-full shadow-inner backdrop-blur-md">
-                Live Data Stream
-              </Badge>
+              <div>
+                <h2 className="text-xs sm:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-1.5 sm:gap-3">
+                  CUSTOMER FEEDBACK
+                  <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[8px] sm:text-[12px] px-1.5 sm:px-3 py-0.5 sm:py-1 uppercase rounded-full">
+                    {customerFeedback.length} REVIEWS
+                  </Badge>
+                </h2>
+                <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                  <span className="flex w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <p className="text-[7px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider sm:tracking-widest">Real-time Feedback & Testimonials</p>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-10 relative overflow-hidden">
-            {/* Background decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -ml-32 -mb-32"></div>
 
-            <div className="min-h-[450px] lg:h-[480px] w-full flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 relative z-10">
-              {/* Chart Side */}
-              <div className="w-full aspect-square max-w-[380px] lg:flex-1 lg:max-w-none lg:h-full relative flex items-center justify-center">
-                <div className="absolute inset-0 bg-blue-500/5 rounded-full blur-2xl animate-pulse"></div>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="90%"
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="rgba(255,255,255,0.05)"
-                      strokeWidth={2}
-                      animationBegin={100}
-                      animationDuration={1800}
-                      animationEasing="ease-out"
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.name === "Others" ? "#475569" : COLORS[index % COLORS.length]}
-                          className="hover:saturate-150 transition-all cursor-pointer outline-none filter drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const datum = payload[0].payload;
-                          const total = chartData.reduce((acc, curr) => acc + curr.value, 0);
-                          const percentage = ((datum.value / total) * 100).toFixed(1);
-                          return (
-                            <div className="hidden lg:block bg-[#1e293b]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-2xl ring-1 ring-white/10 min-w-[220px] animate-in zoom-in-95 duration-200">
-                              <p className="font-black text-white border-b border-white/10 pb-3 mb-3 flex items-center gap-3">
-                                <span className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]" style={{ backgroundColor: datum.fill, color: datum.fill }}></span>
-                                {datum.name}
-                              </p>
-                              <div className="space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-slate-400">Total Dispatches</span>
-                                  <span className="font-black text-white text-lg font-mono">{datum.value.toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-slate-400">Market Share</span>
-                                  <span className="font-black text-blue-400 text-lg font-mono">{percentage}%</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <Button
+                onClick={() => fetchCustomerFeedback()}
+                variant="outline"
+                className="group flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-5 border sm:border-2 border-slate-100 hover:border-orange-200 hover:bg-orange-50/30 text-slate-600 rounded-lg sm:rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-wider sm:tracking-widest transition-all shadow-sm active:scale-95"
+              >
+                <RefreshCw className={cn("w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:rotate-180 transition-transform duration-500", loadingFeedback && "animate-spin")} />
+                Sync Live Sheet
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl sm:rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto max-h-[700px] overflow-y-auto custom-scrollbar">
+              <Table className="min-w-[900px]">
+                <TableHeader className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
+                  <TableRow className="hover:bg-transparent border-none">
+                    <TableHead className="py-2 px-1 sm:py-4 sm:px-3 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">S.No</TableHead>
+                    <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Date</TableHead>
+                    {/* <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Email</TableHead> */}
+                    <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</TableHead>
+                    <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Status</TableHead>
+                    <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Firm</TableHead>
+
+                    {/* <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Contact</TableHead> */}
+
+                    <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Feedback</TableHead>
+                    {["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"].map((cat) => (
+                      <TableHead key={cat} className="py-2 px-1 sm:py-4 sm:px-2 text-[6px] sm:text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">{cat}</TableHead>
+                    ))}
+
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-50">
+                  {loadingFeedback ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i} className="animate-pulse">
+                        <TableCell colSpan={16} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
+                      </TableRow>
+                    ))
+                  ) : customerFeedback.length > 0 ? (
+                    customerFeedback.map((item, index) => {
+                      let dateDisplay = "N/A";
+                      try {
+                        if (item.timestamp) {
+                          const d = new Date(item.timestamp);
+                          if (!isNaN(d.getTime())) {
+                            dateDisplay = format(d, 'dd/MM/yyyy HH:mm');
+                          }
                         }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Central Labels */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-2">
-                  <span className="text-xs font-black text-slate-500 uppercase tracking-[0.4em] mb-1">Portfolio</span>
-                  <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white leading-none tracking-tight">
-                    {chartData.reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest mt-2">Dispatches</span>
-                </div>
-              </div>
+                      } catch (e) {
+                        console.error("Date parse error:", e);
+                      }
 
-              {/* Legend Side */}
-              <div className="w-full lg:w-[350px] max-h-full overflow-y-auto no-scrollbar bg-white/5 backdrop-blur-md rounded-3xl p-4 sm:p-8 border border-white/10 flex flex-col gap-4 sm:gap-6 shadow-inner">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Ranking</h4>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Volume</h4>
-                </div>
-                <div className="space-y-4">
-                  {chartData.map((item, index) => (
-                    <div key={item.name} className="flex items-center justify-between group cursor-help transition-all duration-300 hover:translate-x-1">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="w-3 h-3 rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:scale-125 transition-transform"
-                          style={{ backgroundColor: item.name === "Others" ? "#475569" : COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-xs font-black text-slate-200 truncate max-w-[170px] group-hover:text-white transition-colors">
-                          {item.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black text-slate-500 font-mono tracking-tighter w-8 text-right">
-                          {((item.value / chartData.reduce((acc, curr) => acc + curr.value, 0)) * 100).toFixed(0)}%
-                        </span>
-                        <div className="bg-white/10 px-3 py-1 rounded-full border border-white/5 group-hover:bg-white/20 group-hover:border-white/30 transition-all">
-                          <span className="text-[11px] font-black text-white font-mono leading-none">
-                            {item.value}
-                          </span>
+                      return (
+                        <TableRow key={index} className="hover:bg-slate-50/40 transition-colors border-slate-50 group">
+                          <TableCell className="py-1.5 px-1 sm:py-3 sm:px-3 text-center">
+                            <span className="text-[8px] sm:text-xs font-black text-slate-400">{index + 1}</span>
+                          </TableCell>
+                          <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
+                            <p className="text-[8px] sm:text-[11px] font-bold text-slate-500 whitespace-nowrap">{dateDisplay}</p>
+                          </TableCell>
+                          {/* <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
+                            <p className="text-[7px] sm:text-[10px] font-medium text-slate-400 truncate max-w-[80px] sm:max-w-[150px]">{item.email || "-"}</p>
+                          </TableCell> */}
+                          <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
+                            <p className="text-[8px] sm:text-xs font-black text-slate-800 uppercase tracking-tight">{item.customer_name}</p>
+                          </TableCell>
+                          <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4 text-center">
+                            <Badge className={cn(
+                              "text-[6px] sm:text-[8px] font-black uppercase tracking-wider px-1 sm:px-2 py-0.5 border-none shadow-sm",
+                              item.status === 'Positive' ? "bg-emerald-50 text-emerald-600" :
+                                item.status === 'Neutral' ? "bg-amber-50 text-amber-600" :
+                                  "bg-rose-50 text-rose-600"
+                            )}>
+                              {item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
+                            <p className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px] sm:max-w-[150px]">{item.firm_name}</p>
+                          </TableCell>
+                          {/* <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
+                            <p className="text-[8px] sm:text-[10px] font-bold text-slate-500 whitespace-nowrap">{item.contact || "-"}</p>
+                          </TableCell> */}
+                          <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4 text-center">
+                            <p className="text-[7px] sm:text-[11px] text-slate-800 font-bold italic leading-snug line-clamp-2 max-w-[100px] sm:max-w-[200px] mx-auto">
+                              {item.additional_feedback}
+                            </p>
+                          </TableCell>
+                          {["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"].map((cat) => {
+                            const val = item.categoryRatings?.[cat] || 0;
+                            return (
+                              <TableCell key={cat} className="py-1.5 px-0.5 sm:py-3 sm:px-1 text-center">
+                                <div className="flex items-center justify-center gap-0">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <Star key={i} className={cn("w-2 h-2 sm:w-3 sm:h-3", i < val ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
+                                  ))}
+                                </div>
+                              </TableCell>
+                            );
+                          })}
+
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={16} className="py-16 sm:py-32 text-center bg-slate-50/10">
+                        <div className="flex flex-col items-center justify-center">
+                          <MessageSquare className="w-10 h-10 sm:w-20 sm:h-20 text-slate-100 mb-3 sm:mb-6" />
+                          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] sm:text-sm">No Feedback Records Found</p>
+                          <Button onClick={() => fetchCustomerFeedback()} variant="link" className="text-orange-500 font-black uppercase tracking-widest text-[8px] sm:text-[10px] mt-2 sm:mt-4">
+                            Retry Connecting to Sheets
+                          </Button>
                         </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="bg-slate-50/50 p-2 sm:p-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+              <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider sm:tracking-widest">
+                Showing {customerFeedback.length} Client Reviews
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-[8px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-wider sm:tracking-widest">● Live Sync</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
       </Card>
     </div>
   )
 }
-

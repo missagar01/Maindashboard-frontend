@@ -170,6 +170,7 @@ export const API_ENDPOINTS = {
     DASHBOARD: {
       SUMMARY: '/api/o2d/dashboard/summary',
       METRICS: '/api/o2d/dashboard/metrics',
+      CUSTOMER_FEEDBACK: '/api/o2d/dashboard/customer-feedback',
       DELIVERY_STATS: '/api/o2d/delivery/stats',
     },
     GATE_ENTRY: {
@@ -202,5 +203,4 @@ export const API_ENDPOINTS = {
 
 export default api;
 export { API_BASE_URL };
-
 
