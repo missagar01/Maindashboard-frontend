@@ -977,10 +977,6 @@ export function DashboardView() {
           </div>
         )}
 
-        {/* Filter Section moved to top */}
-
-
-
         <div>
           <div className="flex items-center justify-between mb-1.5 sm:mb-2">
             <h3 className="flex items-center gap-1.5 sm:gap-2 text-indigo-700 text-sm sm:text-lg font-semibold">
@@ -2296,9 +2292,9 @@ export function DashboardView() {
                     const avgCallPerPerson = (totalCallings / dataRows.length).toFixed(2);
 
                     return (
-                      <div className="mt-6 space-y-4 px-6 pb-6">
-                        <div className="overflow-x-auto px-2 sm:px-0">
-                          <table className="w-full max-w-sm sm:max-w-md text-[11px] sm:text-xs md:text-sm">
+                      <div className="mt-6 flex flex-col sm:flex-row items-stretch gap-4 px-6 pb-6">
+                        <div className="flex-1 overflow-x-auto">
+                          <table className="w-full text-[11px] sm:text-xs md:text-sm">
                             <tbody>
                               <tr className="bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 transition-colors shadow-sm">
                                 <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-white border border-emerald-600 rounded-l-lg">
@@ -2306,7 +2302,7 @@ export function DashboardView() {
                                     <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
                                       👤
                                     </div>
-                                    Avg Call / Person
+                                    <span className="whitespace-nowrap">Avg Call / Person</span>
                                   </div>
                                 </td>
                                 <td className="px-3 sm:px-6 py-2 sm:py-3 font-black text-white text-right border border-emerald-600 rounded-r-lg text-sm sm:text-lg font-mono">
@@ -2317,19 +2313,19 @@ export function DashboardView() {
                           </table>
                         </div>
 
-                        <div className="overflow-x-auto mt-4 px-2 sm:px-0">
-                          <table className="w-full max-w-sm sm:max-w-md text-[11px] sm:text-xs md:text-sm">
+                        <div className="flex-1 overflow-x-auto">
+                          <table className="w-full text-[11px] sm:text-xs md:text-sm">
                             <tbody>
                               <tr className="bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 transition-colors shadow-lg">
-                                <td className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-white border-2 border-teal-600 rounded-l-lg">
+                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-white border border-teal-600 rounded-l-lg">
                                   <div className="flex items-center gap-1.5 sm:gap-2">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-teal-800 text-[10px] sm:text-xs font-bold">
+                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
                                       📞
                                     </div>
                                     <span className="whitespace-nowrap uppercase tracking-wider">Today's Total Calling</span>
                                   </div>
                                 </td>
-                                <td className="px-3 sm:px-6 py-3 sm:py-4 font-black text-white text-right border-2 border-teal-600 rounded-r-lg text-base sm:text-xl font-mono">
+                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-black text-white text-right border border-teal-600 rounded-r-lg text-base sm:text-lg font-mono">
                                   {totalCallings.toLocaleString()}
                                 </td>
                               </tr>
@@ -2376,7 +2372,107 @@ export function DashboardView() {
             </Button>
           </div>
 
-          <div className="overflow-x-auto max-h-[700px] overflow-y-auto">
+          {/* Mobile View - Cards */}
+          <div className="sm:hidden space-y-4 px-1 pb-10">
+            {loadingFeedback ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-[24px] p-6 border border-slate-100 animate-pulse space-y-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 bg-slate-100 rounded w-1/4"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-6 bg-slate-100 rounded w-1/2"></div>
+                    <div className="h-4 bg-slate-100 rounded w-1/3"></div>
+                  </div>
+                  <div className="h-16 bg-slate-50 rounded-2xl"></div>
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <div key={j} className="h-4 bg-slate-100 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : customerFeedback.length > 0 ? (
+              customerFeedback.map((item, index) => {
+                let dateDisplay = "N/A";
+                try {
+                  if (item.timestamp) {
+                    const d = new Date(item.timestamp);
+                    if (!isNaN(d.getTime())) {
+                      dateDisplay = format(d, 'dd/MM/yyyy HH:mm');
+                    }
+                  }
+                } catch (e) { }
+
+                const isEven = index % 2 === 0;
+
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      "rounded-[24px] p-6 shadow-xl space-y-5 relative overflow-hidden text-white border-none",
+                      isEven
+                        ? "bg-gradient-to-br from-blue-600 to-blue-700 shadow-blue-100"
+                        : "bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-emerald-100"
+                    )}
+                  >
+                    {/* Header: S.No and Date */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black text-white/40">#{index + 1}</span>
+                      <span className="w-2 h-2 rounded-full bg-white/90 shadow-sm shadow-white/20 animate-pulse"></span>
+                      <span className="text-[10px] font-black text-white/70 tracking-[0.1em]">{dateDisplay}</span>
+                    </div>
+
+                    {/* Customer & Firm */}
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-[900] text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
+                      <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
+                    </div>
+
+                    {/* Feedback Textbox */}
+                    {item.additional_feedback && (
+                      <div className="bg-white/10 backdrop-blur-md rounded-[20px] p-4 border border-white/10">
+                        <p className="text-[12px] text-white font-black italic leading-relaxed text-center">
+                          "{item.additional_feedback}"
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Rating Grid */}
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 pt-2">
+                      {["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"].map((cat) => {
+                        const val = item.categoryRatings?.[cat] || 0;
+                        return (
+                          <div key={cat} className="flex items-center justify-between gap-1">
+                            <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.1em]">{cat}</span>
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    "w-2.5 h-2.5",
+                                    i < val ? "fill-white text-white" : "text-white/20"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-20 text-center bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200">
+                <MessageSquare className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No Feedback Records Found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop View - Tabular Format */}
+          <div className="hidden sm:block overflow-x-auto max-h-[700px] overflow-y-auto">
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
                 <TableRow className="hover:bg-transparent border-none">
