@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent, Truck, Target, TrendingUp, ArrowUpRight, Activity, Quote, MessageSquare, Star } from "lucide-react"
@@ -615,8 +615,8 @@ export function DashboardView() {
         rank: index + 1,
         name: customer.name,
         dispatches: customer.dispatchCount,
-        amount: "₹0",
-        balanceAmount: "₹0",
+        amount: "â‚¹0",
+        balanceAmount: "â‚¹0",
         itemNames: Array.from(customer.items).join(", "),
         totalQty: customer.totalQty.toFixed(2),
       }))
@@ -800,11 +800,11 @@ export function DashboardView() {
               <div class="kpi-card"><div class="kpi-label">Monthly Party Average</div><div class="kpi-value">${metrics.monthlyPartyAverage}</div></div>
               <div class="kpi-card"><div class="kpi-label">Parties Pending Order</div><div class="kpi-value">${metrics.pendingOrdersTotal}</div></div>
               <div class="kpi-card"><div class="kpi-label">Conversion Ratio</div><div class="kpi-value alert">${metrics.conversionRatio}</div></div>
-              <div class="kpi-card"><div class="kpi-label">Sauda Avg (${metrics.activeItemName})</div><div class="kpi-value">₹${metrics.saudaAvg}</div></div>
-              <div class="kpi-card"><div class="kpi-label">Sales Avg (${metrics.activeItemName})</div><div class="kpi-value">₹${metrics.salesAvg}</div></div>
-              <div class="kpi-card"><div class="kpi-label">Sauda Rate (2026)</div><div class="kpi-value">₹${metrics.saudaRate2026}</div></div>
-              <div class="kpi-card"><div class="kpi-label">Monthly GD</div><div class="kpi-value">₹${metrics.monthlyGd}</div></div>
-              <div class="kpi-card"><div class="kpi-label">Daily GD</div><div class="kpi-value">₹${metrics.dailyGd}</div></div>
+              <div class="kpi-card"><div class="kpi-label">Sauda Avg (${metrics.activeItemName})</div><div class="kpi-value">â‚¹${metrics.saudaAvg}</div></div>
+              <div class="kpi-card"><div class="kpi-label">Sales Avg (${metrics.activeItemName})</div><div class="kpi-value">â‚¹${metrics.salesAvg}</div></div>
+              <div class="kpi-card"><div class="kpi-label">Sauda Rate (2026)</div><div class="kpi-value">â‚¹${metrics.saudaRate2026}</div></div>
+              <div class="kpi-card"><div class="kpi-label">Monthly GD</div><div class="kpi-value">â‚¹${metrics.monthlyGd}</div></div>
+              <div class="kpi-card"><div class="kpi-label">Daily GD</div><div class="kpi-value">â‚¹${metrics.dailyGd}</div></div>
             </div>
           </div>
 
@@ -1040,512 +1040,171 @@ export function DashboardView() {
           )}
         </div>
 
-        {/* All Sauda Average & Sales Average - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
-          {/* All Sauda Average Card */}
-          <Card className="border-l-2 border-l-purple-600 bg-gradient-to-br from-purple-50/50 to-white shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent p-2 sm:p-3 pb-1 sm:pb-1.5">
-              <CardTitle className="text-[10px] sm:text-xs lg:text-sm text-purple-800 font-bold">All Sauda Average</CardTitle>
-              <CardDescription className="text-[7px] sm:text-[9px] text-purple-700/80 hidden sm:block">
-                Average rates for Pipe, Billet, and Strip
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-1.5 sm:p-2.5">
-              <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                {itemAverages.map((itemData, index) => {
-                  const gradients = [
-                    'from-indigo-500 via-indigo-600 to-blue-600',
-                    'from-red-500 via-orange-500 to-orange-600',
-                    'from-teal-500 via-cyan-500 to-cyan-600'
-                  ]
-                  return (
-                    <Card
-                      key={`sauda-${itemData.item}`}
-                      className={cn(
-                        "shadow-sm border-none",
-                        `bg-gradient-to-br ${gradients[index]} text-white`
-                      )}
-                    >
-                      <CardContent className="p-1.5 sm:p-2.5">
-                        <p className="text-[7px] sm:text-[10px] font-semibold text-white/90">{itemData.item}</p>
-                        <p className="text-[6px] sm:text-[8px] text-white/60 font-medium">Sauda Average</p>
-                        <p className="text-[10px] sm:text-sm lg:text-lg font-bold text-white leading-tight mt-0.5">
-                          ₹{formatMetricValue(itemData.saudaAvg)}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Unified Metrics Grid - 15 cards that flow automatically */}
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-3 mb-4 sm:mb-8">
+          {/* Part 1: Sauda Averages (3 cards) */}
+          {itemAverages.map((itemData, index) => {
+            const gradients = [
+              'from-indigo-500 via-indigo-600 to-blue-600',
+              'from-red-500 via-orange-500 to-orange-600',
+              'from-teal-500 via-cyan-500 to-cyan-600'
+            ]
+            return (
+              <Card key={`sauda-${itemData.item}`} className={cn("shadow-lg border-none transition-transform hover:scale-105 bg-gradient-to-br text-white", gradients[index])}>
+                <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
+                  <p className="text-[12px] sm:text-base md:text-lg lg:text-xl font-black uppercase leading-tight px-1">{itemData.item}</p>
+                  <p className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-bold opacity-85 uppercase tracking-wide">Sauda Avg</p>
+                  <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none mt-0.5 sm:mt-1">
+                    {formatMetricValue(itemData.saudaAvg)}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
 
-          {/* Current Month Sales Average Card */}
-          <Card className="border-l-2 border-l-orange-600 bg-gradient-to-br from-orange-50/50 to-white shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-orange-50 to-transparent p-2 sm:p-3 pb-1 sm:pb-1.5">
-              <CardTitle className="text-[10px] sm:text-xs lg:text-sm text-orange-800 font-bold">Current Month Sales Average</CardTitle>
-              <CardDescription className="text-[7px] sm:text-[9px] text-orange-700/80 hidden sm:block">
-                Sales average rates for Pipe, Billet, and Strip
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-1.5 sm:p-2.5">
-              <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                {itemAverages.map((itemData, index) => {
-                  const colors = [
-                    '#099438ff',
-                    '#142b49ff',
-                    '#E3227C'
-                  ]
-                  return (
-                    <Card
-                      key={`sales-${itemData.item}`}
-                      className="shadow-sm text-white border-none"
-                      style={{ background: colors[index] }}
-                    >
-                      <CardContent className="p-1.5 sm:p-2.5">
-                        <p className="text-[7px] sm:text-[10px] font-semibold text-white/90">{itemData.item}</p>
-                        <p className="text-[6px] sm:text-[8px] text-white/60 font-medium">Sales Average</p>
-                        <p className="text-[10px] sm:text-sm lg:text-lg font-bold text-white leading-tight mt-0.5">
-                          ₹{formatMetricValue(itemData.salesAvg)}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Part 2: Sales Averages (3 cards) */}
+          {itemAverages.map((itemData, index) => {
+            const colors = ['#099438ff', '#142b49ff', '#E3227C']
+            return (
+              <Card key={`sales-${itemData.item}`} className="shadow-lg text-white border-none transition-transform hover:scale-105" style={{ background: colors[index] }}>
+                <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
+                  <p className="text-[12px] sm:text-base md:text-lg lg:text-xl font-black uppercase leading-tight px-1">{itemData.item}</p>
+                  <p className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-bold opacity-85 uppercase tracking-wide">Sales Avg</p>
+                  <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none mt-0.5 sm:mt-1">
+                    {formatMetricValue(itemData.salesAvg)}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+
+          {/* Part 3: Operational Metrics (9 cards) */}
+          {[
+            { label: "Sauda Rate", value: `${formatMetricValue(displayMetrics.saudaRate2026)}`, grad: "from-purple-500 via-indigo-500 to-blue-600" },
+            { label: "Monthly Late", value: deliveryStats?.monthly?.score ?? '0%', grad: "from-pink-500 via-rose-500 to-red-500" },
+            { label: "Daily Late", value: deliveryStats?.daily?.score ?? '0%', grad: "from-indigo-400 via-indigo-500 to-indigo-600" },
+            { label: "Monthly GD", value: `${formatMetricValue(displayMetrics.monthlyGd)}`, grad: "from-green-400 via-green-500 to-green-600" },
+            { label: "Daily GD", value: `${formatMetricValue(displayMetrics.dailyGd)}`, grad: "from-orange-400 via-orange-500 to-amber-500" },
+            { label: "Working Party", value: formatMetricValue(displayMetrics.monthlyWorkingParty), grad: "from-cyan-400 via-cyan-500 to-teal-500" },
+            { label: "Party Average", value: displayMetrics.monthlyPartyAverage, grad: "from-emerald-400 via-emerald-500 to-teal-600" },
+            { label: "Parties Pending", value: formatMetricValue(displayMetrics.pendingOrdersTotal), grad: "from-teal-500 via-emerald-600 to-green-700" },
+            { label: "Conversion Ratio", value: displayMetrics.conversionRatio, grad: "from-pink-400 via-pink-500 to-rose-600" },
+          ].map((metric, idx) => (
+            <Card key={idx} className={cn("shadow-lg border-none transition-transform hover:scale-105 text-white bg-gradient-to-br", metric.grad)}>
+              <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
+                <p className="text-[11px] sm:text-sm md:text-base lg:text-lg font-black uppercase tracking-wide mb-0.5 sm:mb-1 leading-tight px-1">
+                  {metric.label}
+                </p>
+                <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none">
+                  {metric.value}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        {/* Summary Cards - Compact Layout */}
-        <div className="space-y-2 sm:space-y-3">
-          {/* Row 1: Sauda Rate + GD Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-            {/* Sauda Rate Composite Card */}
-            <Card className="border-l-2 border-l-purple-500 bg-gradient-to-br from-purple-50/30 to-white shadow-sm">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent p-2 sm:p-2.5 pb-1 sm:pb-1.5">
-                <CardTitle className="text-[10px] sm:text-xs text-purple-800 font-bold">Sauda Rate & Late Delivery</CardTitle>
-                <CardDescription className="text-[7px] sm:text-[9px] text-purple-700/80 hidden sm:block">
-                  Current month party & delivery percent
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-1.5 sm:p-2.5">
-                <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                  <Card className="bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-purple-100">Sauda Rate</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        ₹{formatMetricValue(displayMetrics.saudaRate2026)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-pink-500 via-rose-500 to-red-500 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-pink-100">Monthly Late</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {deliveryStats?.monthly?.score ?? '0%'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-indigo-400 via-indigo-500 to-indigo-600 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-indigo-100">Daily Late</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {deliveryStats?.daily?.score ?? '0%'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* GD Metrics Composite Card */}
-            <Card className="border-l-2 border-l-green-500 bg-white shadow-sm">
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-2.5 pb-1 sm:pb-1.5">
-                <CardTitle className="text-[10px] sm:text-xs text-green-800 font-bold">GD Metrics</CardTitle>
-                <CardDescription className="text-[7px] sm:text-[9px] text-green-700/80 hidden sm:block">
-                  Gross dispatch statistics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-1.5 sm:p-2.5">
-                <div className="grid grid-cols-2 gap-1 sm:gap-2">
-                  <Card className="bg-gradient-to-br from-green-400 via-green-500 to-green-600 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-green-100">Monthly GD</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        ₹{formatMetricValue(displayMetrics.monthlyGd)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-orange-400 via-orange-500 to-amber-500 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-orange-100">Daily GD</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        ₹{formatMetricValue(displayMetrics.dailyGd)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Row 2: Working Party & Pending Order */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-            {/* Working Party Composite Card */}
-            <Card className="border-l-2 border-l-cyan-500 bg-white shadow-sm">
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-2.5 pb-1 sm:pb-1.5">
-                <CardTitle className="text-[10px] sm:text-xs text-cyan-800 font-bold">Working Party Metrics</CardTitle>
-                <CardDescription className="text-[7px] sm:text-[9px] text-cyan-700/80 hidden sm:block">
-                  Current month party statistics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-1.5 sm:p-2.5">
-                <div className="grid grid-cols-2 gap-1 sm:gap-2">
-                  <Card className="bg-gradient-to-br from-cyan-400 via-cyan-500 to-teal-500 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-cyan-100">Working Party</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {formatMetricValue(displayMetrics.monthlyWorkingParty)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-emerald-100">Party Average</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {displayMetrics.monthlyPartyAverage}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pending Orders Composite Card */}
-            <Card className="border-l-2 border-l-teal-500 bg-white shadow-sm">
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-2.5 pb-1 sm:pb-1.5">
-                <CardTitle className="text-[10px] sm:text-xs text-teal-800 font-bold">Pending Order Metrics</CardTitle>
-                <CardDescription className="text-[7px] sm:text-[9px] text-teal-700/80 hidden sm:block">
-                  Order conversion statistics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-1.5 sm:p-2.5">
-                <div className="grid grid-cols-2 gap-1 sm:gap-2">
-                  <Card className="bg-gradient-to-br from-teal-500 via-emerald-600 to-green-700 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-teal-100">Parties Pending</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {formatMetricValue(displayMetrics.pendingOrdersTotal)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-pink-400 via-pink-500 to-rose-600 text-white border-none shadow-sm">
-                    <CardContent className="p-1.5 sm:p-2.5 flex flex-col items-center text-center">
-                      <p className="text-[7px] sm:text-[10px] font-bold text-pink-100">Conversion Ratio</p>
-                      <div className="text-[10px] sm:text-sm lg:text-lg font-black text-white leading-tight mt-0.5">
-                        {displayMetrics.conversionRatio}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-
         {/* Salesperson Performance Analytics - Unified Master View */}
-        <div className="space-y-3 sm:space-y-10 mb-4 sm:mb-10 overflow-hidden bg-slate-50/50 p-2 sm:p-8 rounded-xl sm:rounded-[3rem]">
-          <div className="flex items-center justify-between px-1 mb-3 sm:mb-6">
-            <div className="flex items-center gap-3 sm:gap-5">
-              <div className="w-7 h-7 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl bg-white flex items-center justify-center shadow-md sm:shadow-lg border border-slate-100 ring-2 sm:ring-4 ring-white">
-                <User className="w-3.5 h-3.5 sm:w-7 sm:h-7 text-slate-400" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                  SALES PERSION ANALYTICS
-                  <Badge className="bg-white text-slate-500 border border-slate-200 font-black text-[10px] sm:text-xs px-2 py-0.5 shadow-sm">
-                    {salespersonAnalytics.length} ACTIVE
-                  </Badge>
-                </h2>
-                <p className="text-[8px] sm:text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mt-0.5 sm:mt-1">Comprehensive Performance Scorecards</p>
-              </div>
+        <div className="space-y-1 mb-4 sm:mb-6 overflow-hidden bg-slate-50 p-2 sm:p-3 rounded-2xl border border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
             </div>
+            <h2 className="text-base sm:text-xl font-bold text-slate-800 tracking-tight">
+              Sales Person Analytics
+            </h2>
+            <Badge className="bg-white text-slate-600 border border-slate-200 font-semibold text-[10px] sm:text-xs px-2 py-0.5 shadow-sm">
+              {salespersonAnalytics.length} Active
+            </Badge>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:gap-10">
+          <div className="grid grid-cols-1 gap-px">
             {salespersonAnalytics.length === 0 ? (
-              <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                <Database className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-400 font-black uppercase tracking-widest text-sm">No Performance Data Available</p>
-                <p className="text-slate-300 text-xs mt-2 uppercase font-bold">Try adjusting your filters or date range</p>
+              <div className="py-10 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                <Database className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 font-semibold text-sm">No Performance Data Available</p>
               </div>
             ) : (
               salespersonAnalytics.map((person, index) => {
-                const cardStyles = [
-                  {
-                    bg: "bg-gradient-to-br from-indigo-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-indigo-500",
-                    shadow: "shadow-indigo-100",
-                    accent: "text-indigo-600",
-                    badge: "bg-indigo-100 text-indigo-700",
-                    avatar: "bg-indigo-500 shadow-indigo-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-emerald-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-emerald-500",
-                    shadow: "shadow-emerald-100",
-                    accent: "text-emerald-600",
-                    badge: "bg-emerald-100 text-emerald-700",
-                    avatar: "bg-emerald-500 shadow-emerald-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-rose-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-rose-500",
-                    shadow: "shadow-rose-100",
-                    accent: "text-rose-600",
-                    badge: "bg-rose-100 text-rose-700",
-                    avatar: "bg-rose-500 shadow-rose-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-amber-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-amber-500",
-                    shadow: "shadow-amber-100",
-                    accent: "text-amber-600",
-                    badge: "bg-amber-100 text-amber-700",
-                    avatar: "bg-amber-500 shadow-amber-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-sky-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-sky-500",
-                    shadow: "shadow-sky-100",
-                    accent: "text-sky-600",
-                    badge: "bg-sky-100 text-sky-700",
-                    avatar: "bg-sky-500 shadow-sky-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-violet-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-violet-500",
-                    shadow: "shadow-violet-100",
-                    accent: "text-violet-600",
-                    badge: "bg-violet-100 text-violet-700",
-                    avatar: "bg-violet-500 shadow-violet-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-teal-50/70 via-white to-white",
-                    border: "border-l-[6px] border-l-teal-500",
-                    shadow: "shadow-teal-100",
-                    accent: "text-teal-600",
-                    badge: "bg-teal-100 text-teal-700",
-                    avatar: "bg-teal-500 shadow-teal-200"
-                  },
-                  {
-                    bg: "bg-gradient-to-br from-slate-100/70 via-white to-white",
-                    border: "border-l-[6px] border-l-slate-700",
-                    shadow: "shadow-slate-200",
-                    accent: "text-slate-700",
-                    badge: "bg-slate-200 text-slate-700",
-                    avatar: "bg-slate-700 shadow-slate-300"
-                  },
+                const rowStyles = [
+                  { bg: "bg-indigo-50/50", border: "border-indigo-100", accent: "text-indigo-600" },
+                  { bg: "bg-emerald-50/50", border: "border-emerald-100", accent: "text-emerald-600" },
+                  { bg: "bg-rose-50/50", border: "border-rose-100", accent: "text-rose-600" },
+                  { bg: "bg-amber-50/50", border: "border-amber-100", accent: "text-amber-600" },
+                  { bg: "bg-sky-50/50", border: "border-sky-100", accent: "text-sky-600" },
                 ];
-                const style = cardStyles[index % cardStyles.length];
+                const style = rowStyles[index % rowStyles.length];
 
                 return (
-                  <Card
-                    key={person.name}
-                    className={cn(
-                      "group border-none shadow-lg sm:shadow-2xl overflow-hidden transition-all duration-500 flex flex-col rounded-xl sm:rounded-[2.5rem] p-2.5 sm:p-8 lg:p-12",
-                      style.bg,
-                      style.border,
-                      style.shadow
-                    )}
-                  >
-                    {/* Header Row - Premium Identity Section */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-8 mb-3 sm:mb-12">
-                      <div className="flex items-center gap-2.5 sm:gap-6">
-                        <div className={cn(
-                          "w-10 h-10 sm:w-18 sm:h-18 rounded-lg sm:rounded-[2rem] flex items-center justify-center text-white text-xs sm:text-2xl font-black shadow-md sm:shadow-lg ring-2 sm:ring-8 ring-white/50 transition-transform group-hover:scale-105 duration-500",
-                          style.avatar
-                        )}>
-                          {person.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                        </div>
-                        <div className="space-y-0.5 sm:space-y-2">
-                          <h3 className="text-sm sm:text-3xl lg:text-4xl font-black tracking-tight uppercase text-slate-800 lg:group-hover:text-slate-900 transition-colors">
-                            {person.name}
-                          </h3>
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            <Badge className={cn("px-2 py-0.5 text-[8px] sm:text-[10px] font-black uppercase tracking-widest border-none", style.badge)}>
-                              Performance Lead
-                            </Badge>
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></span>
-                              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Status</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  <div key={person.name} className={cn("rounded-xl border bg-white p-2 sm:p-3 shadow-sm", style.bg, style.border)}>
+                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-px">
+                      {person.name}
+                    </h3>
 
-                      <div className="flex gap-2 sm:gap-4 w-full lg:w-auto">
-                        <div className="flex-1 lg:flex-none bg-white/50 backdrop-blur-xl rounded-lg sm:rounded-[2rem] p-2 sm:p-6 border border-white/60 text-center min-w-[80px] sm:min-w-[140px] shadow-sm hover:shadow-md transition-all">
-                          <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Monthly Late</p>
-                          <p className="text-base sm:text-3xl font-black text-slate-800 leading-none">{person.delivery.monthly.score}</p>
-                          <div className="w-full h-0.5 sm:h-1 bg-slate-100 rounded-full mt-1.5 sm:mt-3 overflow-hidden">
-                            <div
-                              className={cn("h-full transition-all duration-1000", parseFloat(person.delivery.monthly.score) > 20 ? "bg-rose-400" : "bg-emerald-400")}
-                              style={{ width: person.delivery.monthly.score }}
-                            ></div>
-                          </div>
-                        </div>
-                        <div className="flex-1 lg:flex-none bg-white/50 backdrop-blur-xl rounded-lg sm:rounded-[2rem] p-2 sm:p-6 border border-white/60 text-center min-w-[80px] sm:min-w-[140px] shadow-sm hover:shadow-md transition-all">
-                          <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Daily Late</p>
-                          <p className="text-base sm:text-3xl font-black text-slate-800 leading-none">{person.delivery.daily.score}</p>
-                          <div className="w-full h-0.5 sm:h-1 bg-slate-100 rounded-full mt-1.5 sm:mt-3 overflow-hidden">
-                            <div
-                              className={cn("h-full transition-all duration-1000", parseFloat(person.delivery.daily.score) > 20 ? "bg-rose-400" : "bg-emerald-400")}
-                              style={{ width: person.delivery.daily.score }}
-                            ></div>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-px">
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Monthly Late</p>
+                        <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">{person.delivery.monthly.score}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Daily Late</p>
+                        <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">{person.delivery.daily.score}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Working Party</p>
+                        <p className={cn("text-xl sm:text-2xl font-bold mt-1", style.accent)}>{person.workingParty.count}</p>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1">Avg: {person.workingParty.average}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Pending Orders</p>
+                        <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">{person.pendingOrders.count}</p>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1">Conv: {person.pendingOrders.ratio}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Monthly Revenue</p>
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1">₹{person.gd.monthly.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Today Revenue</p>
+                        <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">₹{person.gd.daily.toLocaleString("en-IN")}</p>
                       </div>
                     </div>
 
-                    <CardContent className="p-0 space-y-4 sm:space-y-16">
-                      {/* Operational Metrics Row */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-10">
-                        {/* Logistics Section */}
-                        <div className="bg-white/30 backdrop-blur-md rounded-xl sm:rounded-[3rem] p-3 sm:p-10 border border-white shadow-[0_8px_32px_rgba(0,0,0,0.02)] relative overflow-hidden group/box">
-                          <div className="absolute top-0 right-0 p-3 sm:p-8 opacity-5 group-hover/box:opacity-10 transition-opacity">
-                            <Truck className="w-8 h-8 sm:w-24 sm:h-24 text-slate-900" />
-                          </div>
-
-                          <h4 className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 sm:mb-8 flex items-center gap-1.5 sm:gap-2">
-                            <span className={cn("w-2 h-2 rounded-full", style.avatar)}></span>
-                            Logistics & Client Base
-                          </h4>
-
-                          <div className="grid grid-cols-2 gap-2 sm:gap-8 relative z-10">
-                            <div className="space-y-0.5 sm:space-y-1">
-                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Working Party</p>
-                              <div className="flex flex-col">
-                                <span className={cn("text-lg sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight", style.accent)}>
-                                  {person.workingParty.count}
-                                </span>
-                                <span className="text-[7px] sm:text-[10px] font-black text-slate-300 mt-0.5 uppercase tracking-wider">
-                                  Avg: {person.workingParty.average}
-                                </span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-px mt-px">
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <div className="space-y-2">
+                          {person.saudaAvg.length === 0 ? (
+                            <p className="text-sm text-slate-400">No sauda data</p>
+                          ) : (
+                            person.saudaAvg.map((s: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5">
+                                <span className="text-sm sm:text-base font-semibold text-slate-700">Sauda - {s.ITEM}</span>
+                                <span className="text-base sm:text-lg font-bold text-indigo-600">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
                               </div>
-                            </div>
-                            <div className="space-y-0.5 sm:space-y-1">
-                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pending Orders</p>
-                              <div className="flex flex-col">
-                                <span className="text-lg sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-purple-600">
-                                  {person.pendingOrders.count}
-                                </span>
-                                <span className="text-[7px] sm:text-[10px] font-black text-slate-300 mt-0.5 uppercase tracking-wider">
-                                  Conv: {person.pendingOrders.ratio}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Dispatch Section */}
-                        <div className="bg-white/30 backdrop-blur-md rounded-xl sm:rounded-[3rem] p-3 sm:p-10 border border-white shadow-[0_8px_32px_rgba(0,0,0,0.02)] relative overflow-hidden group/box">
-                          <div className="absolute top-0 right-0 p-3 sm:p-8 opacity-5 group-hover/box:opacity-10 transition-opacity">
-                            <Trophy className="w-8 h-8 sm:w-24 sm:h-24 text-slate-900" />
-                          </div>
-
-                          <h4 className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 sm:mb-8 flex items-center gap-1.5 sm:gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                            Dispatch Economics
-                          </h4>
-
-                          <div className="grid grid-cols-2 gap-2 sm:gap-8 relative z-10">
-                            <div className="space-y-0.5 sm:space-y-1 group-hover/box:translate-x-1 transition-transform">
-                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Monthly Revenue GD</p>
-                              <p className="text-lg sm:text-4xl lg:text-5xl font-black text-emerald-600 tracking-tight leading-tight">
-                                ₹{person.gd.monthly.toLocaleString("en-IN")}
-                              </p>
-                            </div>
-                            <div className="space-y-0.5 sm:space-y-1 group-hover/box:translate-x-1 transition-transform">
-                              <p className="text-[7px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Today's Performance</p>
-                              <p className="text-lg sm:text-4xl lg:text-5xl font-black text-amber-600 tracking-tight leading-tight">
-                                ₹{person.gd.daily.toLocaleString("en-IN")}
-                              </p>
-                            </div>
-                          </div>
+                            ))
+                          )}
                         </div>
                       </div>
 
-                      {/* Pricing Benchmarks Section */}
-                      <div className="space-y-3 sm:space-y-12">
-                        <div className="flex items-center gap-3 sm:gap-6">
-                          <h4 className="text-[9px] sm:text-[14px] font-black text-slate-800 uppercase tracking-[0.2em] sm:tracking-[0.4em] whitespace-nowrap">Pricing Benchmarks</h4>
-                          <div className="h-px w-full bg-gradient-to-r from-slate-200 to-transparent"></div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 lg:gap-12">
-                          {/* Sauda Benchmarks */}
-                          <div className="space-y-1.5 sm:space-y-4">
-                            <div className="flex items-center justify-between px-1 sm:px-2">
-                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
-                                <Database className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                Sauda Average Rate
-                              </p>
-                            </div>
-                            <div className="space-y-1 sm:space-y-2">
-                              {person.saudaAvg.length === 0 ? (
-                                <p className="text-[10px] font-bold text-slate-300 uppercase italic px-4 py-3 bg-slate-50/50 rounded-2xl">No data available</p>
-                              ) : (
-                                person.saudaAvg.map((s: any, i: number) => (
-                                  <div key={i} className="flex items-center justify-between bg-white/60 backdrop-blur-sm px-2.5 sm:px-6 py-2 sm:py-4 rounded-lg sm:rounded-2xl border border-white hover:bg-white hover:shadow-lg transition-all group/item">
-                                    <span className="text-[8px] sm:text-xs font-black text-slate-600 uppercase tracking-widest">{s.ITEM}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[11px] sm:text-xl font-black font-mono text-indigo-600 tracking-tighter">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
-                                      <span className="w-1 h-1 rounded-full bg-indigo-200"></span>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Sales Benchmarks */}
-                          <div className="space-y-1.5 sm:space-y-4">
-                            <div className="flex items-center justify-between px-1 sm:px-2">
-                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
-                                <Percent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                Month Sales Avg Rate
-                              </p>
-                            </div>
-                            <div className="space-y-1 sm:space-y-2">
-                              {person.salesAvg.length === 0 ? (
-                                <p className="text-[10px] font-bold text-slate-300 uppercase italic px-4 py-3 bg-slate-50/50 rounded-2xl">No data available</p>
-                              ) : (
-                                person.salesAvg.map((s: any, i: number) => (
-                                  <div key={i} className="flex items-center justify-between bg-white/60 backdrop-blur-sm px-2.5 sm:px-6 py-2 sm:py-4 rounded-lg sm:rounded-2xl border border-white hover:bg-white hover:shadow-lg transition-all group/item">
-                                    <span className="text-[8px] sm:text-xs font-black text-slate-600 uppercase tracking-widest">{s.ITEM}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[11px] sm:text-xl font-black font-mono text-emerald-600 tracking-tighter">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
-                                      <span className="w-1 h-1 rounded-full bg-emerald-200"></span>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2">
+                        <div className="space-y-2">
+                          {person.salesAvg.length === 0 ? (
+                            <p className="text-sm text-slate-400">No sales data</p>
+                          ) : (
+                            person.salesAvg.map((s: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5">
+                                <span className="text-sm sm:text-base font-semibold text-slate-700">Sales - {s.ITEM}</span>
+                                <span className="text-base sm:text-lg font-bold text-emerald-600">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })
             )}
           </div>
         </div>
-
-
-
         {/* Sale Performance State Wise Section */}
         <Card className="border-none shadow-sm bg-white overflow-hidden mb-10">
           <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-6">
@@ -1572,7 +1231,7 @@ export function DashboardView() {
           </CardHeader>
           <CardContent className="p-1.5 sm:p-6">
 
-            <div className="grid grid-cols-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1 sm:gap-4">
               {stateDistributionData.map((item, index) => {
                 const totalVolume = stateDistributionData.reduce((acc, curr) => acc + curr.count, 0);
                 const percentage = totalVolume > 0 ? ((item.count / totalVolume) * 100).toFixed(1) : "0";
@@ -1595,57 +1254,34 @@ export function DashboardView() {
                   <Card
                     key={item.state}
                     className={cn(
-                      "group relative border-none transition-all duration-500 shadow-lg hover:shadow-2xl hover:-translate-y-2 overflow-hidden flex flex-col justify-between min-h-[100px] sm:min-h-[150px] lg:min-h-[170px] bg-gradient-to-br",
+                      "group relative border-none transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden min-h-[112px] sm:min-h-[136px] lg:min-h-[152px] bg-gradient-to-br",
                       gradient
                     )}
                   >
                     {/* Decorative Elements */}
-                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-                      <Trophy className="w-8 h-8 sm:w-16 sm:h-16 text-white rotate-12" />
+                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                      <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-white rotate-12" />
                     </div>
 
-                    <CardHeader className="p-1.5 sm:p-4 lg:p-5 pb-0 relative z-10">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center justify-center min-w-5 h-5 sm:min-w-7 sm:h-7 px-1 sm:px-2 rounded-md sm:rounded-lg bg-white/20 backdrop-blur-md border border-white/20 group-hover:bg-white/30 transition-all duration-300">
-                          <span className="text-[7px] sm:text-[10px] font-black text-white uppercase tracking-tighter">
-                            {item.state === "Miscellaneous" ? "OTHER" : `Rank #${index + 1}`}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <div className="px-1 sm:px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/20 flex items-center gap-1 sm:gap-1.5">
-                            <span className="text-[8px] sm:text-[11px] font-black text-white font-mono">{item.count.toLocaleString()}</span>
-                            <span className="text-[6px] sm:text-[8px] text-white/60 font-bold uppercase tracking-widest">Units</span>
-                          </div>
-                          <div className="w-10 sm:w-14 h-1 sm:h-1.5 bg-black/20 rounded-full mt-1 sm:mt-2 overflow-hidden border border-white/5">
-                            <div className="h-full bg-white rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
-                          </div>
-                        </div>
+                    <CardContent className="relative z-10 h-full p-2 sm:p-3 lg:p-4 flex flex-col items-center justify-center text-center gap-1.5 sm:gap-2">
+                      <div className="px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/20 inline-flex items-center gap-1.5">
+                        <span className="text-xs sm:text-sm font-black text-white font-mono leading-none">{item.count.toLocaleString()}</span>
+                        <span className="text-[9px] sm:text-[10px] text-white/85 font-bold uppercase tracking-wide leading-none">Units</span>
                       </div>
-                      <CardTitle className="text-[9px] sm:text-base lg:text-lg font-black text-white uppercase tracking-tighter mt-2 sm:mt-4 lg:mt-5 group-hover:tracking-normal transition-all truncate drop-shadow-sm">
+
+                      <CardTitle className="w-full px-1 text-sm sm:text-base lg:text-lg font-black text-white uppercase tracking-tight leading-tight break-all drop-shadow-sm text-center">
                         {item.state}
                       </CardTitle>
-                    </CardHeader>
 
-                    <CardContent className="p-1.5 sm:p-4 lg:p-5 pt-1 sm:pt-3 flex items-end justify-between relative z-10">
-                      <div className="space-y-0">
-                        <span className="text-xs sm:text-3xl lg:text-4xl font-black text-white tracking-widest leading-none block drop-shadow-md">
-                          {percentage}%
-                        </span>
-                        <p className="text-[7px] sm:text-[10px] font-black text-white/60 uppercase tracking-widest">Market Share</p>
+                      <div className="w-16 sm:w-20 h-1 sm:h-1.5 bg-black/20 rounded-full overflow-hidden border border-white/10">
+                        <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${percentage}%` }}></div>
                       </div>
 
-                      {/* Visual Signal Element */}
-                      <div className="hidden sm:flex items-end gap-1 h-10 px-2 py-1 rounded-lg bg-black/10 backdrop-blur-sm border border-white/5">
-                        {[0.4, 0.7, 0.5, 0.9, 0.6].map((h, i) => (
-                          <div
-                            key={i}
-                            className="w-1.5 bg-white rounded-full transition-all duration-700 group-hover:opacity-100"
-                            style={{
-                              height: `${h * 100}%`,
-                              opacity: 0.2 + (i * 0.15)
-                            }}
-                          />
-                        ))}
+                      <div className="space-y-0.5">
+                        <span className="text-[30px] sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-none block drop-shadow-md">
+                          {percentage}%
+                        </span>
+                        <p className="text-[10px] sm:text-xs font-black text-white/85 uppercase tracking-wide leading-none">Market Share</p>
                       </div>
                     </CardContent>
 
@@ -2000,7 +1636,7 @@ export function DashboardView() {
                                 <tr className="bg-yellow-50 font-bold border-t-2 border-yellow-200 hover:bg-yellow-100/80 transition-colors text-[9px] sm:text-sm">
                                   <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium flex items-center gap-1.5 sm:gap-3">
                                     <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-yellow-600 flex items-center justify-center text-white text-[8px] sm:text-xs font-bold shadow-sm">
-                                      Σ
+                                      Î£
                                     </div>
                                     <span className="text-yellow-700">TOTAL</span>
                                   </td>
@@ -2041,7 +1677,7 @@ export function DashboardView() {
                                 <tr className="bg-purple-50 font-bold border-t-2 border-purple-200 hover:bg-purple-100/80 transition-colors text-[9px] sm:text-sm">
                                   <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium flex items-center gap-1.5 sm:gap-3">
                                     <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-[8px] sm:text-xs font-bold shadow-sm">
-                                      ø
+                                      Ã¸
                                     </div>
                                     <span className="text-purple-700">AVERAGE</span>
                                   </td>
@@ -2100,7 +1736,7 @@ export function DashboardView() {
                           {/* Avg Call / Day */}
                           <div className="flex items-center justify-between bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border border-green-600">
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">📊</div>
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">ðŸ“Š</div>
                               <span className="font-bold text-white text-[11px] sm:text-sm whitespace-nowrap">Avg Call / Day</span>
                             </div>
                             <span className="font-black text-white text-sm sm:text-lg font-mono">{avgCallPerDay}</span>
@@ -2109,7 +1745,7 @@ export function DashboardView() {
                           {/* Avg Call / Person */}
                           <div className="flex items-center justify-between bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border border-green-600">
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">👥</div>
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">ðŸ‘¥</div>
                               <span className="font-bold text-white text-[11px] sm:text-sm whitespace-nowrap">Avg Call / Person</span>
                             </div>
                             <span className="font-black text-white text-sm sm:text-lg font-mono">{avgCallPerPerson}</span>
@@ -2118,7 +1754,7 @@ export function DashboardView() {
                           {/* Total Calling */}
                           <div className="flex items-center justify-between bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border-2 border-yellow-600 shadow-lg">
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-800/20 flex items-center justify-center text-slate-800 text-[10px] sm:text-xs font-bold">📞</div>
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-800/20 flex items-center justify-center text-slate-800 text-[10px] sm:text-xs font-bold">ðŸ“ž</div>
                               <span className="font-bold text-slate-800 text-[11px] sm:text-sm whitespace-nowrap">Total Calling</span>
                             </div>
                             <span className="font-black text-slate-800 text-base sm:text-xl font-mono">{totalCallings.toLocaleString()}</span>
@@ -2223,7 +1859,7 @@ export function DashboardView() {
                             <tr className="bg-emerald-50 font-bold border-t-2 border-emerald-200 hover:bg-emerald-100/80 transition-colors text-[9px] sm:text-sm">
                               <td className="px-3 sm:px-6 py-2 sm:py-4 font-medium flex items-center gap-1.5 sm:gap-3">
                                 <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[8px] sm:text-xs font-bold shadow-sm">
-                                  Σ
+                                  Î£
                                 </div>
                                 <span className="text-emerald-700">TOTAL</span>
                               </td>
@@ -2259,7 +1895,7 @@ export function DashboardView() {
                             <tr className="bg-teal-50 font-bold border-t-2 border-teal-200 hover:bg-teal-100/80 transition-colors text-[9px] sm:text-sm">
                               <td className="px-3 sm:px-6 py-2 sm:py-3 font-medium flex items-center gap-1.5 sm:gap-3">
                                 <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-[8px] sm:text-xs font-bold shadow-sm">
-                                  ø
+                                  Ã¸
                                 </div>
                                 <span className="text-teal-700">AVERAGE</span>
                               </td>
@@ -2300,7 +1936,7 @@ export function DashboardView() {
                                 <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-white border border-emerald-600 rounded-l-lg">
                                   <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
-                                      👤
+                                      ðŸ‘¤
                                     </div>
                                     <span className="whitespace-nowrap">Avg Call / Person</span>
                                   </div>
@@ -2320,7 +1956,7 @@ export function DashboardView() {
                                 <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-white border border-teal-600 rounded-l-lg">
                                   <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
-                                      📞
+                                      ðŸ“ž
                                     </div>
                                     <span className="whitespace-nowrap uppercase tracking-wider">Today's Total Calling</span>
                                   </div>
@@ -2351,13 +1987,13 @@ export function DashboardView() {
               <div>
                 <h2 className="text-xs sm:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-1.5 sm:gap-3">
                   CUSTOMER FEEDBACK
-                  <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[8px] sm:text-[11px] px-1.5 sm:px-2.5 py-0.5 uppercase rounded-full">
+                  <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[10px] sm:text-sm px-2 sm:px-3 py-1 uppercase rounded-full">
                     {customerFeedback.length} REVIEWS
                   </Badge>
                 </h2>
                 <div className="flex items-center gap-1 sm:gap-2 mt-0.5">
                   <span className="flex w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <p className="text-[7px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Real-time Feedback & Testimonials</p>
+                  <p className="text-[10px] sm:text-sm text-slate-400 font-bold uppercase tracking-wider">Real-time Feedback & Testimonials</p>
                 </div>
               </div>
             </div>
@@ -2365,7 +2001,7 @@ export function DashboardView() {
             <Button
               onClick={() => fetchCustomerFeedback()}
               variant="outline"
-              className="group flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-3 border border-slate-200 hover:border-orange-200 hover:bg-orange-50/30 text-slate-600 rounded-lg text-[9px] sm:text-[11px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95"
+              className="group flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-3 border border-slate-200 hover:border-orange-200 hover:bg-orange-50/30 text-slate-600 rounded-lg text-[11px] sm:text-sm font-black uppercase tracking-wider transition-all shadow-sm active:scale-95"
             >
               <RefreshCw className={cn("w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:rotate-180 transition-transform duration-500", loadingFeedback && "animate-spin")} />
               Sync Live Sheet
@@ -2420,19 +2056,19 @@ export function DashboardView() {
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-black text-white/40">#{index + 1}</span>
                       <span className="w-2 h-2 rounded-full bg-white/90 shadow-sm shadow-white/20 animate-pulse"></span>
-                      <span className="text-[10px] font-black text-white/70 tracking-[0.1em]">{dateDisplay}</span>
+                      <span className="text-xs font-black text-white/70 tracking-[0.1em]">{dateDisplay}</span>
                     </div>
 
                     {/* Customer & Firm */}
                     <div className="space-y-1">
                       <h3 className="text-lg font-[900] text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
-                      <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
+                      <p className="text-xs font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
                     </div>
 
                     {/* Feedback Textbox */}
                     {item.additional_feedback && (
                       <div className="bg-white/10 backdrop-blur-md rounded-[20px] p-4 border border-white/10">
-                        <p className="text-[12px] text-white font-black italic leading-relaxed text-center">
+                        <p className="text-sm text-white font-black italic leading-relaxed text-center">
                           "{item.additional_feedback}"
                         </p>
                       </div>
@@ -2444,7 +2080,7 @@ export function DashboardView() {
                         const val = item.categoryRatings?.[cat] || 0;
                         return (
                           <div key={cat} className="flex items-center justify-between gap-1">
-                            <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.1em]">{cat}</span>
+                            <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.1em]">{cat}</span>
                             <div className="flex gap-0.5">
                               {Array.from({ length: 5 }).map((_, i) => (
                                 <Star
@@ -2476,13 +2112,12 @@ export function DashboardView() {
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
                 <TableRow className="hover:bg-transparent border-none">
-                  <TableHead className="py-2 px-1 sm:py-4 sm:px-3 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">S.No</TableHead>
-                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</TableHead>
-                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">Firm</TableHead>
-                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[7px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Feedback</TableHead>
+                  <TableHead className="py-2 px-1 sm:py-4 sm:px-3 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">S.No</TableHead>
+                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Customer</TableHead>
+                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Firm</TableHead>
+                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">Feedback</TableHead>
                   {["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"].map((cat) => (
-                    <TableHead key={cat} className="py-2 px-1 sm:py-4 sm:px-2 text-[6px] sm:text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">{cat}</TableHead>
+                    <TableHead key={cat} className="py-2 px-1 sm:py-4 sm:px-2 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">{cat}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
@@ -2490,7 +2125,7 @@ export function DashboardView() {
                 {loadingFeedback ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i} className="animate-pulse">
-                      <TableCell colSpan={13} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
+                      <TableCell colSpan={12} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
                     </TableRow>
                   ))
                 ) : customerFeedback.length > 0 ? (
@@ -2510,19 +2145,16 @@ export function DashboardView() {
                     return (
                       <TableRow key={index} className="hover:bg-slate-50/40 transition-colors border-slate-50 group">
                         <TableCell className="py-1.5 px-1 sm:py-3 sm:px-3 text-center">
-                          <span className="text-[8px] sm:text-xs font-black text-slate-400">{index + 1}</span>
+                          <span className="text-xs sm:text-sm md:text-base font-black text-slate-400">{index + 1}</span>
                         </TableCell>
                         <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
-                          <p className="text-[8px] sm:text-[11px] font-bold text-slate-500 whitespace-nowrap">{dateDisplay}</p>
+                          <p className="text-xs sm:text-sm md:text-base font-medium text-slate-700">{item.customer_name}</p>
                         </TableCell>
                         <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
-                          <p className="text-[8px] sm:text-xs font-black text-slate-800 uppercase tracking-tight">{item.customer_name}</p>
-                        </TableCell>
-                        <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
-                          <p className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px] sm:max-w-[150px]">{item.firm_name}</p>
+                          <p className="text-xs sm:text-sm md:text-base font-medium text-slate-700 truncate max-w-[80px] sm:max-w-[150px]">{item.firm_name}</p>
                         </TableCell>
                         <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4 text-center">
-                          <p className="text-[7px] sm:text-[11px] text-slate-800 font-bold italic leading-snug line-clamp-2 max-w-[100px] sm:max-w-[200px] mx-auto">
+                          <p className="text-xs sm:text-sm md:text-base font-medium text-slate-700 line-clamp-2 max-w-[100px] sm:max-w-[200px] mx-auto">
                             {item.additional_feedback}
                           </p>
                         </TableCell>
@@ -2543,11 +2175,11 @@ export function DashboardView() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={13} className="py-16 sm:py-32 text-center">
+                    <TableCell colSpan={12} className="py-16 sm:py-32 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <MessageSquare className="w-10 h-10 sm:w-20 sm:h-20 text-slate-100 mb-3 sm:mb-6" />
-                        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] sm:text-sm">No Feedback Records Found</p>
-                        <Button onClick={() => fetchCustomerFeedback()} variant="link" className="text-orange-500 font-black uppercase tracking-widest text-[8px] sm:text-[10px] mt-2 sm:mt-4">
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-xs sm:text-base">No Feedback Records Found</p>
+                        <Button onClick={() => fetchCustomerFeedback()} variant="link" className="text-orange-500 font-black uppercase tracking-widest text-xs sm:text-sm mt-3 sm:mt-5">
                           Retry Connecting to Sheets
                         </Button>
                       </div>
@@ -2559,13 +2191,13 @@ export function DashboardView() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 px-1">
-            <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider">
+            <p className="text-[10px] sm:text-sm font-black text-slate-400 uppercase tracking-wider">
               Showing {customerFeedback.length} Client Reviews
+
             </p>
-            <p className="text-[8px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-wider">● Live Sync</p>
+            <p className="text-[10px] sm:text-xs font-black text-emerald-500 uppercase tracking-wider">â— Live Sync</p>
           </div>
         </div>
-
       </>
     </div>
   )
