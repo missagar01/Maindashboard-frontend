@@ -2228,19 +2228,19 @@ export function DashboardView() {
           </div>
 
           {/* Mobile View - Cards */}
-          <div className="sm:hidden space-y-4 px-1 pb-10">
+          <div className="sm:hidden space-y-2 px-0.5 pb-4">
             {loadingFeedback ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-[24px] p-6 border border-slate-100 animate-pulse space-y-4 shadow-sm">
+                <div key={i} className="w-full bg-white rounded-2xl p-3 border border-slate-100 animate-pulse space-y-2 shadow-sm">
                   <div className="flex items-center gap-2">
                     <div className="h-4 bg-slate-100 rounded w-1/4"></div>
                   </div>
                   <div className="space-y-2">
-                    <div className="h-6 bg-slate-100 rounded w-1/2"></div>
+                    <div className="h-5 bg-slate-100 rounded w-1/2"></div>
                     <div className="h-4 bg-slate-100 rounded w-1/3"></div>
                   </div>
-                  <div className="h-16 bg-slate-50 rounded-2xl"></div>
-                  <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="h-12 bg-slate-50 rounded-xl"></div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <div key={j} className="h-4 bg-slate-100 rounded w-full"></div>
                     ))}
@@ -2257,7 +2257,7 @@ export function DashboardView() {
                   <div
                     key={index}
                     className={cn(
-                      "rounded-[24px] p-6 shadow-xl space-y-5 relative overflow-hidden text-white border-none",
+                      "w-full rounded-2xl p-3 shadow-lg space-y-2.5 relative overflow-hidden text-white border-none",
                       isEven
                         ? "bg-gradient-to-br from-blue-600 to-blue-700 shadow-blue-100"
                         : "bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-emerald-100"
@@ -2271,27 +2271,27 @@ export function DashboardView() {
                     </div>
 
                     {/* Customer & Firm */}
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
+                    <div className="space-y-0.5">
+                      <h3 className="text-base font-black text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
                       <p className="text-xs font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
                     </div>
 
                     {/* Feedback Textbox */}
                     {item.additional_feedback && (
-                      <div className="bg-white/10 backdrop-blur-md rounded-[20px] p-4 border border-white/10">
-                        <p className="text-sm text-white font-black italic leading-relaxed text-center">
-                          "{item.additional_feedback}"
+                      <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 border border-white/10">
+                        <p className="text-xs sm:text-sm text-white font-semibold leading-relaxed text-center whitespace-normal break-words">
+                          {item.additional_feedback}
                         </p>
                       </div>
                     )}
 
                     {/* Rating Grid */}
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1">
                       {["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"].map((cat) => {
                         const val = item.categoryRatings?.[cat] || 0;
                         return (
                           <div key={cat} className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.1em]">{cat}</span>
+                            <span className="text-[9px] font-black text-white/55 uppercase tracking-[0.08em]">{cat}</span>
                             <div className="flex gap-0.5">
                               {Array.from({ length: 5 }).map((_, i) => (
                                 <Star
