@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { ChartContainer, ChartTooltip } from "./ui/chart"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
-import { Cell, Pie, PieChart, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
 import { cn } from "../../lib/utils"
 import { o2dAPI } from "../../services/o2dAPI";
 import { Input } from "./ui/input"
@@ -46,6 +46,7 @@ type DashboardSummary = {
   allSaudaAvg?: Array<{ SALES_PERSON: string; ITEM: string; AVERAGE: number }>
   salesAvg?: Array<{ SALES_PERSON: string; ITEM: string; AVERAGE: number }>
   saudaRate2026?: number
+  stateDistribution?: Array<{ STATE_NAME: string; TOTAL: number }>
 }
 
 type DashboardFilters = {
@@ -118,6 +119,7 @@ export function DashboardView() {
   const [selectedSales, setSelectedSales] = useState("All Salespersons")
   const [selectedState, setSelectedState] = useState("All States")
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"))
+  const currentEnquiryMonth = format(new Date(), "yyyy-MM")
 
   // Custom Date Filters
   const [startDate, setStartDate] = useState<string>(
@@ -144,10 +146,54 @@ export function DashboardView() {
   const [deliveryStats, setDeliveryStats] = useState<{ monthly: any; daily: any } | null>(null)
   const [salespersonDeliveryStats, setSalespersonDeliveryStats] = useState<Record<string, any>>({})
 
+  const getFeedbackTimestampMs = useCallback((value: unknown): number => {
+    if (value == null) return 0;
+
+    if (typeof value === "number") {
+      if (value > 1_000_000_000_000) return value;
+      if (value > 1_000_000_000) return value * 1000;
+      return 0;
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return 0;
+
+    const isoParsed = parseISO(raw);
+    if (!Number.isNaN(isoParsed.getTime())) {
+      return isoParsed.getTime();
+    }
+
+    const nativeParsed = Date.parse(raw);
+    if (!Number.isNaN(nativeParsed)) {
+      return nativeParsed;
+    }
+
+    // Fallback for DD/MM/YYYY style timestamps from sheets.
+    const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (!match) return 0;
+
+    const day = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const yearRaw = Number(match[3]);
+    const year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
+    const hour = Number(match[4] || 0);
+    const minute = Number(match[5] || 0);
+    const second = Number(match[6] || 0);
+
+    const parsed = new Date(year, month, day, hour, minute, second);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  }, []);
+
+  const getFeedbackDateDisplay = useCallback((value: unknown): string => {
+    const ts = getFeedbackTimestampMs(value);
+    if (!ts) return "N/A";
+    return format(new Date(ts), "dd/MM/yyyy HH:mm");
+  }, [getFeedbackTimestampMs]);
+
   const fetchEnquiryReport = async () => {
     setLoadingEnquiry(true)
     try {
-      const response = await o2dAPI.getCurrentMonthEnquiryReport(selectedMonth)
+      const response = await o2dAPI.getCurrentMonthEnquiryReport(currentEnquiryMonth)
       if (response.data?.success) {
         setEnquiryReport(response.data.data)
       }
@@ -235,8 +281,24 @@ export function DashboardView() {
         score: categoryCounts[i] > 0 ? (categorySums[i] / categoryCounts[i]).toFixed(1) : "5.0"
       }));
 
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+
+      const sortedFeedback = [...formattedData].sort((a, b) => {
+        const aTs = getFeedbackTimestampMs(a.timestamp);
+        const bTs = getFeedbackTimestampMs(b.timestamp);
+        const aIsToday = aTs >= startOfToday && aTs < endOfToday ? 1 : 0;
+        const bIsToday = bTs >= startOfToday && bTs < endOfToday ? 1 : 0;
+
+        if (aIsToday !== bIsToday) {
+          return bIsToday - aIsToday;
+        }
+        return bTs - aTs;
+      });
+
       setFeedbackStats(stats);
-      setCustomerFeedback(formattedData);
+      setCustomerFeedback(sortedFeedback);
     } catch (err: any) {
       console.error("Feedback Fetch Failure:", err.message);
       // Let the UI show "No Records Found" with retry option
@@ -706,27 +768,20 @@ export function DashboardView() {
   }, [data?.summary, salespersonDeliveryStats, selectedSales]);
 
   const stateDistributionData = useMemo(() => {
-    if (!filteredData) return [];
-    const stateMap: Record<string, number> = {};
-    filteredData.forEach(row => {
-      // Handle multiple potential state field names from backend
-      const stateName = (row.stateName || (row as any).state || (row as any).STATE || "").toString().trim();
-      if (stateName) {
-        stateMap[stateName] = (stateMap[stateName] || 0) + 1;
-      }
-    });
+    if (!data?.summary?.stateDistribution) return [];
 
-    const entries = Object.entries(stateMap)
-      .map(([state, count]) => ({ state, count }))
-      .sort((a, b) => b.count - a.count);
+    const stateData = data.summary.stateDistribution.map((item: any) => ({
+      state: item.STATE_NAME && item.STATE_NAME.trim() !== '' ? item.STATE_NAME.trim() : 'UNKNOWN',
+      count: item.TOTAL || 0,
+    }));
 
-    const totalCount = entries.reduce((acc, curr) => acc + curr.count, 0);
+    const totalCount = stateData.reduce((acc: number, curr: any) => acc + curr.count, 0);
     if (totalCount === 0) return [];
 
     const result: { state: string; count: number }[] = [];
     let miscCount = 0;
 
-    entries.forEach(entry => {
+    stateData.forEach((entry: any) => {
       const percentage = (entry.count / totalCount) * 100;
       if (percentage < 2) {
         miscCount += entry.count;
@@ -736,11 +791,34 @@ export function DashboardView() {
     });
 
     if (miscCount > 0) {
-      result.push({ state: "Miscellaneous", count: miscCount });
+      result.push({ state: "Others", count: miscCount });
     }
 
     return result;
-  }, [filteredData]);
+  }, [data?.summary?.stateDistribution]);
+
+  const mobileStateShareData = useMemo(() => {
+    const mobileStatePieColors = [
+      "#4f46e5",
+      "#0ea5e9",
+      "#059669",
+      "#f59e0b",
+      "#e11d48",
+      "#7c3aed",
+      "#0891b2",
+      "#c026d3",
+      "#0d9488",
+      "#ea580c",
+    ];
+
+    const totalVolume = stateDistributionData.reduce((acc, curr) => acc + curr.count, 0);
+    return stateDistributionData.map((entry, index) => ({
+      name: entry.state,
+      value: entry.count,
+      percentage: totalVolume > 0 ? Number(((entry.count / totalVolume) * 100).toFixed(1)) : 0,
+      fill: mobileStatePieColors[index % mobileStatePieColors.length],
+    }));
+  }, [stateDistributionData]);
 
   const downloadPDF = async () => {
     if (!dashboardRef.current) {
@@ -947,7 +1025,7 @@ export function DashboardView() {
   // New Stats State (Moved to top)
 
   return (
-    <div className="relative space-y-2 sm:space-y-4 p-2 sm:p-4 lg:p-8 bg-white min-h-screen" ref={dashboardRef}>
+    <div className="relative w-full max-w-full min-w-0 overflow-x-hidden overflow-x-clip overscroll-x-none touch-pan-y space-y-2 sm:space-y-4 p-2 sm:p-4 lg:p-8 bg-white min-h-screen font-sans" ref={dashboardRef}>
       {loading && data && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
           <div className="flex flex-col items-center justify-center space-y-4 bg-white rounded-lg shadow-2xl p-8">
@@ -956,11 +1034,6 @@ export function DashboardView() {
           </div>
         </div>
       )}
-
-
-
-
-
 
       {/* O2D Dashboard Content */}
       <>
@@ -978,7 +1051,7 @@ export function DashboardView() {
         )}
 
         <div>
-          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5 sm:mb-2">
             <h3 className="flex items-center gap-1.5 sm:gap-2 text-indigo-700 text-sm sm:text-lg font-semibold">
               <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
               Dashboard Filters
@@ -1001,7 +1074,7 @@ export function DashboardView() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-4 lg:gap-6">
             {/* Date Pickers */}
             <DatePicker
               label="From Date"
@@ -1041,77 +1114,106 @@ export function DashboardView() {
         </div>
 
         {/* Unified Metrics Grid - 15 cards that flow automatically */}
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-3 mb-4 sm:mb-8">
-          {/* Part 1: Sauda Averages (3 cards) */}
-          {itemAverages.map((itemData, index) => {
-            const gradients = [
-              'from-indigo-500 via-indigo-600 to-blue-600',
-              'from-red-500 via-orange-500 to-orange-600',
-              'from-teal-500 via-cyan-500 to-cyan-600'
-            ]
-            return (
-              <Card key={`sauda-${itemData.item}`} className={cn("shadow-lg border-none transition-transform hover:scale-105 bg-gradient-to-br text-white", gradients[index])}>
-                <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
-                  <p className="text-[12px] sm:text-base md:text-lg lg:text-xl font-black uppercase leading-tight px-1">{itemData.item}</p>
-                  <p className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-bold opacity-85 uppercase tracking-wide">Sauda Avg</p>
-                  <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none mt-0.5 sm:mt-1">
-                    {formatMetricValue(itemData.saudaAvg)}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <div className="mb-2 sm:mb-6">
+          {(() => {
+            const stripCommas = (val: string | number) => String(val ?? "").replace(/,/g, "");
+            const saudaValueColors = ["text-indigo-700", "text-orange-600", "text-cyan-700"];
+            const salesValueColors = ["text-emerald-600", "text-slate-800", "text-pink-600"];
+            const desktopGradients = [
+              "from-indigo-500 to-blue-600",
+              "from-red-500 to-orange-600",
+              "from-teal-500 to-cyan-600",
+              "from-green-600 to-emerald-700",
+              "from-slate-700 to-slate-900",
+              "from-pink-500 to-fuchsia-600",
+              "from-violet-500 to-indigo-600",
+              "from-pink-500 to-rose-600",
+              "from-indigo-400 to-violet-600",
+              "from-green-500 to-emerald-600",
+              "from-orange-500 to-amber-500",
+              "from-cyan-500 to-teal-500",
+              "from-emerald-500 to-teal-600",
+              "from-teal-500 to-green-700",
+              "from-fuchsia-500 to-pink-600",
+            ];
 
-          {/* Part 2: Sales Averages (3 cards) */}
-          {itemAverages.map((itemData, index) => {
-            const colors = ['#099438ff', '#142b49ff', '#E3227C']
-            return (
-              <Card key={`sales-${itemData.item}`} className="shadow-lg text-white border-none transition-transform hover:scale-105" style={{ background: colors[index] }}>
-                <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
-                  <p className="text-[12px] sm:text-base md:text-lg lg:text-xl font-black uppercase leading-tight px-1">{itemData.item}</p>
-                  <p className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-bold opacity-85 uppercase tracking-wide">Sales Avg</p>
-                  <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none mt-0.5 sm:mt-1">
-                    {formatMetricValue(itemData.salesAvg)}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+            const rows = [
+              ...itemAverages.map((itemData, index) => ({
+                label: `Sauda - ${itemData.item}`,
+                value: stripCommas(formatMetricValue(itemData.saudaAvg)),
+                valueColor: saudaValueColors[index],
+              })),
+              ...itemAverages.map((itemData, index) => ({
+                label: `Sales - ${itemData.item}`,
+                value: stripCommas(formatMetricValue(itemData.salesAvg)),
+                valueColor: salesValueColors[index],
+              })),
+              { label: "Sauda Rate", value: stripCommas(`${formatMetricValue(displayMetrics.saudaRate2026)}`), valueColor: "text-indigo-700" },
+              { label: "Monthly Late", value: deliveryStats?.monthly?.score ?? "0%", valueColor: "text-rose-600" },
+              { label: "Daily Late", value: deliveryStats?.daily?.score ?? "0%", valueColor: "text-violet-700" },
+              { label: "Monthly GD", value: stripCommas(`${formatMetricValue(displayMetrics.monthlyGd)}`), valueColor: "text-emerald-700" },
+              { label: "Daily GD", value: stripCommas(`${formatMetricValue(displayMetrics.dailyGd)}`), valueColor: "text-orange-600" },
+              { label: "Working Party", value: stripCommas(formatMetricValue(displayMetrics.monthlyWorkingParty)), valueColor: "text-cyan-700" },
+              { label: "Party Average", value: displayMetrics.monthlyPartyAverage, valueColor: "text-teal-700" },
+              { label: "Parties Pending", value: stripCommas(formatMetricValue(displayMetrics.pendingOrdersTotal)), valueColor: "text-green-700" },
+              { label: "Conversion Ratio", value: displayMetrics.conversionRatio, valueColor: "text-pink-600" },
+            ];
 
-          {/* Part 3: Operational Metrics (9 cards) */}
-          {[
-            { label: "Sauda Rate", value: `${formatMetricValue(displayMetrics.saudaRate2026)}`, grad: "from-purple-500 via-indigo-500 to-blue-600" },
-            { label: "Monthly Late", value: deliveryStats?.monthly?.score ?? '0%', grad: "from-pink-500 via-rose-500 to-red-500" },
-            { label: "Daily Late", value: deliveryStats?.daily?.score ?? '0%', grad: "from-indigo-400 via-indigo-500 to-indigo-600" },
-            { label: "Monthly GD", value: `${formatMetricValue(displayMetrics.monthlyGd)}`, grad: "from-green-400 via-green-500 to-green-600" },
-            { label: "Daily GD", value: `${formatMetricValue(displayMetrics.dailyGd)}`, grad: "from-orange-400 via-orange-500 to-amber-500" },
-            { label: "Working Party", value: formatMetricValue(displayMetrics.monthlyWorkingParty), grad: "from-cyan-400 via-cyan-500 to-teal-500" },
-            { label: "Party Average", value: displayMetrics.monthlyPartyAverage, grad: "from-emerald-400 via-emerald-500 to-teal-600" },
-            { label: "Parties Pending", value: formatMetricValue(displayMetrics.pendingOrdersTotal), grad: "from-teal-500 via-emerald-600 to-green-700" },
-            { label: "Conversion Ratio", value: displayMetrics.conversionRatio, grad: "from-pink-400 via-pink-500 to-rose-600" },
-          ].map((metric, idx) => (
-            <Card key={idx} className={cn("shadow-lg border-none transition-transform hover:scale-105 text-white bg-gradient-to-br", metric.grad)}>
-              <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center min-h-[84px] sm:min-h-[130px] text-center">
-                <p className="text-[11px] sm:text-sm md:text-base lg:text-lg font-black uppercase tracking-wide mb-0.5 sm:mb-1 leading-tight px-1">
-                  {metric.label}
-                </p>
-                <div className="text-[20px] sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-none">
-                  {metric.value}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+            const getDesktopLabel = (label: string) => {
+              if (label.startsWith("Sauda - ")) {
+                return { top: label.replace("Sauda - ", "").toUpperCase(), sub: "SAUDA AVG" };
+              }
+              if (label.startsWith("Sales - ")) {
+                return { top: label.replace("Sales - ", "").toUpperCase(), sub: "SALES AVG" };
+              }
+              return { top: label.toUpperCase(), sub: "" };
+            };
+
+            return (
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-px sm:gap-2">
+                {rows.map((metric, idx) => {
+                  const label = getDesktopLabel(metric.label);
+                  return (
+                    <Card
+                      key={`d-${metric.label}-${idx}`}
+                      className={cn(
+                        "border-none rounded-md sm:rounded-xl shadow-md text-white overflow-hidden bg-gradient-to-br",
+                        desktopGradients[idx % desktopGradients.length]
+                      )}
+                    >
+                      <CardContent className="p-0.5 sm:p-2 md:p-3 min-h-[72px] sm:min-h-[110px] md:min-h-[124px] flex flex-col items-center justify-center text-center">
+                        <p className="text-[11px] sm:text-[11px] font-black uppercase tracking-wide leading-tight">
+                          {label.top}
+                        </p>
+                        {label.sub ? (
+                          <p className="text-[10px] sm:text-xs font-bold uppercase text-white/90 leading-none mt-0.5">
+                            {label.sub}
+                          </p>
+                        ) : (
+                          <div className="h-[12px] sm:h-[16px]" />
+                        )}
+                        <div className="text-[18px] sm:text-[30px] md:text-[46px] font-black leading-none mt-1">
+                          {metric.value}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
+
         {/* Salesperson Performance Analytics - Unified Master View */}
-        <div className="space-y-1 mb-4 sm:mb-6 overflow-hidden bg-slate-50 p-2 sm:p-3 rounded-2xl border border-slate-200">
-          <div className="flex items-center gap-3">
+        <div className="space-y-1 mb-4 sm:mb-6 overflow-visible sm:overflow-hidden bg-transparent sm:bg-slate-50 p-0 sm:p-3 rounded-none sm:rounded-2xl border-0 sm:border sm:border-slate-200">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
               <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
             </div>
-            <h2 className="text-base sm:text-xl font-bold text-slate-800 tracking-tight">
+            <h2 className="min-w-0 text-base sm:text-xl font-bold text-slate-800 tracking-tight">
               Sales Person Analytics
             </h2>
-            <Badge className="bg-white text-slate-600 border border-slate-200 font-semibold text-[10px] sm:text-xs px-2 py-0.5 shadow-sm">
+            <Badge className="shrink-0 bg-white text-slate-600 border border-slate-200 font-semibold text-[10px] sm:text-xs px-2 py-0.5 shadow-sm">
               {salespersonAnalytics.length} Active
             </Badge>
           </div>
@@ -1132,6 +1234,7 @@ export function DashboardView() {
                   { bg: "bg-sky-50/50", border: "border-sky-100", accent: "text-sky-600" },
                 ];
                 const style = rowStyles[index % rowStyles.length];
+                const stripCommas = (val: string | number | null | undefined) => String(val ?? "0").replace(/,/g, "");
 
                 return (
                   <div key={person.name} className={cn("rounded-xl border bg-white p-2 sm:p-3 shadow-sm", style.bg, style.border)}>
@@ -1141,30 +1244,30 @@ export function DashboardView() {
 
                     <div className="grid grid-cols-2 lg:grid-cols-6 gap-px">
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Monthly Late</p>
-                        <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">{person.delivery.monthly.score}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Monthly Late</p>
+                        <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">{stripCommas(person.delivery.monthly.score)}</p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Daily Late</p>
-                        <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">{person.delivery.daily.score}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Daily Late</p>
+                        <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">{stripCommas(person.delivery.daily.score)}</p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Working Party</p>
-                        <p className={cn("text-xl sm:text-2xl font-bold mt-1", style.accent)}>{person.workingParty.count}</p>
-                        <p className="text-xs sm:text-sm text-slate-500 mt-1">Avg: {person.workingParty.average}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Working Party</p>
+                        <p className={cn("text-sm sm:text-base font-bold mt-1", style.accent)}>{stripCommas(person.workingParty.count)}</p>
+                        <p className="text-sm sm:text-base text-slate-500 mt-1">Avg: {stripCommas(person.workingParty.average)}</p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Pending Orders</p>
-                        <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">{person.pendingOrders.count}</p>
-                        <p className="text-xs sm:text-sm text-slate-500 mt-1">Conv: {person.pendingOrders.ratio}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Pending Orders</p>
+                        <p className="text-sm sm:text-base font-bold text-purple-600 mt-1">{stripCommas(person.pendingOrders.count)}</p>
+                        <p className="text-sm sm:text-base text-slate-500 mt-1">Conv: {stripCommas(person.pendingOrders.ratio)}</p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Monthly Revenue</p>
-                        <p className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1">₹{person.gd.monthly.toLocaleString("en-IN")}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Monthly Revenue</p>
+                        <p className="text-sm sm:text-base font-bold text-emerald-600 mt-1">₹{stripCommas(person.gd.monthly)}</p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500">Today Revenue</p>
-                        <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">₹{person.gd.daily.toLocaleString("en-IN")}</p>
+                        <p className="text-sm sm:text-base font-semibold text-slate-500">Today Revenue</p>
+                        <p className="text-sm sm:text-base font-bold text-amber-600 mt-1">₹{stripCommas(person.gd.daily)}</p>
                       </div>
                     </div>
 
@@ -1172,12 +1275,12 @@ export function DashboardView() {
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
                         <div className="space-y-2">
                           {person.saudaAvg.length === 0 ? (
-                            <p className="text-sm text-slate-400">No sauda data</p>
+                            <p className="text-sm sm:text-base text-slate-400">No sauda data</p>
                           ) : (
                             person.saudaAvg.map((s: any, i: number) => (
                               <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5">
                                 <span className="text-sm sm:text-base font-semibold text-slate-700">Sauda - {s.ITEM}</span>
-                                <span className="text-base sm:text-lg font-bold text-indigo-600">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
+                                <span className="text-sm sm:text-base font-bold text-indigo-600">₹{stripCommas(s.AVERAGE)}</span>
                               </div>
                             ))
                           )}
@@ -1187,12 +1290,12 @@ export function DashboardView() {
                       <div className="rounded-lg border border-slate-200 bg-white p-2">
                         <div className="space-y-2">
                           {person.salesAvg.length === 0 ? (
-                            <p className="text-sm text-slate-400">No sales data</p>
+                            <p className="text-sm sm:text-base text-slate-400">No sales data</p>
                           ) : (
                             person.salesAvg.map((s: any, i: number) => (
                               <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5">
                                 <span className="text-sm sm:text-base font-semibold text-slate-700">Sales - {s.ITEM}</span>
-                                <span className="text-base sm:text-lg font-bold text-emerald-600">₹{s.AVERAGE.toLocaleString("en-IN")}</span>
+                                <span className="text-sm sm:text-base font-bold text-emerald-600">₹{stripCommas(s.AVERAGE)}</span>
                               </div>
                             ))
                           )}
@@ -1205,19 +1308,20 @@ export function DashboardView() {
             )}
           </div>
         </div>
+
         {/* Sale Performance State Wise Section */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden mb-10">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-2 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 sm:gap-4">
+        <Card className="border-none shadow-none bg-transparent overflow-visible mb-0 sm:shadow-sm sm:bg-white sm:overflow-hidden">
+          <CardHeader className="p-0 bg-transparent border-none sm:bg-slate-50/50 sm:border-b sm:border-slate-100 sm:p-6">
+            <div className="flex items-center justify-between px-0 py-0">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div className="w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
                   <Trophy className="w-3.5 h-3.5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div className="space-y-0.5">
-                  <CardTitle className="text-xs sm:text-2xl font-black text-slate-800 tracking-tight">Sale Performance State Wise</CardTitle>
-                  <div className="flex items-center gap-1.5">
+                <div className="space-y-0">
+                  <CardTitle className="text-sm sm:text-2xl font-black text-slate-800 tracking-tight leading-none">Sale Performance State Wise</CardTitle>
+                  <div className="flex items-center gap-1">
                     <span className="flex w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time Volume Analysis</p>
+                    <p className="text-[10px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none m-0">Real-time Volume Analysis</p>
                   </div>
                 </div>
               </div>
@@ -1229,9 +1333,8 @@ export function DashboardView() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-1.5 sm:p-6">
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1 sm:gap-4">
+          <CardContent className="p-0 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1 sm:gap-2">
               {stateDistributionData.map((item, index) => {
                 const totalVolume = stateDistributionData.reduce((acc, curr) => acc + curr.count, 0);
                 const percentage = totalVolume > 0 ? ((item.count / totalVolume) * 100).toFixed(1) : "0";
@@ -1249,274 +1352,231 @@ export function DashboardView() {
                   "from-orange-500 via-orange-600 to-orange-700 shadow-orange-200/50", // Orange
                 ];
                 const gradient = gradients[index % gradients.length];
+                const mobileStyles = [
+                  { row: "border-[#C7D2FE] bg-[#F5F7FF]", labelBg: "bg-[#E9EDFF]", labelText: "text-[#1E2A78]", unitsBg: "bg-[#EEF9F4]", unitsText: "text-[#0F7A4A]", shareBg: "bg-[#FFF4E8]", shareText: "text-[#B45309]" },
+                  { row: "border-[#BAE6FD] bg-[#F2FAFF]", labelBg: "bg-[#E6F6FF]", labelText: "text-[#075985]", unitsBg: "bg-[#ECFDF3]", unitsText: "text-[#047857]", shareBg: "bg-[#FFF1F2]", shareText: "text-[#BE123C]" },
+                  { row: "border-[#A7F3D0] bg-[#F1FCF6]", labelBg: "bg-[#E6FCEF]", labelText: "text-[#065F46]", unitsBg: "bg-[#EEF4FF]", unitsText: "text-[#1D4ED8]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
+                  { row: "border-[#FDE68A] bg-[#FFFBEB]", labelBg: "bg-[#FFF7D6]", labelText: "text-[#92400E]", unitsBg: "bg-[#EEF2FF]", unitsText: "text-[#4338CA]", shareBg: "bg-[#ECFDF5]", shareText: "text-[#047857]" },
+                  { row: "border-[#FBCFE8] bg-[#FFF5FA]", labelBg: "bg-[#FFEAF4]", labelText: "text-[#9D174D]", unitsBg: "bg-[#EEF9FF]", unitsText: "text-[#0E7490]", shareBg: "bg-[#F5F3FF]", shareText: "text-[#6D28D9]" },
+                  { row: "border-[#DDD6FE] bg-[#F7F5FF]", labelBg: "bg-[#EEE9FF]", labelText: "text-[#5B21B6]", unitsBg: "bg-[#F0FDFA]", unitsText: "text-[#0F766E]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
+                  { row: "border-[#A5F3FC] bg-[#F0FDFF]", labelBg: "bg-[#E6FBFF]", labelText: "text-[#155E75]", unitsBg: "bg-[#F0F9FF]", unitsText: "text-[#1D4ED8]", shareBg: "bg-[#FFF1F2]", shareText: "text-[#BE123C]" },
+                  { row: "border-[#F5D0FE] bg-[#FFF5FF]", labelBg: "bg-[#FCEBFF]", labelText: "text-[#86198F]", unitsBg: "bg-[#EEFDF5]", unitsText: "text-[#047857]", shareBg: "bg-[#EEF2FF]", shareText: "text-[#4338CA]" },
+                  { row: "border-[#99F6E4] bg-[#F0FDFA]", labelBg: "bg-[#E7FCF6]", labelText: "text-[#115E59]", unitsBg: "bg-[#F8FAFC]", unitsText: "text-[#0F172A]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
+                  { row: "border-[#FED7AA] bg-[#FFF7ED]", labelBg: "bg-[#FFEFD8]", labelText: "text-[#9A3412]", unitsBg: "bg-[#EEF2FF]", unitsText: "text-[#3730A3]", shareBg: "bg-[#ECFDF5]", shareText: "text-[#047857]" },
+                ];
+                const mobileStyle = mobileStyles[index % mobileStyles.length];
 
                 return (
-                  <Card
-                    key={item.state}
-                    className={cn(
-                      "group relative border-none transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden min-h-[112px] sm:min-h-[136px] lg:min-h-[152px] bg-gradient-to-br",
-                      gradient
-                    )}
-                  >
-                    {/* Decorative Elements */}
-                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-                      <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-white rotate-12" />
+                  <div key={item.state} className="w-full">
+                    {/* Mobile Row View */}
+                    <div className={cn("sm:hidden h-11 w-full rounded-md border px-2 py-1 grid grid-cols-[1.15fr_0.9fr_0.9fr] items-center gap-1.5 shadow-[0_1px_2px_rgba(15,23,42,0.08)]", mobileStyle.row)}>
+                      <p className={cn("min-w-0 truncate rounded-md px-2 py-1 text-[13px] font-semibold uppercase leading-none", mobileStyle.labelBg, mobileStyle.labelText)}>
+                        {item.state}
+                      </p>
+                      <p className={cn("rounded-md px-2 py-1 text-center text-[13px] font-semibold leading-none", mobileStyle.unitsBg, mobileStyle.unitsText)}>
+                        {item.count.toLocaleString()}
+                      </p>
+                      <p className={cn("rounded-md px-2 py-1 text-center text-[13px] font-semibold leading-none", mobileStyle.shareBg, mobileStyle.shareText)}>
+                        {percentage}%
+                      </p>
                     </div>
 
-                    <CardContent className="relative z-10 h-full p-2 sm:p-3 lg:p-4 flex flex-col items-center justify-center text-center gap-1.5 sm:gap-2">
-                      <div className="px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/20 inline-flex items-center gap-1.5">
-                        <span className="text-xs sm:text-sm font-black text-white font-mono leading-none">{item.count.toLocaleString()}</span>
-                        <span className="text-[9px] sm:text-[10px] text-white/85 font-bold uppercase tracking-wide leading-none">Units</span>
+                    <Card
+                      className={cn(
+                        "hidden sm:block group relative border-none transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden min-h-[136px] lg:min-h-[152px] rounded-xl bg-gradient-to-br",
+                        gradient
+                      )}
+                    >
+
+                      {/* Decorative Elements */}
+                      <div className="hidden sm:block absolute top-1 right-1 sm:top-2 sm:right-2 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                        <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-white rotate-12" />
                       </div>
 
-                      <CardTitle className="w-full px-1 text-sm sm:text-base lg:text-lg font-black text-white uppercase tracking-tight leading-tight break-all drop-shadow-sm text-center">
-                        {item.state}
-                      </CardTitle>
+                      <CardContent className="relative z-10 h-full p-1.5 sm:p-3 lg:p-4 flex flex-col items-center justify-center text-center gap-1 sm:gap-2">
+                        <div className="px-1.5 sm:px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
+                          <span className="text-[10px] sm:text-sm font-black text-white leading-none">{item.count.toLocaleString()}</span>
+                          <span className="text-[8px] sm:text-[10px] text-white/85 font-bold uppercase tracking-wide leading-none">Units</span>
+                        </div>
 
-                      <div className="w-16 sm:w-20 h-1 sm:h-1.5 bg-black/20 rounded-full overflow-hidden border border-white/10">
-                        <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${percentage}%` }}></div>
-                      </div>
+                        <CardTitle className="w-full px-1 text-xs sm:text-base lg:text-lg font-black text-white uppercase tracking-tight leading-tight break-all drop-shadow-sm text-center">
+                          {item.state}
+                        </CardTitle>
 
-                      <div className="space-y-0.5">
-                        <span className="text-[30px] sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-none block drop-shadow-md">
-                          {percentage}%
-                        </span>
-                        <p className="text-[10px] sm:text-xs font-black text-white/85 uppercase tracking-wide leading-none">Market Share</p>
-                      </div>
-                    </CardContent>
+                        <div className="w-14 sm:w-20 h-1 sm:h-1.5 bg-black/20 rounded-full overflow-hidden border border-white/10">
+                          <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${percentage}%` }}></div>
+                        </div>
 
-                    {/* Premium Glass Effect Reflection */}
-                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 via-white/5 to-transparent pointer-events-none opacity-50"></div>
+                        <div className="space-y-0.5">
+                          <span className="text-xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-none block drop-shadow-md">
+                            {percentage}%
+                          </span>
+                          <p className="text-[8px] sm:text-xs font-black text-white/85 uppercase tracking-wide leading-none">Market Share</p>
+                        </div>
+                      </CardContent>
 
-                    {/* Subtle Grainy Overlay */}
-                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }}></div>
-                  </Card>
+                      {/* Premium Glass Effect Reflection */}
+                      <div className="hidden sm:block absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 via-white/5 to-transparent pointer-events-none opacity-50"></div>
+
+                      {/* Subtle Grainy Overlay */}
+                      <div className="hidden sm:block absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }}></div>
+                    </Card>
+                  </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
 
-
-        {/* Current Month Enquiry Report Section */}
-        <Card className="border-l-4 border-l-emerald-500 bg-white shadow-xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent border-b border-emerald-100 p-4 md:p-6">
-            <div className="flex flex-col gap-4">
-              {/* Top Row: Title & Month Selector */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-100 rounded-xl shadow-sm">
-                    <Database className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg md:text-xl font-black text-slate-800 tracking-tight leading-tight">
-                      {selectedMonth === "All Months"
-                        ? "Overall Enquiry Report"
-                        : `${format(new Date(selectedMonth + "-01"), "MMMM yyyy")} Enquiry Report`}
-                    </CardTitle>
-                    <CardDescription className="text-[11px] md:text-xs text-emerald-700/70 font-bold uppercase tracking-wider">
-                      Aggregated enquiry volume by size and thickness
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <div className="w-full sm:w-auto">
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-full sm:w-[160px] h-9 border-emerald-200 text-emerald-700 bg-white shadow-sm text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-50 transition-colors">
-                      <SelectValue placeholder="Select Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Months">All Months</SelectItem>
-                      {(() => {
-                        const months = []
-                        const startDate = new Date(2025, 3, 1)
-                        const currentDate = new Date()
-                        for (let d = new Date(startDate); d <= currentDate; d.setMonth(d.getMonth() + 1)) {
-                          const year = d.getFullYear()
-                          const monthStr = (d.getMonth() + 1).toString().padStart(2, '0')
-                          const value = `${year}-${monthStr}`
-                          const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                          months.push(<SelectItem key={value} value={value}>{label}</SelectItem>)
-                        }
-                        return months.reverse()
-                      })()}
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Mobile Only: State Share Pie Chart Card */}
+            <div className="sm:hidden mt-2 w-full">
+              <div className="rounded-lg bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 px-2 py-1.5 text-center">
+                <p className="text-[11px] font-black uppercase tracking-wider text-white">State Share Pie</p>
+                <p className="text-[9px] font-bold uppercase tracking-wide text-white/85">State, Score & Market Share %</p>
               </div>
 
-              {/* Bottom Row: Badges & Stats */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Badge className="bg-emerald-500 text-white border-none font-bold px-3 py-1.5 text-[10px] md:text-[11px] uppercase tracking-widest shadow-md">
-                  {enquiryReport.length} ITEMS
-                </Badge>
+              {mobileStateShareData.length === 0 ? (
+                <p className="py-8 text-center text-xs font-semibold text-slate-400">No state share data available</p>
+              ) : (
+                <>
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-2">
+                    <div className="relative h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={mobileStateShareData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={44}
+                            outerRadius={84}
+                            paddingAngle={2}
+                            strokeWidth={1}
+                            stroke="#ffffff"
+                            labelLine={false}
+                            label={(props: any) => {
+                              const percent = Number(props?.payload?.percentage || 0);
+                              if (percent < 4) return null;
+                              const RADIAN = Math.PI / 180;
+                              const radius = (props?.outerRadius || 0) + 12;
+                              const x = (props?.cx || 0) + radius * Math.cos(-(props?.midAngle || 0) * RADIAN);
+                              const y = (props?.cy || 0) + radius * Math.sin(-(props?.midAngle || 0) * RADIAN);
+                              return (
+                                <text
+                                  x={x}
+                                  y={y}
+                                  fill="#0f172a"
+                                  textAnchor={x > (props?.cx || 0) ? "start" : "end"}
+                                  dominantBaseline="central"
+                                  fontSize={10}
+                                  fontWeight={800}
+                                >
+                                  {`${percent.toFixed(1)}%`}
+                                </text>
+                              );
+                            }}
+                          >
+                            {mobileStateShareData.map((entry, idx) => (
+                              <Cell key={`mobile-state-pie-${entry.name}-${idx}`} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
 
-                {enquiryReport.length > 0 && (
-                  <div className="flex items-center gap-3 bg-emerald-600 text-white px-4 py-1.5 rounded-full shadow-lg ml-0 sm:ml-auto">
-                    <span className="text-[9px] font-black uppercase tracking-[0.15em] opacity-80">Total Volume</span>
-                    <span className="text-sm md:text-base font-black font-mono">
-                      {enquiryReport.reduce((acc, curr) => acc + Number(curr.total), 0).toLocaleString()}
-                    </span>
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Total Score</p>
+                        <p className="text-base font-black text-slate-800">
+                          {mobileStateShareData.reduce((sum, row) => sum + row.value, 0).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-600">
+                          {mobileStateShareData[0]?.name || "Top State"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </CardHeader>
 
-          <CardContent className="p-0">
-            <div className="max-h-[650px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-emerald-100 relative">
-              <Table>
-                <TableHeader className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-sm shadow-sm">
-                  <TableRow className="hover:bg-transparent border-b-2 border-emerald-100">
-                    <TableHead className="w-[60px] md:w-[80px] font-black text-slate-600 uppercase tracking-widest text-[11px] md:text-[13px] py-4 pl-6">S.No</TableHead>
-                    <TableHead className="font-black text-slate-600 uppercase tracking-widest text-[11px] md:text-[13px] py-4">Item Type</TableHead>
-                    <TableHead className="font-black text-slate-600 uppercase tracking-widest text-[11px] md:text-[13px] py-4">Size</TableHead>
-                    <TableHead className="font-black text-slate-600 uppercase tracking-widest text-[11px] md:text-[13px] py-4 text-center">Thickness</TableHead>
-
-                    <TableHead className="font-black text-slate-600 uppercase tracking-widest text-[11px] md:text-[13px] py-4 text-right pr-6">Quantity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingEnquiry ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-48 text-center">
-                        <div className="flex flex-col items-center justify-center gap-3">
-                          <Loader2 className="h-10 w-10 text-emerald-500 animate-spin" />
-                          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Fetching Report...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : enquiryReport.length > 0 ? (
-                    enquiryReport.map((item, index) => {
-                      const gradients = [
-                        "linear-gradient(135deg, #00B4DB 0%, #0083B0 100%)",
-                        "linear-gradient(135deg, #4776E6 0%, #8E54E9 100%)"
-                      ];
-                      const rowGradient = gradients[index % gradients.length];
-
-                      return (
-                        <TableRow
-                          key={index}
-                          style={{ background: rowGradient }}
-                          className="border-b border-white/10 group transition-none"
-                        >
-                          <TableCell className="font-bold text-white/90 py-2 sm:py-3 lg:py-5 pl-4 sm:pl-6 text-[10px] sm:text-xs">{index + 1}</TableCell>
-                          <TableCell className="py-2 sm:py-3 lg:py-5">
-                            <Badge variant="outline" className="font-black uppercase tracking-widest text-[8px] sm:text-[10px] md:text-xs border-white/40 text-white bg-white/10 px-1.5 sm:px-3 py-0.5 sm:py-1">
-                              {item.item_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-black text-white py-2 sm:py-3 lg:py-5 text-[10px] sm:text-xs md:text-sm">{item.size}</TableCell>
-                          <TableCell className="text-center py-2 sm:py-3 lg:py-5">
-                            <span className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 bg-white/95 border border-transparent rounded-md sm:rounded-lg font-mono font-bold text-slate-800 text-[10px] sm:text-[11px] md:text-sm shadow-md inline-block">
-                              {item.thickness}
-                            </span>
-                          </TableCell>
-
-                          <TableCell className="text-right py-2 sm:py-3 lg:py-5 pr-4 sm:pr-6">
-                            <span className="font-black text-sm sm:text-base md:text-lg text-white font-mono tracking-tighter">
-                              {Number(item.total).toLocaleString()}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-48 text-center">
-                        <div className="flex flex-col items-center justify-center gap-3 py-10">
-                          <div className="p-4 bg-slate-50 rounded-full">
-                            <AlertCircle className="h-10 w-10 text-slate-300" />
+                  <div className="space-y-1 mt-1">
+                    {mobileStateShareData.map((entry, idx) => (
+                      <div
+                        key={`mobile-state-row-${entry.name}-${idx}`}
+                        className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5"
+                      >
+                        <div className="grid grid-cols-[1.3fr_0.7fr_0.7fr] items-center gap-1">
+                          <div className="min-w-0 flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.fill }} />
+                            <span className="truncate text-sm font-semibold uppercase text-slate-700">{entry.name}</span>
                           </div>
-                          <div className="text-center">
-                            <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No Records Found</p>
-                            <p className="text-[10px] text-slate-300 font-bold uppercase mt-1">Try selecting a different month</p>
-                          </div>
+                          <span className="text-center text-sm font-bold text-slate-700">{entry.value.toLocaleString()}</span>
+                          <span className="text-center text-sm font-black text-indigo-600">{entry.percentage.toFixed(1)}%</span>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                        <div className="mt-1 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${Math.min(entry.percentage, 100)}%`, backgroundColor: entry.fill }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
+
+
 
         {/* Top Value Cards Section - Wrapped in Scoresheet Card */}
-        <Card className="w-full bg-white border-none shadow-lg overflow-hidden animate-in slide-in-from-top-4 duration-500">
-          <CardHeader className="bg-white border-b border-slate-100 p-2 sm:p-4 lg:py-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /><path d="M8 14h.01" /><path d="M12 14h.01" /><path d="M16 14h.01" /><path d="M8 18h.01" /><path d="M12 18h.01" /><path d="M16 18h.01" /></svg>
-              </div>
-              <CardTitle className="text-xs sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight">ScotSheet</CardTitle>
+        <div className="w-full m-0 p-0 bg-transparent border-none shadow-none overflow-visible animate-in slide-in-from-top-4 duration-500">
+          <div className="m-0 p-0">
+            <div className="flex items-center justify-center m-0 p-0">
+              <h3 className="m-0 p-0 text-base sm:text-lg lg:text-xl font-black text-slate-800 tracking-tight text-center">ScotSheet</h3>
             </div>
-          </CardHeader>
-          <CardContent className="p-1.5 sm:p-3 lg:p-6">
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1 sm:gap-3 lg:gap-6">
+          </div>
+          <div className="m-0 p-0">
+            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-1 sm:gap-1.5 lg:gap-2 m-0 p-0">
               {/* Total Customers Card */}
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-blue-100 leading-none mb-0.5">Total Customers</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{totalCustomers.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-blue-100 leading-tight mb-1">Total Customers</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{totalCustomers.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Total Follow-ups Card */}
-              <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-purple-100 leading-none mb-0.5">Total Follow-ups</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{followupStats.totalFollowUps.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-purple-100 leading-tight mb-1">Total Follow-ups</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{followupStats.totalFollowUps.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Orders Booked Card */}
-              <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><polyline points="20 6 9 17 4 12" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-emerald-100 leading-none mb-0.5">Orders Booked</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{followupStats.ordersBooked.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-emerald-100 leading-tight mb-1">Orders Booked</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{followupStats.ordersBooked.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Vehicles In Card */}
-              <Card className="bg-gradient-to-br from-indigo-500 to-blue-700 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 13.1V16c0 .6.4 1 1 1h2" /><circle cx="7" cy="17" r="2" /><path d="M9 17h6" /><circle cx="17" cy="17" r="2" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-indigo-100 leading-none mb-0.5">Vehicles In</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbIn.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-indigo-500 to-blue-700 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-indigo-100 leading-tight mb-1">Vehicles In</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{displayMetrics.wbIn.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Vehicles Out Card */}
-              <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><path d="M10 17h4V5H2v12h3" /><path d="M20 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C19.7 10.6 17 10 17 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H10" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-orange-100 leading-none mb-0.5">Vehicles Out</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbOut.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-orange-100 leading-tight mb-1">Vehicles Out</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{displayMetrics.wbOut.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
               {/* Vehicles Pending Card */}
-              <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-none shadow-md overflow-hidden relative group">
-                <CardContent className="p-1.5 sm:p-3 lg:p-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-5 sm:h-5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                  </div>
-                  <p className="text-[7px] sm:text-[10px] lg:text-xs font-bold uppercase tracking-wider text-amber-100 leading-none mb-0.5">In Premises</p>
-                  <div className="text-[10px] sm:text-2xl lg:text-3xl font-black tracking-tighter">{displayMetrics.wbPending.toLocaleString()}</div>
+              <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-none shadow-md overflow-hidden h-full">
+                <CardContent className="p-1.5 sm:p-3 min-h-[74px] sm:min-h-[100px] flex flex-col items-center justify-center text-center">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-amber-100 leading-tight mb-1">In Premises</p>
+                  <div className="text-lg sm:text-xl lg:text-2xl font-black leading-none">{displayMetrics.wbPending.toLocaleString()}</div>
                 </CardContent>
               </Card>
             </div>
@@ -1524,22 +1584,21 @@ export function DashboardView() {
 
             {/* Sales Performance Report Section */}
             <div className='w-full'>
-              <Card className="border-none shadow-lg overflow-hidden bg-white">
-                <CardHeader className="bg-white border-b border-slate-100 py-6">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-200">
-                        <Filter className="w-5 h-5 text-white" />
+              <div className="w-full m-0 p-0 bg-white">
+                <CardHeader className="bg-white border-b border-slate-100 px-0 sm:px-4 py-1 sm:py-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-1.5 sm:p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-200">
+                        <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <CardTitle className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">Monthly MeCA Score</CardTitle>
+                      <CardTitle className="text-base sm:text-xl font-black text-slate-800 tracking-tight text-left truncate">Monthly MeCA Score</CardTitle>
                     </div>
-                    <div>
+                    <div className="flex items-center w-full sm:w-auto">
                       <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                        <SelectTrigger className="w-[180px] bg-slate-50 border-slate-200 font-bold text-slate-700">
+                        <SelectTrigger className="w-full sm:w-[180px] h-8 sm:h-10 bg-slate-50 border-slate-200 font-bold text-xs sm:text-sm text-slate-700">
                           <SelectValue placeholder="Select Month" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="All Months">All Months</SelectItem>
                           {
                             // Dynamic Month List - Last 12 months + typical range
                             Array.from({ length: 18 }, (_, i) => {
@@ -1558,9 +1617,100 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  <div className="sm:hidden w-full px-0 pt-0 space-y-1">
+                    {salesPerformance.length === 0 ? (
+                      <div className="rounded-lg border border-slate-200 bg-white px-3 py-6 text-center text-slate-400 font-medium text-sm">
+                        No data available
+                      </div>
+                    ) : (
+                      <>
+                        {salesPerformance.filter(row => row.salesPerson !== 'Total').map((row, idx) => {
+                          const initials = row.salesPerson.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
+                          const avatarColor = idx % 3 === 0 ? "bg-blue-500" : idx % 3 === 1 ? "bg-purple-500" : "bg-indigo-500";
+
+                          return (
+                            <div key={idx} className="w-full rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm">
+                              <div className="flex items-center gap-1.5 pb-1.5 border-b border-slate-100">
+                                <div className={`w-5 h-5 rounded-full ${avatarColor} flex items-center justify-center text-white text-[9px] font-bold shadow-sm`}>
+                                  {initials}
+                                </div>
+                                <span className="text-[12px] sm:text-sm font-bold text-slate-800 truncate">{row.salesPerson}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1 pt-1">
+                                <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-blue-500 uppercase leading-none">Calls</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{row.noOfCallings}</p>
+                                </div>
+                                <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-violet-500 uppercase leading-none">Orders</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{row.orderClients}</p>
+                                </div>
+                                <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-emerald-500 uppercase leading-none">Conv</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{row.conversionRatio}%</p>
+                                </div>
+                                <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-amber-600 uppercase leading-none">Sale</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{row.totalRsSale ? Number(row.totalRsSale).toLocaleString() : '0'}</p>
+                                </div>
+                                <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-indigo-500 uppercase leading-none">Avg</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{row.avgRsSale}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {(() => {
+                          const dataRows = salesPerformance.filter(row => row.salesPerson !== 'Total');
+                          if (dataRows.length === 0) return null;
+
+                          const totalCallings = dataRows.reduce((sum, row) => sum + Number(row.noOfCallings || 0), 0);
+                          const totalOrderClients = dataRows.reduce((sum, row) => sum + Number(row.orderClients || 0), 0);
+                          const totalRsSale = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0);
+                          const totalConversionRatio = totalCallings > 0 ? ((totalOrderClients / totalCallings) * 100).toFixed(2) : '0.00';
+                          const totalAvgSale = totalOrderClients > 0 ? (totalRsSale / totalOrderClients).toFixed(2) : '0.00';
+
+                          const avgCallingsValue = totalCallings / dataRows.length;
+                          const avgOrderClientsValue = totalOrderClients / dataRows.length;
+                          const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
+                          const avgTotalRsSaleValue = totalRsSale / dataRows.length;
+                          const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
+
+                          return (
+                            <>
+                              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-1.5 shadow-sm">
+                                <p className="text-[13px] sm:text-sm font-black text-yellow-700 mb-1">TOTAL</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-blue-500 uppercase leading-none">Calls</p><p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{totalCallings}</p></div>
+                                  <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-violet-500 uppercase leading-none">Orders</p><p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{totalOrderClients}</p></div>
+                                  <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-emerald-500 uppercase leading-none">Conv</p><p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{totalConversionRatio}%</p></div>
+                                  <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-amber-600 uppercase leading-none">Sale</p><p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{Number(totalRsSale).toLocaleString()}</p></div>
+                                  <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2"><p className="text-[13px] sm:text-base text-indigo-500 uppercase leading-none">Avg</p><p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{totalAvgSale}</p></div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-lg border border-purple-200 bg-purple-50 p-1.5 shadow-sm">
+                                <p className="text-[13px] sm:text-sm font-black text-purple-700 mb-1">AVERAGE</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-blue-500 uppercase leading-none">Calls</p><p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{avgCallingsValue.toFixed(1)}</p></div>
+                                  <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-violet-500 uppercase leading-none">Orders</p><p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{avgOrderClientsValue.toFixed(1)}</p></div>
+                                  <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-emerald-500 uppercase leading-none">Conv</p><p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{avgConversionRatio}%</p></div>
+                                  <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-amber-600 uppercase leading-none">Sale</p><p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{Number(avgTotalRsSaleValue.toFixed(0)).toLocaleString()}</p></div>
+                                  <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2"><p className="text-[13px] sm:text-base text-indigo-500 uppercase leading-none">Avg</p><p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{avgAvgRsSale}</p></div>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                      <thead className="text-[10px] sm:text-xs text-white uppercase bg-blue-600 sticky top-0 z-10">
+                      <thead className="text-[11px] sm:text-sm text-white uppercase bg-blue-600 sticky top-0 z-10">
                         <tr>
                           <th scope="col" className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 font-bold tracking-wider">Sales Person</th>
                           <th scope="col" className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 font-bold tracking-wider text-center">No of Callings</th>
@@ -1593,7 +1743,7 @@ export function DashboardView() {
                               const avatarColor = idx % 3 === 0 ? "bg-blue-500" : idx % 3 === 1 ? "bg-purple-500" : "bg-indigo-500";
 
                               return (
-                                <tr key={idx} className={`${rowClass} hover:bg-emerald-50/80 transition-colors text-[8px] sm:text-[10px]`}>
+                                <tr key={idx} className={`${rowClass} hover:bg-emerald-50/80 transition-colors text-[10px] sm:text-sm`}>
                                   <td className="px-2 sm:px-4 md:px-6 py-1 sm:py-1.5 font-medium flex items-center gap-1.5 sm:gap-2">
                                     <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${avatarColor} flex items-center justify-center text-white text-[7px] sm:text-[9px] font-bold shadow-sm shrink-0`}>
                                       {initials}
@@ -1607,10 +1757,10 @@ export function DashboardView() {
                                       <span className="text-slate-700 font-bold">{row.conversionRatio}%</span>
                                     </div>
                                   </td>
-                                  <td className="px-2 sm:px-4 md:px-6 py-1 sm:py-2.5 text-center font-mono text-slate-700">
+                                  <td className="px-2 sm:px-4 md:px-6 py-1 sm:py-2.5 text-center text-slate-700">
                                     {row.totalRsSale ? Number(row.totalRsSale).toLocaleString() : '0'}
                                   </td>
-                                  <td className="px-2 sm:px-4 md:px-6 py-1 sm:py-2.5 text-center font-mono">
+                                  <td className="px-2 sm:px-4 md:px-6 py-1 sm:py-2.5 text-center">
                                     <span className={`${parseFloat(row.avgRsSale) > 50 ? 'text-emerald-600 font-bold' : 'text-slate-600'}`}>
                                       {row.avgRsSale}
                                     </span>
@@ -1647,10 +1797,10 @@ export function DashboardView() {
                                       <span className="text-yellow-700 font-bold">{totalConversionRatio}%</span>
                                     </div>
                                   </td>
-                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono text-yellow-700">
+                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center text-yellow-700">
                                     {Number(totalRsSale).toLocaleString()}
                                   </td>
-                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono">
+                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center">
                                     <span className="text-yellow-700 font-bold">{totalAvgSale}</span>
                                   </td>
                                 </tr>
@@ -1688,10 +1838,10 @@ export function DashboardView() {
                                       <span className="text-purple-700 font-bold">{avgConversionRatio}%</span>
                                     </div>
                                   </td>
-                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono text-purple-700">
+                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center text-purple-700">
                                     {Number(avgTotalRsSale).toLocaleString()}
                                   </td>
-                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono">
+                                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-center">
                                     <span className="text-purple-700 font-bold">{avgAvgRsSale}</span>
                                   </td>
                                 </tr>
@@ -1731,54 +1881,45 @@ export function DashboardView() {
                     const avgCallPerPerson = (avgCallPerDayRounded / dataRows.length).toFixed(2);
 
                     return (
-                      <div className="mt-6 px-6 pb-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                      <div className="mt-1 sm:mt-4 px-0 sm:px-6 pb-1 sm:pb-6">
+                        <div className="grid grid-cols-3 gap-1.5 sm:gap-4">
                           {/* Avg Call / Day */}
-                          <div className="flex items-center justify-between bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border border-green-600">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">ðŸ“Š</div>
-                              <span className="font-bold text-white text-[11px] sm:text-sm whitespace-nowrap">Avg Call / Day</span>
-                            </div>
-                            <span className="font-black text-white text-sm sm:text-lg font-mono">{avgCallPerDay}</span>
+                          <div className="min-w-0 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg sm:rounded-xl px-2 sm:px-5 py-1.5 sm:py-3 border border-green-600">
+                            <span className="block text-center font-bold text-white text-[13px] sm:text-base leading-tight">Avg Call / Day</span>
+                            <span className="block text-center font-black text-white text-[13px] sm:text-base leading-none">{avgCallPerDay}</span>
                           </div>
 
                           {/* Avg Call / Person */}
-                          <div className="flex items-center justify-between bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border border-green-600">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">ðŸ‘¥</div>
-                              <span className="font-bold text-white text-[11px] sm:text-sm whitespace-nowrap">Avg Call / Person</span>
-                            </div>
-                            <span className="font-black text-white text-sm sm:text-lg font-mono">{avgCallPerPerson}</span>
+                          <div className="min-w-0 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 transition-colors rounded-lg sm:rounded-xl px-2 sm:px-5 py-1.5 sm:py-3 border border-green-600">
+                            <span className="block text-center font-bold text-white text-[13px] sm:text-base leading-tight">Avg Call / Person</span>
+                            <span className="block text-center font-black text-white text-[13px] sm:text-base leading-none">{avgCallPerPerson}</span>
                           </div>
 
                           {/* Total Calling */}
-                          <div className="flex items-center justify-between bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 transition-colors rounded-lg px-3 sm:px-5 py-2.5 sm:py-3 border-2 border-yellow-600 shadow-lg">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-800/20 flex items-center justify-center text-slate-800 text-[10px] sm:text-xs font-bold">ðŸ“ž</div>
-                              <span className="font-bold text-slate-800 text-[11px] sm:text-sm whitespace-nowrap">Total Calling</span>
-                            </div>
-                            <span className="font-black text-slate-800 text-base sm:text-xl font-mono">{totalCallings.toLocaleString()}</span>
+                          <div className="min-w-0 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 transition-colors rounded-lg sm:rounded-xl px-2 sm:px-5 py-1.5 sm:py-3 border-2 border-yellow-600 shadow-lg">
+                            <span className="block text-center font-bold text-slate-800 text-[13px] sm:text-base leading-tight">Total Calling</span>
+                            <span className="block text-center font-black text-slate-800 text-[13px] sm:text-base leading-none">{totalCallings.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
                     );
                   })()}
                 </CardContent>
-              </Card>
+              </div>
             </div>
 
             {/* Daily Sales Performance Report Section */}
-            <div className='w-full mt-8'>
+            <div className='w-full mt-2 sm:mt-8'>
               <Card className="border-none shadow-lg overflow-hidden bg-white">
-                <CardHeader className="bg-white border-b border-slate-100 py-6">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-600 rounded-lg shadow-lg shadow-emerald-200">
-                        <Filter className="w-5 h-5 text-white" />
+                <CardHeader className="bg-white border-b border-slate-100 px-2 sm:px-4 py-2 sm:py-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-1.5 sm:p-2 bg-emerald-600 rounded-lg shadow-lg shadow-emerald-200">
+                        <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <CardTitle className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">Daily MeCA Score</CardTitle>
+                      <CardTitle className="text-base sm:text-xl font-black text-slate-800 tracking-tight truncate">Daily MeCA Score</CardTitle>
                     </div>
-                    <div className="bg-slate-100 px-4 py-2 rounded-lg font-bold text-slate-600 text-sm">
+                    <div className="bg-slate-100 px-2.5 sm:px-4 py-1 sm:py-2 rounded-lg font-bold text-slate-600 text-xs sm:text-sm w-full sm:w-auto text-center sm:text-left">
                       {format(new Date(), "dd MMMM yyyy")}
                     </div>
                   </div>
@@ -1831,10 +1972,10 @@ export function DashboardView() {
                                     <span className="text-slate-700 font-bold">{row.conversionRatio}%</span>
                                   </div>
                                 </td>
-                                <td className="px-2 sm:px-4 md:px-6 py-1.5 sm:py-4 text-center font-mono text-slate-700">
+                                <td className="px-2 sm:px-4 md:px-6 py-1.5 sm:py-4 text-center text-slate-700">
                                   {row.totalRsSale ? Number(row.totalRsSale).toLocaleString() : '0'}
                                 </td>
-                                <td className="px-2 sm:px-4 md:px-6 py-1.5 sm:py-4 text-center font-mono">
+                                <td className="px-2 sm:px-4 md:px-6 py-1.5 sm:py-4 text-center">
                                   <span className={`${parseFloat(row.avgRsSale) > 50 ? 'text-emerald-600 font-bold' : 'text-slate-600'}`}>
                                     {row.avgRsSale}
                                   </span>
@@ -1870,10 +2011,10 @@ export function DashboardView() {
                                   <span className="text-emerald-700 font-bold">{totalConversionRatio}%</span>
                                 </div>
                               </td>
-                              <td className="px-2 sm:px-6 py-2 sm:py-4 text-center font-mono text-emerald-700 font-bold">
+                              <td className="px-2 sm:px-6 py-2 sm:py-4 text-center text-emerald-700 font-bold">
                                 {Number(totalTotalRsSale).toLocaleString()}
                               </td>
-                              <td className="px-2 sm:px-6 py-2 sm:py-4 text-center font-mono">
+                              <td className="px-2 sm:px-6 py-2 sm:py-4 text-center">
                                 <span className="text-emerald-700 font-bold">{totalAvgRsSale}</span>
                               </td>
                             </tr>
@@ -1906,10 +2047,10 @@ export function DashboardView() {
                                   <span className="text-teal-700 font-bold">{avgConversionRatio}%</span>
                                 </div>
                               </td>
-                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono text-teal-700">
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center text-teal-700">
                                 {Number(avgTotalRsSale).toLocaleString()}
                               </td>
-                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center font-mono">
+                              <td className="px-2 sm:px-6 py-2 sm:py-3 text-center">
                                 <span className="text-teal-700 font-bold">{avgAvgRsSale}</span>
                               </td>
                             </tr>
@@ -1928,20 +2069,17 @@ export function DashboardView() {
                     const avgCallPerPerson = (totalCallings / dataRows.length).toFixed(2);
 
                     return (
-                      <div className="mt-6 flex flex-col sm:flex-row items-stretch gap-4 px-6 pb-6">
+                      <div className="mt-1 sm:mt-6 flex flex-col sm:flex-row items-stretch gap-1.5 sm:gap-4 px-0 sm:px-6 pb-1 sm:pb-6">
                         <div className="flex-1 overflow-x-auto">
                           <table className="w-full text-[11px] sm:text-xs md:text-sm">
                             <tbody>
                               <tr className="bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 transition-colors shadow-sm">
                                 <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-white border border-emerald-600 rounded-l-lg">
-                                  <div className="flex items-center gap-1.5 sm:gap-2">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
-                                      ðŸ‘¤
-                                    </div>
+                                  <div className="flex items-center">
                                     <span className="whitespace-nowrap">Avg Call / Person</span>
                                   </div>
                                 </td>
-                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-black text-white text-right border border-emerald-600 rounded-r-lg text-sm sm:text-lg font-mono">
+                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-black text-white text-right border border-emerald-600 rounded-r-lg text-sm sm:text-lg">
                                   {avgCallPerPerson}
                                 </td>
                               </tr>
@@ -1954,14 +2092,11 @@ export function DashboardView() {
                             <tbody>
                               <tr className="bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 transition-colors shadow-lg">
                                 <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-white border border-teal-600 rounded-l-lg">
-                                  <div className="flex items-center gap-1.5 sm:gap-2">
-                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px] sm:text-xs font-bold">
-                                      ðŸ“ž
-                                    </div>
+                                  <div className="flex items-center">
                                     <span className="whitespace-nowrap uppercase tracking-wider">Today's Total Calling</span>
                                   </div>
                                 </td>
-                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-black text-white text-right border border-teal-600 rounded-r-lg text-base sm:text-lg font-mono">
+                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-black text-white text-right border border-teal-600 rounded-r-lg text-base sm:text-lg">
                                   {totalCallings.toLocaleString()}
                                 </td>
                               </tr>
@@ -1974,11 +2109,95 @@ export function DashboardView() {
                 </CardContent>
               </Card>
             </div>
-          </CardContent>
-        </Card>
+
+
+          </div>
+        </div>
+
+
+
+        {/* Current Month Enquiry Report Section */}
+        <div className="relative isolate w-full m-0 rounded-none border-0 border-l-0 bg-transparent shadow-none overflow-visible sm:rounded-2xl sm:border sm:border-indigo-200/70 sm:border-l-4 sm:border-l-indigo-500 sm:bg-gradient-to-br sm:from-slate-50 sm:via-white sm:to-cyan-50 sm:shadow-[0_10px_28px_rgba(15,23,42,0.10)] sm:overflow-hidden">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.18] hidden sm:block"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(45,212,191,0.12) 1px, transparent 1px)",
+              backgroundSize: "18px 18px",
+            }}
+          ></div>
+
+          <div className="relative z-10 m-0 px-0 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 bg-transparent sm:bg-gradient-to-r sm:from-indigo-600 sm:via-violet-600 sm:to-cyan-600 border-b-0 sm:border-b sm:border-indigo-300/40">
+            <div className="flex items-center gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg md:text-2xl font-black text-indigo-700 sm:text-white tracking-tight leading-tight">
+                  {`${format(new Date(), "MMMM yyyy")} Enquiry`}
+                </h3>
+                <p className="text-[10px] sm:text-[11px] md:text-xs text-indigo-600/80 sm:text-white/85 font-bold uppercase tracking-wider">
+                  Items and total volume summary
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 px-0 sm:px-6 py-2 sm:py-4 bg-transparent sm:bg-gradient-to-b sm:from-white/80 sm:to-slate-50/70">
+            {loadingEnquiry ? (
+              <div className="h-20 sm:h-24 flex items-center justify-center">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading summary...
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
+                <div className="relative overflow-hidden rounded-xl border border-indigo-300/50 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 p-2.5 sm:p-4 min-h-[86px] sm:min-h-[118px] text-center shadow-[0_8px_22px_rgba(59,130,246,0.30)] flex flex-col items-center justify-center">
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.18]"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px)",
+                      backgroundSize: "16px 16px",
+                    }}
+                  ></div>
+                  <div className="relative z-10">
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-white/85">
+                      Items
+                    </p>
+                    <p className="text-xl sm:text-4xl font-black text-white leading-none mt-1">
+                      {enquiryReport.length.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="relative overflow-hidden rounded-xl border border-emerald-300/50 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-500 p-2.5 sm:p-4 min-h-[86px] sm:min-h-[118px] text-center shadow-[0_8px_22px_rgba(16,185,129,0.30)] flex flex-col items-center justify-center">
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.18]"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px)",
+                      backgroundSize: "16px 16px",
+                    }}
+                  ></div>
+                  <div className="relative z-10">
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-white/85">
+                      Total Volume
+                    </p>
+                    <p className="text-xl sm:text-4xl font-black text-white leading-none mt-1">
+                      {enquiryReport.reduce((acc, curr) => acc + Number(curr.total || 0), 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!loadingEnquiry && enquiryReport.length === 0 && (
+              <p className="text-center text-slate-400 text-xs sm:text-sm font-semibold mt-3">
+                No enquiry records available
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Customer Feedback Section - Tabular Format */}
-        <div className="mt-6 sm:mt-10 space-y-2 sm:space-y-4">
+        <div className="mt-6 sm:mt-10 space-y-2 sm:space-y-4 font-sans">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 px-1">
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center shadow-md sm:shadow-lg shadow-orange-100">
@@ -2030,15 +2249,7 @@ export function DashboardView() {
               ))
             ) : customerFeedback.length > 0 ? (
               customerFeedback.map((item, index) => {
-                let dateDisplay = "N/A";
-                try {
-                  if (item.timestamp) {
-                    const d = new Date(item.timestamp);
-                    if (!isNaN(d.getTime())) {
-                      dateDisplay = format(d, 'dd/MM/yyyy HH:mm');
-                    }
-                  }
-                } catch (e) { }
+                const dateDisplay = getFeedbackDateDisplay(item.timestamp);
 
                 const isEven = index % 2 === 0;
 
@@ -2061,7 +2272,7 @@ export function DashboardView() {
 
                     {/* Customer & Firm */}
                     <div className="space-y-1">
-                      <h3 className="text-lg font-[900] text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
+                      <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
                       <p className="text-xs font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
                     </div>
 
@@ -2113,6 +2324,7 @@ export function DashboardView() {
               <TableHeader className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
                 <TableRow className="hover:bg-transparent border-none">
                   <TableHead className="py-2 px-1 sm:py-4 sm:px-3 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">S.No</TableHead>
+                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">Date</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Customer</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Firm</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">Feedback</TableHead>
@@ -2125,27 +2337,20 @@ export function DashboardView() {
                 {loadingFeedback ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i} className="animate-pulse">
-                      <TableCell colSpan={12} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
+                      <TableCell colSpan={13} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
                     </TableRow>
                   ))
                 ) : customerFeedback.length > 0 ? (
                   customerFeedback.map((item, index) => {
-                    let dateDisplay = "N/A";
-                    try {
-                      if (item.timestamp) {
-                        const d = new Date(item.timestamp);
-                        if (!isNaN(d.getTime())) {
-                          dateDisplay = format(d, 'dd/MM/yyyy HH:mm');
-                        }
-                      }
-                    } catch (e) {
-                      console.error("Date parse error:", e);
-                    }
+                    const dateDisplay = getFeedbackDateDisplay(item.timestamp);
 
                     return (
                       <TableRow key={index} className="hover:bg-slate-50/40 transition-colors border-slate-50 group">
                         <TableCell className="py-1.5 px-1 sm:py-3 sm:px-3 text-center">
                           <span className="text-xs sm:text-sm md:text-base font-black text-slate-400">{index + 1}</span>
+                        </TableCell>
+                        <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4 text-center">
+                          <p className="text-xs sm:text-sm font-bold text-slate-500 whitespace-nowrap">{dateDisplay}</p>
                         </TableCell>
                         <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
                           <p className="text-xs sm:text-sm md:text-base font-medium text-slate-700">{item.customer_name}</p>
@@ -2175,7 +2380,7 @@ export function DashboardView() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-16 sm:py-32 text-center">
+                    <TableCell colSpan={13} className="py-16 sm:py-32 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <MessageSquare className="w-10 h-10 sm:w-20 sm:h-20 text-slate-100 mb-3 sm:mb-6" />
                         <p className="text-slate-400 font-black uppercase tracking-widest text-xs sm:text-base">No Feedback Records Found</p>
@@ -2198,6 +2403,7 @@ export function DashboardView() {
             <p className="text-[10px] sm:text-xs font-black text-emerald-500 uppercase tracking-wider">â— Live Sync</p>
           </div>
         </div>
+
       </>
     </div>
   )
