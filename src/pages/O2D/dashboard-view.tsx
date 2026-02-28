@@ -791,6 +791,25 @@ export function DashboardView() {
     return result;
   }, [data?.summary?.stateDistribution]);
 
+  const feedbackCategorySummary = useMemo(() => {
+    const categories = ["Enquiry", "Loading", "Dispatch", "Lineup", "Comm.", "Product", "Staff", "Quality"];
+    const totals: Record<string, number> = Object.fromEntries(categories.map((cat) => [cat, 0]));
+
+    customerFeedback.forEach((entry) => {
+      categories.forEach((cat) => {
+        const value = Number(entry?.categoryRatings?.[cat] || 0);
+        if (Number.isFinite(value)) totals[cat] += value;
+      });
+    });
+
+    const totalReviews = customerFeedback.length;
+    return categories.map((cat) => ({
+      name: cat,
+      count: totals[cat],
+      avg: totalReviews > 0 ? Number((totals[cat] / totalReviews).toFixed(1)) : 0,
+    }));
+  }, [customerFeedback]);
+
   const mobileStateShareData = useMemo(() => {
     const mobileStatePieColors = [
       "#4f46e5",
@@ -2220,6 +2239,23 @@ export function DashboardView() {
               Sync Live Sheet
             </Button>
           </div>
+
+          {/* Category Summary (New) */}
+          {!loadingFeedback && feedbackCategorySummary.length > 0 && (
+            <div className="w-full">
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-1">
+                {feedbackCategorySummary.map((summary, idx) => (
+                  <div
+                    key={`feedback-summary-${summary.name}-${idx}`}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-2 text-center"
+                  >
+                    <p className="text-base sm:text-lg font-black uppercase tracking-wide text-slate-700 leading-none">{summary.name}</p>
+                    <p className="text-base sm:text-lg font-black text-emerald-600 leading-none mt-1">{summary.avg}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Mobile View - Cards */}
           <div className="sm:hidden space-y-2 px-0.5 pb-4">
