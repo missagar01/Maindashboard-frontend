@@ -184,12 +184,6 @@ export function DashboardView() {
     return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
   }, []);
 
-  const getFeedbackDateDisplay = useCallback((value: unknown): string => {
-    const ts = getFeedbackTimestampMs(value);
-    if (!ts) return "N/A";
-    return format(new Date(ts), "dd/MM/yyyy HH:mm");
-  }, [getFeedbackTimestampMs]);
-
   const fetchEnquiryReport = async () => {
     setLoadingEnquiry(true)
     try {
@@ -2249,8 +2243,6 @@ export function DashboardView() {
               ))
             ) : customerFeedback.length > 0 ? (
               customerFeedback.map((item, index) => {
-                const dateDisplay = getFeedbackDateDisplay(item.timestamp);
-
                 const isEven = index % 2 === 0;
 
                 return (
@@ -2263,13 +2255,6 @@ export function DashboardView() {
                         : "bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-emerald-100"
                     )}
                   >
-                    {/* Header: S.No and Date */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-black text-white/40">#{index + 1}</span>
-                      <span className="w-2 h-2 rounded-full bg-white/90 shadow-sm shadow-white/20 animate-pulse"></span>
-                      <span className="text-xs font-black text-white/70 tracking-[0.1em]">{dateDisplay}</span>
-                    </div>
-
                     {/* Customer & Firm */}
                     <div className="space-y-0.5">
                       <h3 className="text-base font-black text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
@@ -2324,7 +2309,6 @@ export function DashboardView() {
               <TableHeader className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
                 <TableRow className="hover:bg-transparent border-none">
                   <TableHead className="py-2 px-1 sm:py-4 sm:px-3 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">S.No</TableHead>
-                  <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">Date</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Customer</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider">Firm</TableHead>
                   <TableHead className="py-2 px-1.5 sm:py-4 sm:px-4 text-[10px] sm:text-xs md:text-sm font-black text-slate-400 uppercase tracking-wider text-center">Feedback</TableHead>
@@ -2337,20 +2321,15 @@ export function DashboardView() {
                 {loadingFeedback ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i} className="animate-pulse">
-                      <TableCell colSpan={13} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
+                      <TableCell colSpan={12} className="py-6 sm:py-10 bg-slate-50/20"></TableCell>
                     </TableRow>
                   ))
                 ) : customerFeedback.length > 0 ? (
                   customerFeedback.map((item, index) => {
-                    const dateDisplay = getFeedbackDateDisplay(item.timestamp);
-
                     return (
                       <TableRow key={index} className="hover:bg-slate-50/40 transition-colors border-slate-50 group">
                         <TableCell className="py-1.5 px-1 sm:py-3 sm:px-3 text-center">
                           <span className="text-xs sm:text-sm md:text-base font-black text-slate-400">{index + 1}</span>
-                        </TableCell>
-                        <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4 text-center">
-                          <p className="text-xs sm:text-sm font-bold text-slate-500 whitespace-nowrap">{dateDisplay}</p>
                         </TableCell>
                         <TableCell className="py-1.5 px-1.5 sm:py-3 sm:px-4">
                           <p className="text-xs sm:text-sm md:text-base font-medium text-slate-700">{item.customer_name}</p>
@@ -2380,7 +2359,7 @@ export function DashboardView() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={13} className="py-16 sm:py-32 text-center">
+                    <TableCell colSpan={12} className="py-16 sm:py-32 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <MessageSquare className="w-10 h-10 sm:w-20 sm:h-20 text-slate-100 mb-3 sm:mb-6" />
                         <p className="text-slate-400 font-black uppercase tracking-widest text-xs sm:text-base">No Feedback Records Found</p>
