@@ -48,10 +48,11 @@ const MyProfile = () => {
 
   const fetchProfile = useCallback(async (isAutoSync = false) => {
     try {
-      if (!token || !user?.id) return;
+      const profileLookupId = user?.id || user?.employee_id;
+      if (!token || !profileLookupId) return;
 
       if (!isAutoSync) setLoading(true);
-      const response = await getEmployeeById(user.id, token);
+      const response = await getEmployeeById(profileLookupId, token);
       const profile = response?.data;
       if (!profile) {
         throw new Error('No profile data found');
@@ -83,7 +84,7 @@ const MyProfile = () => {
     } finally {
       if (!isAutoSync) setLoading(false);
     }
-  }, [user?.id, token, isEditing, previewProfileImg, previewDocuments.length]);
+  }, [user?.id, user?.employee_id, token, isEditing, previewProfileImg, previewDocuments.length]);
 
   useAutoSync(fetchProfile, 30000, !isEditing);
 

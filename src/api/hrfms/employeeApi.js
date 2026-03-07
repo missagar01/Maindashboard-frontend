@@ -23,11 +23,23 @@ export const getEmployees = (token) =>
     token,
   });
 
-export const getEmployeeById = (id, token) =>
-  apiRequest(`/api/hrfms/employees/${id}`, {
-    method: 'GET',
-    token,
-  });
+export const getEmployeeById = async (id, token) => {
+  try {
+    return await apiRequest(`/api/hrfms/employees/${id}`, {
+      method: 'GET',
+      token,
+    });
+  } catch (error) {
+    const status = error?.status ?? error?.response?.status;
+    if (status !== 404) {
+      throw error;
+    }
+    return apiRequest(`/api/employees/${id}`, {
+      method: 'GET',
+      token,
+    });
+  }
+};
 
 export const updateEmployee = (id, payload, token) => {
   // Check if payload contains files (FormData)

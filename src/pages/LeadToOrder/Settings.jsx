@@ -10,6 +10,7 @@ const SYSTEM_OPTIONS = [
   { value: "o2d", label: "O2D" },
   { value: "batchcode", label: "Batchcode" },
   { value: "lead-to-order", label: "Lead to Order" },
+  { value: "hrfms", label: "HRFMS" },
 ];
 
 // Page routes organized by system
@@ -38,6 +39,26 @@ const PAGE_ROUTES = {
     { value: "Follow Up", label: "Follow Up", route: "/lead-to-order/follow-up" },
     { value: "Call Tracker", label: "Call Tracker", route: "/lead-to-order/call-tracker" },
     { value: "Quotation", label: "Quotation", route: "/lead-to-order/quotation" },
+  ],
+  "hrfms": [
+    { value: "HRFMS Dashboard", label: "Dashboard", route: "/hrfms/dashboard" },
+    { value: "My Profile", label: "My Profile", route: "/hrfms/my-profile" },
+    { value: "MainPower Request", label: "MainPower Request", route: "/hrfms/resume-request" },
+    { value: "MainPower List", label: "MainPower List", route: "/hrfms/resume-list" },
+    { value: "Employee", label: "Employee", route: "/hrfms/employee-create" },
+    { value: "Travel Form", label: "Travel Form", route: "/hrfms/requests" },
+    { value: "Tickets", label: "Tickets", route: "/hrfms/tickets" },
+    { value: "Travel Status", label: "Travel Status", route: "/hrfms/travel-status" },
+    { value: "Resume", label: "Resume", route: "/hrfms/resumes" },
+    { value: "Resume Upload", label: "Resume Upload", route: "/hrfms/resume-form" },
+    { value: "Leave Request", label: "Leave Request", route: "/hrfms/leave-request" },
+    { value: "Leave Approvals", label: "Leave Approvals", route: "/hrfms/leave-approvals" },
+    { value: "Hod Approval", label: "Hod Approval", route: "/hrfms/commercial-head-approval" },
+    { value: "HR Approvals", label: "HR Approvals", route: "/hrfms/leave-hr-approvals" },
+    { value: "Plant Visitor", label: "Plant Visitor", route: "/hrfms/plant-visitor" },
+    { value: "Plant Visitor List", label: "Plant Visitor List", route: "/hrfms/plant-visitorlist" },
+    { value: "Interviwer List", label: "Interviwer List", route: "/hrfms/condidate-list" },
+    { value: "Selected Condidate", label: "Selected Condidate", route: "/hrfms/condidate-select" },
   ],
 };
 
@@ -145,6 +166,24 @@ const Settings = () => {
       "/lead-to-order/follow-up": "Follow Up",
       "/lead-to-order/call-tracker": "Call Tracker",
       "/lead-to-order/quotation": "Quotation",
+      "/hrfms/dashboard": "HRFMS Dashboard",
+      "/hrfms/my-profile": "My Profile",
+      "/hrfms/resume-request": "MainPower Request",
+      "/hrfms/resume-list": "MainPower List",
+      "/hrfms/employee-create": "Employee",
+      "/hrfms/requests": "Travel Form",
+      "/hrfms/tickets": "Tickets",
+      "/hrfms/travel-status": "Travel Status",
+      "/hrfms/resumes": "Resume",
+      "/hrfms/resume-form": "Resume Upload",
+      "/hrfms/leave-request": "Leave Request",
+      "/hrfms/leave-approvals": "Leave Approvals",
+      "/hrfms/commercial-head-approval": "Hod Approval",
+      "/hrfms/leave-hr-approvals": "HR Approvals",
+      "/hrfms/plant-visitor": "Plant Visitor",
+      "/hrfms/plant-visitorlist": "Plant Visitor List",
+      "/hrfms/condidate-list": "Interviwer List",
+      "/hrfms/condidate-select": "Selected Condidate",
     };
 
     // Parse system_access and page_access if they're comma-separated strings
