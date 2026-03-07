@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { CheckCircle2, X, Search, History, ArrowLeft, Plus, Save, AlertCircle } from "lucide-react"
 // @ts-ignore - JSX component
-import { batchcodeAPI } from "../../services/batchcodeAPI";
+import * as batchcodeAPI from "../../api/batchcodeAPI";
 
 function SMSRegister() {
     const [isSubmitting, setIsSubmitting] = useState(false)

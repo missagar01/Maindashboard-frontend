@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useLocation } from "react-router"
 import { CheckCircle2, X, Search, History, ArrowLeft, Edit, Save, Camera, AlertCircle } from "lucide-react"
-import api, { API_ENDPOINTS } from "../../config/api.js"
+import api from "../../config/api.js"
 import { useAuth } from "../../context/AuthContext"
 
 // Debounce hook for search optimization
@@ -56,7 +56,7 @@ export default function HotCoilComponent() {
   const fetchPendingSMS = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await api.get(API_ENDPOINTS.BATCHCODE.SMS_REGISTER)
+      const response = await api.get('/api/batchcode/sms-register')
       if (response.data?.success) {
         setPendingSMSData(response.data.data || [])
       }
@@ -71,7 +71,7 @@ export default function HotCoilComponent() {
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await api.get(API_ENDPOINTS.BATCHCODE.HOT_COIL)
+      const response = await api.get('/api/batchcode/hot-coil')
       if (response.data?.success) {
         setHistoryData(response.data.data || [])
       }
@@ -107,7 +107,7 @@ export default function HotCoilComponent() {
     setError(null)
 
     try {
-      const response = await api.post(API_ENDPOINTS.BATCHCODE.HOT_COIL, processFormData)
+      const response = await api.post('/api/batchcode/hot-coil', processFormData)
       if (response.data?.success) {
         setSuccessMessage("Hot Coil data submitted successfully!")
         setShowProcessForm(false)
@@ -303,4 +303,3 @@ export default function HotCoilComponent() {
     </div>
   )
 }
-

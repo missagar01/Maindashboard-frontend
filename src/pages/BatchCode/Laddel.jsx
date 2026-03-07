@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Save, ArrowLeft, CheckCircle, AlertCircle, X, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react"
 // @ts-ignore - JSX component
-import { batchcodeAPI } from "../../services/batchcodeAPI";
+import * as batchcodeAPI from "../../api/batchcodeAPI";
 
 /* ─────────────────────────────────────────────
    Custom Calendar Date Picker component

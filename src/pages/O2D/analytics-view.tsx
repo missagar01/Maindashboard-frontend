@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 import { Loader2, TrendingUp, DollarSign, Activity } from "lucide-react"
-import api, { API_ENDPOINTS } from "../../config/api"
+import api from "../../config/api"
 
 type AnalyticItem = {
     ITEM: string
@@ -31,7 +31,7 @@ export function AnalyticsView() {
         setLoading(true)
         setError(null)
         try {
-            const response = await api.get(API_ENDPOINTS.O2D.DASHBOARD.METRICS)
+            const response = await api.get('/api/o2d/dashboard/metrics')
             if (response.data?.success) {
                 setData(response.data.data)
             } else {

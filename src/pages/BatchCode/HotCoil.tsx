@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useLocation } from "react-router"
 import { CheckCircle2, X, Search, History, ArrowLeft, Edit, Save, Camera, AlertCircle } from "lucide-react"
-import { batchcodeAPI } from "../../services/batchcodeAPI"
+import * as batchcodeAPI from "../../api/batchcodeAPI";
 import { useAuth } from "../../context/AuthContext"
 
 // Debounce hook for search optimization
@@ -1054,4 +1054,3 @@ function HotCoilPage() {
 }
 
 export default HotCoilPage
-

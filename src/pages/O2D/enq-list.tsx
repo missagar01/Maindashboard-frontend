@@ -3,7 +3,7 @@ import {
     Loader2, FileText, Calendar, User, Package,
     AlertCircle, Download, X
 } from "lucide-react";
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import * as XLSX from "xlsx";

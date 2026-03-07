@@ -10,8 +10,7 @@ import BankDetails from "./bank-details"
 import NotesSection from "./notes-section"
 import SpecialOfferSection from "./special-offer-section"
 import { getNextQuotationNumber } from "./quotation-service"
-import { leadToOrderAPI } from "../../../services/leadToOrderAPI"
-
+import * as leadToOrderAPI from "../../../api/leadToOrderAPI";
 
 const QuotationForm = ({
   quotationData,

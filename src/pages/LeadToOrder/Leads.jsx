@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "../../context/AuthContext"
-import { leadToOrderAPI } from "../../services/leadToOrderAPI"
+import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 import { Loader2 } from "lucide-react"
 import { ArrowRightIcon } from "./Icons"
 

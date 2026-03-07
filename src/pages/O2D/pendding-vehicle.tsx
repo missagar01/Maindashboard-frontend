@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, Truck } from "lucide-react";
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 
 const COLUMN_DEFINITIONS = [
   { label: "S.No", key: "S_NO" },

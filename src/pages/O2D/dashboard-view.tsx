@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent, Truck, Target, TrendingUp, ArrowUpRight, Activity, Quote, MessageSquare, Star } from "lucide-react"
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
 import { cn } from "../../lib/utils"
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { Input } from "./ui/input"
 import { endOfMonth, startOfMonth, parseISO } from "date-fns"
 import { CalendarIcon } from "lucide-react"
@@ -1452,7 +1452,7 @@ export function DashboardView() {
                 <>
                   <div className="mt-2 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-2">
                     <div className="relative h-56">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
                         <PieChart>
                           <Pie
                             data={mobileStateShareData}

@@ -38,6 +38,26 @@ import EnqList from "./pages/O2D/enq-list";
 import CustomersPage from "./pages/O2D/CustomersPage";
 import FollowUpsPage from "./pages/O2D/FollowUpsPage";
 
+// HRFMS pages
+import HRFMSDashboard from "./pages/hrfms/pages/Dashboard";
+import HRFMSMyProfile from "./pages/hrfms/pages/MyProfile";
+import HRFMSLeaveRequest from "./pages/hrfms/pages/LeaveRequest";
+import HRFMSLeaveManagerApproval from "./pages/hrfms/pages/LeaveManagerApproval";
+import HRFMSLeaveHrApproval from "./pages/hrfms/pages/LeaveHrApproval";
+import HRFMSCommercialHeadApproval from "./pages/hrfms/pages/CommercialHeadApproval";
+import HRFMSEmployeeDetails from "./pages/hrfms/pages/EmployeeDetailsPage";
+import HRFMSRequestCreate from "./pages/hrfms/pages/RequestCreate";
+import HRFMSTicketCreate from "./pages/hrfms/pages/TicketCreate";
+import HRFMSTravelStatus from "./pages/hrfms/pages/TravelStatus";
+import HRFMSResumeCreate from "./pages/hrfms/pages/ResumeCreate";
+import HRFMSResumeForm from "./pages/hrfms/pages/ResumeForm";
+import HRFMSResumeRequest from "./pages/hrfms/pages/ResumeRequest";
+import HRFMSResumeList from "./pages/hrfms/pages/ResumeList";
+import HRFMSCandidateStatus from "./pages/hrfms/pages/CandidateStatusPage";
+import HRFMSSelectedCandidate from "./pages/hrfms/pages/SelectedCondidate";
+import HRFMSPlantVisitor from "./pages/hrfms/pages/PlantVisitor";
+import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
+
 export default function App() {
   return (
     <>
@@ -94,6 +114,28 @@ export default function App() {
             <Route path="/o2d/enquiry-list" element={<RouteGuard><EnqList /></RouteGuard>} />
             <Route path="/o2d/customers" element={<RouteGuard><CustomersPage /></RouteGuard>} />
             <Route path="/o2d/follow-ups" element={<RouteGuard><FollowUpsPage /></RouteGuard>} />
+
+            {/* HRFMS Routes */}
+            <Route path="/hrfms" element={<RouteGuard><Navigate to="/hrfms/dashboard" replace /></RouteGuard>} />
+            <Route path="/hrfms/dashboard" element={<RouteGuard><HRFMSDashboard /></RouteGuard>} />
+            <Route path="/hrfms/my-profile" element={<RouteGuard><HRFMSMyProfile /></RouteGuard>} />
+            <Route path="/hrfms/leave-request" element={<RouteGuard><HRFMSLeaveRequest /></RouteGuard>} />
+            <Route path="/hrfms/leave-approvals" element={<RouteGuard><HRFMSLeaveManagerApproval /></RouteGuard>} />
+            <Route path="/hrfms/leave-hr-approvals" element={<RouteGuard><HRFMSLeaveHrApproval /></RouteGuard>} />
+            <Route path="/hrfms/commercial-head-approval" element={<RouteGuard><HRFMSCommercialHeadApproval /></RouteGuard>} />
+            <Route path="/hrfms/employee-details/:employeeId" element={<RouteGuard><HRFMSEmployeeDetails /></RouteGuard>} />
+            <Route path="/hrfms/requests" element={<RouteGuard><HRFMSRequestCreate /></RouteGuard>} />
+            <Route path="/hrfms/tickets" element={<RouteGuard><HRFMSTicketCreate /></RouteGuard>} />
+            <Route path="/hrfms/travel-status" element={<RouteGuard><HRFMSTravelStatus /></RouteGuard>} />
+            <Route path="/hrfms/resumes" element={<RouteGuard><HRFMSResumeCreate /></RouteGuard>} />
+            <Route path="/hrfms/resume" element={<RouteGuard><HRFMSResumeCreate /></RouteGuard>} />
+            <Route path="/hrfms/resume-form" element={<RouteGuard><HRFMSResumeForm /></RouteGuard>} />
+            <Route path="/hrfms/resume-request" element={<RouteGuard><HRFMSResumeRequest /></RouteGuard>} />
+            <Route path="/hrfms/resume-list" element={<RouteGuard><HRFMSResumeList /></RouteGuard>} />
+            <Route path="/hrfms/condidate-list" element={<RouteGuard><HRFMSCandidateStatus /></RouteGuard>} />
+            <Route path="/hrfms/condidate-select" element={<RouteGuard><HRFMSSelectedCandidate /></RouteGuard>} />
+            <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
+            <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
           </Route>
 
           {/* Catch all - redirect to login if not authenticated, otherwise home */}
@@ -103,5 +145,4 @@ export default function App() {
     </>
   );
 }
-
 

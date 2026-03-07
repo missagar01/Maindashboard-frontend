@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import api, { API_ENDPOINTS } from "../../config/api"
+import api from "../../config/api"
 
 const CallTrackerForm = ({ onClose = () => window.history.back() }) => {
   const [leadSources, setLeadSources] = useState([])
@@ -130,7 +130,7 @@ const CallTrackerForm = ({ onClose = () => window.history.back() }) => {
     try {
       // const res = await fetch("http://localhost:3006/api/lead-to-order/enquiry-to-order/dropdowns");
       // const res = await fetch(`${baseURL}/api/lead-to-order/enquiry-to-order/dropdowns`);
-      const res = await api.get(API_ENDPOINTS.LEAD_TO_ORDER.ENQUIRY_TO_ORDER.DROPDOWNS);
+      const res = await api.get('/api/lead-to-order/enquiry-to-order/dropdowns');
       const json = res.data;
 
       if (!json.success) return;
@@ -211,7 +211,7 @@ const CallTrackerForm = ({ onClose = () => window.history.back() }) => {
         items
       };
 
-      const res = await api.post(API_ENDPOINTS.LEAD_TO_ORDER.ENQUIRY_TO_ORDER.SUBMIT, payload);
+      const res = await api.post('/api/lead-to-order/enquiry-to-order', payload);
 
       const json = res.data;
 

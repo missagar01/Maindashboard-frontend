@@ -7,7 +7,7 @@ import MakeQuotationForm from "./call-tracker/MakeQuotationFrom"
 import QuotationValidationForm from "./call-tracker/QuotationValidationForm"
 import OrderExpectedForm from "./call-tracker/OrderExpectedForm"
 import OrderStatusForm from "./call-tracker/OrderStatusFrom"
-import { leadToOrderAPI } from "../../services/leadToOrderAPI"
+import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 
 function NewCallTracker({ leadId: propLeadId, onClose }) {
   const navigate = useNavigate()

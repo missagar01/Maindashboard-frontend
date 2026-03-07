@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, PhoneCall, MapPin, User, Building, Tag, Briefcase, X } from 'lucide-react';
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 import CustomerModal from './CustomerModal';
 import FollowUpModal from './FollowUpModal';

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
-import { leadToOrderAPI } from "../../services/leadToOrderAPI"
+import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 
 function NewFollowUp({ leadId: propLeadId, leadNo: propLeadNo, onClose }) {
   const navigate = useNavigate()

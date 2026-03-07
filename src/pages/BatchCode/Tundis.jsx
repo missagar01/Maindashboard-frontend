@@ -1,7 +1,7 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Save, ArrowLeft, CheckCircle, AlertCircle, X, Eye, Search } from "lucide-react"
 // @ts-ignore - JSX component
-import { batchcodeAPI } from "../../services/batchcodeAPI";
+import * as batchcodeAPI from "../../api/batchcodeAPI";
 
 function TundishFormPage() {
     const [formData, setFormData] = useState({

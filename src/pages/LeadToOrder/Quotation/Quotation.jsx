@@ -10,8 +10,7 @@ import QuotationPreview from "./quotation-preview"
 import { generatePDFFromData } from "./pdf-generator"
 import { getNextQuotationNumber } from "./quotation-service" // SIMPLIFIED: Only import getNextQuotationNumber
 import { useQuotationData } from "./use-quotation-data"
-import { leadToOrderAPI } from "../../../services/leadToOrderAPI"
-
+import * as leadToOrderAPI from "../../../api/leadToOrderAPI";
 
 function Quotation() {
   const [activeTab, setActiveTab] = useState("edit")

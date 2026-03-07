@@ -9,7 +9,7 @@ import QuotationForm from "./quotation-form"
 import QuotationPreview from "./quotation-preview"
 import { generatePDFFromData } from "./pdf-generator"
 import { useQuotationData } from "./use-quotation-data"
-import { leadToOrderAPI } from "../../../services/leadToOrderAPI";
+import * as leadToOrderAPI from "../../../api/leadToOrderAPI";
 // SIMPLIFIED: Simple QN number generation without company prefix
 export const getNextQuotationNumber = async () => {
   try {

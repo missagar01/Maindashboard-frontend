@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, Clock, AlertCircle, Calendar } from 'lucide-react';
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 import { format } from "date-fns";
 

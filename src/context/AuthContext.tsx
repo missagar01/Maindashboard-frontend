@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from "react";
-import api, { API_ENDPOINTS } from "../config/api.js";
+import api from "../config/api.js";
 
 interface User {
   id: string | number;
@@ -24,7 +24,10 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  isInitializing: boolean;
   isAuthenticated: boolean;
+  pageAccess: string | null;
+  systemAccess: string | null;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   getAuthHeaders: () => { Authorization: string; 'Content-Type': string };
@@ -142,7 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
 
       // Use unified auth endpoint - Backend expects user_name, not username
-      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
+      const response = await api.post('/api/auth/login', {
         user_name: username.trim(),
         password: password,
       });
@@ -231,23 +234,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    try {
-      // Call logout API
-      await api.post(API_ENDPOINTS.AUTH.LOGOUT).catch(() => {
-        // Continue with logout even if API call fails
-        console.log('Logout API call failed, continuing with local logout');
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Clear local state regardless of API call result
-      setToken(null);
-      setUser(null);
-      clearAuthStorage();
-      delete api.defaults.headers.common['Authorization'];
-      // Use window.location for navigation outside Router context
-      redirectToLogin();
-    }
+    setToken(null);
+    setUser(null);
+    clearAuthStorage();
+    delete api.defaults.headers.common['Authorization'];
+    redirectToLogin();
   };
 
   const getAuthHeaders = () => ({
@@ -259,7 +250,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     token,
     loading,
+    isInitializing: loading,
     isAuthenticated: !!token && !!user,
+    pageAccess: user?.page_access || user?.user_access || null,
+    systemAccess: user?.system_access || null,
     login,
     logout,
     getAuthHeaders,

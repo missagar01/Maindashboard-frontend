@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
+import { getDefaultAllowedPath } from "../utils/accessControl";
 
 interface PublicRouteProps {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
   const { isAuthenticated, loading, user } = useAuth();
 
   const getDefaultRoute = (roleValue?: string) => {
-    return "/dashboard";
+    return getDefaultAllowedPath(user);
   };
 
   // For public routes (like login), don't show loading spinner
@@ -27,6 +28,5 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 };
 
 export default PublicRoute;
-
 
 

@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Button } from "./ui/button";
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { cn } from "../../lib/utils";
 
 interface SizeMasterData {

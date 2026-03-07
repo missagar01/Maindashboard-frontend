@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Search, Calendar, Clock, User as UserIcon, PlayCircle, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 
 interface FollowUp {

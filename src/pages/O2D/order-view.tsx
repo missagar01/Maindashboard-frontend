@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import { Loader2, RefreshCw, ChevronDown, X, Search, Package } from "lucide-react"
-import { o2dAPI } from "../../services/o2dAPI"
+import * as o2dAPI from "../../api/o2dAPI";
 
 export function OrdersView() {
   const [pendingOrders, setPendingOrders] = useState([])

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Building, Phone, Briefcase, Tag } from 'lucide-react';
-import { o2dAPI } from "../../services/o2dAPI";
+import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 
 interface CustomerModalProps {
