@@ -1923,8 +1923,8 @@ export function DashboardView() {
 
             {/* Daily Sales Performance Report Section */}
             <div className='w-full mt-2 sm:mt-8'>
-              <Card className="border-none shadow-lg overflow-hidden bg-white">
-                <CardHeader className="bg-white border-b border-slate-100 px-2 sm:px-4 py-2 sm:py-6">
+              <Card className="border-none shadow-none sm:shadow-lg overflow-hidden bg-transparent sm:bg-white sm:rounded-xl">
+                <CardHeader className="bg-transparent sm:bg-white border-b-0 sm:border-b border-slate-100 px-0 sm:px-4 py-2 sm:py-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="p-1.5 sm:p-2 bg-emerald-600 rounded-lg shadow-lg shadow-emerald-200">
@@ -1938,7 +1938,98 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  <div className="sm:hidden w-full px-0 pt-0 space-y-1">
+                    {dailySalesPerformance.length === 0 ? (
+                      <div className="rounded-lg border border-slate-200 bg-white px-3 py-6 text-center text-slate-400 font-medium text-sm">
+                        No data available for today
+                      </div>
+                    ) : (
+                      <>
+                        {dailySalesPerformance.filter(row => row.salesPerson !== 'Total').map((row, idx) => {
+                          const initials = row.salesPerson.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
+                          const avatarColor = idx % 3 === 0 ? "bg-blue-500" : idx % 3 === 1 ? "bg-purple-500" : "bg-indigo-500";
+
+                          return (
+                            <div key={idx} className="w-full rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm">
+                              <div className="flex items-center gap-1.5 pb-1.5 border-b border-slate-100">
+                                <div className={`w-5 h-5 rounded-full ${avatarColor} flex items-center justify-center text-white text-[9px] font-bold shadow-sm`}>
+                                  {initials}
+                                </div>
+                                <span className="text-[12px] sm:text-sm font-bold text-slate-800 truncate">{row.salesPerson}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1 pt-1">
+                                <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-blue-500 uppercase leading-none">Calls</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{row.noOfCallings}</p>
+                                </div>
+                                <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-violet-500 uppercase leading-none">Orders</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{row.orderClients}</p>
+                                </div>
+                                <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-emerald-500 uppercase leading-none">Conv</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{row.conversionRatio}%</p>
+                                </div>
+                                <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-amber-600 uppercase leading-none">Sale</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{row.totalRsSale ? Number(row.totalRsSale).toLocaleString() : '0'}</p>
+                                </div>
+                                <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2">
+                                  <p className="text-[13px] sm:text-base font-semibold text-indigo-500 uppercase leading-none">Avg</p>
+                                  <p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{row.avgRsSale}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {(() => {
+                          const dataRows = dailySalesPerformance.filter(row => row.salesPerson !== 'Total');
+                          if (dataRows.length === 0) return null;
+
+                          const totalCallings = dataRows.reduce((sum, row) => sum + Number(row.noOfCallings || 0), 0);
+                          const totalOrderClients = dataRows.reduce((sum, row) => sum + Number(row.orderClients || 0), 0);
+                          const totalRsSale = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0);
+                          const totalConversionRatio = totalCallings > 0 ? ((totalOrderClients / totalCallings) * 100).toFixed(2) : '0.00';
+                          const totalAvgSale = totalOrderClients > 0 ? (totalRsSale / totalOrderClients).toFixed(2) : '0.00';
+
+                          const avgCallingsValue = totalCallings / dataRows.length;
+                          const avgOrderClientsValue = totalOrderClients / dataRows.length;
+                          const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
+                          const avgTotalRsSaleValue = totalRsSale / dataRows.length;
+                          const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
+
+                          return (
+                            <>
+                              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-1.5 shadow-sm">
+                                <p className="text-[13px] sm:text-sm font-black text-yellow-700 mb-1">TOTAL</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-blue-500 uppercase leading-none">Calls</p><p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{totalCallings}</p></div>
+                                  <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-violet-500 uppercase leading-none">Orders</p><p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{totalOrderClients}</p></div>
+                                  <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-emerald-500 uppercase leading-none">Conv</p><p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{totalConversionRatio}%</p></div>
+                                  <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-amber-600 uppercase leading-none">Sale</p><p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{Number(totalRsSale).toLocaleString()}</p></div>
+                                  <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2"><p className="text-[13px] sm:text-base text-indigo-500 uppercase leading-none">Avg</p><p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{totalAvgSale}</p></div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-lg border border-purple-200 bg-purple-50 p-1.5 shadow-sm">
+                                <p className="text-[13px] sm:text-sm font-black text-purple-700 mb-1">AVERAGE</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  <div className="rounded-md bg-blue-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-blue-500 uppercase leading-none">Calls</p><p className="text-[13px] sm:text-base font-bold text-blue-700 leading-none">{avgCallingsValue.toFixed(1)}</p></div>
+                                  <div className="rounded-md bg-violet-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-violet-500 uppercase leading-none">Orders</p><p className="text-[13px] sm:text-base font-bold text-violet-700 leading-none">{avgOrderClientsValue.toFixed(1)}</p></div>
+                                  <div className="rounded-md bg-emerald-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-emerald-500 uppercase leading-none">Conv</p><p className="text-[13px] sm:text-base font-bold text-emerald-700 leading-none">{avgConversionRatio}%</p></div>
+                                  <div className="rounded-md bg-amber-50 px-1.5 py-1 flex items-center justify-between gap-2"><p className="text-[13px] sm:text-base text-amber-600 uppercase leading-none">Sale</p><p className="text-[13px] sm:text-base font-bold text-amber-700 leading-none">{Number(avgTotalRsSaleValue.toFixed(0)).toLocaleString()}</p></div>
+                                  <div className="rounded-md bg-indigo-50 px-1.5 py-1 flex items-center justify-between gap-2 col-span-2"><p className="text-[13px] sm:text-base text-indigo-500 uppercase leading-none">Avg</p><p className="text-[13px] sm:text-base font-bold text-indigo-700 leading-none">{avgAvgRsSale}</p></div>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="text-[10px] sm:text-xs text-white uppercase bg-emerald-600 sticky top-0 z-10">
                         <tr>
@@ -2073,7 +2164,7 @@ export function DashboardView() {
                     </table>
                   </div>
 
-                  {/* Daily Summary Statistics Tables */}
+                  {/* Daily Summary Statistics Cards */}
                   {dailySalesPerformance.length > 0 && (() => {
                     const dataRows = dailySalesPerformance.filter(row => row.salesPerson !== 'Total');
                     if (dataRows.length === 0) return null;
@@ -2082,39 +2173,17 @@ export function DashboardView() {
                     const avgCallPerPerson = (totalCallings / dataRows.length).toFixed(2);
 
                     return (
-                      <div className="mt-1 sm:mt-6 flex flex-col sm:flex-row items-stretch gap-1.5 sm:gap-4 px-0 sm:px-6 pb-1 sm:pb-6">
-                        <div className="flex-1 overflow-x-auto">
-                          <table className="w-full text-[11px] sm:text-xs md:text-sm">
-                            <tbody>
-                              <tr className="bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 transition-colors shadow-sm">
-                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-white border border-emerald-600 rounded-l-lg">
-                                  <div className="flex items-center">
-                                    <span className="whitespace-nowrap">Avg Call / Person</span>
-                                  </div>
-                                </td>
-                                <td className="px-3 sm:px-6 py-2 sm:py-3 font-black text-white text-right border border-emerald-600 rounded-r-lg text-sm sm:text-lg">
-                                  {avgCallPerPerson}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                      <div className="mt-1 sm:mt-6 flex flex-row items-stretch gap-1.5 sm:gap-4 px-0 sm:px-6 pb-1 sm:pb-6">
+                        {/* Avg Call / Person */}
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-1 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 transition-colors rounded-lg px-2 sm:px-6 py-2 sm:py-3 border border-emerald-600 shadow-sm">
+                          <span className="text-xs sm:text-sm font-bold text-white leading-tight truncate">Avg Call / Person</span>
+                          <span className="text-sm sm:text-lg font-black text-white shrink-0">{avgCallPerPerson}</span>
                         </div>
 
-                        <div className="flex-1 overflow-x-auto">
-                          <table className="w-full text-[11px] sm:text-xs md:text-sm">
-                            <tbody>
-                              <tr className="bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 transition-colors shadow-lg">
-                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-white border border-teal-600 rounded-l-lg">
-                                  <div className="flex items-center">
-                                    <span className="whitespace-nowrap uppercase tracking-wider">Today's Total Calling</span>
-                                  </div>
-                                </td>
-                                <td className="px-3 sm:px-6 py-3 sm:py-3.5 font-black text-white text-right border border-teal-600 rounded-r-lg text-base sm:text-lg">
-                                  {totalCallings.toLocaleString()}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                        {/* Today's Total Calling */}
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-1 bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 transition-colors rounded-lg px-2 sm:px-6 py-2 sm:py-3 border border-teal-600 shadow-lg">
+                          <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide leading-tight truncate">Today's Total Calling</span>
+                          <span className="text-sm sm:text-lg font-black text-white shrink-0">{totalCallings.toLocaleString()}</span>
                         </div>
                       </div>
                     );
