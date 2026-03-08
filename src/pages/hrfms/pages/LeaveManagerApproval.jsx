@@ -258,7 +258,7 @@ const LeaveManagerApproval = () => {
   };
 
   return (
-    <div className="min-h-screen py-6 sm:py-10">
+    <div className="min-h-screen overflow-x-hidden py-6 sm:py-10">
       <div className="mx-auto w-full max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
         <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-xl">
           <div>
@@ -270,8 +270,8 @@ const LeaveManagerApproval = () => {
 
         <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-xl">
           <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
-            <div className="max-h-[65vh] overflow-x-auto overflow-y-auto">
-              <table className="min-w-full w-full text-left text-sm hidden md:table">
+            <div className="max-h-[65vh] w-full overflow-x-auto overflow-y-auto">
+              <table className="min-w-full w-max text-left text-sm hidden md:table">
                 <thead className="sticky top-0 z-20 bg-gray-50 text-xs uppercase text-gray-500 shadow-sm">
                   <tr>
                     <th className="sticky top-0 bg-gray-50 px-2 sm:px-4 py-3">Employee</th>

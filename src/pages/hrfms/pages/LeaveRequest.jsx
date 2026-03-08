@@ -144,7 +144,7 @@ const LeaveRequest = () => {
     }
 
     try {
-      const response = await apiRequest('/api/leave-requests', {
+      const response = await apiRequest('/api/hrfms/leave-requests', {
         method: 'GET',
         token,
       });
@@ -239,7 +239,7 @@ const LeaveRequest = () => {
         user_id: employeeDbIdValue
       };
 
-      const result = await apiRequest('/api/leave-requests', {
+      const result = await apiRequest('/api/hrfms/leave-requests', {
         method: 'POST',
         token,
         body: payload,

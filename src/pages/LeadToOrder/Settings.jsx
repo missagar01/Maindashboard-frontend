@@ -11,6 +11,10 @@ const SYSTEM_OPTIONS = [
   { value: "batchcode", label: "Batchcode" },
   { value: "lead-to-order", label: "Lead to Order" },
   { value: "hrfms", label: "HRFMS" },
+  { value: "document", label: "Document" },
+  { value: "subscription", label: "Subscription" },
+  { value: "loan", label: "Loan" },
+  { value: "payment", label: "Payment" },
 ];
 
 // Page routes organized by system
@@ -60,6 +64,172 @@ const PAGE_ROUTES = {
     { value: "Interviwer List", label: "Interviwer List", route: "/hrfms/condidate-list" },
     { value: "Selected Condidate", label: "Selected Condidate", route: "/hrfms/condidate-select" },
   ],
+  "document": [
+    { value: "Document Dashboard", label: "Document Dashboard", route: "/document" },
+    { value: "Resource Manager", label: "Resource Manager", route: "/resource-manager" },
+    { value: "Document/All", label: "All Documents", route: "/document/all" },
+    { value: "Document/Renewal", label: "Document Renewal", route: "/document/renewal" },
+    { value: "Document/Shared", label: "Document Shared", route: "/document/shared" },
+    { value: "Subscription/All", label: "All Subscriptions", route: "/subscription/all" },
+    { value: "Subscription/Approval", label: "Subscription Approval", route: "/subscription/approval" },
+    { value: "Subscription/Payment", label: "Subscription Payment", route: "/subscription/payment" },
+    { value: "Subscription/Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
+    { value: "Loan/All", label: "All Loan", route: "/loan/all" },
+    { value: "Loan/Foreclosure", label: "Request Forecloser", route: "/loan/foreclosure" },
+    { value: "Loan/NOC", label: "Collect NOC", route: "/loan/noc" },
+    { value: "Payment/Request Form", label: "Payment Request Form", route: "/payment/request-form" },
+    { value: "Payment/Approval", label: "Payment Approval", route: "/payment/approval" },
+    { value: "Payment/Make Payment", label: "Make Payment", route: "/payment/make-payment" },
+    { value: "Payment/Tally Entry", label: "Tally Entry", route: "/payment/tally-entry" },
+    { value: "Account/Tally Data", label: "Account Tally Data", route: "/account/tally-data" },
+    { value: "Account/Audit", label: "Account Audit", route: "/account/audit" },
+    { value: "Account/Rectify", label: "Account Rectify", route: "/account/rectify" },
+    { value: "Account/Bill Filed", label: "Account Bill Filed", route: "/account/bill-filed" },
+    { value: "Master", label: "Master", route: "/master" },
+  ],
+  "subscription": [
+    { value: "Subscription/All", label: "All Subscriptions", route: "/subscription/all" },
+    { value: "Subscription/Approval", label: "Subscription Approval", route: "/subscription/approval" },
+    { value: "Subscription/Payment", label: "Subscription Payment", route: "/subscription/payment" },
+    { value: "Subscription/Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
+  ],
+  "loan": [
+    { value: "Loan/All", label: "All Loan", route: "/loan/all" },
+    { value: "Loan/Foreclosure", label: "Request Forecloser", route: "/loan/foreclosure" },
+    { value: "Loan/NOC", label: "Collect NOC", route: "/loan/noc" },
+  ],
+  "payment": [
+    { value: "Payment/Request Form", label: "Payment Request Form", route: "/payment/request-form" },
+    { value: "Payment/Approval", label: "Payment Approval", route: "/payment/approval" },
+    { value: "Payment/Make Payment", label: "Make Payment", route: "/payment/make-payment" },
+    { value: "Payment/Tally Entry", label: "Tally Entry", route: "/payment/tally-entry" },
+  ],
+};
+
+const ROUTE_TO_PAGE_NAME_MAP = {
+  "/": "Dashboard",
+  "/o2d/orders": "Orders",
+  "/o2d/enquiry": "Enquiry",
+  "/o2d/enquiry-list": "Enquiry List",
+  "/o2d/process": "Pending Vehicles",
+  "/o2d/complaint-details": "Complaint Details",
+  "/o2d/permissions": "Permissions",
+  "/o2d/customers": "Customers",
+  "/o2d/follow-ups": "Follow Ups",
+  "/batchcode/hot-coil": "Hot Coil",
+  "/batchcode/qc-lab": "QC Lab",
+  "/batchcode/sms-register": "SMS Register",
+  "/batchcode/recoiler": "Recoiler",
+  "/batchcode/pipe-mill": "Pipe Mill",
+  "/batchcode/laddel": "Laddel",
+  "/batchcode/tundis": "Tundis",
+  "/lead-to-order/leads": "Leads",
+  "/lead-to-order/follow-up": "Follow Up",
+  "/lead-to-order/call-tracker": "Call Tracker",
+  "/lead-to-order/quotation": "Quotation",
+  "/lead-to-order/settings": "Settings",
+  "/hrfms/dashboard": "HRFMS Dashboard",
+  "/hrfms/my-profile": "My Profile",
+  "/hrfms/resume-request": "MainPower Request",
+  "/hrfms/resume-list": "MainPower List",
+  "/hrfms/employee-create": "Employee",
+  "/hrfms/requests": "Travel Form",
+  "/hrfms/tickets": "Tickets",
+  "/hrfms/travel-status": "Travel Status",
+  "/hrfms/resumes": "Resume",
+  "/hrfms/resume-form": "Resume Upload",
+  "/hrfms/leave-request": "Leave Request",
+  "/hrfms/leave-approvals": "Leave Approvals",
+  "/hrfms/commercial-head-approval": "Hod Approval",
+  "/hrfms/leave-hr-approvals": "HR Approvals",
+  "/hrfms/plant-visitor": "Plant Visitor",
+  "/hrfms/plant-visitorlist": "Plant Visitor List",
+  "/hrfms/condidate-list": "Interviwer List",
+  "/hrfms/condidate-select": "Selected Condidate",
+  "/document": "Document Dashboard",
+  "/document/dashboard": "Document Dashboard",
+  "/resource-manager": "Resource Manager",
+  "/document/all": "Document/All",
+  "/document/renewal": "Document/Renewal",
+  "/document/shared": "Document/Shared",
+  "/subscription/all": "Subscription/All",
+  "/subscription/approval": "Subscription/Approval",
+  "/subscription/payment": "Subscription/Payment",
+  "/subscription/renewal": "Subscription/Renewal",
+  "/loan/all": "Loan/All",
+  "/loan/foreclosure": "Loan/Foreclosure",
+  "/loan/noc": "Loan/NOC",
+  "/payment/request-form": "Payment/Request Form",
+  "/payment/approval": "Payment/Approval",
+  "/payment/make-payment": "Payment/Make Payment",
+  "/payment/tally-entry": "Payment/Tally Entry",
+  "/account/tally-data": "Account/Tally Data",
+  "/account/audit": "Account/Audit",
+  "/account/rectify": "Account/Rectify",
+  "/account/bill-filed": "Account/Bill Filed",
+  "/master": "Master",
+};
+
+const SYSTEM_ALIASES = {
+  "leadtoorder": "lead-to-order",
+  "lead_to_order": "lead-to-order",
+  "documents": "document",
+  "docs": "document",
+  "subscriptions": "subscription",
+  "loans": "loan",
+  "payments": "payment",
+};
+
+const PAGE_VALUE_LOOKUP = Object.values(PAGE_ROUTES)
+  .flat()
+  .reduce((acc, page) => {
+    acc[page.value.toLowerCase()] = page.value;
+    return acc;
+  }, {
+    dashboard: "Dashboard",
+    master: "Master",
+    settings: "Settings",
+  });
+
+const parseCsv = (value) =>
+  (value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const toUnique = (values) => Array.from(new Set(values));
+
+const normalizeSystemName = (value) => {
+  const normalized = (value || "").toLowerCase().trim();
+  return SYSTEM_ALIASES[normalized] || normalized;
+};
+
+const normalizePageName = (value) => {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/")) {
+    const normalizedRoute = trimmed.split("?")[0].replace(/\/$/, "") || "/";
+    return ROUTE_TO_PAGE_NAME_MAP[normalizedRoute] || normalizedRoute;
+  }
+  return PAGE_VALUE_LOOKUP[trimmed.toLowerCase()] || trimmed;
+};
+
+const getPageOptionsForSystems = (systems) => {
+  const options = [];
+  systems.forEach((system) => {
+    if (PAGE_ROUTES[system]) {
+      options.push(...PAGE_ROUTES[system]);
+    }
+  });
+
+  const dedupedByValue = new Map();
+  options.forEach((option) => {
+    if (!dedupedByValue.has(option.value)) {
+      dedupedByValue.set(option.value, option);
+    }
+  });
+
+  return Array.from(dedupedByValue.values());
 };
 
 const defaultForm = {
@@ -144,66 +314,13 @@ const Settings = () => {
     setFormMode("edit");
     setSelectedUserId(userRecord.id);
 
-    // Route to Page Name mapping (reverse of PAGE_ROUTES)
-    const ROUTE_TO_PAGE_NAME_MAP = {
-      "/": "Dashboard",
-      "/o2d/orders": "Orders",
-      "/o2d/enquiry": "Enquiry",
-      "/o2d/enquiry-list": "Enquiry List",
-      "/o2d/process": "Pending Vehicles",
-      "/o2d/complaint-details": "Complaint Details",
-      "/o2d/permissions": "Permissions",
-      "/o2d/customers": "Customers",
-      "/o2d/follow-ups": "Follow Ups",
-      "/batchcode/hot-coil": "Hot Coil",
-      "/batchcode/qc-lab": "QC Lab",
-      "/batchcode/sms-register": "SMS Register",
-      "/batchcode/recoiler": "Recoiler",
-      "/batchcode/pipe-mill": "Pipe Mill",
-      "/batchcode/laddel": "Laddel",
-      "/batchcode/tundis": "Tundis",
-      "/lead-to-order/leads": "Leads",
-      "/lead-to-order/follow-up": "Follow Up",
-      "/lead-to-order/call-tracker": "Call Tracker",
-      "/lead-to-order/quotation": "Quotation",
-      "/hrfms/dashboard": "HRFMS Dashboard",
-      "/hrfms/my-profile": "My Profile",
-      "/hrfms/resume-request": "MainPower Request",
-      "/hrfms/resume-list": "MainPower List",
-      "/hrfms/employee-create": "Employee",
-      "/hrfms/requests": "Travel Form",
-      "/hrfms/tickets": "Tickets",
-      "/hrfms/travel-status": "Travel Status",
-      "/hrfms/resumes": "Resume",
-      "/hrfms/resume-form": "Resume Upload",
-      "/hrfms/leave-request": "Leave Request",
-      "/hrfms/leave-approvals": "Leave Approvals",
-      "/hrfms/commercial-head-approval": "Hod Approval",
-      "/hrfms/leave-hr-approvals": "HR Approvals",
-      "/hrfms/plant-visitor": "Plant Visitor",
-      "/hrfms/plant-visitorlist": "Plant Visitor List",
-      "/hrfms/condidate-list": "Interviwer List",
-      "/hrfms/condidate-select": "Selected Condidate",
-    };
+    const systemAccess = toUnique(
+      parseCsv(userRecord.system_access).map(normalizeSystemName)
+    ).join(",");
 
-    // Parse system_access and page_access if they're comma-separated strings
-    const systemAccess = userRecord.system_access || "";
-    const pageAccess = userRecord.page_access || "";
-
-    // Convert old route-based page_access to new page name format
-    const convertedPageAccess = pageAccess
-      .split(",")
-      .map(page => {
-        const trimmedPage = page.trim();
-        // If it starts with /, it's a route - convert to page name
-        if (trimmedPage.startsWith("/")) {
-          return ROUTE_TO_PAGE_NAME_MAP[trimmedPage] || trimmedPage;
-        }
-        // Otherwise, it's already a page name
-        return trimmedPage;
-      })
-      .filter(Boolean)
-      .join(",");
+    const convertedPageAccess = toUnique(
+      parseCsv(userRecord.page_access).map(normalizePageName).filter(Boolean)
+    ).join(",");
 
     setFormData({
       user_name: userRecord.user_name || "",
@@ -333,29 +450,43 @@ const Settings = () => {
 
   const handleSystemAccessChange = useCallback((systemValue, checked) => {
     setFormData((prev) => {
-      const currentSystems = prev.system_access ? prev.system_access.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const currentSystems = toUnique(
+        parseCsv(prev.system_access).map(normalizeSystemName)
+      );
       let newSystems;
       if (checked) {
-        newSystems = [...currentSystems, systemValue];
+        newSystems = toUnique([...currentSystems, normalizeSystemName(systemValue)]);
       } else {
-        newSystems = currentSystems.filter(s => s !== systemValue);
+        newSystems = currentSystems.filter((s) => s !== normalizeSystemName(systemValue));
       }
+
+      const allowedPages = new Set(
+        getPageOptionsForSystems(newSystems).map((option) => option.value)
+      );
+      const retainedPages = toUnique(
+        parseCsv(prev.page_access)
+          .map(normalizePageName)
+          .filter((page) => page && allowedPages.has(page))
+      );
+
       return {
         ...prev,
         system_access: newSystems.join(","),
-        page_access: "", // Reset page access when system changes
+        page_access: retainedPages.join(","),
       };
     });
   }, []);
 
   const handlePageAccessChange = useCallback((pageValue, checked) => {
     setFormData((prev) => {
-      const currentPages = prev.page_access ? prev.page_access.split(",").map(p => p.trim()).filter(Boolean) : [];
+      const currentPages = toUnique(
+        parseCsv(prev.page_access).map(normalizePageName).filter(Boolean)
+      );
       let newPages;
       if (checked) {
-        newPages = [...currentPages, pageValue];
+        newPages = toUnique([...currentPages, pageValue]);
       } else {
-        newPages = currentPages.filter(p => p !== pageValue);
+        newPages = currentPages.filter((p) => p !== pageValue);
       }
       return {
         ...prev,
@@ -375,29 +506,29 @@ const Settings = () => {
 
   // Get available pages based on selected system access
   const getAvailablePages = useMemo(() => {
-    if (!formData.system_access) {
+    const systems = toUnique(
+      parseCsv(formData.system_access).map(normalizeSystemName)
+    );
+    if (systems.length === 0) {
       return [];
     }
-    const systems = formData.system_access.split(",").map(s => s.trim()).filter(Boolean);
-    const availablePages = [];
-    systems.forEach(system => {
-      if (PAGE_ROUTES[system]) {
-        availablePages.push(...PAGE_ROUTES[system]);
-      }
-    });
-    return availablePages;
+    return getPageOptionsForSystems(systems);
   }, [formData.system_access]);
 
   // Get selected page values as array
   const getSelectedPages = useMemo(() => {
     if (!formData.page_access) return [];
-    return formData.page_access.split(",").map(p => p.trim()).filter(Boolean);
+    return toUnique(
+      parseCsv(formData.page_access).map(normalizePageName).filter(Boolean)
+    );
   }, [formData.page_access]);
 
   // Get selected system values as array
   const getSelectedSystems = useMemo(() => {
     if (!formData.system_access) return [];
-    return formData.system_access.split(",").map(s => s.trim()).filter(Boolean);
+    return toUnique(
+      parseCsv(formData.system_access).map(normalizeSystemName)
+    );
   }, [formData.system_access]);
 
   if (!isAdmin) {

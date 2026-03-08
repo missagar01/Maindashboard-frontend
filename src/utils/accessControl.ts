@@ -6,9 +6,22 @@ export type UserAccess = {
   userType?: string;
 };
 
-type SystemKey = "o2d" | "batchcode" | "lead-to-order" | "hrfms" | null;
+type SystemKey = "o2d" | "batchcode" | "lead-to-order" | "hrfms" | "document" | null;
 
-const SYSTEM_ROOTS = ["/", "/o2d", "/batchcode", "/lead-to-order", "/hrfms"];
+const SYSTEM_ROOTS = [
+  "/",
+  "/o2d",
+  "/batchcode",
+  "/lead-to-order",
+  "/hrfms",
+  "/document",
+  "/subscription",
+  "/loan",
+  "/payment",
+  "/account",
+  "/resource-manager",
+  "/master",
+];
 
 const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
   "/dashboard": "/hrfms/dashboard",
@@ -75,6 +88,39 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Selected Condidate": "/hrfms/condidate-select",
   "Candidate Status": "/hrfms/condidate-list",
   "Selected Candidate": "/hrfms/condidate-select",
+  "Resource Manager": "/resource-manager",
+  "Document Dashboard": "/document",
+  "Document/All": "/document/all",
+  "Document/Renewal": "/document/renewal",
+  "Document/Shared": "/document/shared",
+  "All Documents": "/document/all",
+  "Document Renewal": "/document/renewal",
+  "Document Shared": "/document/shared",
+  "Subscription/All": "/subscription/all",
+  "Subscription/Approval": "/subscription/approval",
+  "Subscription/Payment": "/subscription/payment",
+  "Subscription/Renewal": "/subscription/renewal",
+  "All Subscription": "/subscription/all",
+  "All Subscriptions": "/subscription/all",
+  "Subscription Approval": "/subscription/approval",
+  "Subscription Payment": "/subscription/payment",
+  "Subscription Renewal": "/subscription/renewal",
+  "Loan/All": "/loan/all",
+  "Loan/Foreclosure": "/loan/foreclosure",
+  "Loan/NOC": "/loan/noc",
+  "All Loan": "/loan/all",
+  "Request Forecloser": "/loan/foreclosure",
+  "Collect NOC": "/loan/noc",
+  "Payment/Request Form": "/payment/request-form",
+  "Payment/Approval": "/payment/approval",
+  "Payment/Make Payment": "/payment/make-payment",
+  "Payment/Tally Entry": "/payment/tally-entry",
+  "Account/Tally Data": "/account/tally-data",
+  "Account/Audit": "/account/audit",
+  "Account/Rectify": "/account/rectify",
+  "Account/Bill Filed": "/account/bill-filed",
+  Master: "/master",
+  Settings: "/lead-to-order/settings",
 };
 
 const normalizePath = (path: string): string => {
@@ -110,6 +156,21 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
+  if (required === "document") {
+    return systems.some((value) =>
+      [
+        "document",
+        "documents",
+        "doc",
+        "subscription",
+        "loan",
+        "payment",
+        "resource",
+        "resourcemanager",
+      ].includes(value)
+    );
+  }
+
   return systems.includes(required);
 };
 
@@ -137,6 +198,19 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "hrfms";
   }
 
+  if (
+    normalizedPath.startsWith("/document") ||
+    normalizedPath.startsWith("/subscription") ||
+    normalizedPath.startsWith("/loan") ||
+    normalizedPath.startsWith("/payment") ||
+    normalizedPath.startsWith("/account") ||
+    normalizedPath.startsWith("/resource-manager") ||
+    normalizedPath.startsWith("/master") ||
+    lowerPath.includes("tab=document")
+  ) {
+    return "document";
+  }
+
   return null;
 };
 
@@ -155,8 +229,12 @@ const normalizePageEntryToRoute = (
     if (normalized === "/dashboard") {
       const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
       const hasO2d = hasSystemAccess(availableSystems, "o2d");
+      const hasDocument = hasSystemAccess(availableSystems, "document");
       if (hasHrfms && !hasO2d) {
         return "/hrfms/dashboard";
+      }
+      if (hasDocument && !hasO2d && !hasHrfms) {
+        return "/document";
       }
       return "/";
     }
@@ -271,6 +349,7 @@ export const getDefaultAllowedPath = (user: UserAccess | null | undefined): stri
   if (hasSystemAccess(systemAccess, "lead-to-order")) return "/?tab=lead-to-order";
   if (hasSystemAccess(systemAccess, "batchcode")) return "/?tab=batchcode";
   if (hasSystemAccess(systemAccess, "hrfms")) return "/hrfms/dashboard";
+  if (hasSystemAccess(systemAccess, "document")) return "/document";
 
   if (pageRoutes.includes("/")) return "/";
 

@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { Toaster } from "react-hot-toast";
 import AppLayout from "./layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RouteGuard from "./components/RouteGuard";
@@ -58,10 +59,34 @@ import HRFMSSelectedCandidate from "./pages/hrfms/pages/SelectedCondidate";
 import HRFMSPlantVisitor from "./pages/hrfms/pages/PlantVisitor";
 import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
 
+// Document module pages
+import DocumentDashboard from "./pages/document/pages/Dashboard";
+import DocumentResourceManager from "./pages/document/pages/ResourceManager";
+import DocumentAllDocuments from "./pages/document/pages/document/AllDocuments";
+import DocumentRenewal from "./pages/document/pages/document/Renewal";
+import DocumentShared from "./pages/document/pages/document/Shared";
+import DocumentAllSubscriptions from "./pages/document/pages/subscription/AllSubscriptions";
+import DocumentSubscriptionApproval from "./pages/document/pages/subscription/Approval";
+import DocumentSubscriptionPayment from "./pages/document/pages/subscription/Payment";
+import DocumentSubscriptionRenewal from "./pages/document/pages/subscription/Renewal";
+import DocumentAllLoans from "./pages/document/pages/loan/AllLoans";
+import DocumentLoanForeclosure from "./pages/document/pages/loan/Foreclosure";
+import DocumentLoanNOC from "./pages/document/pages/loan/NOC";
+import DocumentMaster from "./pages/document/pages/master/MasterPage";
+import DocumentPaymentRequestForm from "./pages/document/pages/payment/RequestForm";
+import DocumentPaymentApproval from "./pages/document/pages/payment/PaymentApproval";
+import DocumentMakePayment from "./pages/document/pages/payment/MakePayment";
+import DocumentTallyEntry from "./pages/document/pages/payment/TallyEntry";
+import DocumentAccountTallyData from "./pages/document/pages/account/TallyData";
+import DocumentAccountAudit from "./pages/document/pages/account/Audit";
+import DocumentAccountRectify from "./pages/document/pages/account/Rectify";
+import DocumentAccountBillFiled from "./pages/document/pages/account/BillFiled";
+
 export default function App() {
   return (
     <>
       <Router>
+        <Toaster position="top-right" />
         <Routes>
           {/* Public routes - Login page */}
           <Route
@@ -136,6 +161,39 @@ export default function App() {
             <Route path="/hrfms/condidate-select" element={<RouteGuard><HRFMSSelectedCandidate /></RouteGuard>} />
             <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
             <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
+
+            {/* Document Routes */}
+            <Route path="/document" element={<RouteGuard><DocumentDashboard /></RouteGuard>} />
+            <Route path="/document/dashboard" element={<RouteGuard><DocumentDashboard /></RouteGuard>} />
+            <Route path="/document/all" element={<RouteGuard><DocumentAllDocuments /></RouteGuard>} />
+            <Route path="/document/renewal" element={<RouteGuard><DocumentRenewal /></RouteGuard>} />
+            <Route path="/document/shared" element={<RouteGuard><DocumentShared /></RouteGuard>} />
+            <Route path="/resource-manager" element={<RouteGuard><DocumentResourceManager /></RouteGuard>} />
+
+            <Route path="/subscription" element={<RouteGuard><Navigate to="/subscription/all" replace /></RouteGuard>} />
+            <Route path="/subscription/all" element={<RouteGuard><DocumentAllSubscriptions /></RouteGuard>} />
+            <Route path="/subscription/approval" element={<RouteGuard><DocumentSubscriptionApproval /></RouteGuard>} />
+            <Route path="/subscription/payment" element={<RouteGuard><DocumentSubscriptionPayment /></RouteGuard>} />
+            <Route path="/subscription/renewal" element={<RouteGuard><DocumentSubscriptionRenewal /></RouteGuard>} />
+
+            <Route path="/loan" element={<RouteGuard><Navigate to="/loan/all" replace /></RouteGuard>} />
+            <Route path="/loan/all" element={<RouteGuard><DocumentAllLoans /></RouteGuard>} />
+            <Route path="/loan/foreclosure" element={<RouteGuard><DocumentLoanForeclosure /></RouteGuard>} />
+            <Route path="/loan/noc" element={<RouteGuard><DocumentLoanNOC /></RouteGuard>} />
+
+            <Route path="/payment" element={<RouteGuard><Navigate to="/payment/request-form" replace /></RouteGuard>} />
+            <Route path="/payment/request-form" element={<RouteGuard><DocumentPaymentRequestForm /></RouteGuard>} />
+            <Route path="/payment/approval" element={<RouteGuard><DocumentPaymentApproval /></RouteGuard>} />
+            <Route path="/payment/make-payment" element={<RouteGuard><DocumentMakePayment /></RouteGuard>} />
+            <Route path="/payment/tally-entry" element={<RouteGuard><DocumentTallyEntry /></RouteGuard>} />
+
+            <Route path="/account" element={<RouteGuard><Navigate to="/account/tally-data" replace /></RouteGuard>} />
+            <Route path="/account/tally-data" element={<RouteGuard><DocumentAccountTallyData /></RouteGuard>} />
+            <Route path="/account/audit" element={<RouteGuard><DocumentAccountAudit /></RouteGuard>} />
+            <Route path="/account/rectify" element={<RouteGuard><DocumentAccountRectify /></RouteGuard>} />
+            <Route path="/account/bill-filed" element={<RouteGuard><DocumentAccountBillFiled /></RouteGuard>} />
+
+            <Route path="/master" element={<RouteGuard><DocumentMaster /></RouteGuard>} />
           </Route>
 
           {/* Catch all - redirect to login if not authenticated, otherwise home */}
