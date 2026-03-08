@@ -2,11 +2,13 @@ export type UserAccess = {
   system_access?: string | null;
   page_access?: string | null;
   user_access?: string | null;
+  store_access?: string | null;
+  employee_id?: string | null;
   role?: string;
   userType?: string;
 };
 
-type SystemKey = "o2d" | "batchcode" | "lead-to-order" | "hrfms" | "document" | null;
+type SystemKey = "o2d" | "batchcode" | "lead-to-order" | "hrfms" | "document" | "store" | null;
 
 const SYSTEM_ROOTS = [
   "/",
@@ -15,6 +17,7 @@ const SYSTEM_ROOTS = [
   "/lead-to-order",
   "/hrfms",
   "/document",
+  "/store",
   "/subscription",
   "/loan",
   "/payment",
@@ -121,7 +124,86 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Account/Bill Filed": "/account/bill-filed",
   Master: "/master",
   Settings: "/lead-to-order/settings",
+  "Store Dashboard": "/store/dashboard",
+  "Create PO": "/store/create-po",
+  "Approve Indents": "/store/approve-indent",
+  "Approve Indent Data": "/store/approve-indent-data",
+  "Pending Indents": "/store/pending-indents",
+  "Pending POs": "/store/pending-pos",
+  "Store Out Approval": "/store/store-out-approval",
+  "Completed Items": "/store/completed-items",
+  Inventory: "/store/inventory",
+  "Item Issue": "/store/item-issue",
+  "Receive Items": "/store/receive-items",
+  "Rate Approval": "/store/rate-approval",
+  "Vendor Update": "/store/vendor-update",
+  "User Indent": "/store/user-indent",
+  "User Indent List": "/store/user-indent-list",
+  "User Indent Details": "/store/user-indent-list-indent",
+  "My Indent": "/store/user-indent-list-indent",
+  Requisition: "/store/user-requisition",
+  "User Requisitions": "/store/user-requisition",
+  "Repair Gate Pass": "/store/repair-gate-pass",
+  "Repair Gate Pass History": "/store/repair-gate-pass/history",
+  "Repair Follow Up": "/store/repair-followup",
+  "Store Settings": "/store/settings",
+  "Store GRN": "/store/store-grn",
+  "Store GRN Admin Approval": "/store/store-grn-admin",
+  "Store GRN GM Approval": "/store/store-grn-gm",
+  "Store GRN Close": "/store/store-grn-close",
 };
+
+const STORE_OUT_ONLY_EMPLOYEE_IDS = new Set(["S07632", "S08088"]);
+const APPROVE_INDENT_ONLY_EMPLOYEE_IDS = new Set(["S00116"]);
+
+const STORE_USER_BASE_ROUTES = [
+  "/store/user-indent-list-indent",
+  "/store/user-requisition",
+  "/store/user-indent",
+];
+
+const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
+  DASHBOARD: ["/store/dashboard"],
+  INDENT: ["/store/approve-indent"],
+  "PURCHASE ORDER": ["/store/pending-indents"],
+  INVENTORY: ["/store/inventory"],
+  "REPAIR GATE PASS": ["/store/repair-gate-pass"],
+  "REPAIR FOLLOW UP": ["/store/repair-followup"],
+  "STORE GRN": ["/store/store-grn"],
+  "STORE GRN ADMIN APPROVAL": ["/store/store-grn-admin"],
+  "STORE GRN GM APPROVAL": ["/store/store-grn-gm"],
+  "STORE GRN CLOSE": ["/store/store-grn-close"],
+};
+
+const STORE_ADMIN_ROUTE_ALLOWLIST = [
+  "/store/dashboard",
+  "/store/indent",
+  "/store/administration",
+  "/store/store-out-approval",
+  "/store/pending-pos",
+  "/store/create-po",
+  "/store/approve-indent",
+  "/store/approve-indent-data",
+  "/store/completed-items",
+  "/store/inventory",
+  "/store/item-issue",
+  "/store/receive-items",
+  "/store/user-indent",
+  "/store/user-indent-list",
+  "/store/user-indent-list-indent",
+  "/store/user-requisition",
+  "/store/pending-indents",
+  "/store/vendor-update",
+  "/store/repair-gate-pass",
+  "/store/repair-gate-pass/history",
+  "/store/repair-followup",
+  "/store/settings",
+  "/store/store-grn",
+  "/store/store-grn-admin",
+  "/store/store-grn-gm",
+  "/store/store-grn-close",
+  "/store/rate-approval",
+];
 
 const normalizePath = (path: string): string => {
   const stripped = path.split("?")[0].replace(/\/$/, "");
@@ -137,6 +219,79 @@ const parseSystemAccess = (user: UserAccess | null | undefined): string[] => {
     .split(",")
     .map((item) => item.trim().toLowerCase().replace(/\s+/g, ""))
     .filter(Boolean);
+};
+
+const parseStoreAccess = (user: UserAccess | null | undefined): string[] => {
+  if (!user?.store_access) {
+    return [];
+  }
+
+  return user.store_access
+    .split(",")
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean);
+};
+
+const getStoreAllowedRoutes = (user: UserAccess | null | undefined): string[] => {
+  if (!user) {
+    return [];
+  }
+
+  if (isAdminUser(user)) {
+    return STORE_ADMIN_ROUTE_ALLOWLIST;
+  }
+
+  const employeeId = (user.employee_id || "").trim().toUpperCase();
+  if (STORE_OUT_ONLY_EMPLOYEE_IDS.has(employeeId)) {
+    return ["/store/store-out-approval", "/store/completed-items"];
+  }
+
+  if (APPROVE_INDENT_ONLY_EMPLOYEE_IDS.has(employeeId)) {
+    return ["/store/approve-indent-data"];
+  }
+
+  const mappedRoutes = parseStoreAccess(user).flatMap((entry) => STORE_ACCESS_ROUTE_MAP[entry] || []);
+
+  return Array.from(new Set([...STORE_USER_BASE_ROUTES, ...mappedRoutes]));
+};
+
+export const hasStoreModuleAccess = (user: UserAccess | null | undefined): boolean => {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    isAdminUser(user) ||
+    parseStoreAccess(user).length > 0 ||
+    getStoreAllowedRoutes(user).length > 0 ||
+    parseSystemAccess(user).some((value) =>
+      ["store", "stores", "storefms", "store-fms", "inventory"].includes(value)
+    )
+  );
+};
+
+const isStorePathAllowed = (
+  effectivePath: string,
+  user: UserAccess | null | undefined,
+  pageRoutes: string[]
+): boolean => {
+  if (!user) {
+    return false;
+  }
+
+  if (isAdminUser(user)) {
+    return STORE_ADMIN_ROUTE_ALLOWLIST.some((route) => isRouteMatch(effectivePath, route));
+  }
+
+  const storePageRoutes = pageRoutes.filter(
+    (route) => getSystemForPath(route, normalizePath(route)) === "store"
+  );
+
+  if (storePageRoutes.some((route) => isRouteMatch(effectivePath, route))) {
+    return true;
+  }
+
+  return getStoreAllowedRoutes(user).some((route) => isRouteMatch(effectivePath, route));
 };
 
 const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
@@ -171,6 +326,12 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
+  if (required === "store") {
+    return systems.some((value) =>
+      ["store", "stores", "storefms", "store-fms", "inventory"].includes(value)
+    );
+  }
+
   return systems.includes(required);
 };
 
@@ -196,6 +357,10 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
 
   if (normalizedPath.startsWith("/hrfms") || lowerPath.includes("tab=hrfms")) {
     return "hrfms";
+  }
+
+  if (normalizedPath.startsWith("/store") || lowerPath.includes("tab=store")) {
+    return "store";
   }
 
   if (
@@ -295,7 +460,7 @@ export const isPathAllowed = (
     return true;
   }
 
-  if (!user || (!user.system_access && !user.page_access && !user.user_access)) {
+  if (!user || (!user.system_access && !user.page_access && !user.user_access && !user.store_access)) {
     return false;
   }
 
@@ -324,6 +489,10 @@ export const isPathAllowed = (
 
   const systemMatch = hasSystemAccess(systemAccess, currentSystem);
 
+  if (currentSystem === "store") {
+    return isStorePathAllowed(effectivePath, user, pageRoutes) || systemMatch;
+  }
+
   if (effectivePath === "/" && (systemMatch || pageRoutes.length > 0)) {
     return true;
   }
@@ -344,6 +513,13 @@ export const getDefaultAllowedPath = (user: UserAccess | null | undefined): stri
   }
 
   const systemAccess = parseSystemAccess(user);
+
+  if (hasSystemAccess(systemAccess, "store")) return "/store/dashboard";
+
+  const storeRoutes = getStoreAllowedRoutes(user);
+  if (storeRoutes.length > 0) {
+    return storeRoutes[0];
+  }
 
   if (hasSystemAccess(systemAccess, "o2d")) return "/?tab=o2d";
   if (hasSystemAccess(systemAccess, "lead-to-order")) return "/?tab=lead-to-order";

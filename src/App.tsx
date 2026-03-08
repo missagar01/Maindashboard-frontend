@@ -59,6 +59,35 @@ import HRFMSSelectedCandidate from "./pages/hrfms/pages/SelectedCondidate";
 import HRFMSPlantVisitor from "./pages/hrfms/pages/PlantVisitor";
 import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
 
+// Store pages
+import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
+import StoreIndentAll from "./pages/store/pages/store/IndentAll";
+import StoreAdministration from "./pages/store/pages/store/Administration";
+import StoreOutApproval from "./pages/store/pages/store/StoreOutApproval";
+import StorePendingPOs from "./pages/store/pages/store/PendingPOs";
+import StoreCreatePO from "./pages/store/pages/store/CreatePO";
+import StoreApproveIndent from "./pages/store/pages/store/ApproveIndent";
+import StoreApproveIndentData from "./pages/store/pages/store/ApprowIndentData";
+import StoreCompletedItems from "./pages/store/pages/store/CompletedItems";
+import StoreInventory from "./pages/store/pages/store/Inventory";
+import StoreItemIssue from "./pages/store/pages/store/Itemissue";
+import StoreReceiveItems from "./pages/store/pages/store/ReceiveItems";
+import StoreUserIndent from "./pages/store/pages/store/UserIndent";
+import StoreUserIndentList from "./pages/store/pages/store/UserIndentList";
+import StoreUserIndentListIndent from "./pages/store/pages/store/UserIndentListIndent";
+import StoreUserIndentListRequisition from "./pages/store/pages/store/UserIndentListRequisition";
+import StorePendingIndents from "./pages/store/pages/store/PendingIndents";
+import StoreVendorUpdate from "./pages/store/pages/store/VendorUpdate";
+import StoreRateApproval from "./pages/store/pages/store/RateApproval";
+import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
+import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
+import StoreRepairFollowup from "./pages/store/pages/store/RepairFollowup";
+import StoreSettings from "./pages/store/pages/store/Settings";
+import StoreGRN from "./pages/store/pages/store/StoreGRN";
+import StoreGRNAdminApproval from "./pages/store/pages/store/StoreGRNAdminApproval";
+import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
+import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
+
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
 import DocumentResourceManager from "./pages/document/pages/ResourceManager";
@@ -161,6 +190,36 @@ export default function App() {
             <Route path="/hrfms/condidate-select" element={<RouteGuard><HRFMSSelectedCandidate /></RouteGuard>} />
             <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
             <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
+
+            {/* Store Routes */}
+            <Route path="/store" element={<RouteGuard><Navigate to="/store/dashboard" replace /></RouteGuard>} />
+            <Route path="/store/dashboard" element={<RouteGuard><StoreDashboard /></RouteGuard>} />
+            <Route path="/store/indent" element={<RouteGuard><StoreIndentAll /></RouteGuard>} />
+            <Route path="/store/administration" element={<RouteGuard><StoreAdministration /></RouteGuard>} />
+            <Route path="/store/store-out-approval" element={<RouteGuard><StoreOutApproval /></RouteGuard>} />
+            <Route path="/store/pending-pos" element={<RouteGuard><StorePendingPOs /></RouteGuard>} />
+            <Route path="/store/create-po" element={<RouteGuard><StoreCreatePO /></RouteGuard>} />
+            <Route path="/store/approve-indent" element={<RouteGuard><StoreApproveIndent /></RouteGuard>} />
+            <Route path="/store/approve-indent-data" element={<RouteGuard><StoreApproveIndentData /></RouteGuard>} />
+            <Route path="/store/completed-items" element={<RouteGuard><StoreCompletedItems /></RouteGuard>} />
+            <Route path="/store/inventory" element={<RouteGuard><StoreInventory /></RouteGuard>} />
+            <Route path="/store/item-issue" element={<RouteGuard><StoreItemIssue /></RouteGuard>} />
+            <Route path="/store/receive-items" element={<RouteGuard><StoreReceiveItems /></RouteGuard>} />
+            <Route path="/store/user-indent" element={<RouteGuard><StoreUserIndent /></RouteGuard>} />
+            <Route path="/store/user-indent-list" element={<RouteGuard><StoreUserIndentList /></RouteGuard>} />
+            <Route path="/store/user-indent-list-indent" element={<RouteGuard><StoreUserIndentListIndent /></RouteGuard>} />
+            <Route path="/store/user-requisition" element={<RouteGuard><StoreUserIndentListRequisition /></RouteGuard>} />
+            <Route path="/store/pending-indents" element={<RouteGuard><StorePendingIndents /></RouteGuard>} />
+            <Route path="/store/vendor-update" element={<RouteGuard><StoreVendorUpdate /></RouteGuard>} />
+            <Route path="/store/rate-approval" element={<RouteGuard><StoreRateApproval /></RouteGuard>} />
+            <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
+            <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
+            <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
+            <Route path="/store/settings" element={<RouteGuard><StoreSettings /></RouteGuard>} />
+            <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
+            <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
+            <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
+            <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
 
             {/* Document Routes */}
             <Route path="/document" element={<RouteGuard><DocumentDashboard /></RouteGuard>} />

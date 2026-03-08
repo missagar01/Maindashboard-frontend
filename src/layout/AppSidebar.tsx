@@ -5,7 +5,11 @@ import { ChevronDown, FileText, LogOut, Users } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assert/Logo.jpeg";
-import { isAdminUser, isPathAllowed } from "../utils/accessControl";
+import {
+  hasStoreModuleAccess,
+  isAdminUser,
+  isPathAllowed,
+} from "../utils/accessControl";
 
 type NavSubItem = {
   name: string;
@@ -129,6 +133,26 @@ const documentItem: NavItem = {
   ],
 };
 
+const storeItem: NavItem = {
+  icon: <BoxCubeIcon />,
+  name: "Store",
+  subItems: [
+    { name: "Dashboard", path: "/store/dashboard" },
+    { name: "Indent", path: "/store/approve-indent" },
+    { name: "Purchase Order", path: "/store/pending-indents" },
+    { name: "Inventory", path: "/store/inventory" },
+    { name: "Repair Gate Pass", path: "/store/repair-gate-pass" },
+    { name: "Repair Follow Up", path: "/store/repair-followup" },
+    { name: "Store GRN", path: "/store/store-grn" },
+    { name: "Store GRN Admin Approval", path: "/store/store-grn-admin" },
+    { name: "Store GRN GM Approval", path: "/store/store-grn-gm" },
+    { name: "Store GRN Close", path: "/store/store-grn-close" },
+    { name: "My Indent", path: "/store/user-indent-list-indent" },
+    { name: "Requisition", path: "/store/user-requisition" },
+    { name: "Create Indent", path: "/store/user-indent" },
+  ],
+};
+
 const parentBaseClass =
   "group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200";
 const parentActiveClass = "bg-gradient-to-r from-[#EE1C23] to-[#ff3b42] text-white shadow-sm";
@@ -167,6 +191,9 @@ const AppSidebar: FC = () => {
   const [isHrfmsOpen, setIsHrfmsOpen] = useState<boolean>(() =>
     location.pathname.startsWith("/hrfms")
   );
+  const [isStoreOpen, setIsStoreOpen] = useState<boolean>(() =>
+    location.pathname.startsWith("/store")
+  );
   const [isDocumentOpen, setIsDocumentOpen] = useState<boolean>(() =>
     isDocumentPath(location.pathname)
   );
@@ -184,6 +211,9 @@ const AppSidebar: FC = () => {
     }
     if (location.pathname.startsWith("/hrfms")) {
       setIsHrfmsOpen(true);
+    }
+    if (location.pathname.startsWith("/store")) {
+      setIsStoreOpen(true);
     }
     if (isDocumentPath(location.pathname)) {
       setIsDocumentOpen(true);
@@ -294,6 +324,21 @@ const AppSidebar: FC = () => {
     if (filteredSubItems.length === 0 && !isAdmin) return null;
 
     return { ...hrfmsItem, subItems: filteredSubItems };
+  }, [filterSubItems, isAdmin, user]);
+
+  const filteredStoreItem = useMemo(() => {
+    if (
+      !isAdmin &&
+      !hasStoreModuleAccess(user) &&
+      !storeItem.subItems?.some((s) => isPathAllowed(s.path || "", user))
+    ) {
+      return null;
+    }
+
+    const filteredSubItems = filterSubItems(storeItem.subItems);
+    if (filteredSubItems.length === 0 && !isAdmin) return null;
+
+    return { ...storeItem, subItems: filteredSubItems };
   }, [filterSubItems, isAdmin, user]);
 
   const filteredDocumentItem = useMemo(() => {
@@ -566,6 +611,13 @@ const AppSidebar: FC = () => {
           <div className="mb-1">
             {renderGroupToggle(filteredHrfmsItem, isHrfmsOpen, () => setIsHrfmsOpen((prev) => !prev))}
             {isHrfmsOpen ? renderSubItems(filteredHrfmsItem.subItems, "hrfms-root") : null}
+          </div>
+        ) : null}
+
+        {filteredStoreItem ? (
+          <div className="mb-1">
+            {renderGroupToggle(filteredStoreItem, isStoreOpen, () => setIsStoreOpen((prev) => !prev))}
+            {isStoreOpen ? renderSubItems(filteredStoreItem.subItems, "store-root") : null}
           </div>
         ) : null}
 

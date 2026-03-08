@@ -2,6 +2,7 @@
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import api from "../config/api.js";
+import { lookupStoreAccessForUser } from "../api/store/storeSettingsApi";
 
 interface User {
   id: string | number;
@@ -17,6 +18,7 @@ interface User {
   user_access?: string | null;
   page_access?: string | null;
   system_access?: string | null;
+  store_access?: string | null;
   [key: string]: unknown;
 }
 
@@ -40,6 +42,19 @@ const clearAuthStorage = () => {
   localStorage.removeItem('token');
   sessionStorage.removeItem('user');
   localStorage.removeItem('user');
+};
+
+const normalizeValue = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && (value.toUpperCase() === 'NULL' || value.trim() === '')) return null;
+  return typeof value === 'string' ? value : String(value);
+};
+
+const persistAuthState = (authToken: string, authUser: User) => {
+  sessionStorage.setItem('token', authToken);
+  localStorage.setItem('token', authToken);
+  sessionStorage.setItem('user', JSON.stringify(authUser));
+  localStorage.setItem('user', JSON.stringify(authUser));
 };
 
 const redirectToLogin = () => {
@@ -66,7 +81,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initializeAuth = () => {
+    const enrichUserWithStoreAccess = async (
+      baseUser: User,
+      authToken: string | null
+    ): Promise<User> => {
+      if (baseUser.store_access) {
+        return baseUser;
+      }
+
+      try {
+        const storeAccess = await lookupStoreAccessForUser(baseUser, authToken || undefined);
+        if (!storeAccess) {
+          return baseUser;
+        }
+
+        const enrichedUser = {
+          ...baseUser,
+          store_access: storeAccess,
+        };
+
+        setUser(enrichedUser);
+        if (authToken) {
+          persistAuthState(authToken, enrichedUser);
+        }
+
+        return enrichedUser;
+      } catch (error) {
+        console.warn('Unable to load store access', error);
+        return baseUser;
+      }
+    };
+
+    const initializeAuth = async () => {
       try {
         const storedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
         if (storedToken) {
@@ -77,6 +123,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               setToken(storedToken);
               setUser(parsedUser);
               api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+              await enrichUserWithStoreAccess(parsedUser, storedToken);
               setLoading(false);
               return;
             } catch (e) { }
@@ -85,13 +132,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (decoded) {
             const userAccess = decoded?.user_access || null;
             const accessArray = userAccess ? userAccess.split(',').map((a: string) => a.trim()) : null;
-
-            // Helper to normalize "NULL" strings to actual null
-            const normalizeValue = (value: unknown): string | null => {
-              if (value === null || value === undefined) return null;
-              if (typeof value === 'string' && (value.toUpperCase() === 'NULL' || value.trim() === '')) return null;
-              return typeof value === 'string' ? value : String(value);
-            };
 
             const parsedUser: User = {
               id: decoded?.id || decoded?.sub || null,
@@ -107,10 +147,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               user_access: normalizeValue(userAccess || decoded?.user_access),
               page_access: normalizeValue(decoded?.page_access),
               system_access: normalizeValue(decoded?.system_access),
+              store_access: normalizeValue(decoded?.store_access),
             };
             setToken(storedToken);
             setUser(parsedUser);
             api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+            await enrichUserWithStoreAccess(parsedUser, storedToken);
           } else {
             setToken(null);
             setUser(null);
@@ -137,7 +179,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
   }, []);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
@@ -160,24 +202,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('No token received from server');
       }
 
-      // Decode token to get user info
       const decoded = decodeToken(authToken);
 
-      // Helper to normalize "NULL" strings to actual null
-      const normalizeValue = (value: unknown): string | null => {
-        if (value === null || value === undefined) return null;
-        if (typeof value === 'string' && (value.toUpperCase() === 'NULL' || value.trim() === '')) return null;
-        return typeof value === 'string' ? value : String(value);
-      };
-
-      // Parse user_access from user object or root data if available
       const userAccess = normalizeValue(apiUser.user_access || payload.data?.user_access || decoded?.user_access);
       const pageAccess = normalizeValue(apiUser.page_access || payload.data?.page_access || decoded?.page_access);
       const systemAccess = normalizeValue(apiUser.system_access || payload.data?.system_access || decoded?.system_access);
+      const storeAccess = normalizeValue(apiUser.store_access || payload.data?.store_access || decoded?.store_access);
 
       const accessArray = userAccess ? userAccess.split(',').map((a: string) => a.trim()) : null;
 
-      const userData: User = {
+      let userData: User = {
         id: apiUser.id || decoded?.id,
         employee_id: normalizeValue(apiUser.employee_id || decoded?.employee_id) || '',
         username: apiUser.username || apiUser.user_name || decoded?.username || username,
@@ -190,15 +224,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user_access: userAccess || '',
         page_access: pageAccess || '',
         system_access: systemAccess || '',
+        store_access: storeAccess || '',
         access: accessArray || [],
       };
 
+      if (!userData.store_access) {
+        try {
+          const resolvedStoreAccess = await lookupStoreAccessForUser(userData, authToken);
+          if (resolvedStoreAccess) {
+            userData = {
+              ...userData,
+              store_access: resolvedStoreAccess,
+            };
+          }
+        } catch (error) {
+          console.warn('Unable to enrich login with store access', error);
+        }
+      }
+
       setToken(authToken);
       setUser(userData);
-      sessionStorage.setItem('token', authToken);
-      localStorage.setItem('token', authToken);
-      sessionStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('user', JSON.stringify(userData));
+      persistAuthState(authToken, userData);
       api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
 
       return {
