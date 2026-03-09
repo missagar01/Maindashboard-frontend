@@ -42,6 +42,21 @@ const clearAuthStorage = () => {
   localStorage.removeItem('token');
   sessionStorage.removeItem('user');
   localStorage.removeItem('user');
+  const compatKeys = [
+    'user-name',
+    'user_id',
+    'role',
+    'employee_id',
+    'department',
+    'user_access',
+    'page_access',
+    'system_access',
+    'store_access',
+  ];
+  compatKeys.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
 };
 
 const normalizeValue = (value: unknown): string | null => {
@@ -50,11 +65,31 @@ const normalizeValue = (value: unknown): string | null => {
   return typeof value === 'string' ? value : String(value);
 };
 
+const persistLegacyAuthState = (authUser: User) => {
+  const compatEntries: Array<[string, string]> = [
+    ['user-name', authUser.user_name || authUser.username || ''],
+    ['user_id', String(authUser.id ?? '')],
+    ['role', authUser.role || authUser.userType || 'user'],
+    ['employee_id', String(authUser.employee_id ?? '')],
+    ['department', String(authUser.department ?? '')],
+    ['user_access', String(authUser.user_access ?? '')],
+    ['page_access', String(authUser.page_access ?? '')],
+    ['system_access', String(authUser.system_access ?? '')],
+    ['store_access', String(authUser.store_access ?? '')],
+  ];
+
+  compatEntries.forEach(([key, value]) => {
+    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
+  });
+};
+
 const persistAuthState = (authToken: string, authUser: User) => {
   sessionStorage.setItem('token', authToken);
   localStorage.setItem('token', authToken);
   sessionStorage.setItem('user', JSON.stringify(authUser));
   localStorage.setItem('user', JSON.stringify(authUser));
+  persistLegacyAuthState(authUser);
 };
 
 const redirectToLogin = () => {
@@ -122,6 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               const parsedUser = JSON.parse(storedUser);
               setToken(storedToken);
               setUser(parsedUser);
+              persistLegacyAuthState(parsedUser);
               api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
               await enrichUserWithStoreAccess(parsedUser, storedToken);
               setLoading(false);
@@ -151,6 +187,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             };
             setToken(storedToken);
             setUser(parsedUser);
+            persistLegacyAuthState(parsedUser);
             api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
             await enrichUserWithStoreAccess(parsedUser, storedToken);
           } else {
@@ -181,6 +218,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     void initializeAuth();
   }, []);
+
+  // ── Session revocation polling (every 60 seconds) ──────────────────────────
+  // If another device logs in with the same credentials, the backend marks the
+  // previous session_token invalid — this hook detects that and auto-logs out.
+  useEffect(() => {
+    if (!token) return;
+
+    const checkSession = async () => {
+      try {
+        const res = await api.get('/api/auth/verify-session');
+        if (!res.data?.success) {
+          clearAuthStorage();
+          setToken(null);
+          setUser(null);
+          delete api.defaults.headers.common['Authorization'];
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login?reason=session_revoked';
+          }
+        }
+      } catch (err: unknown) {
+        // 401 = session revoked or expired
+        const axiosErr = err as { response?: { status?: number; data?: { code?: string } } };
+        if (axiosErr?.response?.status === 401) {
+          clearAuthStorage();
+          setToken(null);
+          setUser(null);
+          delete api.defaults.headers.common['Authorization'];
+          if (window.location.pathname !== '/login') {
+            const reason = axiosErr.response.data?.code === 'SESSION_REVOKED'
+              ? 'session_revoked'
+              : 'token_expired';
+            window.location.href = `/login?reason=${reason}`;
+          }
+        }
+        // Other errors (network down etc.) — ignore, don't kick user out
+      }
+    };
+
+    // Check once immediately after token is set, then every 60 s
+    const timer = setInterval(checkSession, 60_000);
+    return () => clearInterval(timer);
+  }, [token]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     try {
@@ -280,6 +359,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
+    // Notify backend so session_token is cleared (single-session enforcement)
+    try {
+      if (token) {
+        await api.post('/api/auth/logout');
+      }
+    } catch { /* best effort */ }
     setToken(null);
     setUser(null);
     clearAuthStorage();

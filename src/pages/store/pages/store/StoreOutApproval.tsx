@@ -48,8 +48,8 @@ export default function StoreOutApproval() {
         const payload = Array.isArray(res?.data)
           ? res.data
           : Array.isArray(res)
-          ? res
-          : [];
+            ? res
+            : [];
         const mapped = payload.map((rec: Record<string, unknown>) =>
           mapApiRowToIndent(rec)
         );
@@ -199,7 +199,7 @@ export default function StoreOutApproval() {
       await storeApi.updateIndentStatus(indentNumber, {
         items: payload,
       });
-      
+
       // Update rows and filter out approved/rejected items
       setRows((prev) => {
         const requestKey = indentNumber;
@@ -216,7 +216,7 @@ export default function StoreOutApproval() {
         });
         return [...others, ...updatedItems];
       });
-      
+
       toast.success("Indent status updated");
       setOpenEdit(false);
     } catch (err) {

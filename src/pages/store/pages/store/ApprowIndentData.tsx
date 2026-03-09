@@ -1,141 +1,117 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
-import { ColumnDef } from "@tanstack/react-table";
 
 import Heading from "../../components/element/Heading";
-import DataTable from "../../components/element/DataTable";
-import { Input } from "../../components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
-import { storeApi } from "@/api/store/storeSystemApi";
 import { Button } from "../../components/ui/button";
+import { storeApi } from "@/api/store/storeSystemApi";
+
+type IndentStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "";
 
 type IndentRow = {
-  id?: string;
+  id: string;
   timestamp: string;
-  requestNumber?: string;
-  requesterName?: string;
-  department?: string;
-  indentSeries?: string;
-  division?: string;
-  itemCode?: string;
-  productName?: string;
-  requestQty?: number;
-  uom?: string;
-  costLocation?: string;
-  formType?: string;
-  status?: "APPROVED" | "REJECTED" | "PENDING" | "";
+  requestNumber: string;
+  formType: string;
+  indentSeries: string;
+  requesterName: string;
+  department: string;
+  division: string;
+  itemCode: string;
+  productName: string;
+  uom: string;
+  requestQty: number;
+  status: IndentStatus;
 };
 
-const mapApiRowToIndent = (rec: Record<string, unknown>): IndentRow => {
-  const normalizeStatus = (val: unknown): IndentRow["status"] => {
-    if (typeof val !== "string") return "";
-    const upper = val.toUpperCase();
-    if (upper === "APPROVED" || upper === "REJECTED" || upper === "PENDING") {
-      return upper as IndentRow["status"];
-    }
-    return "";
-  };
+const PAGE_SIZE = 50;
 
-  return {
-    id: rec["id"] ? String(rec["id"]) : undefined,
-    timestamp:
-      (rec["sample_timestamp"] as string) ??
-      (rec["timestamp"] as string) ??
-      (rec["created_at"] as string) ??
-      (rec["createdAt"] as string) ??
-      "",
-    requestNumber:
-      (rec["request_number"] as string) ??
-      (rec["requestNumber"] as string) ??
-      "",
-    requesterName:
-      (rec["requester_name"] as string) ??
-      (rec["requesterName"] as string) ??
-      "",
-    department: (rec["department"] as string) ?? "",
-    indentSeries:
-      (rec["indent_series"] as string) ?? (rec["indentSeries"] as string) ?? "",
-    division: (rec["division"] as string) ?? "",
-    itemCode: (rec["item_code"] as string) ?? (rec["itemCode"] as string) ?? "",
-    productName:
-      (rec["product_name"] as string) ?? (rec["productName"] as string) ?? "",
-    requestQty:
-      Number(rec["request_qty"] ?? rec["requestQty"] ?? 0) ||
-      Number(rec["quantity"] ?? 0),
-    uom: (rec["uom"] as string) ?? "",
-    costLocation:
-      (rec["cost_location"] as string) ??
-      (rec["costLocation"] as string) ??
-      "",
-    formType: (rec["form_type"] as string) ?? (rec["formType"] as string) ?? "",
-    status: normalizeStatus(rec["request_status"]),
-  };
+const asText = (value: unknown): string => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 };
+
+const asNumber = (value: unknown): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeStatus = (value: unknown): IndentStatus => {
+  const status = asText(value).toUpperCase();
+  if (status === "PENDING") return "PENDING";
+  if (status === "APPROVED") return "APPROVED";
+  if (status === "REJECTED") return "REJECTED";
+  if (status === "CANCELLED") return "CANCELLED";
+  return "";
+};
+
+const formatTimestamp = (value: string): string => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const mapIndentRow = (entry: Record<string, unknown>): IndentRow => ({
+  id: asText(entry.id),
+  timestamp: asText(
+    entry.sample_timestamp ??
+      entry.sampleTimestamp ??
+      entry.timestamp ??
+      entry.created_at ??
+      entry.createdAt
+  ),
+  requestNumber: asText(entry.request_number ?? entry.requestNumber),
+  formType: asText(entry.form_type ?? entry.formType),
+  indentSeries: asText(entry.indent_series ?? entry.indentSeries),
+  requesterName: asText(entry.requester_name ?? entry.requesterName),
+  department: asText(entry.department),
+  division: asText(entry.division),
+  itemCode: asText(entry.item_code ?? entry.itemCode),
+  productName: asText(entry.product_name ?? entry.productName),
+  uom: asText(entry.uom),
+  requestQty: asNumber(entry.request_qty ?? entry.requestQty),
+  status: normalizeStatus(entry.request_status ?? entry.requestStatus ?? entry.status),
+});
 
 export default function ApprowIndentData() {
   const [rows, setRows] = useState<IndentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [indentNumber, setIndentNumber] = useState("");
-  const [headerRequesterName, setHeaderRequesterName] = useState("");
-  const [openEdit, setOpenEdit] = useState(false);
-  const [modalItems, setModalItems] = useState<IndentRow[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-
-  const canSave = useMemo(
-    () =>
-      modalItems.length > 0 &&
-      modalItems.every((item) => {
-        const status = (item.status ?? "").toUpperCase();
-        return status === "APPROVED" || status === "REJECTED";
-      }),
-    [modalItems]
-  );
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
+    let alive = true;
 
     const fetchIndents = async () => {
+      setLoading(true);
       try {
-        const res = await storeApi.getAllIndents();
-        if (!active) return;
-        const raw = Array.isArray((res as any)?.data)
-          ? (res as any).data
-          : Array.isArray(res)
-          ? (res as any)
-          : [];
-        const mapped = raw.map((rec: Record<string, unknown>) =>
-          mapApiRowToIndent(rec)
-        );
-        setRows(mapped);
+        const response = await storeApi.getAllIndents();
+        if (!alive) return;
 
-        if (mapped.length > 0) {
-          const sorted = [...mapped].sort(
-            (a, b) =>
-              Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")
-          );
-          const latest = sorted.find(
-            (r) => (r.requestNumber || "").trim() !== ""
-          );
-          if (latest?.requestNumber) setIndentNumber(latest.requestNumber);
-          if (latest?.requesterName) setHeaderRequesterName(latest.requesterName);
-        }
-      } catch (err) {
-        console.error("Failed to load indents", err);
-        if (active) {
-          toast.error("Failed to load indent list");
+        const source = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+
+        const mapped = source.map((entry: Record<string, unknown>) => mapIndentRow(entry));
+        setRows(mapped);
+      } catch (error) {
+        console.error("Failed to fetch all indents", error);
+        if (alive) {
+          toast.error("Failed to load indent sheet");
+          setRows([]);
         }
       } finally {
-        if (active) {
+        if (alive) {
           setLoading(false);
         }
       }
@@ -143,372 +119,155 @@ export default function ApprowIndentData() {
 
     fetchIndents();
     return () => {
-      active = false;
+      alive = false;
     };
   }, []);
 
-  const pendingRows = useMemo(
+  const activeRows = useMemo(
     () =>
-      rows.filter((r) => {
-        const status = (r.status || "").toUpperCase();
-        const formType = (r.formType || "").toUpperCase();
-        const isPending = !status || status === "" || status === "PENDING";
-        const isIndent = formType === "INDENT";
-        return isPending && isIndent;
+      rows.filter((row) => {
+        const status = row.status.toUpperCase();
+        return status === "" || status === "PENDING";
       }),
     [rows]
   );
 
-  const fetchRequestItems = useCallback(async (requestNo: string) => {
-    const res = await storeApi.getIndent(requestNo);
-    const payload = (res as any)?.data ?? res;
-    const list = Array.isArray(payload)
-      ? payload
-      : payload
-      ? [payload]
-      : [];
-    return list.map((rec: Record<string, unknown>) => mapApiRowToIndent(rec));
-  }, []);
-
-  const handleProcess = useCallback(
-    async (row: IndentRow) => {
-      const rn = row.requestNumber || "";
-      if (!rn) {
-        toast.error("Request number unavailable for this row");
-        return;
-      }
-
-      setIndentNumber(rn);
-      setHeaderRequesterName(row.requesterName || "");
-      setModalItems([]);
-      setDetailsLoading(true);
-      setOpenEdit(true);
-
-      try {
-        const details = await fetchRequestItems(rn);
-        setModalItems(details);
-      } catch (err) {
-        console.error("Failed to fetch request details", err);
-        toast.error("Failed to fetch indent details");
-        setOpenEdit(false);
-      } finally {
-        setDetailsLoading(false);
-      }
-    },
-    [fetchRequestItems]
+  const historyRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const status = row.status.toUpperCase();
+        return status === "APPROVED" || status === "REJECTED" || status === "CANCELLED";
+      }),
+    [rows]
   );
 
-  const columns: ColumnDef<IndentRow>[] = useMemo(
-    () => [
-      {
-        id: "actions",
-        header: "Actions",
-        cell: ({ row }) => (
-          <div className="flex gap-2 justify-center">
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={(e) => {
-                e.preventDefault();
-                handleProcess(row.original);
-              }}
-            >
-              Process
-            </Button>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "timestamp",
-        header: "Timestamp",
-        cell: ({ row }) => {
-          const timestamp = row.original.timestamp;
-          if (!timestamp) return "";
-          const date = new Date(timestamp);
-          return date.toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        },
-      },
-      { accessorKey: "requestNumber", header: "Request No." },
-      { accessorKey: "formType", header: "Form Type" },
-      { accessorKey: "indentSeries", header: "Series" },
-      { accessorKey: "requesterName", header: "Requester" },
-      { accessorKey: "department", header: "Department" },
-      { accessorKey: "division", header: "Division" },
-      { accessorKey: "itemCode", header: "Item Code" },
-      { accessorKey: "productName", header: "Product" },
-      { accessorKey: "uom", header: "UOM" },
-      { accessorKey: "requestQty", header: "Qty" },
-      { accessorKey: "costLocation", header: "Cost Location" },
-    ],
-    [handleProcess]
-  );
+  const selectedRows = activeTab === "active" ? activeRows : historyRows;
+  const totalRows = selectedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = selectedRows.slice(startIndex, startIndex + PAGE_SIZE);
+  const visibleFrom = totalRows === 0 ? 0 : startIndex + 1;
+  const visibleTo = totalRows === 0 ? 0 : Math.min(startIndex + PAGE_SIZE, totalRows);
 
-  function selectFromRow(r: IndentRow) {
-    setIndentNumber(r.requestNumber || "");
-    setHeaderRequesterName(r.requesterName || "");
-  }
-
-  const onSaveEdit = async () => {
-    if (!indentNumber) {
-      toast.error("Request number missing");
-      return;
-    }
-    if (!canSave) {
-      toast.error("Please approve or reject every item before saving");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const payload = modalItems.map((item) => ({
-        id: item.id,
-        request_number: indentNumber,
-        item_code: item.itemCode,
-        request_qty: Number(item.requestQty ?? 0),
-        approved_quantity: Number(item.requestQty ?? 0),
-        request_status: (() => {
-          const status = (item.status ?? "").toUpperCase();
-          return status || "PENDING";
-        })(),
-      }));
-
-      await storeApi.updateIndentStatus(indentNumber, { items: payload });
-
-      // Update rows and filter out approved/rejected items
-      setRows((prev) => {
-        const others = prev.filter((p) => p.requestNumber !== indentNumber);
-        // Add updated items with their new status
-        const updatedItems = modalItems.map((item) => ({
-          ...item,
-          status: (item.status ?? "").toUpperCase() as "APPROVED" | "REJECTED" | "PENDING" | "",
-        }));
-        return [...others, ...updatedItems];
-      });
-
-      toast.success("Indent status updated");
-      setOpenEdit(false);
-    } catch (err) {
-      console.error("Failed to update indent status", err);
-      toast.error("Failed to update indent status");
-    } finally {
-      setSaving(false);
-    }
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
 
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8">
+    <div className="w-full space-y-5 p-4 md:p-6 lg:p-8">
       <Heading
-        heading="Approve Indent Data"
+        heading="Approve Indent HOD"
         subtext="View Indent sheet and select a row to fill inputs"
       >
-        <ClipboardCheck size={50} className="text-primary" />
+        <ClipboardCheck size={46} className="text-primary" />
       </Heading>
 
-      <div className="grid gap-4">
-        <div>
-          <DataTable
-            data={pendingRows}
-            columns={columns}
-            searchFields={[
-              "requestNumber",
-              "requesterName",
-              "department",
-              "indentSeries",
-              "division",
-              "itemCode",
-              "productName",
-            ]}
-            dataLoading={loading}
-            className="h-[70dvh]"
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Tip: Click a row, then use Edit to open all items for that request number.
-          </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={activeTab === "active" ? "default" : "outline"}
+          onClick={() => setActiveTab("active")}
+          className="rounded-xl"
+        >
+          Active Indents ({activeRows.length})
+        </Button>
+        <Button
+          variant={activeTab === "history" ? "default" : "outline"}
+          onClick={() => setActiveTab("history")}
+          className="rounded-xl"
+        >
+          History ({historyRows.length})
+        </Button>
+        <p className="ml-auto text-sm font-semibold text-slate-700">
+          Total: {totalRows.toLocaleString("en-IN")} rows
+        </p>
+      </div>
+
+      <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="max-h-[66vh] overflow-auto">
+          <table className="min-w-[1450px] border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-100/95">
+              <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Request No.</th>
+                <th className="px-4 py-3">Form Type</th>
+                <th className="px-4 py-3">Series</th>
+                <th className="px-4 py-3">Requester</th>
+                <th className="px-4 py-3">Department</th>
+                <th className="px-4 py-3">Division</th>
+                <th className="px-4 py-3">Item Code</th>
+                <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">UOM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center text-sm text-slate-500">
+                    Loading indent sheet...
+                  </td>
+                </tr>
+              ) : pageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center text-sm text-slate-500">
+                    No rows found for this tab.
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((row, index) => (
+                  <tr
+                    key={`${row.id || row.requestNumber}-${index}`}
+                    className="border-t border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-800">{formatTimestamp(row.timestamp)}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{row.requestNumber || "--"}</td>
+                    <td className="px-4 py-3">{row.formType || "--"}</td>
+                    <td className="px-4 py-3">{row.indentSeries || "--"}</td>
+                    <td className="px-4 py-3">{row.requesterName || "--"}</td>
+                    <td className="px-4 py-3">{row.department || "--"}</td>
+                    <td className="px-4 py-3">{row.division || "--"}</td>
+                    <td className="px-4 py-3">{row.itemCode || "--"}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{row.productName || "--"}</td>
+                    <td className="px-4 py-3">{row.uom || "--"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <RowClickBinder rows={pendingRows} onPick={selectFromRow} />
-
-      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden bg-white">
-          <DialogHeader>
-            <DialogTitle>Edit / Approve Items</DialogTitle>
-            <DialogDescription>
-              Update quantity and mark items approved / rejected.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm mb-1">Request Number</label>
-              <Input readOnly value={indentNumber} />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Requester Name</label>
-              <Input readOnly value={headerRequesterName} />
-            </div>
-          </div>
-
-          <div className="border rounded-md overflow-auto">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="text-left px-2 py-2">Item Code</th>
-                  <th className="text-left px-2 py-2">Item Name</th>
-                  <th className="text-left px-2 py-2">UOM</th>
-                  <th className="text-left px-2 py-2 w-24">Qty</th>
-                  <th className="text-left px-2 py-2">Status</th>
-                  <th className="text-left px-2 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detailsLoading ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted-foreground">
-                      Loading items...
-                    </td>
-                  </tr>
-                ) : modalItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted-foreground">
-                      No items for this request.
-                    </td>
-                  </tr>
-                ) : (
-                  modalItems.map((item, idx) => (
-                    <tr key={idx} className="border-t">
-                      <td className="px-2 py-1">{item.itemCode}</td>
-                      <td className="px-2 py-1">{item.productName}</td>
-                      <td className="px-2 py-1">{item.uom}</td>
-                      <td className="px-2 py-1 w-24">
-                        <Input
-                          type="number"
-                          value={
-                            typeof item.requestQty === "number"
-                              ? item.requestQty
-                              : item.requestQty || ""
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setModalItems((prev) =>
-                              prev.map((m, i) =>
-                                i === idx
-                                  ? { ...m, requestQty: val ? Number(val) : 0 }
-                                  : m
-                              )
-                            );
-                          }}
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        {item.status ? (
-                          <span
-                            className={
-                              item.status === "APPROVED"
-                                ? "text-green-600 font-medium"
-                                : "text-red-600 font-medium"
-                            }
-                          >
-                            {item.status}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Pending</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1">
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-sm"
-                            onClick={() =>
-                              setModalItems((prev) =>
-                                prev.map((m, i) =>
-                                  i === idx ? { ...m, status: "APPROVED" } : m
-                                )
-                              )
-                            }
-                          >
-                            ✓ Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-sm"
-                            onClick={() =>
-                              setModalItems((prev) =>
-                                prev.map((m, i) =>
-                                  i === idx ? { ...m, status: "REJECTED" } : m
-                                )
-                              )
-                            }
-                          >
-                            ✕ Reject
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <DialogFooter className="mt-4 flex gap-3">
-            <Button
-              variant="outline"
-              className="px-4 py-2"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpenEdit(false);
-              }}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-              onClick={(e) => {
-                e.preventDefault();
-                onSaveEdit();
-              }}
-              disabled={saving || !canSave}
-            >
-              {saving ? "Saving…" : "💾 Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-600">
+          Showing{" "}
+          <span className="text-blue-700">{visibleFrom.toLocaleString("en-IN")}</span> -{" "}
+          <span className="text-blue-700">{visibleTo.toLocaleString("en-IN")}</span> of{" "}
+          <span className="text-slate-900">{totalRows.toLocaleString("en-IN")}</span>
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-xl"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+            Page {currentPage} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-xl"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
-}
-
-function RowClickBinder({
-  rows,
-  onPick,
-}: {
-  rows: IndentRow[];
-  onPick: (row: IndentRow) => void;
-}) {
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      const tr = target.closest("tr");
-      if (!tr) return;
-      const firstCell = tr.querySelector("td, th");
-      const text = (firstCell?.textContent || "").trim();
-      if (!text) return;
-      const match = rows.find((r) => (r.requestNumber || "") === text);
-      if (match) onPick(match);
-    }
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, [rows, onPick]);
-  return null;
 }

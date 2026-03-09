@@ -8,7 +8,16 @@ export type UserAccess = {
   userType?: string;
 };
 
-type SystemKey = "o2d" | "batchcode" | "lead-to-order" | "hrfms" | "document" | "store" | null;
+type SystemKey =
+  | "o2d"
+  | "batchcode"
+  | "lead-to-order"
+  | "hrfms"
+  | "document"
+  | "store"
+  | "checklist"
+  | "gatepass"
+  | null;
 
 const SYSTEM_ROOTS = [
   "/",
@@ -24,6 +33,8 @@ const SYSTEM_ROOTS = [
   "/account",
   "/resource-manager",
   "/master",
+  "/checklist",
+  "/gatepass",
 ];
 
 const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
@@ -91,6 +102,13 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Selected Condidate": "/hrfms/condidate-select",
   "Candidate Status": "/hrfms/condidate-list",
   "Selected Candidate": "/hrfms/condidate-select",
+  "Checklist Combined": "/checklist",
+  Checklist: "/checklist",
+  "Visitor Gate Pass": "/gatepass/visitor",
+  "Close Gate Pass": "/gatepass/close",
+  "Sales Module": "/lead-to-order/leads",
+  Logistic: "/o2d/dashboard",
+  HRMS: "/hrfms/dashboard",
   "Resource Manager": "/resource-manager",
   "Document Dashboard": "/document",
   "Document/All": "/document/all",
@@ -125,6 +143,12 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Master: "/master",
   Settings: "/lead-to-order/settings",
   "Store Dashboard": "/store/dashboard",
+  "Store Issue": "/store/item-issue",
+  Indent: "/store/indent",
+  "Approve Indent HOD": "/store/approve-indent",
+  "Approve Indent GM": "/store/approve-indent-data",
+  "Purchase Order": "/store/pending-indents",
+  Returnable: "/store/returnable",
   "Create PO": "/store/create-po",
   "Approve Indents": "/store/approve-indent",
   "Approve Indent Data": "/store/approve-indent-data",
@@ -146,7 +170,6 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Repair Gate Pass": "/store/repair-gate-pass",
   "Repair Gate Pass History": "/store/repair-gate-pass/history",
   "Repair Follow Up": "/store/repair-followup",
-  "Store Settings": "/store/settings",
   "Store GRN": "/store/store-grn",
   "Store GRN Admin Approval": "/store/store-grn-admin",
   "Store GRN GM Approval": "/store/store-grn-gm",
@@ -157,22 +180,34 @@ const STORE_OUT_ONLY_EMPLOYEE_IDS = new Set(["S07632", "S08088"]);
 const APPROVE_INDENT_ONLY_EMPLOYEE_IDS = new Set(["S00116"]);
 
 const STORE_USER_BASE_ROUTES = [
-  "/store/user-indent-list-indent",
-  "/store/user-requisition",
-  "/store/user-indent",
+  "/store/user-indent-list-indent", // My Indent — always accessible
+  "/store/user-requisition",         // Requisition — always accessible
+  "/store/user-indent",              // Create Indent — always accessible
 ];
 
 const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
   DASHBOARD: ["/store/dashboard"],
-  INDENT: ["/store/approve-indent"],
+  "STORE DASHBOARD": ["/store/dashboard"],
+  "STORE ISSUE": ["/store/item-issue"],
+  INDENT: ["/store/indent", "/store/approve-indent"],
+  "APPROVE INDENT": ["/store/approve-indent"],
+  "APPROVE INDENT HOD": ["/store/approve-indent"],
+  "APPROVE INDENT GM": ["/store/approve-indent-data"],
+  "APPROVE INDENT DATA": ["/store/approve-indent-data"],
   "PURCHASE ORDER": ["/store/pending-indents"],
   INVENTORY: ["/store/inventory"],
+  RETURNABLE: ["/store/returnable"],
   "REPAIR GATE PASS": ["/store/repair-gate-pass"],
   "REPAIR FOLLOW UP": ["/store/repair-followup"],
   "STORE GRN": ["/store/store-grn"],
   "STORE GRN ADMIN APPROVAL": ["/store/store-grn-admin"],
   "STORE GRN GM APPROVAL": ["/store/store-grn-gm"],
   "STORE GRN CLOSE": ["/store/store-grn-close"],
+  "STORE OUT APPROVAL": ["/store/store-out-approval"],
+  "COMPLETED ITEMS": ["/store/completed-items"],
+  "MY INDENT": ["/store/user-indent-list-indent"],
+  REQUISITION: ["/store/user-requisition"],
+  "CREATE INDENT": ["/store/user-indent"],
 };
 
 const STORE_ADMIN_ROUTE_ALLOWLIST = [
@@ -197,7 +232,7 @@ const STORE_ADMIN_ROUTE_ALLOWLIST = [
   "/store/repair-gate-pass",
   "/store/repair-gate-pass/history",
   "/store/repair-followup",
-  "/store/settings",
+  "/store/returnable",
   "/store/store-grn",
   "/store/store-grn-admin",
   "/store/store-grn-gm",
@@ -228,7 +263,13 @@ const parseStoreAccess = (user: UserAccess | null | undefined): string[] => {
 
   return user.store_access
     .split(",")
-    .map((item) => item.trim().toUpperCase())
+    .map((item) =>
+      item
+        .trim()
+        .toUpperCase()
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ")
+    )
     .filter(Boolean);
 };
 
@@ -260,12 +301,14 @@ export const hasStoreModuleAccess = (user: UserAccess | null | undefined): boole
     return false;
   }
 
+  // "Store and Purchase" in DB normalizes to "storeandpurchase"
+  // This function is used ONLY for sidebar section detection — NOT for route-level permission
   return (
     isAdminUser(user) ||
     parseStoreAccess(user).length > 0 ||
     getStoreAllowedRoutes(user).length > 0 ||
     parseSystemAccess(user).some((value) =>
-      ["store", "stores", "storefms", "store-fms", "inventory"].includes(value)
+      ["store", "stores", "storefms", "store-fms", "inventory", "storeandpurchase", "storepurchase", "purchase"].includes(value)
     )
   );
 };
@@ -301,7 +344,7 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
 
   if (required === "lead-to-order") {
     return systems.some((value) =>
-      ["lead-to-order", "leadtoorder", "lead_to_order"].includes(value)
+      ["lead-to-order", "leadtoorder", "lead_to_order", "sales", "salesmodule", "crm"].includes(value)
     );
   }
 
@@ -327,8 +370,40 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
   }
 
   if (required === "store") {
+    // NOTE: "storeandpurchase" is intentionally NOT here.
+    // hasStoreModuleAccess handles detection; hasSystemAccess controls full route-level access.
+    // Users with system_access="Store and Purchase" only get the 4 base routes, not everything.
     return systems.some((value) =>
       ["store", "stores", "storefms", "store-fms", "inventory"].includes(value)
+    );
+  }
+
+  if (required === "checklist") {
+    return systems.some((value) =>
+      [
+        "checklist",
+        "checklistcombined",
+        "checklist-combined",
+        "maintenance",
+        "housekeeping",
+      ].includes(value)
+    );
+  }
+
+  if (required === "gatepass") {
+    return systems.some((value) =>
+      [
+        "gatepass",
+        "visitorgatepass",
+        "closegatepass",
+        "visitorpass",
+      ].includes(value)
+    );
+  }
+
+  if (required === "o2d") {
+    return systems.some((value) =>
+      ["o2d", "logistic", "logistics", "dispatch"].includes(value)
     );
   }
 
@@ -349,6 +424,14 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
 
   if (normalizedPath.startsWith("/batchcode") || lowerPath.includes("tab=batchcode")) {
     return "batchcode";
+  }
+
+  if (normalizedPath.startsWith("/checklist")) {
+    return "checklist";
+  }
+
+  if (normalizedPath.startsWith("/gatepass")) {
+    return "gatepass";
   }
 
   if (normalizedPath.startsWith("/lead-to-order") || lowerPath.includes("tab=lead-to-order")) {
@@ -493,7 +576,10 @@ export const isPathAllowed = (
     return isStorePathAllowed(effectivePath, user, pageRoutes) || systemMatch;
   }
 
-  if (effectivePath === "/" && (systemMatch || pageRoutes.length > 0)) {
+  if (
+    effectivePath === "/" &&
+    (systemMatch || pageRoutes.length > 0 || systemAccess.length > 0 || hasStoreModuleAccess(user))
+  ) {
     return true;
   }
 
@@ -502,32 +588,5 @@ export const isPathAllowed = (
 
 export const getDefaultAllowedPath = (user: UserAccess | null | undefined): string => {
   if (!user) return "/login";
-  if (isAdminUser(user)) return "/";
-
-  const pageRoutes = parsePageRoutes(user);
-  if (pageRoutes.length > 0) {
-    const preferredRoute = pageRoutes.find((route) => route !== "/");
-    if (preferredRoute) {
-      return preferredRoute;
-    }
-  }
-
-  const systemAccess = parseSystemAccess(user);
-
-  if (hasSystemAccess(systemAccess, "store")) return "/store/dashboard";
-
-  const storeRoutes = getStoreAllowedRoutes(user);
-  if (storeRoutes.length > 0) {
-    return storeRoutes[0];
-  }
-
-  if (hasSystemAccess(systemAccess, "o2d")) return "/?tab=o2d";
-  if (hasSystemAccess(systemAccess, "lead-to-order")) return "/?tab=lead-to-order";
-  if (hasSystemAccess(systemAccess, "batchcode")) return "/?tab=batchcode";
-  if (hasSystemAccess(systemAccess, "hrfms")) return "/hrfms/dashboard";
-  if (hasSystemAccess(systemAccess, "document")) return "/document";
-
-  if (pageRoutes.includes("/")) return "/";
-
   return "/";
 };

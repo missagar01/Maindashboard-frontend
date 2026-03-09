@@ -5,10 +5,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import RouteGuard from "./components/RouteGuard";
 import PublicRoute from "./components/PublicRoute";
 import Login from "./pages/Login";
-import Home from "./pages/Dashboard/Home";
 import Calendar from "./pages/Calendar";
 import Blank from "./pages/Blank";
 import UserProfiles from "./pages/UserProfiles";
+import ModulePlaceholderPage from "./pages/portal/ModulePlaceholderPage";
+import PortalHomePage from "./pages/portal/PortalHomePage";
 
 // BatchCode pages
 import HotCoil from "./pages/BatchCode/HotCoil";
@@ -79,10 +80,10 @@ import StoreUserIndentListRequisition from "./pages/store/pages/store/UserIndent
 import StorePendingIndents from "./pages/store/pages/store/PendingIndents";
 import StoreVendorUpdate from "./pages/store/pages/store/VendorUpdate";
 import StoreRateApproval from "./pages/store/pages/store/RateApproval";
+import StoreReturnable from "./pages/store/pages/store/Returnable";
 import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
 import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
 import StoreRepairFollowup from "./pages/store/pages/store/RepairFollowup";
-import StoreSettings from "./pages/store/pages/store/Settings";
 import StoreGRN from "./pages/store/pages/store/StoreGRN";
 import StoreGRNAdminApproval from "./pages/store/pages/store/StoreGRNAdminApproval";
 import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
@@ -135,12 +136,89 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            {/* Main Dashboard - Shows O2D, Lead to Order, or Batchcode based on tab param */}
-            <Route path="/" element={<RouteGuard><Home /></RouteGuard>} />
-            <Route path="/dashboard" element={<RouteGuard><Home /></RouteGuard>} />
+            <Route path="/" element={<RouteGuard><PortalHomePage /></RouteGuard>} />
+            <Route path="/dashboard" element={<RouteGuard><PortalHomePage /></RouteGuard>} />
             <Route path="/profile" element={<RouteGuard><UserProfiles /></RouteGuard>} />
             <Route path="/calendar" element={<RouteGuard><Calendar /></RouteGuard>} />
             <Route path="/blank" element={<RouteGuard><Blank /></RouteGuard>} />
+            <Route
+              path="/checklist"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Checklist Combined"
+                    description="The unified checklist landing route is now part of the main portal. The module sidebar is active here, and this route is ready for the checklist frontend screens to be merged into the same shell."
+                    ctaLabel="Open Portal Home"
+                    ctaPath="/"
+                  />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/checklist/pending"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Checklist Pending Tasks"
+                    description="Pending checklist views can now live under the shared app header and sidebar. This internal route is reserved so the checklist UI can be expanded without using a separate frontend entrypoint."
+                    ctaLabel="Open Checklist Home"
+                    ctaPath="/checklist"
+                  />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/checklist/history"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Checklist History"
+                    description="Checklist history now has a stable place in the unified portal shell. The master-style header and the checklist sidebar stay inside the same website."
+                    ctaLabel="Open Checklist Home"
+                    ctaPath="/checklist"
+                  />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/checklist/settings"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Checklist Settings"
+                    description="Checklist settings are routed through the shared portal now. This keeps login, header navigation, and sidebar behavior consistent with the rest of the frontend."
+                    ctaLabel="Open Checklist Home"
+                    ctaPath="/checklist"
+                  />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/gatepass/visitor"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Visitor Gate Pass"
+                    description="Visitor Gate Pass now has an internal route inside the main portal shell, so the header and sidebar stay unified after login."
+                    ctaLabel="Open Portal Home"
+                    ctaPath="/"
+                  />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/gatepass/close"
+              element={
+                <RouteGuard>
+                  <ModulePlaceholderPage
+                    title="Close Gate Pass"
+                    description="Close Gate Pass is now routed through the shared application shell. This keeps the master navigation experience inside one frontend."
+                    ctaLabel="Open Portal Home"
+                    ctaPath="/"
+                  />
+                </RouteGuard>
+              }
+            />
 
             {/* BatchCode Routes */}
             <Route path="/batchcode/hot-coil" element={<RouteGuard><HotCoil /></RouteGuard>} />
@@ -203,6 +281,7 @@ export default function App() {
             <Route path="/store/approve-indent-data" element={<RouteGuard><StoreApproveIndentData /></RouteGuard>} />
             <Route path="/store/completed-items" element={<RouteGuard><StoreCompletedItems /></RouteGuard>} />
             <Route path="/store/inventory" element={<RouteGuard><StoreInventory /></RouteGuard>} />
+            <Route path="/store/returnable" element={<RouteGuard><StoreReturnable /></RouteGuard>} />
             <Route path="/store/item-issue" element={<RouteGuard><StoreItemIssue /></RouteGuard>} />
             <Route path="/store/receive-items" element={<RouteGuard><StoreReceiveItems /></RouteGuard>} />
             <Route path="/store/user-indent" element={<RouteGuard><StoreUserIndent /></RouteGuard>} />
@@ -215,7 +294,6 @@ export default function App() {
             <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
             <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
             <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
-            <Route path="/store/settings" element={<RouteGuard><StoreSettings /></RouteGuard>} />
             <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
             <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
             <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
