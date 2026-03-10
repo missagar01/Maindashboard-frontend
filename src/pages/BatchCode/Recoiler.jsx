@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { CheckCircle2, X, Search, History, ArrowLeft, Edit, Save, AlertCircle } from "lucide-react"
 // @ts-ignore - JSX component
 import * as batchcodeAPI from "../../api/batchcodeAPI";
+import { useAuth } from "../../context/AuthContext"
 
 // Debounce hook for search optimization
 function useDebounce(value, delay) {
@@ -22,6 +23,7 @@ function useDebounce(value, delay) {
 }
 
 function ReCoilPage() {
+    const { user } = useAuth()
     const [pendingHotCoilData, setPendingHotCoilData] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [successMessage, setSuccessMessage] = useState("")
@@ -83,11 +85,11 @@ function ReCoilPage() {
     }
 
     useEffect(() => {
-        const role = sessionStorage.getItem("role")
-        const user = sessionStorage.getItem("username")
-        setUserRole(role || "")
-        setUsername(user || "")
-    }, [])
+        const role = user?.role || user?.userType || ""
+        const authUsername = user?.username || user?.user_name || ""
+        setUserRole(role)
+        setUsername(authUsername)
+    }, [user])
 
     // Fetch pending Hot Coil data (Hot Coil records that don't have ReCoil entries)
     const fetchPendingHotCoilData = useCallback(async () => {

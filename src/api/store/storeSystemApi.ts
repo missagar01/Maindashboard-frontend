@@ -27,6 +27,8 @@ export const storeApi: any = {
     }),
 
   getStoreIndentDashboard: () => storeApiRequest("/api/store/store-indent/dashboard"),
+  getAllVendors: () => storeApiRequest("/api/store/store-indent/vendors"),
+  getAllProducts: () => storeApiRequest("/api/store/store-indent/products"),
 
   downloadPendingIndents: () =>
     downloadBlob("/api/store/store-indent/pending/download"),

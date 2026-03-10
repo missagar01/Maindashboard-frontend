@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, RefreshCw } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { toast } from 'react-hot-toast';
 import { getTallyEntryPending, getTallyEntryHistory, processTallyEntry, transformPaymentFms } from '@/api/document/paymentFmsApi';
 
@@ -15,7 +15,7 @@ interface TallyEntryRecord {
 }
 
 const TallyEntry = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
     useEffect(() => { setTitle('Tally Entry'); }, [setTitle]);
 
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');

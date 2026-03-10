@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import useDocumentAuth from '../../hooks/useDocumentAuth';
-import useHeaderStore from '../../store/headerStore';
 import { CreditCard, FileText, X, Save, Upload, Download, Search, RefreshCw, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
@@ -37,12 +36,9 @@ interface PaymentHistoryDisplay {
 }
 
 const SubscriptionPayment = () => {
-    const { setTitle } = useHeaderStore();
-    const { currentUser } = useDocumentAuth();
+    const { setTitle, currentUser, pendingPayments, setPendingPayments, paymentHistory, setPaymentHistory } = useDocumentAuth();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
-    const [pendingList, setPendingList] = useState<PendingPaymentDisplay[]>([]);
-    const [historyList, setHistoryList] = useState<PaymentHistoryDisplay[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -116,7 +112,7 @@ const SubscriptionPayment = () => {
             ]);
 
             // Map pending payments
-            setPendingList(pending.map((item: PendingPaymentItem) => ({
+            setPendingPayments(pending.map((item: PendingPaymentItem) => ({
                 id: String(item.id),
                 sn: item.subscription_no,
                 companyName: item.company_name || '',
@@ -129,7 +125,7 @@ const SubscriptionPayment = () => {
             })));
 
             // Map history
-            setHistoryList(history.map((item: PaymentHistoryItem) => ({
+            setPaymentHistory(history.map((item: PaymentHistoryItem) => ({
                 id: String(item.id),
                 subscriptionNo: item.subscription_no,
                 paymentMode: item.payment_mode || '',
@@ -179,7 +175,7 @@ const SubscriptionPayment = () => {
 
     // Filters
     const filteredPending = useMemo(() => {
-        let data = pendingList;
+        let data = pendingPayments as PendingPaymentDisplay[];
 
         // Role Filter: If not admin, show only own data
         if (currentUser?.role !== 'admin') {
@@ -191,10 +187,10 @@ const SubscriptionPayment = () => {
             s.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.sn.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [pendingList, searchTerm, currentUser]);
+    }, [pendingPayments, searchTerm, currentUser]);
 
     const filteredHistory = useMemo(() => {
-        let data = historyList;
+        let data = paymentHistory as PaymentHistoryDisplay[];
 
         // Role Filter
         if (currentUser?.role !== 'admin') {
@@ -205,7 +201,7 @@ const SubscriptionPayment = () => {
             s.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.transactionId.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [historyList, searchTerm, currentUser]);
+    }, [paymentHistory, searchTerm, currentUser]);
 
 
     const handlePayClick = (sub: PendingPaymentDisplay) => {

@@ -102,8 +102,8 @@ function HotCoilPage() {
 
   useEffect(() => {
     // Use AuthContext user data
-    const role = user?.role || user?.userType || sessionStorage.getItem("role") || ""
-    const user_name = user?.username || user?.user_name || sessionStorage.getItem("username") || ""
+    const role = user?.role || user?.userType || ""
+    const user_name = user?.username || user?.user_name || ""
     setUserRole(role)
     setUsername(user_name)
   }, [user])

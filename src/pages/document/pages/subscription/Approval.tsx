@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import useDocumentAuth from '../../hooks/useDocumentAuth';
-import useHeaderStore from '../../store/headerStore';
 import { FileText, X, Save, Search, RefreshCw, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
@@ -37,13 +36,9 @@ interface HistoryDisplay {
     approvalDate: string;
     subscriberName: string;
 }
-
 const SubscriptionApproval = () => {
-    const { setTitle } = useHeaderStore();
-    const { currentUser } = useDocumentAuth();
+    const { setTitle, currentUser, pendingApprovals, setPendingApprovals, approvalHistory, setApprovalHistory } = useDocumentAuth();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
-    const [pendingList, setPendingList] = useState<PendingDisplay[]>([]);
-    const [historyList, setHistoryList] = useState<HistoryDisplay[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Update Header
@@ -116,7 +111,7 @@ const SubscriptionApproval = () => {
             ]);
 
             // Map pending approvals
-            setPendingList(pending.map((item: ApprovalItem) => ({
+            setPendingApprovals(pending.map((item: ApprovalItem) => ({
                 id: String(item.id),
                 sn: item.subscription_no,
                 companyName: item.company_name || '',
@@ -129,7 +124,7 @@ const SubscriptionApproval = () => {
             })));
 
             // Map history
-            setHistoryList(history.map((item: ApprovalHistoryItem, index: number) => ({
+            setApprovalHistory(history.map((item: ApprovalHistoryItem, index: number) => ({
                 id: String(item.id || index),
                 approvalNo: `AP-${String(index + 1).padStart(3, '0')}`,
                 subscriptionNo: item.subscription_no,
@@ -155,7 +150,7 @@ const SubscriptionApproval = () => {
 
     // Filter by search AND Role
     const filteredPending = useMemo(() => {
-        let data = pendingList;
+        let data = pendingApprovals as PendingDisplay[];
 
         // Role Filter
         if (currentUser?.role !== 'admin') {
@@ -167,10 +162,10 @@ const SubscriptionApproval = () => {
             s.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.sn.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [pendingList, searchTerm, currentUser]);
+    }, [pendingApprovals, searchTerm, currentUser]);
 
     const filteredHistory = useMemo(() => {
-        let data = historyList;
+        let data = approvalHistory as HistoryDisplay[];
 
         // Role Filter
         if (currentUser?.role !== 'admin') {
@@ -181,7 +176,7 @@ const SubscriptionApproval = () => {
             s.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.approvedBy.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [historyList, searchTerm, currentUser]);
+    }, [approvalHistory, searchTerm, currentUser]);
 
     const handleActionClick = (sub: PendingDisplay) => {
         setSelectedSub(sub);

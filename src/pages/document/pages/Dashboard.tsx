@@ -13,7 +13,6 @@ import {
     TrendingUp
 } from 'lucide-react';
 import useDocumentAuth from '../hooks/useDocumentAuth';
-import useHeaderStore from '../store/headerStore';
 import { useNavigate } from 'react-router-dom';
 import {
     Tooltip,
@@ -93,16 +92,15 @@ const StatCard = ({ title, value, icon: Icon, color, subtext, onClick, bgColor =
 );
 
 const Dashboard = () => {
-    const { setTitle } = useHeaderStore();
-    const { currentUser } = useDocumentAuth();
+    const { setTitle, currentUser,
+        documents, setDocuments,
+        subscriptions, setSubscriptions,
+        loans, setLoans
+    } = useDocumentAuth();
     const navigate = useNavigate();
     const [selectedStat, setSelectedStat] = useState<{ type: string, title: string, data: { label: string, count: number }[], link: string } | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'payment' | 'account'>('overview');
 
-    // State for all data
-    const [subscriptions, setSubscriptions] = useState<DashboardSubscription[]>([]);
-    const [documents, setDocuments] = useState<DashboardDocument[]>([]);
-    const [loans, setLoans] = useState<DashboardLoan[]>([]);
     const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
 
     // Payment FMS state
@@ -149,7 +147,7 @@ const Dashboard = () => {
                 endDate: item.end_date || '',
                 status: item.actual_3 ? 'Paid' : (item.actual_2 ? 'Approved' : 'Pending'),
                 requestedDate: item.timestamp || ''
-            })));
+            })) as any);
         } catch (err) {
             console.error('Failed to load subscriptions:', err);
         } finally {
@@ -179,7 +177,7 @@ const Dashboard = () => {
                 needsRenewal: doc.need_renewal === 'yes',
                 renewalDate: doc.renewal_date?.split('T')[0] || undefined,
                 date: doc.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
-            })));
+            })) as any);
         } catch (err) {
             console.error('Failed to load documents:', err);
         }
@@ -207,7 +205,7 @@ const Dashboard = () => {
                 collectNocStatus: nocMap.get(`SN-${String(loan.id).padStart(3, '0')}`) ? 'Yes' : undefined,
                 foreclosureStatus: undefined,
                 finalSettlementStatus: undefined
-            })));
+            })) as any);
         } catch (err) {
             console.error('Failed to load loans:', err);
         }
@@ -288,12 +286,12 @@ const Dashboard = () => {
     const totalSubscriptions = subscriptions.length;
     const totalLoans = loans.length;
 
-    const totalRenewals = documents.filter(doc => doc.needsRenewal).length;
-    const pendingApprovals = subscriptions.filter(sub => !sub.status || sub.status === 'Pending').length;
-    const nocCompleted = loans.filter(loan => loan.collectNocStatus === 'Yes').length;
+    const totalRenewals = (documents as any[]).filter(doc => doc.needsRenewal).length;
+    const pendingApprovals_doc = (subscriptions as any[]).filter(sub => !sub.status || sub.status === 'Pending').length;
+    const nocCompleted = (loans as any[]).filter(loan => loan.collectNocStatus === 'Yes').length;
 
-    const monthlySubscriptionCost = subscriptions.reduce((acc, sub) => {
-        let price = parseFloat(sub.price.replace(/[^\d.]/g, '')) || 0;
+    const monthlySubscriptionCost = (subscriptions as any[]).reduce((acc, sub) => {
+        let price = parseFloat(String(sub.price).replace(/[^\d.]/g, '')) || 0;
         if (sub.frequency === 'Yearly') price = price / 12;
         if (sub.frequency === 'Quarterly') price = price / 3;
         if (sub.frequency === 'Half-Yearly' || sub.frequency === '6 Months') price = price / 6;
@@ -303,7 +301,7 @@ const Dashboard = () => {
     // --- Aggregation Logic ---
     const getDocumentStats = () => {
         const counts: Record<string, number> = {};
-        documents.forEach(doc => {
+        (documents as any[]).forEach(doc => {
             const key = doc.category || 'Uncategorized';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -312,7 +310,7 @@ const Dashboard = () => {
 
     const getSubscriptionStats = () => {
         const counts: Record<string, number> = {};
-        subscriptions.forEach(sub => {
+        (subscriptions as any[]).forEach(sub => {
             const key = sub.frequency || 'Unknown';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -321,7 +319,7 @@ const Dashboard = () => {
 
     const getLoanStats = () => {
         const counts: Record<string, number> = {};
-        loans.forEach(loan => {
+        (loans as any[]).forEach(loan => {
             const key = loan.bankName || 'Unknown Bank';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -330,7 +328,7 @@ const Dashboard = () => {
 
     const getRenewalStats = () => {
         const counts: Record<string, number> = {};
-        documents.filter(d => d.needsRenewal).forEach(doc => {
+        (documents as any[]).filter(d => d.needsRenewal).forEach(doc => {
             const key = doc.category || 'Uncategorized';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -339,7 +337,7 @@ const Dashboard = () => {
 
     const getApprovalStats = () => {
         const counts: Record<string, number> = {};
-        subscriptions.filter(s => !s.status || s.status === 'Pending').forEach(sub => {
+        (subscriptions as any[]).filter(s => !s.status || s.status === 'Pending').forEach(sub => {
             const key = sub.frequency || 'Unknown';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -348,7 +346,7 @@ const Dashboard = () => {
 
     const getNocStats = () => {
         const counts: Record<string, number> = {};
-        loans.filter(l => l.collectNocStatus === 'Yes').forEach(loan => {
+        (loans as any[]).filter(l => l.collectNocStatus === 'Yes').forEach(loan => {
             const key = loan.bankName || 'Unknown Bank';
             counts[key] = (counts[key] || 0) + 1;
         });
@@ -375,10 +373,10 @@ const Dashboard = () => {
 
     // 1. Subscription Status Breakdown
     const subStatusCounts = {
-        Active: subscriptions.filter(s => s.status === 'Paid').length,
-        Pending: subscriptions.filter(s => !s.status || s.status === 'Pending').length,
-        Approved: subscriptions.filter(s => s.status === 'Approved').length,
-        Rejected: subscriptions.filter(s => s.status === 'Rejected').length,
+        Active: (subscriptions as any[]).filter(s => s.status === 'Paid').length,
+        Pending: (subscriptions as any[]).filter(s => !s.status || s.status === 'Pending').length,
+        Approved: (subscriptions as any[]).filter(s => s.status === 'Approved').length,
+        Rejected: (subscriptions as any[]).filter(s => s.status === 'Rejected').length,
     };
 
     const subscriptionStatusData = [
@@ -395,7 +393,7 @@ const Dashboard = () => {
         Expired: 0
     };
     const today = new Date();
-    documents.forEach(doc => {
+    (documents as any[]).forEach(doc => {
         if (!doc.renewalDate) {
             docStatusCounts.Active++;
             return;
@@ -425,7 +423,7 @@ const Dashboard = () => {
         Foreclosure: 0,
         Closed: 0
     };
-    loans.forEach(loan => {
+    (loans as any[]).forEach(loan => {
         if (loan.finalSettlementStatus === 'Yes') {
             loanStatusCounts.Closed++;
         } else if (loan.foreclosureStatus === 'Approved') {
@@ -564,7 +562,7 @@ const Dashboard = () => {
                             />
                             <StatCard
                                 title="Pending Approvals"
-                                value={pendingApprovals}
+                                value={pendingApprovals_doc}
                                 icon={CheckCircle}
                                 color="bg-indigo-500 text-indigo-600"
                                 subtext="Subscriptions waiting approval"
@@ -688,7 +686,7 @@ const Dashboard = () => {
                                     time: 'Just now', rawDate: new Date().toISOString(),
                                     icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-100'
                                 },
-                                ...documents.map(doc => ({
+                                ... (documents as any[]).map(doc => ({
                                     id: doc.id,
                                     type: 'document',
                                     title: 'Document Added',
@@ -699,7 +697,7 @@ const Dashboard = () => {
                                     color: 'text-blue-500',
                                     bg: 'bg-blue-100'
                                 })),
-                                ...subscriptions.map(sub => ({
+                                ... (subscriptions as any[]).map(sub => ({
                                     id: sub.id,
                                     type: 'subscription',
                                     title: 'Subscription Update',
@@ -710,7 +708,7 @@ const Dashboard = () => {
                                     color: 'text-purple-500',
                                     bg: 'bg-purple-100'
                                 })),
-                                ...loans.map(loan => ({
+                                ... (loans as any[]).map(loan => ({
                                     id: loan.id,
                                     type: 'loan',
                                     title: 'Loan Entry',

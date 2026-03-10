@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Clock, X, FileCheck } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { toast } from 'react-hot-toast';
 import {
     fetchForeclosuresPendingNOC,
@@ -24,7 +24,7 @@ interface LoanItem {
 }
 
 const LoanNOC = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
     const [pendingLoans, setPendingLoans] = useState<LoanItem[]>([]);
     const [historyLoans, setHistoryLoans] = useState<LoanItem[]>([]);
     const [loading, setLoading] = useState(true);

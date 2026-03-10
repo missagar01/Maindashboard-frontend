@@ -1596,6 +1596,7 @@ export function DashboardView() {
 
 
             {/* Sales Performance Report Section */}
+             {/* Sales Performance Report Section */}
             <div className='w-full'>
               <div className="w-full m-0 p-0 bg-white">
                 <CardHeader className="bg-white border-b border-slate-100 px-0 sm:px-4 py-1 sm:py-4">
@@ -1683,13 +1684,13 @@ export function DashboardView() {
                           const totalOrderClients = dataRows.reduce((sum, row) => sum + Number(row.orderClients || 0), 0);
                           const totalRsSale = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0);
                           const totalConversionRatio = totalCallings > 0 ? ((totalOrderClients / totalCallings) * 100).toFixed(2) : '0.00';
-                          const totalAvgSale = totalOrderClients > 0 ? (totalRsSale / totalOrderClients).toFixed(2) : '0.00';
+                          const totalAvgSale = dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0).toFixed(2);
 
                           const avgCallingsValue = totalCallings / dataRows.length;
                           const avgOrderClientsValue = totalOrderClients / dataRows.length;
                           const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
                           const avgTotalRsSaleValue = totalRsSale / dataRows.length;
-                          const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
+                          const avgAvgRsSale = (dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0) / dataRows.length).toFixed(2);
 
                           return (
                             <>
@@ -1793,7 +1794,7 @@ export function DashboardView() {
 
                               const totalConversionRatio = totalCallings > 0 ? ((totalOrderClients / totalCallings) * 100).toFixed(2) : '0.00';
                               // Avg Sale for Total = Total Sale / Total Order Clients
-                              const totalAvgSale = totalOrderClients > 0 ? (totalRsSale / totalOrderClients).toFixed(2) : '0.00';
+                              const totalAvgSale = dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0).toFixed(2);
 
                               return (
                                 <tr className="bg-yellow-50 font-bold border-t-2 border-yellow-200 hover:bg-yellow-100/80 transition-colors text-[9px] sm:text-sm">
@@ -1834,7 +1835,7 @@ export function DashboardView() {
                               const avgTotalRsSaleValue = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0) / dataRows.length;
                               const avgTotalRsSale = avgTotalRsSaleValue.toFixed(0);
                               // Average Rs Sale = Average Total Rs Sale / Average Order Clients
-                              const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
+                              const avgAvgRsSale = (dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0) / dataRows.length).toFixed(2);
 
                               return (
                                 <tr className="bg-purple-50 font-bold border-t-2 border-purple-200 hover:bg-purple-100/80 transition-colors text-[9px] sm:text-sm">
@@ -1887,11 +1888,9 @@ export function DashboardView() {
                       }
                     }
 
-                    const avgCallPerDayValue = totalCallings / daysDivisor;
-                    const avgCallPerDayRounded = Math.ceil(avgCallPerDayValue);
-                    const avgCallPerDay = avgCallPerDayRounded.toFixed(2);
-                    // Average Call Per Person = Average Call Per Day (Rounded) / Number of Sales Persons
-                    const avgCallPerPerson = (avgCallPerDayRounded / dataRows.length).toFixed(2);
+                    const avgCallPerPersonMonthly = totalCallings / dataRows.length;
+                    const avgCallPerDay = (avgCallPerPersonMonthly / daysDivisor).toFixed(2);
+                    const avgCallPerPerson = (parseFloat(avgCallPerDay) / dataRows.length).toFixed(2);
 
                     return (
                       <div className="mt-1 sm:mt-4 px-0 sm:px-6 pb-1 sm:pb-6">
@@ -2278,7 +2277,7 @@ export function DashboardView() {
           </div>
         </div>
 
-        {/* Customer Feedback Section - Tabular Format */}
+         {/* Customer Feedback Section - Tabular Format */}
         <div className="mt-6 sm:mt-10 space-y-2 sm:space-y-4 font-sans">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 px-1">
             <div className="flex items-center gap-2 sm:gap-4">
@@ -2361,9 +2360,25 @@ export function DashboardView() {
                     )}
                   >
                     {/* Customer & Firm */}
-                    <div className="space-y-0.5">
-                      <h3 className="text-base font-black text-white uppercase tracking-tight leading-none">{item.customer_name}</h3>
-                      <p className="text-xs font-bold text-white/60 uppercase tracking-widest">{item.firm_name}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5 min-w-0">
+                        <h3 className="text-base font-black text-white uppercase tracking-tight leading-none truncate">{item.customer_name}</h3>
+                        <p className="text-xs font-bold text-white/60 uppercase tracking-widest truncate">{item.firm_name}</p>
+                      </div>
+                      <div className="shrink-0 bg-white/20 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
+                        <p className="text-[10px] font-black text-white uppercase tracking-tighter leading-none">
+                          {item.timestamp ? (
+                            (() => {
+                              try {
+                                const date = new Date(item.timestamp);
+                                return isNaN(date.getTime()) ? String(item.timestamp).split(' ')[0] : format(date, "dd MMM yyyy");
+                              } catch (e) {
+                                return String(item.timestamp).split(' ')[0];
+                              }
+                            })()
+                          ) : 'No Date'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Feedback Textbox */}

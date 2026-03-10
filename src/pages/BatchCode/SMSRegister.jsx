@@ -3,8 +3,10 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { CheckCircle2, X, Search, History, ArrowLeft, Plus, Save, AlertCircle } from "lucide-react"
 // @ts-ignore - JSX component
 import * as batchcodeAPI from "../../api/batchcodeAPI";
+import { useAuth } from "../../context/AuthContext"
 
 function SMSRegister() {
+    const { user } = useAuth()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [successMessage, setSuccessMessage] = useState("")
     const [error, setError] = useState(null)
@@ -108,19 +110,19 @@ function SMSRegister() {
 
     // Get user info from session storage
     useEffect(() => {
-        const role = sessionStorage.getItem("role")
-        const user = sessionStorage.getItem("username")
-        setUserRole(role || "")
-        setUsername(user || "")
+        const role = user?.role || user?.userType || ""
+        const authUsername = user?.username || user?.user_name || ""
+        setUserRole(role)
+        setUsername(authUsername)
 
         // Set shift_incharge with username when component loads
-        if (user) {
+        if (authUsername) {
             setFormData(prev => ({
                 ...prev,
-                shift_incharge: user
+                shift_incharge: authUsername
             }))
         }
-    }, [])
+    }, [user])
 
     const buildHotCoilLink = useCallback((code) => {
         const baseUrl = "http://192.168.1.34:5173/dashboard/delegation"

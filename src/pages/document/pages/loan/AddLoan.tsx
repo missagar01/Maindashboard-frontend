@@ -6,9 +6,10 @@ import { createLoan } from '@/api/document/loanApi';
 interface AddLoanProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
+const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     loanName: '',
@@ -76,8 +77,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         fileContent: ''
       });
 
-      // Refresh the page to show new data
-      window.location.reload();
+      if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Failed to create loan:', err);
       toast.error('Failed to create loan');

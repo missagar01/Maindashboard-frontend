@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Database, Layers, Tag, Building2, Plus } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import AddMaster from './AddMaster';
 import { toast } from 'react-hot-toast';
 import { fetchAllMasterData, MasterRecord, mapToFrontend, MasterItem } from '@/api/document/masterApi';
 
 const MasterPage = () => {
-    const { setTitle } = useHeaderStore();
-    const [masterData, setMasterData] = useState<MasterItem[]>([]);
+    const { setTitle, masterData, setMasterData } = useDocumentAuth();
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -17,7 +16,7 @@ const MasterPage = () => {
         setLoading(true);
         try {
             const data = await fetchAllMasterData();
-            setMasterData(data.map((record: MasterRecord) => mapToFrontend(record)));
+            setMasterData(data.map((record: MasterRecord) => mapToFrontend(record)) as any);
         } catch (err) {
             console.error('Failed to load master data:', err);
             toast.error('Failed to load master data');
@@ -116,7 +115,7 @@ const MasterPage = () => {
                     </div>
                 </div>
             </div>
-            <AddMaster isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <AddMaster isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSuccess={loadMasterData} />
         </>
     );
 };

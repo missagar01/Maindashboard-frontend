@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, RefreshCw } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { toast } from 'react-hot-toast';
 import { createPaymentFms, getAllPaymentFms, deletePaymentFms, PaymentFmsRequest } from '@/api/document/paymentFmsApi';
 
@@ -17,7 +17,7 @@ interface PaymentRequest {
 }
 
 const RequestForm = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
 
     useEffect(() => {
         setTitle('Payment Request Form');

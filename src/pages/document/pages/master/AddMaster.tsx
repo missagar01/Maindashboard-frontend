@@ -7,9 +7,10 @@ import { createMasterRecord } from '@/api/document/masterApi';
 interface AddMasterProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-const AddMaster: React.FC<AddMasterProps> = ({ isOpen, onClose }) => {
+const AddMaster: React.FC<AddMasterProps> = ({ isOpen, onClose, onSuccess }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         companyName: '',
@@ -39,8 +40,7 @@ const AddMaster: React.FC<AddMasterProps> = ({ isOpen, onClose }) => {
             setFormData({ companyName: '', documentType: '', category: '', renewalFilter: false });
             onClose();
 
-            // Refresh page to show new data
-            window.location.reload();
+            if (onSuccess) onSuccess();
         } catch (err) {
             console.error('Failed to create master record:', err);
             toast.error('Failed to add master record');

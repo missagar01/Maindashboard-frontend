@@ -7,20 +7,21 @@ import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 
 // System options
 const SYSTEM_OPTIONS = [
-  { value: "o2d", label: "O2D" },
-  { value: "batchcode", label: "Batchcode" },
-  { value: "lead-to-order", label: "Lead to Order" },
-  { value: "hrfms", label: "HRFMS" },
-  { value: "document", label: "Document" },
-  { value: "subscription", label: "Subscription" },
-  { value: "loan", label: "Loan" },
-  { value: "payment", label: "Payment" },
+  { value: "SALE", label: "SALE MODULE" },
+  { value: "HRFMS", label: "HRMS" },
+  { value: "STORE", label: "STORE AND PURCHASE" },
+  { value: "SUBSCRIPTION", label: "Document Control" },
+  { value: "CHECKLIST", label: "CHECKLIST" },
+  { value: "MAINTENANCE", label: "MAINTENANCE" },
+  { value: "HOUSEKEEPING", label: "HOUSEKEEPING" },
+  { value: "CHECKLIST_COMBINED", label: "CHECKLIST COMBINED" },
+  { value: "GATEPASS", label: "GATE PASS" },
 ];
 
 // Page routes organized by system
 // Structure: { value: "PageName", label: "Display Label", route: "/actual/route" }
 const PAGE_ROUTES = {
-  "o2d": [
+  "SALE": [
     { value: "Dashboard", label: "Dashboard", route: "/" },
     { value: "Orders", label: "Orders", route: "/o2d/orders" },
     { value: "Enquiry", label: "Enquiry", route: "/o2d/enquiry" },
@@ -28,8 +29,6 @@ const PAGE_ROUTES = {
     { value: "Pending Vehicles", label: "Pending Vehicles", route: "/o2d/process" },
     { value: "Customers", label: "Customers", route: "/o2d/customers" },
     { value: "Follow Ups", label: "Follow Ups", route: "/o2d/follow-ups" },
-  ],
-  "batchcode": [
     { value: "Hot Coil", label: "Hot Coil", route: "/batchcode/hot-coil" },
     { value: "QC Lab", label: "QC Lab", route: "/batchcode/qc-lab" },
     { value: "SMS Register", label: "SMS Register", route: "/batchcode/sms-register" },
@@ -37,14 +36,25 @@ const PAGE_ROUTES = {
     { value: "Pipe Mill", label: "Pipe Mill", route: "/batchcode/pipe-mill" },
     { value: "Laddel", label: "Laddel", route: "/batchcode/laddel" },
     { value: "Tundis", label: "Tundis", route: "/batchcode/tundis" },
-  ],
-  "lead-to-order": [
     { value: "Leads", label: "Leads", route: "/lead-to-order/leads" },
     { value: "Follow Up", label: "Follow Up", route: "/lead-to-order/follow-up" },
     { value: "Call Tracker", label: "Call Tracker", route: "/lead-to-order/call-tracker" },
     { value: "Quotation", label: "Quotation", route: "/lead-to-order/quotation" },
   ],
-  "hrfms": [
+  "HRFMS": [
+    { value: "HRFMS Dashboard", label: "Dashboard", route: "/hrfms/dashboard" },
+    { value: "My Profile", label: "My Profile", route: "/hrfms/my-profile" },
+    { value: "MainPower Request", label: "MainPower Request", route: "/hrfms/resume-request" },
+    { value: "MainPower List", label: "MainPower List", route: "/hrfms/resume-list" },
+    { value: "Employee", label: "Employee", route: "/hrfms/employee-create" },
+    { value: "Travel Form", label: "Travel Form", route: "/hrfms/requests" },
+    { value: "Tickets", label: "Tickets", route: "/hrfms/tickets" },
+    { value: "Travel Status", label: "Travel Status", route: "/hrfms/travel-status" },
+    { value: "Resume", label: "Resume", route: "/hrfms/resumes" },
+    { value: "Resume Upload", label: "Resume Upload", route: "/hrfms/resume-form" },
+    { value: "Leave Request", label: "Leave Request", route: "/hrfms/leave-request" },
+    { value: "Leave Approvals", label: "Leave Approvals", route: "/hrfms/leave-approvals" },
+    { value: "Hod Approval", label: "Hod Approval", route: "/hrfms/commercial-head-approval" },
     { value: "HRFMS Dashboard", label: "Dashboard", route: "/hrfms/dashboard" },
     { value: "My Profile", label: "My Profile", route: "/hrfms/my-profile" },
     { value: "MainPower Request", label: "MainPower Request", route: "/hrfms/resume-request" },
@@ -64,45 +74,38 @@ const PAGE_ROUTES = {
     { value: "Interviwer List", label: "Interviwer List", route: "/hrfms/condidate-list" },
     { value: "Selected Condidate", label: "Selected Condidate", route: "/hrfms/condidate-select" },
   ],
-  "document": [
-    { value: "Document Dashboard", label: "Document Dashboard", route: "/document" },
+  "STORE": [
+    { value: "Store Dashboard", label: "Dashboard", route: "/store/dashboard" },
+    { value: "Store Issue", label: "Store Issue", route: "/store/item-issue" },
+    { value: "Indent", label: "Indent", route: "/store/indent" },
+    { value: "Approve Indent HOD", label: "Approve Indent HOD", route: "/store/approve-indent" },
+    { value: "Approve Indent GM", label: "Approve Indent GM", route: "/store/approve-indent-data" },
+    { value: "Purchase Order", label: "Purchase Order", route: "/store/pending-indents" },
+    { value: "Inventory", label: "Inventory", route: "/store/inventory" },
+    { value: "Returnable", label: "Returnable", route: "/store/returnable" },
+    { value: "Repair Gate Pass", label: "Repair Gate Pass", route: "/store/repair-gate-pass" },
+    { value: "Repair Follow Up", label: "Repair Follow Up", route: "/store/repair-followup" },
+    { value: "Store GRN", label: "Store GRN", route: "/store/store-grn" },
+    { value: "Store GRN Admin Approval", label: "Store GRN Admin Approval", route: "/store/store-grn-admin" },
+    { value: "Store GRN GM Approval", label: "Store GRN GM Approval", route: "/store/store-grn-gm" },
+    { value: "Store GRN Close", label: "Store GRN Close", route: "/store/store-grn-close" },
+    { value: "Store Out Approval", label: "Store Out Approval", route: "/store/store-out-approval" },
+    { value: "Completed Items", label: "Completed Items", route: "/store/completed-items" },
+    { value: "My Indent", label: "My Indent", route: "/store/user-indent-list-indent" },
+    { value: "Requisition", label: "Requisition", route: "/store/user-requisition" },
+    { value: "Create Indent", label: "Create Indent", route: "/store/user-indent" },
+  ],
+  "SUBSCRIPTION": [
+    { value: "Document Dashboard", label: "Document Dashboard", route: "/document/dashboard" },
     { value: "Resource Manager", label: "Resource Manager", route: "/resource-manager" },
-    { value: "Document/All", label: "All Documents", route: "/document/all" },
-    { value: "Document/Renewal", label: "Document Renewal", route: "/document/renewal" },
-    { value: "Document/Shared", label: "Document Shared", route: "/document/shared" },
-    { value: "Subscription/All", label: "All Subscriptions", route: "/subscription/all" },
-    { value: "Subscription/Approval", label: "Subscription Approval", route: "/subscription/approval" },
-    { value: "Subscription/Payment", label: "Subscription Payment", route: "/subscription/payment" },
-    { value: "Subscription/Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
-    { value: "Loan/All", label: "All Loan", route: "/loan/all" },
-    { value: "Loan/Foreclosure", label: "Request Forecloser", route: "/loan/foreclosure" },
-    { value: "Loan/NOC", label: "Collect NOC", route: "/loan/noc" },
-    { value: "Payment/Request Form", label: "Payment Request Form", route: "/payment/request-form" },
-    { value: "Payment/Approval", label: "Payment Approval", route: "/payment/approval" },
-    { value: "Payment/Make Payment", label: "Make Payment", route: "/payment/make-payment" },
-    { value: "Payment/Tally Entry", label: "Tally Entry", route: "/payment/tally-entry" },
-    { value: "Account/Tally Data", label: "Account Tally Data", route: "/account/tally-data" },
-    { value: "Account/Audit", label: "Account Audit", route: "/account/audit" },
-    { value: "Account/Rectify", label: "Account Rectify", route: "/account/rectify" },
-    { value: "Account/Bill Filed", label: "Account Bill Filed", route: "/account/bill-filed" },
+    { value: "Document Renewal", label: "Document Renewal", route: "/document/renewal" },
+    { value: "Subscription Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
+    { value: "All Subscriptions", label: "All Subscriptions", route: "/subscription/all" },
+    { value: "Subscription Approval", label: "Subscription Approval", route: "/subscription/approval" },
+    { value: "Document Shared", label: "Document Shared", route: "/document/shared" },
+    { value: "All Loan", label: "All Loan", route: "/loan/all" },
+    { value: "Request Forecloser", label: "Request Forecloser", route: "/loan/foreclosure" },
     { value: "Master", label: "Master", route: "/master" },
-  ],
-  "subscription": [
-    { value: "Subscription/All", label: "All Subscriptions", route: "/subscription/all" },
-    { value: "Subscription/Approval", label: "Subscription Approval", route: "/subscription/approval" },
-    { value: "Subscription/Payment", label: "Subscription Payment", route: "/subscription/payment" },
-    { value: "Subscription/Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
-  ],
-  "loan": [
-    { value: "Loan/All", label: "All Loan", route: "/loan/all" },
-    { value: "Loan/Foreclosure", label: "Request Forecloser", route: "/loan/foreclosure" },
-    { value: "Loan/NOC", label: "Collect NOC", route: "/loan/noc" },
-  ],
-  "payment": [
-    { value: "Payment/Request Form", label: "Payment Request Form", route: "/payment/request-form" },
-    { value: "Payment/Approval", label: "Payment Approval", route: "/payment/approval" },
-    { value: "Payment/Make Payment", label: "Make Payment", route: "/payment/make-payment" },
-    { value: "Payment/Tally Entry", label: "Tally Entry", route: "/payment/tally-entry" },
   ],
 };
 
@@ -146,38 +149,58 @@ const ROUTE_TO_PAGE_NAME_MAP = {
   "/hrfms/plant-visitorlist": "Plant Visitor List",
   "/hrfms/condidate-list": "Interviwer List",
   "/hrfms/condidate-select": "Selected Condidate",
-  "/document": "Document Dashboard",
+  "/store/dashboard": "Store Dashboard",
+  "/store/item-issue": "Store Issue",
+  "/store/indent": "Indent",
+  "/store/approve-indent": "Approve Indent HOD",
+  "/store/approve-indent-data": "Approve Indent GM",
+  "/store/pending-indents": "Purchase Order",
+  "/store/inventory": "Inventory",
+  "/store/returnable": "Returnable",
+  "/store/repair-gate-pass": "Repair Gate Pass",
+  "/store/repair-followup": "Repair Follow Up",
+  "/store/store-grn": "Store GRN",
+  "/store/store-grn-admin": "Store GRN Admin Approval",
+  "/store/store-grn-gm": "Store GRN GM Approval",
+  "/store/store-grn-close": "Store GRN Close",
+  "/store/store-out-approval": "Store Out Approval",
+  "/store/completed-items": "Completed Items",
+  "/store/user-indent-list-indent": "My Indent",
+  "/store/user-requisition": "Requisition",
+  "/store/user-indent": "Create Indent",
   "/document/dashboard": "Document Dashboard",
   "/resource-manager": "Resource Manager",
-  "/document/all": "Document/All",
-  "/document/renewal": "Document/Renewal",
-  "/document/shared": "Document/Shared",
-  "/subscription/all": "Subscription/All",
-  "/subscription/approval": "Subscription/Approval",
-  "/subscription/payment": "Subscription/Payment",
-  "/subscription/renewal": "Subscription/Renewal",
-  "/loan/all": "Loan/All",
-  "/loan/foreclosure": "Loan/Foreclosure",
-  "/loan/noc": "Loan/NOC",
-  "/payment/request-form": "Payment/Request Form",
-  "/payment/approval": "Payment/Approval",
-  "/payment/make-payment": "Payment/Make Payment",
-  "/payment/tally-entry": "Payment/Tally Entry",
-  "/account/tally-data": "Account/Tally Data",
-  "/account/audit": "Account/Audit",
-  "/account/rectify": "Account/Rectify",
-  "/account/bill-filed": "Account/Bill Filed",
+  "/document/renewal": "Document Renewal",
+  "/subscription/renewal": "Subscription Renewal",
+  "/subscription/all": "All Subscriptions",
+  "/subscription/approval": "Subscription Approval",
+  "/document/shared": "Document Shared",
+  "/loan/all": "All Loan",
+  "/loan/foreclosure": "Request Forecloser",
   "/master": "Master",
 };
 
 const SYSTEM_ALIASES = {
-  "leadtoorder": "lead-to-order",
-  "lead_to_order": "lead-to-order",
-  "documents": "document",
-  "docs": "document",
-  "subscriptions": "subscription",
-  "loans": "loan",
-  "payments": "payment",
+  "leadtoorder": "SALE",
+  "lead_to_order": "SALE",
+  "lead-to-order": "SALE",
+  "o2d": "SALE",
+  "batchcode": "SALE",
+  "hrms": "HRFMS",
+  "hrfms": "HRFMS",
+  "stores": "STORE",
+  "store": "STORE",
+  "storefms": "STORE",
+  "store-fms": "STORE",
+  "inventory": "STORE",
+  "documents": "SUBSCRIPTION",
+  "docs": "SUBSCRIPTION",
+  "subscriptions": "SUBSCRIPTION",
+  "subscription": "SUBSCRIPTION",
+  "loans": "SUBSCRIPTION",
+  "loan": "SUBSCRIPTION",
+  "payments": "PAYMENT",
+  "payment": "PAYMENT",
 };
 
 const PAGE_VALUE_LOOKUP = Object.values(PAGE_ROUTES)
@@ -201,7 +224,7 @@ const toUnique = (values) => Array.from(new Set(values));
 
 const normalizeSystemName = (value) => {
   const normalized = (value || "").toLowerCase().trim();
-  return SYSTEM_ALIASES[normalized] || normalized;
+  return SYSTEM_ALIASES[normalized] || normalized.toUpperCase();
 };
 
 const normalizePageName = (value) => {
@@ -435,17 +458,10 @@ const Settings = () => {
 
   const handleChange = useCallback((event) => {
     const { name, value } = event.target;
-    setFormData((prev) => {
-      const newData = {
-        ...prev,
-        [name]: value,
-      };
-      // If system_access changes, reset page_access to only show relevant pages
-      if (name === "system_access") {
-        newData.page_access = "";
-      }
-      return newData;
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   }, []);
 
   const handleSystemAccessChange = useCallback((systemValue, checked) => {
@@ -460,19 +476,9 @@ const Settings = () => {
         newSystems = currentSystems.filter((s) => s !== normalizeSystemName(systemValue));
       }
 
-      const allowedPages = new Set(
-        getPageOptionsForSystems(newSystems).map((option) => option.value)
-      );
-      const retainedPages = toUnique(
-        parseCsv(prev.page_access)
-          .map(normalizePageName)
-          .filter((page) => page && allowedPages.has(page))
-      );
-
       return {
         ...prev,
         system_access: newSystems.join(","),
-        page_access: retainedPages.join(","),
       };
     });
   }, []);
@@ -504,7 +510,7 @@ const Settings = () => {
     }));
   }, []);
 
-  // Get available pages based on selected system access
+  // Get available pages based on selected system access grouped by system
   const getAvailablePages = useMemo(() => {
     const systems = toUnique(
       parseCsv(formData.system_access).map(normalizeSystemName)
@@ -512,7 +518,30 @@ const Settings = () => {
     if (systems.length === 0) {
       return [];
     }
-    return getPageOptionsForSystems(systems);
+
+    const grouped = [];
+    const dedupedByValue = new Set();
+
+    systems.forEach((system) => {
+      if (PAGE_ROUTES[system]) {
+        const uniquePages = [];
+        PAGE_ROUTES[system].forEach((option) => {
+          if (!dedupedByValue.has(option.value)) {
+            dedupedByValue.add(option.value);
+            uniquePages.push(option);
+          }
+        });
+        if (uniquePages.length > 0) {
+          const opt = SYSTEM_OPTIONS.find((o) => normalizeSystemName(o.value) === system);
+          grouped.push({
+            systemLabel: opt ? opt.label : system,
+            pages: uniquePages,
+          });
+        }
+      }
+    });
+
+    return grouped;
   }, [formData.system_access]);
 
   // Get selected page values as array
@@ -976,50 +1005,82 @@ const Settings = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="flex flex-col gap-2 md:col-span-2">
+                      <label className="text-sm font-bold text-slate-800 bg-slate-100/50 p-2 rounded-t-lg border-x border-t border-slate-200 w-fit">
                         System Access
                       </label>
-                      <div className="rounded-lg border border-slate-200 p-3 space-y-2 bg-slate-50">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 rounded-b-lg border border-slate-200 bg-white shadow-inner">
                         {SYSTEM_OPTIONS.map((option) => {
                           const isChecked = selectedSystems.includes(option.value);
                           return (
-                            <label key={option.value} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition-colors">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => handleSystemAccessChange(option.value, e.target.checked)}
-                                className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                              />
-                              <span className="text-sm text-slate-700">{option.label}</span>
+                            <label
+                              key={option.value}
+                              className={`flex items-center gap-3 cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 ${isChecked
+                                ? "border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/10"
+                                : "border-slate-100 bg-slate-50/30 hover:border-slate-300 hover:bg-white hover:shadow-sm"
+                                }`}
+                            >
+
+                              <div className="relative flex items-center justify-center">
+                                <input
+
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handleSystemAccessChange(option.value, e.target.checked)}
+                                  className="w-5 h-5 text-emerald-600 border-slate-300 rounded focus:ring-offset-2 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+
+                                />
+                              </div>
+
+                              <span className={`text-xs font-bold uppercase tracking-widest ${isChecked ? "text-emerald-700" : "text-slate-600"}`}>
+                                {option.label}
+                              </span>
+
                             </label>
                           );
                         })}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="flex flex-col gap-2 md:col-span-2">
+                      <label className="text-sm font-bold text-slate-800 bg-slate-100/50 p-2 rounded-t-lg border-x border-t border-slate-200 w-fit">
                         Page Access
                       </label>
-                      <div className={`rounded-lg border border-slate-200 p-3 space-y-2 max-h-[300px] overflow-y-auto ${!formData.system_access ? 'bg-slate-100 opacity-60' : 'bg-slate-50'}`}>
+                      <div className={`rounded-b-lg border-x border-b border-t-0 border-slate-200 p-5 max-h-[450px] overflow-y-auto ${!formData.system_access ? 'bg-slate-100 opacity-60' : 'bg-white shadow-inner'}`}>
                         {availablePages.length > 0 ? (
-                          availablePages.map((page) => {
-                            const isChecked = selectedPages.includes(page.value);
-                            return (
-                              <label key={page.value} className={`flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition-colors ${!formData.system_access ? 'cursor-not-allowed' : ''}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => handlePageAccessChange(page.value, e.target.checked)}
-                                  disabled={!formData.system_access}
-                                  className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                />
-                                <span className={`text-sm ${!formData.system_access ? 'text-slate-400' : 'text-slate-700'}`}>{page.label}</span>
-                              </label>
-                            );
-                          })
+                          <div className="space-y-6">
+                            {availablePages.map((group) => (
+                              <div key={group.systemLabel} className="space-y-4">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">
+                                  {group.systemLabel} Pages
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                  {group.pages.map((page) => {
+                                    const isChecked = selectedPages.includes(page.value);
+                                    return (
+                                      <label key={page.value} className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 ${isChecked ? "border-sky-500 bg-sky-50/50 shadow-sm" : "border-slate-100 bg-slate-50/30 hover:border-slate-300 hover:bg-white"}`}>
+                                        <div className="relative flex items-center justify-center mt-0.5">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) => handlePageAccessChange(page.value, e.target.checked)}
+                                            disabled={!formData.system_access}
+                                            className="w-4 h-4 text-sky-600 border-slate-300 rounded focus:ring-offset-1 focus:ring-2 focus:ring-sky-500 cursor-pointer disabled:cursor-not-allowed"
+                                          />
+                                        </div>
+                                        <span className={`text-xs font-bold uppercase tracking-wide ${isChecked ? "text-sky-700" : "text-slate-600"} ${!formData.system_access ? 'opacity-50' : ''}`}>
+                                          {page.label}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
-                          <p className="text-sm text-slate-400 text-center py-4">Select System Access first</p>
+                          <div className="flex items-center justify-center py-6">
+                            <p className="text-sm font-medium text-slate-400">Select System Access to view available pages</p>
+                          </div>
                         )}
                       </div>
                     </div>

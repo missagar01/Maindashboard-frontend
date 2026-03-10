@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Eye, ChevronDown, Search, RefreshCw } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 
 type FilterType = 'store' | 'repair' | 'car-fms' | 'subscription' | 'freight' | 'sales' | 'production' | 'make-payment';
 
@@ -56,7 +56,7 @@ const filterOptions = [
 ];
 
 const TallyData = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
     useEffect(() => { setTitle('Tally Data'); }, [setTitle]);
 
     const [filter, setFilter] = useState<FilterType>('store');

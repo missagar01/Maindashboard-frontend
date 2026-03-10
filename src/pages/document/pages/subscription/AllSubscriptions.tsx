@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, CreditCard, FileText, RefreshCw, Save, X, Edit } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
 import { formatDate } from '../../utils/dateFormatter';
 import AddSubscription from './AddSubscription';
 import { fetchAllSubscriptions, updateSubscription, SubscriptionResponse } from '@/api/document/subscriptionApi';
@@ -58,14 +57,12 @@ function mapSubscription(item: SubscriptionResponse): SubscriptionDisplay {
 }
 
 const AllSubscriptions = () => {
-  const { setTitle } = useHeaderStore();
-  const [subscriptions, setSubscriptions] = useState<SubscriptionDisplay[]>([]);
+  const { currentUser, setTitle, subscriptions, setSubscriptions } = useDocumentAuth();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFrequency, setFilterFrequency] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const { currentUser } = useDocumentAuth();
   const [editingSubId, setEditingSubId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<SubscriptionDisplay>>({});
 
@@ -109,7 +106,7 @@ const AllSubscriptions = () => {
     setLoading(true);
     try {
       const data = await fetchAllSubscriptions();
-      setSubscriptions(data.map(mapSubscription));
+      setSubscriptions(data.map(mapSubscription) as any);
     } catch (err) {
       console.error('Failed to load subscriptions:', err);
       toast.error('Failed to load subscriptions');

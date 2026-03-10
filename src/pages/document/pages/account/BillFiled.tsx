@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, RefreshCw, FileText, Download, Eye } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 
 const billedData = [
     { id: '1', billNo: 'BILL-2024-001', partyName: 'Acme Corp', billAmount: '₹5,240.00', billDate: '2024-01-15', category: 'Store', status: 'Filed' },
@@ -11,7 +11,7 @@ const billedData = [
 ];
 
 const BillFiled = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
     useEffect(() => { setTitle('Bill Filed'); }, [setTitle]);
 
     const [searchTerm, setSearchTerm] = useState('');

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, FileText, Download, Edit, MessageCircle, RefreshCw, Save, X } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
 import AddDocument from './AddDocument';
 import ShareModal from './ShareModal';
 
@@ -26,14 +25,11 @@ interface DocumentItem {
 }
 
 const AllDocuments = () => {
-    const { setTitle } = useHeaderStore();
-    const [documents, setDocuments] = useState<DocumentItem[]>([]);
+    const { currentUser, setTitle, documents, setDocuments } = useDocumentAuth();
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    
-    const { currentUser } = useDocumentAuth();
 
     // Fetch documents from backend
     const loadDocuments = useCallback(async () => {
@@ -499,7 +495,7 @@ const AllDocuments = () => {
                     )}
                 </div>
             </div>
-            <AddDocument isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <AddDocument isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSuccess={loadDocuments} />
             <ShareModal
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
