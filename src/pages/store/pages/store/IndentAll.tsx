@@ -135,13 +135,13 @@ export default function IndentAll() {
   }
 
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8 space-y-6">
+    <div className="w-full p-2 md:p-2 lg:p-0 space-y-6">
       <Heading heading="All Indents" subtext="View all indent requests">
         <ClipboardList size={46} className="text-primary" />
       </Heading>
 
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-1 space-y-4">
           <div className="flex gap-4 items-center">
             <Input
               placeholder="Search by request number, product, requester, department..."

@@ -16,6 +16,8 @@ import {
 } from "../../components/ui/dialog";
 import { storeApi } from "@/api/store/storeSystemApi";
 import { Button } from "../../components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 type IndentRow = {
   id?: string;
@@ -32,6 +34,7 @@ type IndentRow = {
   costLocation?: string;
   formType?: string;
   status?: "APPROVED" | "REJECTED" | "PENDING" | "";
+  gmStatus?: "APPROVED" | "REJECTED" | "PENDING" | "";
 };
 
 const mapApiRowToIndent = (rec: Record<string, unknown>): IndentRow => {
@@ -77,6 +80,7 @@ const mapApiRowToIndent = (rec: Record<string, unknown>): IndentRow => {
       "",
     formType: (rec["form_type"] as string) ?? (rec["formType"] as string) ?? "",
     status: normalizeStatus(rec["request_status"]),
+    gmStatus: normalizeStatus(rec["gm_approval"]),
   };
 };
 
@@ -89,11 +93,12 @@ export default function ApprowIndentData() {
   const [modalItems, setModalItems] = useState<IndentRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [itemStocks, setItemStocks] = useState<Record<string, number>>({});
 
   const canSave = useMemo(
     () =>
       modalItems.length > 0 &&
-      modalItems.every((item) => {
+      modalItems.some((item) => {
         const status = (item.status ?? "").toUpperCase();
         return status === "APPROVED" || status === "REJECTED";
       }),
@@ -111,8 +116,8 @@ export default function ApprowIndentData() {
         const raw = Array.isArray((res as any)?.data)
           ? (res as any).data
           : Array.isArray(res)
-          ? (res as any)
-          : [];
+            ? (res as any)
+            : [];
         const mapped = raw.map((rec: Record<string, unknown>) =>
           mapApiRowToIndent(rec)
         );
@@ -147,16 +152,93 @@ export default function ApprowIndentData() {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchStockData = async () => {
+      try {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const todayFormatted = `${d}-${m}-${y}`;
+
+        const res = await storeApi.getStock(todayFormatted, todayFormatted);
+        let dataArray: any[] = [];
+        if (Array.isArray(res)) {
+          dataArray = res;
+        } else if (res && typeof res === "object") {
+          const r = res as any;
+          if (Array.isArray(r.data)) {
+            dataArray = r.data;
+          } else if (r.data?.data && Array.isArray(r.data.data)) {
+            dataArray = r.data.data;
+          }
+        }
+
+        const stockMap: Record<string, number> = {};
+        dataArray.forEach((r: any) => {
+          const code = String(r.COL1 ?? r.itemCode ?? "").trim();
+          const qty = Number(r.COL5 ?? r.closingQty ?? 0);
+          if (code) stockMap[code] = qty;
+        });
+        setItemStocks(stockMap);
+      } catch (err) {
+        console.error("Failed to fetch stock data", err);
+      }
+    };
+
+    fetchStockData();
+  }, []);
+
+  const { user } = useAuth();
+
   const pendingRows = useMemo(
     () =>
       rows.filter((r) => {
         const status = (r.status || "").toUpperCase();
         const formType = (r.formType || "").toUpperCase();
-        const isPending = !status || status === "" || status === "PENDING";
-        const isIndent = formType === "INDENT";
-        return isPending && isIndent;
+
+        // Strictly only show if status is PENDING
+        const isPending = status === "PENDING";
+        const isAllowedType = formType === "INDENT" || formType === "REQUISITION";
+
+        if (!isPending || !isAllowedType) return false;
+
+        const role = String(user?.role || "").toUpperCase();
+        const userDept = (user?.user_access || user?.department || "").toUpperCase();
+
+        const canSeeAll = role === "ADMIN" || role === "USER";
+        if (!canSeeAll && userDept) {
+          return (r.department || "").toUpperCase() === userDept;
+        }
+
+        return true;
       }),
-    [rows]
+    [rows, user]
+  );
+
+  const historyRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        const status = (r.status || "").toUpperCase();
+        const formType = (r.formType || "").toUpperCase();
+
+        // Show processing history (APPROVED or REJECTED by HOD)
+        const isProcessed = status === "APPROVED" || status === "REJECTED";
+        const isAllowedType = formType === "INDENT" || formType === "REQUISITION";
+
+        if (!isProcessed || !isAllowedType) return false;
+
+        const role = String(user?.role || "").toUpperCase();
+        const userDept = (user?.user_access || user?.department || "").toUpperCase();
+
+        const canSeeAll = role === "ADMIN" || role === "USER";
+        if (!canSeeAll && userDept) {
+          return (r.department || "").toUpperCase() === userDept;
+        }
+
+        return true;
+      }),
+    [rows, user]
   );
 
   const fetchRequestItems = useCallback(async (requestNo: string) => {
@@ -165,13 +247,13 @@ export default function ApprowIndentData() {
     const list = Array.isArray(payload)
       ? payload
       : payload
-      ? [payload]
-      : [];
+        ? [payload]
+        : [];
     return list.map((rec: Record<string, unknown>) => mapApiRowToIndent(rec));
   }, []);
 
   const handleProcess = useCallback(
-    async (row: IndentRow) => {
+    (row: IndentRow) => {
       const rn = row.requestNumber || "";
       if (!rn) {
         toast.error("Request number unavailable for this row");
@@ -180,25 +262,59 @@ export default function ApprowIndentData() {
 
       setIndentNumber(rn);
       setHeaderRequesterName(row.requesterName || "");
-      setModalItems([]);
-      setDetailsLoading(true);
+      setModalItems([row]);
       setOpenEdit(true);
-
-      try {
-        const details = await fetchRequestItems(rn);
-        setModalItems(details);
-      } catch (err) {
-        console.error("Failed to fetch request details", err);
-        toast.error("Failed to fetch indent details");
-        setOpenEdit(false);
-      } finally {
-        setDetailsLoading(false);
-      }
     },
-    [fetchRequestItems]
+    []
   );
 
-  const columns: ColumnDef<IndentRow>[] = useMemo(
+  const commonColumns: ColumnDef<IndentRow>[] = [
+    {
+      accessorKey: "timestamp",
+      header: "Timestamp",
+      cell: ({ row }) => {
+        const timestamp = row.original.timestamp;
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        return date.toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      },
+    },
+    { accessorKey: "requestNumber", header: "Request No." },
+    { accessorKey: "formType", header: "Form Type" },
+    { accessorKey: "indentSeries", header: "Series" },
+    { accessorKey: "requesterName", header: "Requester" },
+    { accessorKey: "department", header: "Department" },
+    { accessorKey: "division", header: "Division" },
+    { accessorKey: "itemCode", header: "Item Code" },
+    { accessorKey: "productName", header: "Product" },
+    { accessorKey: "uom", header: "UOM" },
+    {
+      accessorKey: "itemCode",
+      header: "Stock",
+      id: "stock_col",
+      cell: ({ row }) => {
+        const code = row.original.itemCode || "";
+        const stock = itemStocks[code];
+        if (stock === undefined) return <span className="text-gray-400">-</span>;
+        return (
+          <span className={stock <= 0 ? "text-red-600 font-bold" : "text-green-600 font-medium"}>
+            {stock}
+          </span>
+        );
+      }
+    },
+    { accessorKey: "requestQty", header: "Qty" },
+    { accessorKey: "costLocation", header: "Cost Location" },
+  ];
+
+  const pendingColumns: ColumnDef<IndentRow>[] = useMemo(
     () => [
       {
         id: "actions",
@@ -218,36 +334,14 @@ export default function ApprowIndentData() {
           </div>
         ),
       },
-      {
-        accessorKey: "timestamp",
-        header: "Timestamp",
-        cell: ({ row }) => {
-          const timestamp = row.original.timestamp;
-          if (!timestamp) return "";
-          const date = new Date(timestamp);
-          return date.toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        },
-      },
-      { accessorKey: "requestNumber", header: "Request No." },
-      { accessorKey: "formType", header: "Form Type" },
-      { accessorKey: "indentSeries", header: "Series" },
-      { accessorKey: "requesterName", header: "Requester" },
-      { accessorKey: "department", header: "Department" },
-      { accessorKey: "division", header: "Division" },
-      { accessorKey: "itemCode", header: "Item Code" },
-      { accessorKey: "productName", header: "Product" },
-      { accessorKey: "uom", header: "UOM" },
-      { accessorKey: "requestQty", header: "Qty" },
-      { accessorKey: "costLocation", header: "Cost Location" },
+      ...commonColumns,
     ],
     [handleProcess]
+  );
+
+  const historyColumns: ColumnDef<IndentRow>[] = useMemo(
+    () => [...commonColumns],
+    []
   );
 
   function selectFromRow(r: IndentRow) {
@@ -283,13 +377,16 @@ export default function ApprowIndentData() {
 
       // Update rows and filter out approved/rejected items
       setRows((prev) => {
-        const others = prev.filter((p) => p.requestNumber !== indentNumber);
-        // Add updated items with their new status
-        const updatedItems = modalItems.map((item) => ({
-          ...item,
-          status: (item.status ?? "").toUpperCase() as "APPROVED" | "REJECTED" | "PENDING" | "",
-        }));
-        return [...others, ...updatedItems];
+        return prev.map((p) => {
+          const updated = modalItems.find((m) => m.id === p.id);
+          if (updated) {
+            return {
+              ...p,
+              status: (updated.status ?? "").toUpperCase() as "APPROVED" | "REJECTED" | "PENDING" | "",
+            };
+          }
+          return p;
+        });
       });
 
       toast.success("Indent status updated");
@@ -305,39 +402,46 @@ export default function ApprowIndentData() {
   return (
     <div className="w-full p-4 md:p-6 lg:p-8">
       <Heading
-        heading="Approve Indent Data"
+        heading="Approve Indent HOD"
         subtext="View Indent sheet and select a row to fill inputs"
       >
         <ClipboardCheck size={50} className="text-primary" />
       </Heading>
 
-      <div className="grid gap-4">
-        <div>
-          <DataTable
-            data={pendingRows}
-            columns={columns}
-            searchFields={[
-              "requestNumber",
-              "requesterName",
-              "department",
-              "indentSeries",
-              "division",
-              "itemCode",
-              "productName",
-            ]}
-            dataLoading={loading}
-            className="h-[70dvh]"
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Tip: Click a row, then use Edit to open all items for that request number.
-          </p>
-        </div>
+      <div className="mt-4">
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="active">Active Indents ({pendingRows.length})</TabsTrigger>
+            <TabsTrigger value="history">History ({historyRows.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active">
+            <DataTable
+              data={pendingRows}
+              columns={pendingColumns}
+              dataLoading={loading}
+              className="h-[70dvh]"
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              Tip: Click a row, then use Edit to open all items for that request number.
+            </p>
+          </TabsContent>
+
+          <TabsContent value="history">
+            <DataTable
+              data={historyRows}
+              columns={historyColumns}
+              dataLoading={loading}
+              className="h-[70dvh]"
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <RowClickBinder rows={pendingRows} onPick={selectFromRow} />
 
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden bg-white">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit / Approve Items</DialogTitle>
             <DialogDescription>
@@ -363,6 +467,7 @@ export default function ApprowIndentData() {
                   <th className="text-left px-2 py-2">Item Code</th>
                   <th className="text-left px-2 py-2">Item Name</th>
                   <th className="text-left px-2 py-2">UOM</th>
+                  <th className="text-left px-2 py-2">Stock</th>
                   <th className="text-left px-2 py-2 w-24">Qty</th>
                   <th className="text-left px-2 py-2">Status</th>
                   <th className="text-left px-2 py-2">Actions</th>
@@ -387,6 +492,15 @@ export default function ApprowIndentData() {
                       <td className="px-2 py-1">{item.itemCode}</td>
                       <td className="px-2 py-1">{item.productName}</td>
                       <td className="px-2 py-1">{item.uom}</td>
+                      <td className="px-2 py-1">
+                        {itemStocks[item.itemCode || ""] !== undefined ? (
+                          <span className={Number(itemStocks[item.itemCode || ""]) <= 0 ? "text-red-600 font-bold" : "text-green-600 font-medium"}>
+                            {itemStocks[item.itemCode || ""]}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-2 py-1 w-24">
                         <Input
                           type="number"

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router";
 import { Toaster } from "react-hot-toast";
 import AppLayout from "./layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -61,6 +61,8 @@ import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
 
 // Store pages
 import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
+import { StoreDashboardProvider } from "./pages/store/context/StoreDashboardContext";
+import StoreIssue from "./pages/store/pages/store/StoreIssue";
 import StoreIndentAll from "./pages/store/pages/store/IndentAll";
 import StoreAdministration from "./pages/store/pages/store/Administration";
 import StoreOutApproval from "./pages/store/pages/store/StoreOutApproval";
@@ -68,6 +70,7 @@ import StorePendingPOs from "./pages/store/pages/store/PendingPOs";
 import StoreCreatePO from "./pages/store/pages/store/CreatePO";
 import StoreApproveIndent from "./pages/store/pages/store/ApproveIndent";
 import StoreApproveIndentData from "./pages/store/pages/store/ApprowIndentData";
+import StoreApproveIndentGM from "./pages/store/pages/store/ApproveIndentGM";
 import StoreCompletedItems from "./pages/store/pages/store/CompletedItems";
 import StoreInventory from "./pages/store/pages/store/Inventory";
 import StoreItemIssue from "./pages/store/pages/store/Itemissue";
@@ -82,11 +85,13 @@ import StoreRateApproval from "./pages/store/pages/store/RateApproval";
 import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
 import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
 import StoreRepairFollowup from "./pages/store/pages/store/RepairFollowup";
+import StoreReturnable from "./pages/store/pages/store/ReturnablePage";
 import StoreSettings from "./pages/store/pages/store/Settings";
 import StoreGRN from "./pages/store/pages/store/StoreGRN";
 import StoreGRNAdminApproval from "./pages/store/pages/store/StoreGRNAdminApproval";
 import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
+import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
 
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
@@ -191,35 +196,41 @@ export default function App() {
             <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
             <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
 
-            {/* Store Routes */}
-            <Route path="/store" element={<RouteGuard><Navigate to="/store/dashboard" replace /></RouteGuard>} />
-            <Route path="/store/dashboard" element={<RouteGuard><StoreDashboard /></RouteGuard>} />
-            <Route path="/store/indent" element={<RouteGuard><StoreIndentAll /></RouteGuard>} />
-            <Route path="/store/administration" element={<RouteGuard><StoreAdministration /></RouteGuard>} />
-            <Route path="/store/store-out-approval" element={<RouteGuard><StoreOutApproval /></RouteGuard>} />
-            <Route path="/store/pending-pos" element={<RouteGuard><StorePendingPOs /></RouteGuard>} />
-            <Route path="/store/create-po" element={<RouteGuard><StoreCreatePO /></RouteGuard>} />
-            <Route path="/store/approve-indent" element={<RouteGuard><StoreApproveIndent /></RouteGuard>} />
-            <Route path="/store/approve-indent-data" element={<RouteGuard><StoreApproveIndentData /></RouteGuard>} />
-            <Route path="/store/completed-items" element={<RouteGuard><StoreCompletedItems /></RouteGuard>} />
-            <Route path="/store/inventory" element={<RouteGuard><StoreInventory /></RouteGuard>} />
-            <Route path="/store/item-issue" element={<RouteGuard><StoreItemIssue /></RouteGuard>} />
-            <Route path="/store/receive-items" element={<RouteGuard><StoreReceiveItems /></RouteGuard>} />
-            <Route path="/store/user-indent" element={<RouteGuard><StoreUserIndent /></RouteGuard>} />
-            <Route path="/store/user-indent-list" element={<RouteGuard><StoreUserIndentList /></RouteGuard>} />
-            <Route path="/store/user-indent-list-indent" element={<RouteGuard><StoreUserIndentListIndent /></RouteGuard>} />
-            <Route path="/store/user-requisition" element={<RouteGuard><StoreUserIndentListRequisition /></RouteGuard>} />
-            <Route path="/store/pending-indents" element={<RouteGuard><StorePendingIndents /></RouteGuard>} />
-            <Route path="/store/vendor-update" element={<RouteGuard><StoreVendorUpdate /></RouteGuard>} />
-            <Route path="/store/rate-approval" element={<RouteGuard><StoreRateApproval /></RouteGuard>} />
-            <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
-            <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
-            <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
-            <Route path="/store/settings" element={<RouteGuard><StoreSettings /></RouteGuard>} />
-            <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
-            <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
-            <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
-            <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
+            {/* Store Routes — provider wraps ALL store pages so data persists across navigation */}
+            <Route element={<StoreDashboardProvider><Outlet /></StoreDashboardProvider>}>
+              <Route path="/store" element={<RouteGuard><Navigate to="/store/dashboard" replace /></RouteGuard>} />
+              <Route path="/store/dashboard" element={<RouteGuard><StoreDashboard /></RouteGuard>} />
+              <Route path="/store/store-issue" element={<RouteGuard><StoreIssue /></RouteGuard>} />
+              <Route path="/store/indent" element={<RouteGuard><StoreIndentAll /></RouteGuard>} />
+              <Route path="/store/administration" element={<RouteGuard><StoreAdministration /></RouteGuard>} />
+              <Route path="/store/store-out-approval" element={<RouteGuard><StoreOutApproval /></RouteGuard>} />
+              <Route path="/store/pending-pos" element={<RouteGuard><StorePendingPOs /></RouteGuard>} />
+              <Route path="/store/create-po" element={<RouteGuard><StoreCreatePO /></RouteGuard>} />
+              <Route path="/store/approve-indent" element={<RouteGuard><StoreApproveIndent /></RouteGuard>} />
+              <Route path="/store/approve-indent-data" element={<RouteGuard><StoreApproveIndentData /></RouteGuard>} />
+              <Route path="/store/approve-indent-gm" element={<RouteGuard><StoreApproveIndentGM /></RouteGuard>} />
+              <Route path="/store/completed-items" element={<RouteGuard><StoreCompletedItems /></RouteGuard>} />
+              <Route path="/store/inventory" element={<RouteGuard><StoreInventory /></RouteGuard>} />
+              <Route path="/store/item-issue" element={<RouteGuard><StoreItemIssue /></RouteGuard>} />
+              <Route path="/store/receive-items" element={<RouteGuard><StoreReceiveItems /></RouteGuard>} />
+              <Route path="/store/user-indent" element={<RouteGuard><StoreUserIndent /></RouteGuard>} />
+              <Route path="/store/user-indent-list" element={<RouteGuard><StoreUserIndentList /></RouteGuard>} />
+              <Route path="/store/user-indent-list-indent" element={<RouteGuard><StoreUserIndentListIndent /></RouteGuard>} />
+              <Route path="/store/user-requisition" element={<RouteGuard><StoreUserIndentListRequisition /></RouteGuard>} />
+              <Route path="/store/pending-indents" element={<RouteGuard><StorePendingIndents /></RouteGuard>} />
+              <Route path="/store/vendor-update" element={<RouteGuard><StoreVendorUpdate /></RouteGuard>} />
+              <Route path="/store/rate-approval" element={<RouteGuard><StoreRateApproval /></RouteGuard>} />
+              <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
+              <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
+              <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
+              <Route path="/store/returnable" element={<RouteGuard><StoreReturnable /></RouteGuard>} />
+              <Route path="/store/settings" element={<RouteGuard><StoreSettings /></RouteGuard>} />
+              <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
+              <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
+              <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
+              <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
+              <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
+            </Route>
 
             {/* Document Routes */}
             <Route path="/document" element={<RouteGuard><DocumentDashboard /></RouteGuard>} />

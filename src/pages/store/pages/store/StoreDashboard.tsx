@@ -1,43 +1,41 @@
-// Store Dashboard - Default Dashboard (Same as StoreFMS)
-import { useEffect, useState } from "react";
-import { storeApi } from "@/api/store/storeSystemApi";
-import { ClipboardList, LayoutDashboard, PackageCheck, Truck, Warehouse, FileText, TrendingUp, BarChart3, Activity } from "lucide-react";
+// Store Dashboard - Modern UI Version with Modal Integration and Status Tracking
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useStoreDashboard, StoreDashboardProvider } from "../../context/StoreDashboardContext";
+import { useAuth } from "@/context/AuthContext";
+import { Navigate } from "react-router";
+import {
+  ClipboardList, LayoutDashboard, PackageCheck, Truck,
+  Warehouse, FileText, TrendingUp, BarChart3, Activity,
+  ArrowUpRight, ArrowDownRight, Package, Users, Calendar,
+  ArrowRight, RefreshCcw, Search, X, CheckCircle2, Clock, Box, ChevronRight,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "../../components/ui/dialog";
 import Loading from "./Loading";
+import Chart from "react-apexcharts";
+import { ApexOptions } from "apexcharts";
 
 type DashboardApiResponse = {
   success: boolean;
   data: {
-    // Status-based metrics
     totalIndents: number;
     completedIndents: number;
     pendingIndents: number;
     upcomingIndents: number;
     overdueIndents: number;
-
-    // Progress percentages
-    overallProgress: number;
-    completedPercent: number;
-    pendingPercent: number;
-    upcomingPercent: number;
-    overduePercent: number;
-
-    // Quantity metrics
+    pendingPurchaseOrders: number;
     totalIndentedQuantity: number;
     totalPurchaseOrders: number;
     totalPurchasedQuantity: number;
     totalIssuedQuantity: number;
     outOfStockCount: number;
-    topPurchasedItems: {
-      itemName: string;
-      orderCount: number;
-      totalOrderQty: number;
-    }[];
-    topVendors: {
-      vendorName: string;
-      uniquePoCount: number;
-      totalItems: number;
-    }[];
+    overallProgress: number;
+    completedPercent: number;
+    pendingPercent: number;
+    upcomingPercent: number;
+    overduePercent: number;
+    topPurchasedItems: any[];
+    topVendors: any[];
   };
 };
 
@@ -49,156 +47,594 @@ type RepairGatePassCounts = {
   };
 };
 
+type ReturnableStats = {
+  success: boolean;
+  data: {
+    TOTAL_COUNT: number;
+    RETURNABLE_COUNT: number;
+    NON_RETURNABLE_COUNT: number;
+    RETURNABLE_COMPLETED_COUNT: number;
+    RETURNABLE_PENDING_COUNT: number;
+  };
+};
+
 export default function StoreDashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardApiResponse['data'] | null>(null);
-  const [repairGatePassCounts, setRepairGatePassCounts] = useState<{ pending: number; history: number }>({ pending: 0, history: 0 });
-  const [loading, setLoading] = useState(true);
+  const {
+    pendingIndents,
+    historyIndents,
+    poPending,
+    poHistory,
+    repairPending,
+    repairHistory,
+    repairReceived,
+    returnableDetails,
+    dashboardSummary,
+    allVendors,
+    allProducts,
+    isLoading: loading,
+    error: apiError,
+  } = useStoreDashboard();
+  const { user } = useAuth();
+
+  // Permission Check
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const storeAccess = (user.store_access || "")
+      .split(",")
+      .map(v => v.trim().toUpperCase());
+    return storeAccess.includes("DASHBOARD");
+  }, [user]);
+
   const [error, setError] = useState<string | null>(null);
 
+  // Redirect if no access
+  if (!loading && !hasAccess) {
+    return <Navigate to="/store/erp-indent" replace />;
+  }
+
+  // Sync context error to local error if needed
   useEffect(() => {
-    let active = true;
-    const loadDashboard = async () => {
-      setLoading(true);
-      try {
-        // Load dashboard data and repair gate pass counts in parallel
-        const [dashboardRes, gatePassRes] = await Promise.allSettled([
-          storeApi.getStoreIndentDashboard() as Promise<DashboardApiResponse>,
-          storeApi.getRepairGatePassCounts() as Promise<RepairGatePassCounts>,
-        ]);
+    if (apiError) setError(apiError);
+  }, [apiError]);
 
-        if (!active) return;
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalType, setModalType] = useState("");
+  const [modalData, setModalData] = useState<any[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalSearch, setModalSearch] = useState("");
+  const [modalPage, setModalPage] = useState(1);
+  const MODAL_PAGE_SIZE = 50;
 
-        // Handle dashboard data
-        if (dashboardRes.status === 'fulfilled' && dashboardRes.value) {
-          const res = dashboardRes.value;
-          if (res.success && res.data) {
-            setDashboardData(res.data);
-            setError(null);
-          } else {
-            throw new Error('No dashboard data');
+  // Process Purchaser Performance Data for Chart (Current Month History Only)
+  const purchaserChartData = useMemo(() => {
+    if (!historyIndents || historyIndents.length === 0) return { series: [], labels: [] };
+
+    // Get Filtered Data (Current Month Only to match dashboard stats)
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const filteredIndents = historyIndents.filter(item => {
+      // For History, we prioritize using ACKNOWLEDGEDATE or INDENT_DATE
+      const dateVal = item.ACKNOWLEDGEDATE || item.acknowledgedate || item.INDENT_DATE || item.indent_date;
+      return dateVal && new Date(dateVal) >= monthStart;
+    });
+
+    const totals: Record<string, number> = {};
+    let unassigned = 0;
+
+    filteredIndents.forEach((item: any) => {
+      const purchaser = item.PURCHASER || item.purchaser;
+
+      if (!purchaser || purchaser.trim() === "" || purchaser === "null") {
+        unassigned++;
+      } else {
+        const name = purchaser.trim();
+        totals[name] = (totals[name] || 0) + 1;
+      }
+    });
+
+    const labels = ["Unassigned"];
+    const series = [unassigned];
+
+    Object.entries(totals).forEach(([name, count]) => {
+      labels.push(name);
+      series.push(count);
+    });
+
+    return { series, labels, totalCount: filteredIndents.length };
+  }, [historyIndents]);
+
+  const donorChartOptions: ApexOptions = {
+    labels: purchaserChartData.labels,
+    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#1e293b'],
+    chart: {
+      type: 'donut',
+      fontFamily: "Outfit, sans-serif",
+      toolbar: { show: false }
+    },
+    stroke: { width: 4, colors: ['transparent'] },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '60%',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Total Completed',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#64748b',
+              formatter: () => (purchaserChartData.totalCount || 0).toString()
+            },
+            value: {
+              fontSize: '22px',
+              fontWeight: 800,
+              color: '#1e293b',
+              offsetY: 4
+            }
           }
-        } else {
-          throw (dashboardRes.status === "rejected" ? dashboardRes.reason : null) || new Error('No dashboard data');
-        }
-
-        // Handle repair gate pass counts (don't fail dashboard if this fails)
-        if (gatePassRes.status === 'fulfilled' && gatePassRes.value) {
-          const res = gatePassRes.value;
-          if (res.success && res.data) {
-            setRepairGatePassCounts(res.data);
-          } else if (res.data) {
-            setRepairGatePassCounts(res.data);
-          }
-        } else {
-          console.warn(
-            'Failed to load repair gate pass counts:',
-            gatePassRes.status === "rejected" ? gatePassRes.reason : null
-          );
-          setRepairGatePassCounts({ pending: 0, history: 0 });
-        }
-      } catch (err: unknown) {
-        console.error('Failed to load dashboard', err);
-        if (active) {
-          setError('Unable to fetch dashboard data right now.');
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
         }
       }
+    },
+    dataLabels: {
+      enabled: true,
+      style: { fontSize: '10px', fontWeight: 'bold' },
+      dropShadow: { enabled: false },
+      formatter: function (val: number) {
+        return val.toFixed(0) + "%"
+      }
+    },
+    legend: {
+      show: false,
+    },
+    tooltip: {
+      custom: function ({ series, seriesIndex, w }: any) {
+        return `<div style="background: #111827; color: #ffffff; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);">
+          <div style="font-size: 10px; font-weight: 800; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">${w.globals.labels[seriesIndex]}</div>
+          <div style="font-size: 14px; font-weight: 900; color: #ffffff;">${series[seriesIndex]} Indents</div>
+        </div>`;
+      }
+    }
+  };
+
+
+  // Helper for current month filtering
+  // Helpers for date formatting
+  const formatDate = (date: any) => {
+    if (!date) return "—";
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return "—";
+    }
+  };
+
+  const getCurrentMonthStart = () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const dashboardStats = useMemo(() => {
+    const monthStart = getCurrentMonthStart();
+    const filterMonth = (rows: any[]) =>
+      (rows || []).filter(item => {
+        const dateVal = item.VRDATE || item.vrdate || item.INDENT_DATE || item.indent_date || item.RECEIVED_DATE || item.received_date || item.PLANNEDTIMESTAMP;
+        return dateVal && new Date(dateVal) >= monthStart;
+      });
+
+    const curMonthPendingIndents = filterMonth(pendingIndents);
+    const curMonthHistoryIndents = filterMonth(historyIndents);
+    const curMonthPoPending = filterMonth(poPending);
+    const curMonthPoHistory = filterMonth(poHistory);
+    const curMonthRepairPending = filterMonth(repairPending);
+    const curMonthRepairHistory = filterMonth(repairHistory);
+
+    const curMonthOverdue = curMonthPendingIndents.filter(item => {
+      const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
+      return ts && new Date(ts) < new Date();
+    }).length;
+
+    const completed = curMonthHistoryIndents.length;
+    const pending = curMonthPendingIndents.length;
+    const total = completed + pending;
+
+    const completedPercent = total > 0 ? (completed / total) * 100 : 0;
+    const pendingPercent = total > 0 ? (pending / total) * 100 : 0;
+
+    const curMonthReturnable = (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart);
+
+    return {
+      dashboardData: {
+        ...(dashboardSummary || {}),
+        totalIndents: total,
+        completedIndents: completed,
+        pendingIndents: pending,
+        overdueIndents: curMonthOverdue,
+        totalPurchaseOrders: curMonthPoHistory.length,
+        pendingPurchaseOrders: curMonthPoPending.length,
+        overallProgress: completedPercent,
+        completedPercent: completedPercent,
+        pendingPercent: pendingPercent,
+        upcomingPercent: 0, // Simplified for local current month view
+        overduePercent: total > 0 ? (curMonthOverdue / total) * 100 : 0,
+      },
+      repairGatePassCounts: {
+        pending: curMonthRepairPending.length,
+        history: curMonthRepairHistory.length
+      },
+      returnableStats: {
+        TOTAL_COUNT: curMonthReturnable.length,
+        RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE').length,
+        NON_RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE').length,
+        RETURNABLE_COMPLETED_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED').length,
+        RETURNABLE_PENDING_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING').length,
+      }
     };
+  }, [pendingIndents, historyIndents, poPending, poHistory, repairPending, repairHistory, returnableDetails, dashboardSummary]);
 
-    loadDashboard();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { dashboardData, repairGatePassCounts, returnableStats } = dashboardStats;
 
+  const getModalConfig = (type: string) => {
+    switch (type) {
+      case 'totalIndents':
+        return {
+          headers: ["Indent No", "Date", "Indenter", "Division", "Department", "Item Code", "Item Name", "Qty", "UM", "Acknowledge Date", "Purchaser", "PO No", "GRN No"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.indent_no || item.INDENT_NO || item.INDENT_NUMBER || "—"}</td>
+              <td className="px-6 py-4 text-sm whitespace-nowrap font-medium text-slate-900">{formatDate(item.indent_date || item.INDENT_DATE)}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.indenter || item.INDENTER || item.INDENTER_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-700">{item.division || item.DIVISION || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
+              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyindent || item.QTYINDENT || item.REQUIRED_QTY || "—"}</td>
+              <td className="px-6 py-4 text-center text-[11px] uppercase font-black text-slate-600">{item.um || item.UM || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-800">{formatDate(item.acknowledgedate || item.ACKNOWLEDGEDATE)}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-700">{item.purchaser || item.PURCHASER || "—"}</td>
+              <td className="px-6 py-4 text-indigo-700 font-black">{item.po_no || item.PO_NO || "—"}</td>
+              <td className="px-6 py-4 text-emerald-700 font-black">{item.grn_no || item.GRN_NO || "—"}</td>
+            </>
+          )
+        };
+      case 'pendingIndents':
+        return {
+          headers: ["Indent No", "Planned Date", "Indent Date", "Indenter", "Division", "Department", "Item Name", "Qty", "UM", "Remark", "Specification", "Vendor Type"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.INDENT_NUMBER || item.indent_number || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-900">{formatDate(item.PLANNEDTIMESTAMP)}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{formatDate(item.INDENT_DATE)}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-900">{item.INDENTER_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-700">{item.DIVISION || "—"}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.DEPARTMENT || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.REQUIRED_QTY || item.required_qty || "—"}</td>
+              <td className="px-6 py-4 text-center text-[11px] uppercase font-black text-slate-600">{item.UM || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic max-w-[200px] truncate">{item.REMARK || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-700 font-medium max-w-[200px] truncate">{item.SPECIFICATION || "—"}</td>
+              <td className="px-6 py-4 text-sm font-black text-amber-700">{item.VENDOR_TYPE || "Pending"}</td>
+            </>
+          )
+        };
+      case 'totalPurchases':
+      case 'pendingPOs':
+        return {
+          headers: ["Indent No", "PO No", "Planned Date", "PO Date", "Vendor Name", "Indenter", "Item Name", "Qty Order", "Qty Execute", "Balance Qty", "UM"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 font-mono font-bold text-slate-700">{item.INDENT_NO || "—"}</td>
+              <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.VRNO || item.vrno || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-900">{formatDate(item.PLANNED_TIMESTAMP)}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{formatDate(item.VRDATE)}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-900">{item.VENDOR_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-800 truncate">{item.INDENTER || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-slate-900">{item.QTYORDER || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYEXECUTE || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-rose-700">{item.BALANCE_QTY || "—"}</td>
+              <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.UM || "—"}</td>
+            </>
+          )
+        };
+      case 'repairPending':
+        return {
+          headers: ["Gate Pass No", "Date", "Party Name", "Department", "Item Code", "Item Name", "Qty Issued", "UM", "Remarks"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.vrno || item.VRNO || "—"}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatDate(item.vrdate || item.VRDATE)}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-900">{item.partyname || item.PARTYNAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
+              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyissued || item.QTYISSUED || "—"}</td>
+              <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.um || item.UM || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.remark || item.REMARK || "—"}</td>
+            </>
+          )
+        };
+      case 'repairHistory':
+        return {
+          headers: ["Repair Gate Pass", "Receive Gate Pass", "Received Date", "Party Name", "Department", "Item Code", "Item Name", "Qty Received", "UM", "Remarks"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 font-mono font-bold text-slate-700">{item.repair_gate_pass || item.REPAIR_GATE_PASS || "—"}</td>
+              <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.receive_gate_pass || item.RECEIVE_GATE_PASS || "—"}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatDate(item.received_date || item.RECEIVED_DATE)}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-900">{item.partyname || item.PARTYNAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
+              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyrecd || item.QTYRECD || item.qtyreceived || item.QTYRECEIVED || "—"}</td>
+              <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.um || item.UM || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.remark || item.REMARK || "—"}</td>
+            </>
+          )
+        };
+      case 'nonReturnable':
+        return {
+          headers: ["Date", "VR No", "Party Name", "Item Code", "Item Name", "Qty Issued", "Qty Received", "Unit", "Remarks"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatDate(item.VRDATE || item.vrdate)}</td>
+              <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.VRNO || item.vrno || "—"}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-900">{item.PARTY_NAME || item.party_name || "—"}</td>
+              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.ITEM_CODE || item.item_code || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.ITEM_NAME || item.item_name || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-slate-950">{item.QTYISSUED || item.qtyissued || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYRECEIVED || item.qtyreceived || 0}</td>
+              <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.UNIT || item.unit || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.REMARK || item.remark || "No remarks"}</td>
+            </>
+          )
+        };
+      default: // Returnable types (returnableTotal, returnablePending, returnableCompleted)
+        return {
+          headers: ["Date", "VR No", "Party Name", "Item Code", "Item Name", "Qty Issued", "Qty Received", "Unit", "Status", "Remarks"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatDate(item.VRDATE || item.vrdate)}</td>
+              <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.VRNO || item.vrno || "—"}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-900">{item.PARTY_NAME || item.party_name || "—"}</td>
+              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.ITEM_CODE || item.item_code || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.ITEM_NAME || item.item_name || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-slate-950">{item.QTYISSUED || item.qtyissued || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYRECEIVED || item.qtyreceived || 0}</td>
+              <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.UNIT || item.unit || "—"}</td>
+              <td className="px-6 py-4 text-center">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black tracking-tight uppercase ring-1 ${item.GATEPASS_STATUS === 'COMPLETED'
+                  ? 'bg-emerald-100 text-emerald-900 ring-emerald-300' : 'bg-amber-100 text-amber-900 ring-amber-300'}`}>
+                  {item.GATEPASS_STATUS || "—"}
+                </span>
+              </td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.REMARK || item.remark || "No remarks"}</td>
+            </>
+          )
+        };
+    }
+  };
 
+  const openModal = async (type: string, title: string) => {
+    setModalTitle(title);
+    setModalType(type);
+    setIsModalOpen(true);
+    setModalLoading(true);
+    setModalData([]);
+    setModalSearch("");
+    setModalPage(1);
+
+    try {
+      let rows: any[] = [];
+      switch (type) {
+        case 'totalIndents':
+          rows = historyIndents;
+          break;
+        case 'pendingIndents':
+          rows = pendingIndents;
+          break;
+        case 'totalPurchases':
+          rows = poHistory;
+          break;
+        case 'pendingPOs':
+          rows = poPending;
+          break;
+        case 'repairPending':
+          rows = repairPending;
+          break;
+        case 'repairHistory':
+          rows = repairReceived; // Use repairReceived for history tab
+          break;
+        case 'returnableTotal':
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
+          break;
+        case 'returnablePending':
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
+          break;
+        case 'returnableCompleted':
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
+          break;
+        case 'nonReturnable':
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
+          break;
+      }
+
+      // Filter by current month start
+      const monthStart = getCurrentMonthStart();
+      const filteredByMonth = rows.filter((item: any) => {
+        const dateVal = item.VRDATE || item.vrdate || item.INDENT_DATE || item.indent_date || item.RECEIVED_DATE || item.received_date || item.date || item.PLANNEDTIMESTAMP;
+        if (!dateVal) return true; // Keep if no date found
+        return new Date(dateVal) >= monthStart;
+      });
+
+      setModalData(filteredByMonth);
+    } catch (err) {
+      console.error(`Failed to filter ${type} details:`, err);
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   const cards = [
     {
       title: 'Total Indents',
-      icon: <ClipboardList size={18} />,
+      icon: <ClipboardList size={20} />,
       value: dashboardData?.totalIndents ?? '—',
-      sublabel: 'Indented Quantity',
-      subvalue: dashboardData ? dashboardData.totalIndentedQuantity.toLocaleString() : '—',
-      bg: 'from-indigo-50 via-indigo-100 to-indigo-50 dark:from-indigo-950 dark:via-indigo-900 dark:to-indigo-950',
-      border: 'border-indigo-200 dark:border-indigo-800',
-      text: 'text-indigo-700 dark:text-indigo-300',
-      iconBg: 'bg-indigo-100 dark:bg-indigo-900',
-      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      // sublabel: 'Indented Quantity',
+      // subvalue: dashboardData?.totalIndentedQuantity?.toLocaleString() ?? '—',
+      bgGradient: 'from-red-500 to-red-600',
+      shadowColor: 'shadow-red-200 dark:shadow-red-900/20',
+      iconBg: 'bg-white/20',
+      type: 'totalIndents'
+    },
+    {
+      title: 'Pending Indents',
+      icon: <PackageCheck size={20} />,
+      value: dashboardData?.pendingIndents ?? '—',
+      // sublabel: 'Indents Waiting',
+      // subvalue: dashboardData?.pendingIndents?.toLocaleString() ?? '—',
+      bgGradient: 'from-red-400 to-red-500',
+      shadowColor: 'shadow-red-200 dark:shadow-red-900/20',
+      iconBg: 'bg-white/20',
+      type: 'pendingIndents'
     },
     {
       title: 'Total Purchases',
-      icon: <Truck size={18} />,
+      icon: <Truck size={20} />,
       value: dashboardData?.totalPurchaseOrders ?? '—',
-      sublabel: 'Purchased Quantity',
-      subvalue: dashboardData ? dashboardData.totalPurchasedQuantity.toLocaleString() : '—',
-      bg: 'from-emerald-50 via-emerald-100 to-emerald-50 dark:from-emerald-950 dark:via-emerald-900 dark:to-emerald-950',
-      border: 'border-emerald-200 dark:border-emerald-800',
-      text: 'text-emerald-700 dark:text-emerald-300',
-      iconBg: 'bg-emerald-100 dark:bg-emerald-900',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      // sublabel: 'Purchased Quantity',
+      // subvalue: dashboardData?.totalPurchasedQuantity?.toLocaleString() ?? '—',
+      bgGradient: 'from-emerald-600 to-teal-700',
+      shadowColor: 'shadow-emerald-200 dark:shadow-emerald-900/20',
+      iconBg: 'bg-white/20',
+      type: 'totalPurchases'
     },
     {
-      title: 'Total Issued',
-      icon: <PackageCheck size={18} />,
-      value: dashboardData?.totalIssuedQuantity ?? '—',
-      sublabel: 'Out Quantity',
-      subvalue: dashboardData?.totalIssuedQuantity
-        ? dashboardData.totalIssuedQuantity.toLocaleString()
-        : '—',
-      bg: 'from-amber-50 via-amber-100 to-amber-50 dark:from-amber-950 dark:via-amber-900 dark:to-amber-950',
-      border: 'border-amber-200 dark:border-amber-800',
-      text: 'text-amber-700 dark:text-amber-300',
-      iconBg: 'bg-amber-100 dark:bg-amber-900',
-      iconColor: 'text-amber-600 dark:text-amber-400',
-    },
-    {
-      title: 'Out of Stock',
-      icon: <Warehouse size={18} />,
-      value: dashboardData?.outOfStockCount ?? '—',
-      sublabel: 'Low in Stock',
-      subvalue: dashboardData ? dashboardData.outOfStockCount.toLocaleString() : '—',
-      bg: 'from-rose-50 via-rose-100 to-rose-50 dark:from-rose-950 dark:via-rose-900 dark:to-rose-950',
-      border: 'border-rose-200 dark:border-rose-800',
-      text: 'text-rose-700 dark:text-rose-300',
-      iconBg: 'bg-rose-100 dark:bg-rose-900',
-      iconColor: 'text-rose-600 dark:text-rose-400',
+      title: 'Pending PO',
+      icon: <FileText size={20} />,
+      value: dashboardData?.pendingPurchaseOrders ?? '—',
+      // sublabel: 'POs Waiting',
+      // subvalue: dashboardData?.pendingPurchaseOrders?.toLocaleString() ?? '—',
+      bgGradient: 'from-emerald-500 to-teal-600',
+      shadowColor: 'shadow-emerald-200 dark:shadow-emerald-900/20',
+      iconBg: 'bg-white/20',
+      type: 'pendingPOs'
     },
     {
       title: 'Repair Pending',
-      icon: <FileText size={18} />,
+      icon: <Activity size={20} />,
       value: repairGatePassCounts.pending ?? '—',
-      sublabel: 'Gate Pass Pending',
-      subvalue: repairGatePassCounts.pending.toLocaleString() ?? '—',
-      bg: 'from-violet-50 via-violet-100 to-violet-50 dark:from-violet-950 dark:via-violet-900 dark:to-violet-950',
-      border: 'border-violet-200 dark:border-violet-800',
-      text: 'text-violet-700 dark:text-violet-300',
-      iconBg: 'bg-violet-100 dark:bg-violet-900',
-      iconColor: 'text-violet-600 dark:text-violet-400',
+      // sublabel: 'Gate Pass Pending',
+      // subvalue: repairGatePassCounts.pending?.toLocaleString() ?? '—',
+      bgGradient: 'from-violet-500 to-purple-600',
+      shadowColor: 'shadow-purple-200 dark:shadow-purple-900/20',
+      iconBg: 'bg-white/20',
+      type: 'repairPending'
     },
     {
       title: 'Repair History',
-      icon: <FileText size={18} />,
+      icon: <FileText size={20} />,
       value: repairGatePassCounts.history ?? '—',
-      sublabel: 'Gate Pass Received',
-      subvalue: repairGatePassCounts.history.toLocaleString() ?? '—',
-      bg: 'from-cyan-50 via-cyan-100 to-cyan-50 dark:from-cyan-950 dark:via-cyan-900 dark:to-cyan-950',
-      border: 'border-cyan-200 dark:border-cyan-800',
-      text: 'text-cyan-700 dark:text-cyan-300',
-      iconBg: 'bg-cyan-100 dark:bg-cyan-900',
-      iconColor: 'text-cyan-600 dark:text-cyan-400',
+      // sublabel: 'Gate Pass Received',
+      // subvalue: repairGatePassCounts.history?.toLocaleString() ?? '—',
+      bgGradient: 'from-violet-400 to-purple-500',
+      shadowColor: 'shadow-purple-200 dark:shadow-purple-900/20',
+      iconBg: 'bg-white/20',
+      type: 'repairHistory'
     },
+    {
+      title: 'Total Returnable',
+      icon: <RefreshCcw size={20} />,
+      value: returnableStats.RETURNABLE_COUNT ?? '—',
+      // sublabel: 'Total GP R3',
+      // subvalue: returnableStats.RETURNABLE_COUNT?.toLocaleString() ?? '—',
+      bgGradient: 'from-indigo-600 to-blue-700',
+      shadowColor: 'shadow-indigo-200 dark:shadow-indigo-900/20',
+      iconBg: 'bg-white/20',
+      type: 'returnableTotal'
+    },
+    {
+      title: 'Non Returnable',
+      icon: <Box size={20} />,
+      value: returnableStats.NON_RETURNABLE_COUNT ?? '—',
+      // sublabel: 'Gate Pass N3',
+      // subvalue: returnableStats.NON_RETURNABLE_COUNT?.toLocaleString() ?? '—',
+      bgGradient: 'from-indigo-500 to-blue-600',
+      shadowColor: 'shadow-indigo-200 dark:shadow-indigo-900/20',
+      iconBg: 'bg-white/20',
+      type: 'nonReturnable'
+    },
+    {
+      title: 'Returnable Pending',
+      icon: <Clock size={20} />,
+      value: returnableStats.RETURNABLE_PENDING_COUNT ?? '—',
+      // sublabel: 'GP Pending R3',
+      // subvalue: returnableStats.RETURNABLE_PENDING_COUNT?.toLocaleString() ?? '—',
+      bgGradient: 'from-amber-500 to-orange-600',
+      shadowColor: 'shadow-orange-200 dark:shadow-orange-900/20',
+      iconBg: 'bg-white/20',
+      type: 'returnablePending'
+    },
+    {
+      title: 'Returnable Completed',
+      icon: <CheckCircle2 size={20} />,
+      value: returnableStats.RETURNABLE_COMPLETED_COUNT ?? '—',
+      // sublabel: 'GP Completed R3',
+      // subvalue: returnableStats.RETURNABLE_COMPLETED_COUNT?.toLocaleString() ?? '—',
+      bgGradient: 'from-amber-400 to-orange-500',
+      shadowColor: 'shadow-orange-200 dark:shadow-orange-900/20',
+      iconBg: 'bg-white/20',
+      type: 'returnableCompleted'
+    },
+
   ];
+
+  const filteredModalData = useMemo(() => {
+    let data = modalData;
+    if (modalSearch) {
+      const lowerSearch = modalSearch.toLowerCase();
+      data = modalData.filter((item: any) => {
+        return Object.entries(item).some(([key, val]) => {
+          if (val == null) return false;
+          const strVal = val.toString().toLowerCase();
+          if (strVal.includes(lowerSearch)) return true;
+
+          // Date-aware search: check formatted string (DD/MM/YYYY)
+          const k = key.toLowerCase();
+          if (k.includes('date') || k.includes('timestamp')) {
+            const formatted = formatDate(val);
+            if (formatted !== "—" && formatted.toLowerCase().includes(lowerSearch)) return true;
+          }
+          return false;
+        });
+      });
+    }
+
+    const total = data.length;
+    const totalPages = Math.ceil(total / MODAL_PAGE_SIZE);
+    const start = (modalPage - 1) * MODAL_PAGE_SIZE;
+    const paginated = data.slice(start, start + MODAL_PAGE_SIZE);
+
+    return { total, totalPages, data: paginated };
+  }, [modalData, modalSearch, modalPage]);
+
+  const modalConfig = useMemo(() => getModalConfig(modalType), [modalType]);
 
   if (loading) {
     return (
       <Loading
         heading="Store Dashboard"
         subtext="Loading dashboard insights"
-        icon={<LayoutDashboard size={48} className="text-blue-600" />}
+        icon={<LayoutDashboard size={48} className="text-red-600" />}
       />
     );
   }
@@ -206,333 +642,389 @@ export default function StoreDashboard() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-          <p className="font-semibold">Error loading dashboard</p>
-          <p className="text-sm">{error}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-sm flex flex-col items-center justify-center h-64">
+          <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
+          <p className="text-sm opacity-80">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8 space-y-8 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 min-h-screen">
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
-          <LayoutDashboard size={46} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-purple-400">
-            Store Purchase
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Live insights from the store indent API
-          </p>
+    <div className="w-full p-4 md:p-6 lg:p-8 space-y-8 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen font-sans">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3.5 rounded-2xl bg-red-600 shadow-xl shadow-red-200 dark:shadow-red-900/20 transform hover:scale-105 transition-transform duration-300">
+            <LayoutDashboard size={32} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Store Dashboard
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              Live overview of Store &amp; Purchase
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Status Cards (like housekeeping) - Top Section */}
+      {/* Hero Metrics Cards - Updated Grid to 5 columns on large screens */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+        {cards.map((card) => (
+          <button
+            key={card.title}
+            onClick={() => openModal(card.type, card.title)}
+            className={`group text-left relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} p-4 sm:p-6 shadow-lg ${card.shadowColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block w-full border-0 outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800`}
+          >
+            {/* Background Pattern */}
+            <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-1/4 -translate-y-1/4 scale-150 pointer-events-none">
+              {card.icon}
+            </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] mt-6">
-        <div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cards.map((card) => (
-              <Card
-                key={card.title}
-                className={`rounded-2xl bg-gradient-to-br ${card.bg} border border-slate-200 shadow-lg transition-all duration-300`}
-              >
-                <CardContent className="space-y-3 p-6">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">
-                      {card.title}
-                    </p>
-                    <div
-                      className={`p-2 rounded-lg border border-white/40 ${card.iconBg}`}
-                    >
-                      <div className={card.iconColor}>{card.icon}</div>
-                    </div>
-                  </div>
-                  <p className={`text-4xl font-bold ${card.text}`}>{card.value}</p>
-                  <div className="flex items-center justify-between text-sm pt-2 border-t border-white/60">
-                    <p className="text-slate-700 dark:text-slate-200">{card.sublabel}</p>
-                    <p className={`font-semibold ${card.text}`}>{card.subvalue}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <Card className="rounded-3xl border border-slate-200 bg-white shadow-lg">
-          <CardHeader className="bg-white/80 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <BarChart3 className="text-blue-600" size={20} />
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div className="flex justify-between items-start mb-4">
+                <div className={`p-2.5 rounded-xl sm:rounded-2xl ${card.iconBg} backdrop-blur-sm`}>
+                  {card.icon}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-white/90">
+                  <ArrowUpRight size={14} />
+                  <span>View</span>
+                </div>
               </div>
-              <CardTitle className="text-lg font-semibold text-slate-900">
-                Overall Progress
-              </CardTitle>
+
+              <div>
+                <p className="text-white/80 font-medium text-[14px] sm:text-xs tracking-wide uppercase truncate">{card.title}</p>
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-1 mb-3 truncate">{card.value}</h3>
+
+                {/* <div className="flex items-center justify-between border-t border-white/20 pt-3 mt-1">
+                  <p className="text-white/70 text-[9px] font-medium truncate uppercase">{card.sublabel}</p>
+                  <p className="text-white font-bold text-xs sm:text-sm truncate">{card.subvalue}</p>
+                </div> */}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Bottom Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden h-full">
+          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                <TrendingUp size={20} />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Overall Progress</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center">
-              <div className="relative w-48 h-48 mx-auto md:mx-0">
-                <svg className="transform -rotate-90 w-48 h-48">
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    className="text-slate-200"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    strokeDasharray={`${(dashboardData?.completedPercent || 0) * 5.026} 502.6`}
-                    className="text-green-500"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    strokeDasharray={`${(dashboardData?.pendingPercent || 0) * 5.026} 502.6`}
-                    strokeDashoffset={`-${(dashboardData?.completedPercent || 0) * 5.026}`}
-                    className="text-orange-500"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    strokeDasharray={`${(dashboardData?.upcomingPercent || 0) * 5.026} 502.6`}
-                    strokeDashoffset={`-${((dashboardData?.completedPercent || 0) + (dashboardData?.pendingPercent || 0)) * 5.026}`}
-                    className="text-gray-400"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    strokeDasharray={`${(dashboardData?.overduePercent || 0) * 5.026} 502.6`}
-                    strokeDashoffset={`-${((dashboardData?.completedPercent || 0) + (dashboardData?.pendingPercent || 0) + (dashboardData?.upcomingPercent || 0)) * 5.026}`}
-                    className="text-rose-500"
-                  />
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-12">
+              <div className="relative w-48 h-48 flex-shrink-0">
+                <svg className="transform -rotate-90 w-full h-full drop-shadow-lg">
+                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none" className="text-slate-100 dark:text-slate-800" />
+                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
+                    strokeDasharray={`${(dashboardData?.upcomingPercent || 0) * 5.02} 502`}
+                    strokeDashoffset={`-${((dashboardData?.completedPercent || 0) + (dashboardData?.pendingPercent || 0)) * 5.02}`}
+                    className="text-slate-300 dark:text-slate-600" />
+                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
+                    strokeDasharray={`${(dashboardData?.pendingPercent || 0) * 5.02} 502`}
+                    strokeDashoffset={`-${(dashboardData?.completedPercent || 0) * 5.02}`}
+                    className="text-amber-400" />
+                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
+                    strokeDasharray={`${(dashboardData?.completedPercent || 0) * 5.02} 502`}
+                    className="text-emerald-500" />
                 </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-3xl font-bold text-slate-900">
-                    {dashboardData?.overallProgress?.toFixed(1) ?? 0}%
-                  </p>
-                  <p className="text-sm text-slate-500">Overall</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
+                    {dashboardData?.overallProgress?.toFixed(0) ?? 0}%
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Completed</span>
                 </div>
               </div>
-              <div className="space-y-3 flex-1">
+              <div className="grid grid-cols-1 gap-3 w-full">
                 {[
-                  {
-                    label: "Total Indents",
-                    color: "bg-indigo-500",
-                    value: dashboardData?.totalIndents ?? 0,
-                  },
-                  {
-                    label: "Total Purchases",
-                    color: "bg-emerald-500",
-                    value: dashboardData?.totalPurchaseOrders ?? 0,
-                  },
-                  {
-                    label: "Total Issued",
-                    color: "bg-amber-500",
-                    value: dashboardData?.totalIssuedQuantity ?? 0,
-                  },
-                  {
-                    label: "Out of Stock",
-                    color: "bg-rose-500",
-                    value: dashboardData?.outOfStockCount ?? 0,
-                  },
+                  { label: "Completed", color: "bg-emerald-500", value: dashboardData?.completedIndents },
+                  { label: "Pending", color: "bg-amber-400", value: dashboardData?.pendingIndents },
+                  { label: "Overdue", color: "bg-rose-500", value: dashboardData?.overdueIndents },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex w-3 h-3 rounded-full ${item.color}`}></span>
-                      <span className="text-sm font-medium text-slate-600">{item.label}</span>
+                  <div key={item.label} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{item.label}</span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-900">
-                      {typeof item.value === "number"
-                        ? item.value.toLocaleString("en-IN")
-                        : item.value ?? "—"}
-                    </span>
+                    <span className="text-base font-bold text-slate-900 dark:text-white">{item.value?.toLocaleString() ?? 0}</span>
                   </div>
                 ))}
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full">
+          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <BarChart3 size={20} />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Performance Indicators</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-12">
+              <div className="relative w-48 h-48 flex-shrink-0">
+                {purchaserChartData.series.length > 0 ? (
+                  <Chart
+                    options={donorChartOptions}
+                    series={purchaserChartData.series}
+                    type="donut"
+                    height={220}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+                    <BarChart3 size={48} className="mb-2" />
+                    <p className="text-xs font-bold">No data</p>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 w-full max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                {purchaserChartData.labels.map((label: string, index: number) => (
+                  <div key={label} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: donorChartOptions.colors?.[index % (donorChartOptions.colors?.length || 1)] as string }}
+                      />
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{label}</span>
+                    </div>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{purchaserChartData.series[index]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <TopListCard title="All Products" data={allProducts} type="product" />
+        <TopListCard title="All Vendors" data={allVendors} type="vendor" />
       </div>
 
-      {/* Original Metric Cards */}
-
-
-      {/* Progress Reports Section */}
-      <Card className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-              <BarChart3 className="text-blue-600 dark:text-blue-400" size={24} />
-            </div>
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-200">Progress Reports</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Purchase Completion Rate */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="text-indigo-600 dark:text-indigo-400" size={18} />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Purchase Completion</span>
+      {/* Modal Dialog */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent aria-describedby={undefined} className="w-[95vw] md:w-[90vw] lg:left-auto lg:right-10 lg:translate-x-0 lg:w-[75vw] lg:max-w-none h-[85vh] md:max-h-[88vh] lg:max-h-[92vh] overflow-hidden flex flex-col p-0 border-0 shadow-2xl rounded-3xl [&>button]:hidden">
+          <DialogHeader className="p-4 md:p-6 bg-indigo-600 text-white shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <LayoutDashboard size={24} />
                 </div>
-                <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                  {dashboardData && dashboardData.totalIndents > 0
-                    ? Math.round((dashboardData.totalPurchaseOrders / dashboardData.totalIndents) * 100)
-                    : 0}%
-                </span>
+                <DialogTitle className="text-xl md:text-2xl font-bold">{modalTitle}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Detailed view of {modalTitle} data and records.
+                </DialogDescription>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${dashboardData && dashboardData.totalIndents > 0
-                      ? Math.min((dashboardData.totalPurchaseOrders / dashboardData.totalIndents) * 100, 100)
-                      : 0}%`
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>Purchased: {dashboardData?.totalPurchaseOrders ?? 0}</span>
-                <span>Indented: {dashboardData?.totalIndents ?? 0}</span>
-              </div>
-            </div>
 
-            {/* Stock Utilization */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="text-emerald-600 dark:text-emerald-400" size={18} />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Stock Utilization</span>
+              <div className="flex items-center gap-3 flex-1 md:max-w-md">
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search all columns..."
+                    className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 text-white placeholder:text-white/50 rounded-xl outline-none focus:bg-white/20 focus:border-white/40 transition-all text-sm"
+                    value={modalSearch}
+                    onChange={(e) => setModalSearch(e.target.value)}
+                  />
                 </div>
-                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  {dashboardData && dashboardData.totalPurchasedQuantity > 0
-                    ? Math.round((dashboardData.totalIssuedQuantity / dashboardData.totalPurchasedQuantity) * 100)
-                    : 0}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                <div
-                  className="bg-gradient-to-r from-emerald-500 to-teal-600 h-3 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${dashboardData && dashboardData.totalPurchasedQuantity > 0
-                      ? Math.min((dashboardData.totalIssuedQuantity / dashboardData.totalPurchasedQuantity) * 100, 100)
-                      : 0}%`
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>Issued: {dashboardData?.totalIssuedQuantity?.toLocaleString() ?? 0}</span>
-                <span>Purchased: {dashboardData?.totalPurchasedQuantity?.toLocaleString() ?? 0}</span>
+                <DialogClose className="p-2 hover:bg-white/20 rounded-full transition-colors outline-none shrink-0">
+                  <X size={20} />
+                </DialogClose>
               </div>
             </div>
+          </DialogHeader>
 
-            {/* Repair Gate Pass Progress */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="text-violet-600 dark:text-violet-400" size={18} />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Gate Pass Progress</span>
+          <div className="flex-1 overflow-auto p-0 bg-white dark:bg-slate-900">
+            {modalLoading ? (
+              <div className="flex flex-col items-center justify-center p-32 space-y-4">
+                <RefreshCcw className="animate-spin text-indigo-600" size={48} />
+                <p className="text-slate-500 font-medium animate-pulse">Fetching detailed data...</p>
+              </div>
+            ) : filteredModalData.data.length > 0 ? (
+              <div className="overflow-x-auto flex flex-col h-full">
+                <div className="flex-1 overflow-auto">
+                  <table className="w-full text-left border-collapse min-w-[1200px]">
+                    <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 backdrop-blur-md shadow-sm z-10">
+                      <tr className="text-[12px] font-black uppercase text-slate-900 dark:text-slate-100 tracking-widest">
+                        {modalConfig?.headers?.map((h: string) => (
+                          <th key={h} className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredModalData.data.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-indigo-950/20 transition-colors group">
+                          {modalConfig?.renderRow(item)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <span className="text-lg font-bold text-violet-600 dark:text-violet-400">
-                  {repairGatePassCounts.pending + repairGatePassCounts.history > 0
-                    ? Math.round((repairGatePassCounts.history / (repairGatePassCounts.pending + repairGatePassCounts.history)) * 100)
-                    : 0}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                <div
-                  className="bg-gradient-to-r from-violet-500 to-purple-600 h-3 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${repairGatePassCounts.pending + repairGatePassCounts.history > 0
-                      ? Math.min((repairGatePassCounts.history / (repairGatePassCounts.pending + repairGatePassCounts.history)) * 100, 100)
-                      : 0}%`
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>Received: {repairGatePassCounts.history}</span>
-                <span>Total: {repairGatePassCounts.pending + repairGatePassCounts.history}</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="min-h-[280px] bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 border-b border-gray-200 dark:border-gray-700">
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-200">Top Purchased Products</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {dashboardData?.topPurchasedItems && dashboardData.topPurchasedItems.length > 0 ? (
-              <div className="space-y-2">
-                {dashboardData.topPurchasedItems.slice(0, 10).map((item, index) => (
-                  <div key={index} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <span className="text-sm font-medium truncate text-gray-800 dark:text-gray-200">{item.itemName}</span>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{item.orderCount} orders</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Qty: {item.totalOrderQty?.toLocaleString()}</p>
-                    </div>
+                {/* Pagination Stats in Modal */}
+                <div className="p-4 border-t bg-slate-50 dark:bg-slate-900 flex items-center justify-between shrink-0">
+                  <p className="text-xs font-semibold text-slate-500">
+                    Showing <span className="text-indigo-600">{Math.min(filteredModalData.total, (modalPage - 1) * MODAL_PAGE_SIZE + 1)}</span> to <span className="text-indigo-600">{Math.min(filteredModalData.total, modalPage * MODAL_PAGE_SIZE)}</span> of <span className="text-indigo-600">{filteredModalData.total}</span> items
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setModalPage(p => Math.max(1, p - 1))}
+                      disabled={modalPage === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-bold text-xs"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs font-bold px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                      Page {modalPage} of {filteredModalData.totalPages || 1}
+                    </span>
+                    <button
+                      onClick={() => setModalPage(p => Math.min(filteredModalData.totalPages, p + 1))}
+                      disabled={modalPage >= filteredModalData.totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-bold text-xs"
+                    >
+                      Next
+                    </button>
                   </div>
-                ))}
+                </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No data available</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="min-h-[280px] bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 border-b border-gray-200 dark:border-gray-700">
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-200">Top Vendors</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {dashboardData?.topVendors && dashboardData.topVendors.length > 0 ? (
-              <div className="space-y-2">
-                {dashboardData.topVendors.slice(0, 10).map((vendor, index) => (
-                  <div key={index} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{vendor.vendorName}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Order Qty: {vendor.totalItems.toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{vendor.uniquePoCount} Orders</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Items: {vendor.totalItems.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center p-32 space-y-4 opacity-50">
+                <Box size={64} className="text-slate-200" />
+                <p className="text-lg font-bold text-slate-400">No data available for this category</p>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No data available</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function KpiItem({ label, value, color, icon }: any) {
+  return (
+    <div className="space-y-4 p-5 rounded-3xl bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+      <div className="flex justify-between items-end">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl bg-gradient-to-br ${color} text-white shadow-sm`}>
+            {icon}
+          </div>
+          <span className="font-bold text-base text-slate-800 dark:text-slate-200 tracking-tight">{label}</span>
+        </div>
+        <span className={`text-3xl font-black bg-gradient-to-r ${color} bg-clip-text text-transparent`}>{value}%</span>
+      </div>
+      <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+        <div className={`h-full bg-gradient-to-r ${color} rounded-full transition-all duration-1000 ease-out shadow-lg shadow-white/10`} style={{ width: `${Math.min(value, 100)}%` }}></div>
       </div>
     </div>
+  );
+}
+
+function TopListCard({ title, data, type }: any) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [visibleLimit, setVisibleLimit] = useState(50);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    if (!searchTerm) return data;
+    const term = searchTerm.toLowerCase();
+    return data.filter((item: any) =>
+      (item.itemName || item.vendorName || "").toLowerCase().includes(term)
+    );
+  }, [data, searchTerm]);
+
+  // Reset limit when search changes
+  useEffect(() => {
+    setVisibleLimit(50);
+  }, [searchTerm]);
+
+  const displayedData = useMemo(() => {
+    return filteredData.slice(0, visibleLimit);
+  }, [filteredData, visibleLimit]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // Load more when 20px from bottom
+    if (scrollHeight - scrollTop <= clientHeight + 20) {
+      if (visibleLimit < filteredData.length) {
+        setVisibleLimit(prev => prev + 50);
+      }
+    }
+  };
+
+  return (
+    <Card className="rounded-xl border-0 bg-white dark:bg-slate-900 shadow-md overflow-hidden flex flex-col h-[500px]">
+      <CardHeader className="bg-slate-50/80 dark:bg-slate-800/80 border-b">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${type === 'product' ? 'bg-orange-500' : 'bg-emerald-500'}`}></span>
+          <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            {title}
+            <span className="text-[11px] text-slate-700 font-bold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-md">
+              {data?.length || 0}
+            </span>
+          </CardTitle>
+        </div>
+
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={14} />
+          <input
+            type="text"
+            placeholder={`Search ${title}...`}
+            className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent
+        className="p-0 overflow-y-auto flex-1"
+        onScroll={handleScroll}
+        ref={scrollContainerRef}
+      >
+        {displayedData && displayedData.length > 0 ? (
+          <>
+            {displayedData.map((item: any, idx: number) => (
+              <div key={idx} className="flex items-center px-4 py-3 border-b border-slate-50 dark:border-slate-800/30 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <div className="w-6 text-[11px] font-bold flex items-center justify-center mr-3 text-slate-400 shrink-0">{idx + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold uppercase text-slate-700 dark:text-slate-200 leading-normal break-words">{item.itemName || item.vendorName}</p>
+                </div>
+              </div>
+            ))}
+            {visibleLimit < filteredData.length && (
+              <div className="p-2 text-center text-[9px] text-slate-400 font-medium italic animate-pulse">
+                Scrolling to load more...
+              </div>
+            )}
+            {searchTerm && filteredData.length === 0 && (
+              <div className="p-8 text-center text-[10px] text-slate-400 font-medium">
+                No matches found in {data?.length || 0} records
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-slate-200 dark:text-slate-800 p-6 text-center">
+            <Package size={32} className="mb-1 opacity-10" />
+            <p className="text-[9px] font-medium">{searchTerm ? "No match found" : "No data available"}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

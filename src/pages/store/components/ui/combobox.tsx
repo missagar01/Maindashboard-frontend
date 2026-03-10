@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
 import {
-    Command,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandGroup,
-    CommandEmpty,
+  Command,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandGroup,
+  CommandEmpty,
 } from './command';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Button } from './button';
@@ -57,6 +57,8 @@ export function ComboBox({
     return options.find((opt) => opt.value === value[0])?.label ?? placeholder;
   };
 
+  const MAX_VISIBLE = 100;
+
   const filteredOptions = options.filter((opt) => {
     if (!search.trim()) return true;
     const needle = search.toLowerCase();
@@ -65,6 +67,9 @@ export function ComboBox({
       opt.value.toLowerCase().includes(needle)
     );
   });
+
+  const visibleOptions = filteredOptions.slice(0, MAX_VISIBLE);
+  const hiddenCount = filteredOptions.length - visibleOptions.length;
 
   return (
     <Popover open={open && !disabled} onOpenChange={(val) => !disabled && setOpen(val)}>
@@ -94,7 +99,7 @@ export function ComboBox({
           <CommandList className="!bg-white max-h-[300px]">
             <CommandEmpty className="!bg-white py-4">No options found.</CommandEmpty>
             <CommandGroup className="!bg-white">
-              {filteredOptions.map((opt) => (
+              {visibleOptions.map((opt) => (
                 <CommandItem
                   key={opt.value}
                   value={`${opt.label} ${opt.value}`}
@@ -112,6 +117,11 @@ export function ComboBox({
               ))}
             </CommandGroup>
           </CommandList>
+          {hiddenCount > 0 && (
+            <div className="border-t border-gray-100 px-3 py-2 text-xs text-gray-400 text-center select-none">
+              Showing {MAX_VISIBLE} of {filteredOptions.length} — type to narrow down
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

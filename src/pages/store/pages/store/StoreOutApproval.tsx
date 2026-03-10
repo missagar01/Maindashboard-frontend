@@ -269,7 +269,7 @@ export default function StoreOutApproval() {
       />
 
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden bg-white">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-3xl max-h-[90vh] overflow-hidden bg-white">
           <DialogHeader>
             <DialogTitle>Edit / Approve Items</DialogTitle>
             <DialogDescription>

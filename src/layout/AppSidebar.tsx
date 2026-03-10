@@ -138,16 +138,23 @@ const storeItem: NavItem = {
   name: "Store",
   subItems: [
     { name: "Dashboard", path: "/store/dashboard" },
+    { name: "Store Issue", path: "/store/store-issue" },
     { name: "Indent", path: "/store/approve-indent" },
+    { name: "Approve Indent HOD", path: "/store/approve-indent-data" },
+    { name: "Approve Indent GM", path: "/store/approve-indent-gm" },
     { name: "Purchase Order", path: "/store/pending-indents" },
     { name: "Inventory", path: "/store/inventory" },
+    { name: "Returnable", path: "/store/returnable" },
     { name: "Repair Gate Pass", path: "/store/repair-gate-pass" },
     { name: "Repair Follow Up", path: "/store/repair-followup" },
     { name: "Store GRN", path: "/store/store-grn" },
     { name: "Store GRN Admin Approval", path: "/store/store-grn-admin" },
     { name: "Store GRN GM Approval", path: "/store/store-grn-gm" },
     { name: "Store GRN Close", path: "/store/store-grn-close" },
-    { name: "My Indent", path: "/store/user-indent-list-indent" },
+    { name: "Store Out Approval", path: "/store/store-out-approval" },
+    { name: "Completed Items", path: "/store/completed-items" },
+    { name: "My Indent (Erp)", path: "/store/erp-indent" },
+    { name: "Requested Indent", path: "/store/user-indent-list-indent" },
     { name: "Requisition", path: "/store/user-requisition" },
     { name: "Create Indent", path: "/store/user-indent" },
   ],
@@ -439,9 +446,8 @@ const AppSidebar: FC = () => {
             const key = buildSubKey(subItem, parentKey);
             const hasChildren = Boolean(subItem.subItems && subItem.subItems.length > 0);
             const subItemActive = isSubItemActive(subItem);
-            const rowClass = `${subBaseClass} ${subItemActive ? subActiveClass : subInactiveClass} ${
-              depth > 0 ? "text-[13px]" : ""
-            }`;
+            const rowClass = `${subBaseClass} ${subItemActive ? subActiveClass : subInactiveClass} ${depth > 0 ? "text-[13px]" : ""
+              }`;
 
             if (hasChildren) {
               const isOpen = Boolean(nestedOpen[key]);
@@ -464,9 +470,8 @@ const AppSidebar: FC = () => {
                       <span className="truncate">{subItem.name}</span>
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 transition-transform duration-200 ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
+                      className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
                   {isOpen ? renderSubItems(subItem.subItems, key, depth + 1) : null}
@@ -572,9 +577,8 @@ const AppSidebar: FC = () => {
             <Link
               to={dashboardItem.path || "/"}
               onClick={handleLinkClick}
-              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${
-                isActive(dashboardItem.path || "/") ? parentActiveClass : parentInactiveClass
-              }`}
+              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${isActive(dashboardItem.path || "/") ? parentActiveClass : parentInactiveClass
+                }`}
             >
               <span className="flex-shrink-0 text-current">{dashboardItem.icon}</span>
               {showText ? <span className="truncate">{dashboardItem.name}</span> : null}
@@ -635,11 +639,10 @@ const AppSidebar: FC = () => {
             <Link
               to={leadToOrderSettingsItem.path || "/lead-to-order/settings"}
               onClick={handleLinkClick}
-              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${
-                isActive(leadToOrderSettingsItem.path || "/lead-to-order/settings")
-                  ? parentActiveClass
-                  : parentInactiveClass
-              }`}
+              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${isActive(leadToOrderSettingsItem.path || "/lead-to-order/settings")
+                ? parentActiveClass
+                : parentInactiveClass
+                }`}
             >
               <span className="flex-shrink-0 text-current">{leadToOrderSettingsItem.icon}</span>
               {showText ? <span className="truncate">{leadToOrderSettingsItem.name}</span> : null}
@@ -651,11 +654,10 @@ const AppSidebar: FC = () => {
       <div className="mt-auto shrink-0 border-t border-gray-100 px-3 py-3 bg-white">
         <button
           onClick={logout}
-          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
-            showText
-              ? "text-red-600 hover:bg-red-50"
-              : "justify-center text-gray-400 hover:bg-red-50 hover:text-red-600"
-          }`}
+          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${showText
+            ? "text-red-600 hover:bg-red-50"
+            : "justify-center text-gray-400 hover:bg-red-50 hover:text-red-600"
+            }`}
           title="Logout"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
