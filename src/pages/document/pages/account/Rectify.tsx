@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Eye, X, ChevronDown, Search, RefreshCw, Send, Check, AlertCircle } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { toast } from 'react-hot-toast';
 
 type FilterType = 'Store' | 'Repair' | 'Car-FMS' | 'Subscription' | 'Freight' | 'Sales' | 'Production' | 'Make Payment';
@@ -26,7 +26,7 @@ const filterOptions: { value: FilterType; label: string }[] = [
 ];
 
 const Rectify = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
     useEffect(() => { setTitle('Rectify Stage'); }, [setTitle]);
 
     const [selectedFilter, setSelectedFilter] = useState<FilterType>('Store');

@@ -12,7 +12,11 @@ import {
   resolvePortalSystemDefinition,
   shouldShowSidebarForPath,
 } from "../config/portalNavigation";
-import { isAdminUser } from "../utils/accessControl";
+import {
+  getDefaultAllowedPath,
+  getFirstAllowedPathForModule,
+  isAdminUser,
+} from "../utils/accessControl";
 import { fetchSystemsApi } from "../api/master/systemsApi";
 
 interface MasterSystemRecord {
@@ -21,16 +25,33 @@ interface MasterSystemRecord {
   link?: string | null;
 }
 
-const parseCsv = (value?: string | null) =>
-  (value || "")
+const parseCsv = (value?: string | null) => {
+  const raw = (value || "").trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry).trim()))
+          .filter(Boolean);
+      }
+    } catch {
+      // Fall back to CSV parsing.
+    }
+  }
+
+  return raw
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+};
 
 const AppHeader: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { isExpanded, isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const { user, logout, token } = useAuth();
 
   const [isModuleMenuOpen, setModuleMenuOpen] = useState(false);
@@ -53,15 +74,20 @@ const AppHeader: React.FC = () => {
   }, [token, user]);
 
   const visibleNavItems = useMemo(() => {
-    const homeItem = DEFAULT_PORTAL_NAV_ITEMS[0];
+    const isAdmin = isAdminUser(user);
+    const computedHomePath = isAdmin ? "/" : getDefaultAllowedPath(user);
+    const homeItem = {
+      ...DEFAULT_PORTAL_NAV_ITEMS[0],
+      path: computedHomePath === "/login" ? "/" : computedHomePath,
+    };
     const navItems = [homeItem];
     const seenKeys = new Set<string>([homeItem.key]);
-    const isAdmin = isAdminUser(user);
 
-    const pushNavItem = (item: ReturnType<typeof resolvePortalNavItem>) => {
-      if (!item || seenKeys.has(item.key)) return;
+    const pushNavItem = (item: ReturnType<typeof resolvePortalNavItem>, fallbackPath?: string) => {
+      if (!item) return;
+      if (seenKeys.has(item.key)) return;
       seenKeys.add(item.key);
-      navItems.push(item);
+      navItems.push({ ...item, path: fallbackPath || item.path });
     };
 
     if (isAdmin) {
@@ -70,20 +96,20 @@ const AppHeader: React.FC = () => {
       return navItems;
     }
 
-    const accessNames = parseCsv(user?.system_access);
-    const allowedSystemKeys = new Set<string>(
-      accessNames.map((n) => resolvePortalSystemDefinition(n)?.key).filter(Boolean)
-    );
+    // Navbar modules come ONLY from system_access
+    const systemAccessCsv = user?.system_access || "";
+    const systemAccessList = systemAccessCsv ? systemAccessCsv.split(",").map(s => s.trim()).filter(Boolean) : [];
 
-    if (masterSystems.length > 0) {
-      masterSystems.forEach((s) => {
-        const item = resolvePortalNavItem(s.systems);
-        if (item && allowedSystemKeys.has(item.key)) pushNavItem(item);
-      });
-    }
-    accessNames.forEach((n) => pushNavItem(resolvePortalNavItem(n)));
+    systemAccessList.forEach((accessName) => {
+      const item = resolvePortalNavItem(accessName);
+      if (item) {
+        // Use the module path from definition, handleNavClick will resolve correct child route
+        pushNavItem(item, item.path);
+      }
+    });
+
     return navItems;
-  }, [masterSystems, user]);
+  }, [user, masterSystems]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -101,7 +127,27 @@ const AppHeader: React.FC = () => {
 
   const handleNavClick = (path: string) => {
     if (/^https?:\/\//i.test(path)) { window.location.href = path; setModuleMenuOpen(false); return; }
-    navigate(path);
+
+    const modulePath = path;
+    let resolvedPath = isAdminUser(user)
+      ? path
+      : (getFirstAllowedPathForModule(path, user) || getDefaultAllowedPath(user));
+
+    if (!resolvedPath || resolvedPath === "/login") {
+      resolvedPath = getDefaultAllowedPath(user);
+    }
+
+    navigate(resolvedPath);
+    if (shouldShowSidebarForPath(modulePath) || shouldShowSidebarForPath(resolvedPath)) {
+      if (window.innerWidth >= 1280) {
+        if (!isExpanded) {
+          toggleSidebar();
+        }
+      } else if (!isMobileOpen) {
+        toggleMobileSidebar();
+      }
+    }
+
     setModuleMenuOpen(false);
   };
 

@@ -21,9 +21,10 @@ interface DocumentEntry {
 interface AddDocumentProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
 }
 
-const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
+const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose, onSuccess }) => {
     const [typeOptions, setTypeOptions] = useState<string[]>([]);
     const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
@@ -155,6 +156,8 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
 
             await createMultipleDocuments(documentsToCreate);
             toast.success(`${documentsToCreate.length} Document(s) added successfully`);
+            
+            if (onSuccess) onSuccess();
             onClose();
 
             setEntries([{

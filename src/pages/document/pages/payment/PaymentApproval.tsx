@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, RefreshCw, X, Check } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { toast } from 'react-hot-toast';
 import { getApprovalPending, getApprovalHistory, processApproval, transformPaymentFms } from '@/api/document/paymentFmsApi';
 
@@ -16,7 +16,7 @@ interface ApprovalRequest {
 }
 
 const PaymentApproval = () => {
-    const { setTitle } = useHeaderStore();
+    const { setTitle } = useDocumentAuth();
 
     useEffect(() => {
         setTitle('Payment Approval');

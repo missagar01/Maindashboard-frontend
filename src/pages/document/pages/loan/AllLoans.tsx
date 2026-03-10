@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Banknote, Calendar, DollarSign, Building, FileText } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import AddLoan from './AddLoan';
 import { toast } from 'react-hot-toast';
 import { fetchAllLoans, Loan } from '@/api/document/loanApi';
@@ -22,8 +22,7 @@ interface LoanItem {
 }
 
 const AllLoans = () => {
-    const { setTitle } = useHeaderStore();
-    const [loans, setLoans] = useState<LoanItem[]>([]);
+    const { setTitle, loans, setLoans } = useDocumentAuth();
     const [loading, setLoading] = useState(true);
 
     // Fetch loans from backend
@@ -33,7 +32,7 @@ const AllLoans = () => {
             const data = await fetchAllLoans();
             // Map backend format to frontend format
             setLoans(data.map((loan: Loan) => ({
-                id: loan.id,
+                id: String(loan.id),
                 sn: `SN-${String(loan.id).padStart(3, '0')}`,
                 loanName: loan.loan_name,
                 bankName: loan.bank_name,
@@ -45,7 +44,7 @@ const AllLoans = () => {
                 file: loan.upload_document ? getFileName(loan.upload_document) : null,
                 fileContent: loan.upload_document || undefined,
                 remarks: loan.remarks || '-'
-            })));
+            })) as any);
         } catch (err) {
             console.error('Failed to load loans:', err);
             toast.error('Failed to load loans');
@@ -263,7 +262,7 @@ const AllLoans = () => {
                     )}
                 </div>
             </div>
-            <AddLoan isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <AddLoan isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSuccess={loadLoans} />
         </>
     );
 };

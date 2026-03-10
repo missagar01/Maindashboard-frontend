@@ -54,7 +54,7 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     key: "sales",
     label: "SALES MODULE",
     path: "/lead-to-order/leads",
-    aliases: ["salesmodule", "sales", "leadtoorder", "lead_to_order", "crm"],
+    aliases: ["salesmodule", "sales", "sale", "leadtoorder", "lead_to_order", "crm", "o2d", "logistic", "logistics", "dispatch", "batchcode", "batch"],
   },
   {
     key: "subscription",
@@ -68,18 +68,12 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     path: "/hrfms/dashboard",
     aliases: ["hrms", "hrfms", "hr_fms", "hr-fms"],
   },
-  // {
-  //   key: "logistic",
-  //   label: "LOGISTIC",
-  //   path: "https://triofleet.trieon.in/",
-  //   aliases: ["logistic", "logistics", "o2d", "dispatch"],
-  // },
 
   {
     key: "visitor-gate-pass",
     label: "VISITOR GATE PASS",
     path: "/gatepass/visitor",
-    aliases: ["visitorgatepass", "visitorpass", "visitorgate", "gatepassvisitor"],
+    aliases: ["visitorgatepass", "visitorpass", "visitorgate", "gatepassvisitor", "gatepass"],
   },
   {
     key: "close-gate-pass",
@@ -93,7 +87,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "home", label: "HOME", path: "/" },
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
-  { key: "sales", label: "SALES MODULE", path: "/lead-to-order/leads" },
+  { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/subscription/all" },
   { key: "hrms", label: "HRMS", path: "/hrfms/dashboard" },
   // { key: "logistic", label: "LOGISTIC", path: "https://triofleet.trieon.in/" },
@@ -127,7 +121,7 @@ export const resolvePortalNavItem = (
 
   return {
     key: definition.key,
-    label: (systemName || definition.label).trim() || definition.label,
+    label: definition.label,
     path: definition.path,
   };
 };
@@ -142,7 +136,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
 
   if (normalized.startsWith("/checklist")) return "checklist";
   if (normalized.startsWith("/store")) return "store";
-  if (normalized.startsWith("/lead-to-order")) return "sales";
+  if (normalized.startsWith("/o2d")) return "sales";
   if (normalized.startsWith("/subscription")) return "subscription";
   if (
     normalized.startsWith("/document") ||
@@ -155,8 +149,13 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
     return "subscription";
   }
   if (normalized.startsWith("/hrfms")) return "hrms";
-  if (normalized.startsWith("/o2d")) return "logistic";
-  if (normalized.startsWith("/batchcode")) return "batchcode";
+  if (
+    normalized.startsWith("/o2d") ||
+    normalized.startsWith("/batchcode") ||
+    normalized.startsWith("/lead-to-order")
+  ) {
+    return "sales";
+  }
   if (normalized.startsWith("/gatepass/visitor")) return "visitor-gate-pass";
   if (normalized.startsWith("/gatepass/close")) return "close-gate-pass";
 

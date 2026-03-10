@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import useDocumentAuth from '../../hooks/useDocumentAuth';
-import useHeaderStore from '../../store/headerStore';
 import { RotateCcw, X, Check, Save, Search, RefreshCw, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
@@ -36,12 +35,9 @@ interface RenewalHistoryDisplay {
 }
 
 const SubscriptionRenewal = () => {
-    const { setTitle } = useHeaderStore();
-    const { currentUser } = useDocumentAuth();
+    const { setTitle, currentUser, pendingSubscriptionRenewals, setPendingSubscriptionRenewals, subscriptionRenewalHistory, setSubscriptionRenewalHistory } = useDocumentAuth();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
-    const [pendingList, setPendingList] = useState<PendingRenewalDisplay[]>([]);
-    const [historyList, setHistoryList] = useState<RenewalHistoryDisplay[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -112,7 +108,7 @@ const SubscriptionRenewal = () => {
             // Map pending renewals
             // Map pending renewals
 
-            setPendingList(pending.map((item: PendingRenewalItem) => ({
+            setPendingSubscriptionRenewals(pending.map((item: PendingRenewalItem) => ({
                 id: String(item.id),
                 sn: item.subscription_no,
                 companyName: item.company_name || '',
@@ -143,7 +139,7 @@ const SubscriptionRenewal = () => {
                 }));
 
             // Map history
-            setHistoryList(history.map((item: RenewalHistoryItem) => ({
+            setSubscriptionRenewalHistory(history.map((item: RenewalHistoryItem) => ({
                 id: String(item.id),
                 renewalNo: item.renewal_no,
                 subscriptionNo: item.subscription_no,
@@ -152,7 +148,7 @@ const SubscriptionRenewal = () => {
                 price: item.price || '',
                 createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : '',
                 subscriberName: (item as any).subscriber_name || ''
-            })));
+            })) as any);
 
         } catch (err) {
             console.error('Failed to load renewal data:', err);
@@ -168,7 +164,7 @@ const SubscriptionRenewal = () => {
 
     // Filter by search AND Role
     const filteredPending = useMemo(() => {
-        let data = pendingList;
+        let data = pendingSubscriptionRenewals as PendingRenewalDisplay[];
 
         // Role Filter
         if (currentUser?.role !== 'admin') {
@@ -180,10 +176,10 @@ const SubscriptionRenewal = () => {
             sub.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sub.sn.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [pendingList, searchTerm, currentUser]);
+    }, [pendingSubscriptionRenewals, searchTerm, currentUser]);
 
     const filteredHistory = useMemo(() => {
-        let data = historyList;
+        let data = subscriptionRenewalHistory as any as RenewalHistoryDisplay[];
 
         // Role Filter
         if (currentUser?.role !== 'admin') {
@@ -194,7 +190,7 @@ const SubscriptionRenewal = () => {
             item.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.renewalNo.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [historyList, searchTerm, currentUser]);
+    }, [subscriptionRenewalHistory, searchTerm, currentUser]);
 
     const handleAction = (sub: PendingRenewalDisplay) => {
         setSelectedSub(sub);

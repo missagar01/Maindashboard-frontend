@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import useDataStore, { RenewalItem } from '../../store/dataStore';
 import useDocumentAuth from '../../hooks/useDocumentAuth';
-import useHeaderStore from '../../store/headerStore';
+import { RenewalItem } from '@/context/AuthContext';
 import { Search, X, Check, Upload, Download, Save, FileText, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
@@ -24,12 +23,7 @@ interface DocumentItem {
 }
 
 const DocumentRenewal = () => {
-    const { setTitle } = useHeaderStore();
-    const { currentUser } = useDocumentAuth();
-    const { renewalHistory, addRenewalHistory } = useDataStore();
-
-    // State for documents from backend
-    const [documents, setDocuments] = useState<DocumentItem[]>([]);
+    const { setTitle, currentUser, renewalHistory, addRenewalHistory, pendingRenewals, setPendingRenewals } = useDocumentAuth();
 
 
     useEffect(() => {
@@ -40,7 +34,7 @@ const DocumentRenewal = () => {
     const loadRenewalDocuments = useCallback(async () => {
         try {
             const data = await fetchDocumentsNeedingRenewal();
-            setDocuments(data.map((doc: BackendDocument) => mapBackendToFrontend(doc)));
+            setPendingRenewals(data.map((doc: BackendDocument) => mapBackendToFrontend(doc)) as any);
         } catch (err) {
             console.error('Failed to load renewal documents:', err);
             toast.error('Failed to load renewal documents');
@@ -112,7 +106,7 @@ const DocumentRenewal = () => {
     };
 
     // Filter Pending Documents by search term and Role
-    const pendingDocuments = documents.filter(doc => {
+    const pendingDocuments = pendingRenewals.filter(doc => {
         // Role check
         if (currentUser?.role !== 'admin' && doc.companyName !== currentUser?.name) {
             return false;

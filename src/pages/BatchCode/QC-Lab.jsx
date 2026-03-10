@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { CheckCircle2, X, Search, History, ArrowLeft, Edit, Save, Camera, AlertCircle } from "lucide-react"
 // @ts-ignore - JSX component
 import * as batchcodeAPI from "../../api/batchcodeAPI";
+import { useAuth } from "../../context/AuthContext"
 
 
 
@@ -24,6 +25,7 @@ function useDebounce(value, delay) {
 }
 
 function QCLabDataPage() {
+    const { user } = useAuth()
     const [pendingSMSData, setPendingSMSData] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [successMessage, setSuccessMessage] = useState("")
@@ -89,11 +91,11 @@ function QCLabDataPage() {
     }
 
     useEffect(() => {
-        const role = sessionStorage.getItem("role")
-        const user = sessionStorage.getItem("username")
-        setUserRole(role || "")
-        setUsername(user || "")
-    }, [])
+        const role = user?.role || user?.userType || ""
+        const authUsername = user?.username || user?.user_name || ""
+        setUserRole(role)
+        setUsername(authUsername)
+    }, [user])
 
     // Fetch pending SMS data (SMS Register records that don't have QC Lab tests)
     const fetchPendingSMSData = useCallback(async () => {

@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import { isPathAllowed, getDefaultAllowedPath, hasStoreModuleAccess } from "../utils/accessControl";
+import { getDefaultAllowedPath, isPathAllowed } from "../utils/accessControl";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -14,27 +14,10 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-      </div>
-    );
+    return null; // Avoid flashing a spinner during the single tick of sync auth initialization
   }
 
   const currentPath = location.pathname + location.search;
-  const normalizedPath = location.pathname.split("?")[0].replace(/\/$/, "") || "/";
-
-  // ── Store landing pages: allow /store and /store/dashboard for any store user ──
-  // user-role with system_access="Store and Purchase" needs to reach /store/dashboard
-  // as an entry point, even without explicit page_access for "Store Dashboard".
-  // The sidebar intentionally hides "Dashboard" for these users — only shows
-  // My Indent, Requisition, Create Indent + whatever page_access grants.
-  const STORE_LANDING_PATHS = ["/store", "/store/dashboard"];
-  if (user && STORE_LANDING_PATHS.includes(normalizedPath) && hasStoreModuleAccess(user)) {
-    return <>{children}</>;
-  }
-
-  // Check if user has access to this route via isPathAllowed
   const hasAccess = isPathAllowed(currentPath, user);
 
   if (!hasAccess) {
@@ -44,7 +27,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
     const safePath = getDefaultAllowedPath(user);
 
-    // Safety check: avoid redirect loop
+    // Avoid redirect loops when the fallback path cannot be resolved.
     if (safePath === currentPath || safePath === location.pathname) {
       return <Navigate to="/login" replace />;
     }

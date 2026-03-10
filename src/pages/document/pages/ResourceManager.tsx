@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { FileText, CreditCard } from 'lucide-react';
 import AllDocuments from './document/AllDocuments';
 import AllSubscriptions from './subscription/AllSubscriptions';
-import useHeaderStore from '../store/headerStore';
+import useDocumentAuth from '../hooks/useDocumentAuth';
 import { useEffect } from 'react';
 
 const ResourceManager = () => {
   const [activeTab, setActiveTab] = useState<'documents' | 'subscriptions'>('documents');
-  const { setTitle } = useHeaderStore();
+  const { setTitle } = useDocumentAuth();
 
   useEffect(() => {
     setTitle('Resource Manager');

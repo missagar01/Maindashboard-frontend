@@ -35,9 +35,8 @@ import {
   type PortalNavKey,
 } from "../config/portalNavigation";
 import {
-  hasStoreModuleAccess,
+  getAllowedPageRoutes,
   isAdminUser,
-  isPathAllowed,
 } from "../utils/accessControl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -81,40 +80,30 @@ const normalizePath = (path: string) => {
 
 const isNode = (value: SidebarNode | null): value is SidebarNode => value !== null;
 
-// ─── Responsive design tokens ─────────────────────────────────────────────────
-// mobile → md(tablet) → lg(laptop) → xl(desktop) → 2xl(large desktop)
+const hasExactPathMatch = (targetPath: string, allowedPaths: Set<string>) => {
+  const normalized = normalizePath(targetPath);
+  return allowedPaths.has(normalized);
+};
 
-/** Primary nav item text — medium on mobile/tablet, large on desktop */
+// ─── Responsive design tokens ─────────────────────────────────────────────────
+
 const TEXT_ITEM = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
-/** Child item text (indented) */
 const TEXT_CHILD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
-/** Section label caps */
 const TEXT_LABEL = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[11px] 2xl:text-[11px]";
-/** Logo primary line */
 const TEXT_LOGO = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
-/** Logo sub-line */
 const TEXT_LOGO_SUB = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[12px] 2xl:text-[12px]";
-/** Module bar title */
 const TEXT_MOD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
-/** Module bar caption */
 const TEXT_MOD_CAP = "text-[10px] md:text-[10px] lg:text-[10px] xl:text-[11px] 2xl:text-[11px]";
 
-/** Icon – root depth */
 const ICON_ROOT = "h-[15px] w-[15px] md:h-[15px] md:w-[15px] lg:h-[17px] lg:w-[17px] xl:h-[18px] xl:w-[18px] 2xl:h-5 2xl:w-5";
-/** Icon – child depth */
 const ICON_CHILD = "h-[13px] w-[13px] md:h-[13px] md:w-[13px] lg:h-[15px] lg:w-[15px] xl:h-[16px] xl:w-[16px] 2xl:h-[17px] 2xl:w-[17px]";
 
-/** Vertical padding – root row */
 const PY_ROOT = "py-[7px] md:py-[7px] lg:py-[9px] xl:py-[10px] 2xl:py-[11px]";
-/** Vertical padding – child row */
 const PY_CHILD = "py-[6px] md:py-[6px] lg:py-[7px] xl:py-[8px] 2xl:py-[9px]";
 
-/** Sidebar expanded width */
 const SIDEBAR_W = "xl:w-[250px] 2xl:w-[280px]";
-/** Sidebar collapsed width */
 const SIDEBAR_W_COLLAPSED = "xl:w-[56px] 2xl:w-[64px]";
 
-/** Logo image size */
 const LOGO_IMG = "h-7 w-7 md:h-8 md:w-8 lg:h-8 lg:w-8 2xl:h-9 2xl:w-9";
 
 // ─── Section data ─────────────────────────────────────────────────────────────
@@ -132,7 +121,6 @@ const salesWorkspaceSection: SidebarSection = {
     icon: LayoutDashboard,
   },
   nodes: [
-    // ── O2D ──
     { kind: "link", key: "o2d-section-label", name: "O2D SECTION", path: "/__label__/o2d", icon: Truck },
     { kind: "link", key: "o2d-orders", name: "Orders", path: "/o2d/orders", icon: ClipboardList },
     { kind: "link", key: "o2d-enquiry", name: "Enquiry", path: "/o2d/enquiry", icon: Search },
@@ -140,7 +128,6 @@ const salesWorkspaceSection: SidebarSection = {
     { kind: "link", key: "o2d-pending-vehicles", name: "Pending Vehicles", path: "/o2d/process", icon: Truck },
     { kind: "link", key: "o2d-customers", name: "Customers", path: "/o2d/customers", icon: Users },
     { kind: "link", key: "o2d-follow-ups", name: "Follow Ups", path: "/o2d/follow-ups", icon: RefreshCw },
-    // ── BatchCode ──
     { kind: "link", key: "batchcode-section-label", name: "BATCHCODE SECTION", path: "/__label__/batchcode", icon: Boxes },
     { kind: "link", key: "batchcode-laddel", name: "Laddel", path: "/batchcode/laddel", icon: Boxes },
     { kind: "link", key: "batchcode-tundis", name: "Tundis", path: "/batchcode/tundis", icon: Boxes },
@@ -149,13 +136,14 @@ const salesWorkspaceSection: SidebarSection = {
     { kind: "link", key: "batchcode-recoiler", name: "Recoiler", path: "/batchcode/recoiler", icon: Boxes },
     { kind: "link", key: "batchcode-pipe-mill", name: "Pipe Mill", path: "/batchcode/pipe-mill", icon: BriefcaseBusiness },
     { kind: "link", key: "batchcode-qc-lab", name: "QC Lab", path: "/batchcode/qc-lab", icon: ClipboardList },
-    // ── Lead To Order ──
     { kind: "link", key: "lead-section-label", name: "LEAD TO ORDER SECTION", path: "/__label__/lead", icon: BriefcaseBusiness },
     { kind: "link", key: "lead-to-order-leads", name: "Leads", path: "/lead-to-order/leads", icon: Users },
     { kind: "link", key: "lead-to-order-follow-up", name: "Follow Up", path: "/lead-to-order/follow-up", icon: RefreshCw },
     { kind: "link", key: "lead-to-order-call-tracker", name: "Call Tracker", path: "/lead-to-order/call-tracker", icon: PhoneCall },
     { kind: "link", key: "lead-to-order-quotation", name: "Quotation", path: "/lead-to-order/quotation", icon: FileText },
-    { kind: "link", key: "lead-to-order-settings", name: "Settings", path: "/lead-to-order/settings", icon: Settings2, requiresAdmin: true },
+    { kind: "link", key: "lead-to-order-settings", name: "Settings", path: "/lead-to-order/settings", icon: Settings2 },
+    { kind: "link", key: "lead-to-order-sys-access", name: "System Access", path: "/lead-to-order/settings", icon: ShieldCheck },
+    { kind: "link", key: "lead-to-order-page-access", name: "Page Access", path: "/lead-to-order/settings", icon: BadgeCheck },
   ],
 };
 
@@ -184,9 +172,6 @@ const subscriptionSection: SidebarSection = {
         },
         { kind: "link", key: "subscription-all", name: "All Subscriptions", path: "/subscription/all", icon: Files },
         { kind: "link", key: "subscription-approval", name: "Subscription Approval", path: "/subscription/approval", icon: BadgeCheck },
-        { kind: "link", key: "subscription-payment", name: "Subscription Payment", path: "/subscription/payment", icon: CreditCard },
-        { kind: "link", key: "document-all", name: "All Documents", path: "/document/all", icon: Files },
-
         { kind: "link", key: "document-shared", name: "Document Shared", path: "/document/shared", icon: FileText },
 
       ],
@@ -201,7 +186,6 @@ const subscriptionSection: SidebarSection = {
     { kind: "link", key: "document-master", name: "Master", path: "/master", icon: ShieldCheck },
   ],
 };
-
 
 const checklistSection: SidebarSection = {
   key: "checklist", title: "Checklist Combined", caption: "Task Navigation", icon: ClipboardList,
@@ -281,8 +265,6 @@ const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   "close-gate-pass": closeGateSection,
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const AppSidebar: FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const { logout, user } = useAuth();
@@ -293,6 +275,10 @@ const AppSidebar: FC = () => {
   const section = activeModule ? moduleSections[activeModule as Exclude<PortalNavKey, "home">] : null;
   const isAdmin = useMemo(() => isAdminUser(user), [user]);
   const showText = isExpanded || isHovered || isMobileOpen;
+  const allowedPagePaths = useMemo(() => {
+    if (isAdmin) return new Set<string>();
+    return new Set(getAllowedPageRoutes(user).map((path) => normalizePath(path)));
+  }, [isAdmin, user]);
 
   const isLinkActive = (path: string) => {
     const currentPath = normalizePath(location.pathname);
@@ -300,29 +286,12 @@ const AppSidebar: FC = () => {
     return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
   };
 
-  // ── Only these 3 routes are always visible to user-role store users ──
-  const STORE_USER_DEFAULT_PATHS = new Set([
-    "/store/user-indent-list-indent", // My Indent
-    "/store/user-requisition",         // Requisition
-    "/store/user-indent",              // Create Indent
-  ]);
-
-
-
   const canAccessLink = (item: SidebarLinkItem) => {
     if (!section) return false;
     if (item.requiresAdmin && !isAdmin) return false;
-
-    if (section.key === "store") {
-      const hasStoreAccess = isAdmin || hasStoreModuleAccess(user);
-      if (!hasStoreAccess) return false;
-      // My Indent, Requisition, Create Indent → always shown to all store users
-      if (STORE_USER_DEFAULT_PATHS.has(item.path)) return true;
-    }
-
-    return isAdmin || isPathAllowed(item.path, user);
+    if (isAdmin) return true;
+    return hasExactPathMatch(item.path, allowedPagePaths);
   };
-
 
   const filterNode = (node: SidebarNode): SidebarNode | null => {
     if (node.kind === "link") {
@@ -341,7 +310,34 @@ const AppSidebar: FC = () => {
 
   const filteredNodes = useMemo(() => {
     if (!section) return [];
-    return section.nodes.map(filterNode).filter(isNode);
+
+    // First pass: filter normal links and groups
+    const intermediate = section.nodes.map(node => {
+      if (node.kind === "link" && node.path.startsWith("/__label__/")) return node;
+      return filterNode(node);
+    });
+
+    // Second pass: remove labels that have no following visible links (until next label)
+    const final: SidebarNode[] = [];
+    for (let i = 0; i < intermediate.length; i++) {
+      const node = intermediate[i];
+      if (!node) continue;
+
+      if (node.kind === "link" && node.path.startsWith("/__label__/")) {
+        let hasVisibleSubItem = false;
+        for (let j = i + 1; j < intermediate.length; j++) {
+          const subNode = intermediate[j];
+          if (!subNode) continue;
+          if (subNode.kind === "link" && subNode.path.startsWith("/__label__/")) break;
+          hasVisibleSubItem = true;
+          break;
+        }
+        if (hasVisibleSubItem) final.push(node);
+      } else {
+        final.push(node);
+      }
+    }
+    return final;
   }, [isAdmin, section, user]);
 
   const nodeContainsActivePath = (node: SidebarNode): boolean => {
@@ -356,7 +352,6 @@ const AppSidebar: FC = () => {
     if (!section) return;
     setOpenGroups((current) => {
       const next = { ...current };
-      // Only initialise groups that have defaultOpen: true — never auto-open on active path
       const primeGroups = (nodes: SidebarNode[]) => {
         nodes.forEach((node) => {
           if (node.kind !== "group") return;
@@ -369,18 +364,16 @@ const AppSidebar: FC = () => {
       primeGroups(filteredNodes);
       return next;
     });
-  }, [section]);
+  }, [section, filteredNodes]);
 
   if (!section || (!filteredHomeItem && filteredNodes.length === 0)) return null;
 
   const handleLinkClick = () => { if (isMobileOpen) toggleMobileSidebar(); };
   const toggleGroup = (key: string) => setOpenGroups((c) => ({ ...c, [key]: !c[key] }));
 
-  /* ── Leaf link (or section-label divider) ────────────────────── */
   const renderLink = (item: SidebarLinkItem, depth = 0) => {
     const Icon = item.icon;
 
-    // Non-clickable section label
     if (item.path.startsWith("/__label__/")) {
       return showText ? (
         <p key={item.key} className={`mt-3 mb-0.5 px-4 pt-1 font-bold uppercase tracking-[0.2em] text-[#94a3b8] select-none ${TEXT_LABEL}`}>
@@ -394,7 +387,6 @@ const AppSidebar: FC = () => {
     const iconCls = depth === 0 ? ICON_ROOT : ICON_CHILD;
     const textCls = depth === 0 ? TEXT_ITEM : TEXT_CHILD;
 
-    // Active: solid red pill | Inactive: transparent row
     const itemCls = isActive
       ? "bg-[#ee1c23] text-white shadow-[0_4px_16px_rgba(238,28,35,0.30)] font-semibold"
       : "text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]";
@@ -422,7 +414,6 @@ const AppSidebar: FC = () => {
     );
   };
 
-  /* ── Collapsible group ───────────────────────────────────────── */
   const renderGroup = (group: SidebarGroupItem, depth = 0) => {
     const GroupIcon = group.icon;
     const isOpen = Boolean(openGroups[group.key]);
@@ -443,14 +434,12 @@ const AppSidebar: FC = () => {
 
     return (
       <div key={group.key}>
-        {/* Section label */}
         {depth === 0 && group.sectionLabel && showText && (
           <p className={`mt-3 mb-0.5 px-4 pt-1 font-bold uppercase tracking-[0.2em] text-[#94a3b8] select-none ${TEXT_LABEL}`}>
             {group.sectionLabel}
           </p>
         )}
 
-        {/* Group row */}
         <button
           type="button"
           onClick={() => toggleGroup(group.key)}
@@ -474,7 +463,6 @@ const AppSidebar: FC = () => {
           )}
         </button>
 
-        {/* Children */}
         {showText && isOpen && (
           <div className="mt-0.5 border-l border-[#e2e8f0] ml-5">
             {group.items.map((node) =>
@@ -486,12 +474,11 @@ const AppSidebar: FC = () => {
     );
   };
 
-  /* ── Sidebar shell ───────────────────────────────────────────── */
   return (
     <aside
       className={[
         "fixed left-0 z-[1000] flex flex-col",
-        "bg-white border-r border-[#e2e8f0]",  // white background
+        "bg-white border-r border-[#e2e8f0]",
         "transition-all duration-300 ease-in-out",
         isMobileOpen
           ? "top-[58px] h-[calc(100dvh-58px)] w-[240px] md:w-[260px] translate-x-0"
@@ -503,7 +490,6 @@ const AppSidebar: FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* ── Logo bar ── */}
       <div
         className={[
           "hidden shrink-0 items-center xl:flex",
@@ -529,7 +515,6 @@ const AppSidebar: FC = () => {
         </Link>
       </div>
 
-      {/* ── Module label bar ── */}
       {showText && (
         <div className="shrink-0 border-b border-[#e2e8f0] px-4 py-2 bg-[#f8fafc]">
           <p className={`font-bold uppercase tracking-[0.2em] text-[#ee1c23] ${TEXT_MOD_CAP}`}>
@@ -539,7 +524,6 @@ const AppSidebar: FC = () => {
         </div>
       )}
 
-      {/* ── Navigation ── */}
       <nav
         className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5
           [&::-webkit-scrollbar]:w-1
@@ -553,14 +537,13 @@ const AppSidebar: FC = () => {
         )}
       </nav>
 
-      {/* ── Sign out ── */}
       <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2">
         <button
           onClick={logout}
           title="Sign Out"
           className={[
             "flex w-full items-center gap-2.5 rounded-xl transition-all duration-200",
-            "text-[#f87171] hover:bg-[#450a0a60] hover:text-[#fca5a5]",
+            "text-[#f87171] hover:bg-[#450a0a20] hover:text-[#ef4444]",
             `${TEXT_ITEM} ${PY_ROOT}`,
             showText ? "px-3" : "justify-center",
           ].join(" ")}

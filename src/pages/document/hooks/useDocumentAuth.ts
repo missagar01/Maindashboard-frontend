@@ -51,7 +51,7 @@ const mapUser = (rawUser: Record<string, unknown> | null | undefined): DocumentU
   if (!rawUser) return null;
 
   const systemAccess = parseAccess(rawUser.system_access ?? rawUser.systemAccess);
-  const pageAccess = parseAccess(rawUser.page_access ?? rawUser.pageAccess ?? rawUser.user_access);
+  const pageAccess = parseAccess(rawUser.page_access ?? rawUser.pageAccess);
 
   const username =
     (rawUser.user_name as string) ||
@@ -75,7 +75,22 @@ const mapUser = (rawUser: Record<string, unknown> | null | undefined): DocumentU
 };
 
 const useDocumentAuth = () => {
-  const { user, token, isAuthenticated, login, logout, getAuthHeaders } = useAuth();
+  const { 
+    user, token, isAuthenticated, login, logout, getAuthHeaders,
+    title, setTitle, documents, subscriptions, loans, masterData,
+    renewalHistory, subscriptionRenewalHistory, shareHistory, pendingRenewals,
+    pendingSubscriptionRenewals,
+    pendingApprovals, approvalHistory, pendingPayments, paymentHistory,
+    addDocument, addDocuments, addSubscription, addLoan, addMasterData,
+    addRenewalHistory, addSubscriptionRenewalHistory, addShareHistory,
+    setDocuments, setPendingRenewals, setPendingSubscriptionRenewals,
+    setPendingApprovals, setApprovalHistory, setPendingPayments, setPaymentHistory,
+    setSubscriptions, setLoans, setMasterData,
+    setRenewalHistory, setSubscriptionRenewalHistory, setShareHistory,
+    resetShareHistory, resetSubscriptions, updateDocument,
+    updateSubscription, updateLoan, deleteDocument,
+    deleteSubscription, deleteLoan
+  } = useAuth();
 
   const currentUser = useMemo(
     () => mapUser(user as Record<string, unknown> | null),
@@ -89,6 +104,50 @@ const useDocumentAuth = () => {
     login,
     logout,
     getAuthHeaders,
+    title,
+    setTitle,
+    documents,
+    subscriptions,
+    loans,
+    masterData,
+    renewalHistory,
+    subscriptionRenewalHistory,
+    shareHistory,
+    pendingRenewals,
+    pendingSubscriptionRenewals,
+    pendingApprovals,
+    approvalHistory,
+    pendingPayments,
+    paymentHistory,
+    addDocument,
+    addDocuments,
+    addSubscription,
+    addLoan,
+    addMasterData,
+    addRenewalHistory,
+    addSubscriptionRenewalHistory,
+    addShareHistory,
+    setDocuments,
+    setPendingRenewals,
+    setPendingSubscriptionRenewals,
+    setPendingApprovals,
+    setApprovalHistory,
+    setPendingPayments,
+    setPaymentHistory,
+    setSubscriptions,
+    setLoans,
+    setMasterData,
+    setRenewalHistory,
+    setSubscriptionRenewalHistory,
+    setShareHistory,
+    resetShareHistory,
+    resetSubscriptions,
+    updateDocument,
+    updateSubscription,
+    updateLoan,
+    deleteDocument,
+    deleteSubscription,
+    deleteLoan
   };
 };
 

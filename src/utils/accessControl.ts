@@ -9,33 +9,13 @@ export type UserAccess = {
 };
 
 type SystemKey =
-  | "o2d"
-  | "batchcode"
-  | "lead-to-order"
+  | "sales"
   | "hrfms"
   | "document"
   | "store"
   | "checklist"
   | "gatepass"
   | null;
-
-const SYSTEM_ROOTS = [
-  "/",
-  "/o2d",
-  "/batchcode",
-  "/lead-to-order",
-  "/hrfms",
-  "/document",
-  "/store",
-  "/subscription",
-  "/loan",
-  "/payment",
-  "/account",
-  "/resource-manager",
-  "/master",
-  "/checklist",
-  "/gatepass",
-];
 
 const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
   "/dashboard": "/hrfms/dashboard",
@@ -62,6 +42,7 @@ const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
 
 export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Dashboard: "/",
+  "O2D Dashboard": "/o2d/dashboard",
   Orders: "/o2d/orders",
   "Pending Vehicles": "/o2d/process",
   "Complaint Details": "/o2d/complaint-details",
@@ -79,6 +60,9 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Follow Up": "/lead-to-order/follow-up",
   "Call Tracker": "/lead-to-order/call-tracker",
   Quotation: "/lead-to-order/quotation",
+  "Assign Task": "/lead-to-order/leads",
+  Delegation: "/lead-to-order/follow-up",
+  "All Task": "/lead-to-order/call-tracker",
   Customers: "/o2d/customers",
   "Follow Ups": "/o2d/follow-ups",
   "HRFMS Dashboard": "/hrfms/dashboard",
@@ -107,10 +91,12 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Visitor Gate Pass": "/gatepass/visitor",
   "Close Gate Pass": "/gatepass/close",
   "Sales Module": "/lead-to-order/leads",
-  Logistic: "/o2d/dashboard",
+  "System Access": "/lead-to-order/settings",
+  "Page Access": "/lead-to-order/settings",
+  Logistic: "/lead-to-order/leads",
   HRMS: "/hrfms/dashboard",
   "Resource Manager": "/resource-manager",
-  "Document Dashboard": "/document",
+  "Document Dashboard": "/document/dashboard",
   "Document/All": "/document/all",
   "Document/Renewal": "/document/renewal",
   "Document/Shared": "/document/shared",
@@ -142,6 +128,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Account/Bill Filed": "/account/bill-filed",
   Master: "/master",
   Settings: "/lead-to-order/settings",
+  Setting: "/lead-to-order/settings",
   "Store Dashboard": "/store/dashboard",
   "Store Issue": "/store/item-issue",
   Indent: "/store/indent",
@@ -245,24 +232,43 @@ const normalizePath = (path: string): string => {
   return stripped === "" ? "/" : stripped;
 };
 
-const parseSystemAccess = (user: UserAccess | null | undefined): string[] => {
-  if (!user?.system_access) {
+const parseDelimitedAccess = (value?: string | null): string[] => {
+  if (!value || typeof value !== "string") {
     return [];
   }
 
-  return user.system_access
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry).trim()))
+          .filter((entry) => entry && entry.toUpperCase() !== "NULL");
+      }
+    } catch {
+      // fall back to comma-separated parsing
+    }
+  }
+
+  return trimmed
     .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item && item.toUpperCase() !== "NULL");
+};
+
+const parseSystemAccess = (user: UserAccess | null | undefined): string[] => {
+  return parseDelimitedAccess(user?.system_access)
     .map((item) => item.trim().toLowerCase().replace(/\s+/g, ""))
     .filter(Boolean);
 };
 
 const parseStoreAccess = (user: UserAccess | null | undefined): string[] => {
-  if (!user?.store_access) {
-    return [];
-  }
-
-  return user.store_access
-    .split(",")
+  return parseDelimitedAccess(user?.store_access)
     .map((item) =>
       item
         .trim()
@@ -292,6 +298,9 @@ const getStoreAllowedRoutes = (user: UserAccess | null | undefined): string[] =>
   }
 
   const mappedRoutes = parseStoreAccess(user).flatMap((entry) => STORE_ACCESS_ROUTE_MAP[entry] || []);
+  if (mappedRoutes.length === 0) {
+    return [];
+  }
 
   return Array.from(new Set([...STORE_USER_BASE_ROUTES, ...mappedRoutes]));
 };
@@ -301,12 +310,13 @@ export const hasStoreModuleAccess = (user: UserAccess | null | undefined): boole
     return false;
   }
 
+  const employeeId = (user.employee_id || "").trim().toUpperCase();
   // "Store and Purchase" in DB normalizes to "storeandpurchase"
-  // This function is used ONLY for sidebar section detection — NOT for route-level permission
   return (
     isAdminUser(user) ||
     parseStoreAccess(user).length > 0 ||
-    getStoreAllowedRoutes(user).length > 0 ||
+    STORE_OUT_ONLY_EMPLOYEE_IDS.has(employeeId) ||
+    APPROVE_INDENT_ONLY_EMPLOYEE_IDS.has(employeeId) ||
     parseSystemAccess(user).some((value) =>
       ["store", "stores", "storefms", "store-fms", "inventory", "storeandpurchase", "storepurchase", "purchase"].includes(value)
     )
@@ -318,20 +328,16 @@ const isStorePathAllowed = (
   user: UserAccess | null | undefined,
   pageRoutes: string[]
 ): boolean => {
-  if (!user) {
-    return false;
-  }
-
   if (isAdminUser(user)) {
-    return STORE_ADMIN_ROUTE_ALLOWLIST.some((route) => isRouteMatch(effectivePath, route));
+    return true;
   }
 
   const storePageRoutes = pageRoutes.filter(
     (route) => getSystemForPath(route, normalizePath(route)) === "store"
   );
 
-  if (storePageRoutes.some((route) => isRouteMatch(effectivePath, route))) {
-    return true;
+  if (storePageRoutes.length > 0) {
+    return storePageRoutes.some((route) => isRouteMatch(effectivePath, route));
   }
 
   return getStoreAllowedRoutes(user).some((route) => isRouteMatch(effectivePath, route));
@@ -342,9 +348,23 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     return false;
   }
 
-  if (required === "lead-to-order") {
+  if (required === "sales") {
     return systems.some((value) =>
-      ["lead-to-order", "leadtoorder", "lead_to_order", "sales", "salesmodule", "crm"].includes(value)
+      [
+        "lead-to-order",
+        "leadtoorder",
+        "lead_to_order",
+        "sales",
+        "salesmodule",
+        "sale",
+        "crm",
+        "o2d",
+        "logistic",
+        "logistics",
+        "dispatch",
+        "batchcode",
+        "batch",
+      ].includes(value)
     );
   }
 
@@ -361,8 +381,11 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
         "documents",
         "doc",
         "subscription",
+        "subscriptions",
         "loan",
+        "loans",
         "payment",
+        "payments",
         "resource",
         "resourcemanager",
       ].includes(value)
@@ -370,11 +393,8 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
   }
 
   if (required === "store") {
-    // NOTE: "storeandpurchase" is intentionally NOT here.
-    // hasStoreModuleAccess handles detection; hasSystemAccess controls full route-level access.
-    // Users with system_access="Store and Purchase" only get the 4 base routes, not everything.
     return systems.some((value) =>
-      ["store", "stores", "storefms", "store-fms", "inventory"].includes(value)
+      ["store", "stores", "storefms", "store-fms", "inventory", "storeandpurchase", "storepurchase", "purchase"].includes(value)
     );
   }
 
@@ -384,6 +404,7 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
         "checklist",
         "checklistcombined",
         "checklist-combined",
+        "checklist_combined",
         "maintenance",
         "housekeeping",
       ].includes(value)
@@ -401,12 +422,6 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
-  if (required === "o2d") {
-    return systems.some((value) =>
-      ["o2d", "logistic", "logistics", "dispatch"].includes(value)
-    );
-  }
-
   return systems.includes(required);
 };
 
@@ -415,15 +430,20 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
 
   if (
     normalizedPath === "/" ||
-    normalizedPath === "/dashboard" ||
-    normalizedPath.startsWith("/o2d") ||
-    lowerPath.includes("tab=o2d")
+    normalizedPath === "/dashboard"
   ) {
-    return "o2d";
+    return null;
   }
 
-  if (normalizedPath.startsWith("/batchcode") || lowerPath.includes("tab=batchcode")) {
-    return "batchcode";
+  if (
+    normalizedPath.startsWith("/o2d") ||
+    normalizedPath.startsWith("/batchcode") ||
+    normalizedPath.startsWith("/lead-to-order") ||
+    lowerPath.includes("tab=o2d") ||
+    lowerPath.includes("tab=batchcode") ||
+    lowerPath.includes("tab=lead-to-order")
+  ) {
+    return "sales";
   }
 
   if (normalizedPath.startsWith("/checklist")) {
@@ -432,10 +452,6 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
 
   if (normalizedPath.startsWith("/gatepass")) {
     return "gatepass";
-  }
-
-  if (normalizedPath.startsWith("/lead-to-order") || lowerPath.includes("tab=lead-to-order")) {
-    return "lead-to-order";
   }
 
   if (normalizedPath.startsWith("/hrfms") || lowerPath.includes("tab=hrfms")) {
@@ -466,6 +482,28 @@ const normalizePageEntryToRoute = (
   rawPage: string,
   availableSystems: string[]
 ): string | null => {
+  const resolveDashboardRoute = (): string => {
+    const hasSales = hasSystemAccess(availableSystems, "sales");
+    const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
+    const hasStore = hasSystemAccess(availableSystems, "store");
+    const hasDocument = hasSystemAccess(availableSystems, "document");
+    const hasChecklist = hasSystemAccess(availableSystems, "checklist");
+    const hasGatePass = hasSystemAccess(availableSystems, "gatepass");
+
+    if (hasSales) return "/o2d/dashboard";
+    if (hasHrfms) return "/hrfms/dashboard";
+    if (hasStore) return "/store/dashboard";
+    if (hasDocument) return "/document/dashboard";
+    if (hasChecklist) return "/checklist";
+    if (hasGatePass) return "/gatepass/visitor";
+    return "/";
+  };
+
+  const normalizeLookupKey = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+
   const page = rawPage.trim();
   if (!page) {
     return null;
@@ -475,17 +513,15 @@ const normalizePageEntryToRoute = (
     const normalized = normalizePath(page);
 
     if (normalized === "/dashboard") {
-      const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
-      const hasO2d = hasSystemAccess(availableSystems, "o2d");
-      const hasDocument = hasSystemAccess(availableSystems, "document");
-      if (hasHrfms && !hasO2d) {
-        return "/hrfms/dashboard";
-      }
-      if (hasDocument && !hasO2d && !hasHrfms) {
-        return "/document";
-      }
-      return "/";
+      return resolveDashboardRoute();
     }
+
+    // Normalize module root aliases to concrete page routes so sidebar filtering
+    // can safely use exact page matches without over-granting sibling pages.
+    if (normalized === "/document") return "/document/dashboard";
+    if (normalized === "/subscription") return "/subscription/all";
+    if (normalized === "/store") return "/store/dashboard";
+    if (normalized === "/hrfms") return "/hrfms/dashboard";
 
     if (HRFMS_LEGACY_ROUTE_MAP[normalized] && hasSystemAccess(availableSystems, "hrfms")) {
       return HRFMS_LEGACY_ROUTE_MAP[normalized];
@@ -494,29 +530,65 @@ const normalizePageEntryToRoute = (
     return normalized;
   }
 
+  const normalizedPageLookup = normalizeLookupKey(page);
   const matchedKey = Object.keys(PAGE_NAME_TO_ROUTE_MAP).find(
-    (key) => key.toLowerCase() === page.toLowerCase()
+    (key) => normalizeLookupKey(key) === normalizedPageLookup
   );
 
   if (!matchedKey) {
     return null;
   }
 
-  return PAGE_NAME_TO_ROUTE_MAP[matchedKey];
+  const mappedRoute = PAGE_NAME_TO_ROUTE_MAP[matchedKey];
+  if (mappedRoute === "/" && normalizedPageLookup === "dashboard") {
+    return resolveDashboardRoute();
+  }
+
+  return mappedRoute;
 };
 
 const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   const availableSystems = parseSystemAccess(user);
-  const source = (user?.page_access || user?.user_access || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const source = parseDelimitedAccess(user?.page_access);
 
   const mapped = source
     .map((page) => normalizePageEntryToRoute(page, availableSystems))
     .filter((value): value is string => Boolean(value));
 
-  return Array.from(new Set(mapped));
+  const routes = new Set(mapped);
+
+  if (hasStoreModuleAccess(user)) {
+    getStoreAllowedRoutes(user).forEach((route) => routes.add(route));
+  }
+
+  // Inject system default routes so the sidebar at least opens the root page when the user has system_access
+  if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
+  if (hasSystemAccess(availableSystems, "document")) routes.add("/subscription/all");
+  // Store dashboard is mapped by getStoreAllowedRoutes above automatically
+  if (hasSystemAccess(availableSystems, "checklist")) routes.add("/checklist");
+  if (hasSystemAccess(availableSystems, "gatepass")) {
+    if (availableSystems.some(s => s.includes("visitor"))) routes.add("/gatepass/visitor");
+    else if (availableSystems.some(s => s.includes("close"))) routes.add("/gatepass/close");
+    else routes.add("/gatepass/visitor");
+  }
+
+  return Array.from(routes);
+};
+
+export const getAllowedPageRoutes = (user: UserAccess | null | undefined): string[] => {
+  return parsePageRoutes(user);
+};
+
+const hasAnyConfiguredAccess = (user: UserAccess | null | undefined): boolean => {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    parseSystemAccess(user).length > 0 ||
+    parsePageRoutes(user).length > 0 ||
+    parseStoreAccess(user).length > 0
+  );
 };
 
 const isRouteMatch = (effectivePath: string, allowedPath: string): boolean => {
@@ -543,50 +615,55 @@ export const isPathAllowed = (
     return true;
   }
 
-  if (!user || (!user.system_access && !user.page_access && !user.user_access && !user.store_access)) {
+  if (!user) {
     return false;
   }
 
-  const systemAccess = parseSystemAccess(user);
-  const pageRoutes = parsePageRoutes(user);
   const effectivePath = normalizePath(path);
-  const currentSystem = getSystemForPath(path, effectivePath);
-
-  if (pageRoutes.length > 0) {
-    const matched = pageRoutes.some((allowedPath) => isRouteMatch(effectivePath, allowedPath));
-    if (matched) {
-      return true;
-    }
-
-    const hasScopedRoutesForCurrentSystem = currentSystem
-      ? pageRoutes.some((route) =>
-        getSystemForPath(route, normalizePath(route)) === currentSystem
-      )
-      : false;
-
-    const isSystemRoot = SYSTEM_ROOTS.includes(effectivePath);
-    if (!isSystemRoot && !path.includes("?tab=") && hasScopedRoutesForCurrentSystem) {
-      return false;
-    }
-  }
-
-  const systemMatch = hasSystemAccess(systemAccess, currentSystem);
-
-  if (currentSystem === "store") {
-    return isStorePathAllowed(effectivePath, user, pageRoutes) || systemMatch;
-  }
-
-  if (
-    effectivePath === "/" &&
-    (systemMatch || pageRoutes.length > 0 || systemAccess.length > 0 || hasStoreModuleAccess(user))
-  ) {
+  // Always allow home/dashboard for authenticated users
+  if (effectivePath === "/" || effectivePath === "/dashboard") {
     return true;
   }
 
-  return systemMatch;
+  const pageRoutes = parsePageRoutes(user);
+  return pageRoutes.some((allowedPath) => isRouteMatch(effectivePath, allowedPath));
 };
 
 export const getDefaultAllowedPath = (user: UserAccess | null | undefined): string => {
   if (!user) return "/login";
   return "/";
+};
+
+export const getFirstAllowedPathForModule = (
+  modulePath: string,
+  user: UserAccess | null | undefined
+): string | null => {
+  if (!user) {
+    return null;
+  }
+
+  const normalizedModulePath = normalizePath(modulePath);
+  if (isPathAllowed(normalizedModulePath, user)) {
+    return normalizedModulePath;
+  }
+
+  const currentSystem = getSystemForPath(modulePath, normalizedModulePath);
+  if (!currentSystem) {
+    return null;
+  }
+
+  const pageRoutes = parsePageRoutes(user);
+
+  const sameSystemMatch = currentSystem
+    ? pageRoutes.find((route) => {
+      const routeSystem = getSystemForPath(route, normalizePath(route));
+      return routeSystem === currentSystem && isPathAllowed(route, user);
+    })
+    : null;
+
+  if (sameSystemMatch) {
+    return sameSystemMatch;
+  }
+
+  return null;
 };

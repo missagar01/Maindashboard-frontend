@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Search, FileText, Download, Mail, MessageCircle } from 'lucide-react';
-import useHeaderStore from '../../store/headerStore';
-import useDataStore from '../../store/dataStore';
+import useDocumentAuth from '../../hooks/useDocumentAuth';
 import { formatDate } from '../../utils/dateFormatter';
 
 
 
 
 const SharedDocuments = () => {
-    const { setTitle } = useHeaderStore();
-    const { shareHistory, resetShareHistory } = useDataStore();
+    const { setTitle, shareHistory, resetShareHistory } = useDocumentAuth();
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
