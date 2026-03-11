@@ -1,677 +1,555 @@
-import { useCallback, useEffect, useMemo, useState, type FC, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FC } from "react";
 import { Link, useLocation } from "react-router";
-import { BoxCubeIcon, PieChartIcon, PlugInIcon } from "../icons";
-import { ChevronDown, FileText, LogOut, Users } from "lucide-react";
+import {
+  BadgeCheck,
+  BookCopy,
+  Boxes,
+  BriefcaseBusiness,
+  ChevronDown,
+  ClipboardList,
+  CreditCard,
+  FileSpreadsheet,
+  FileText,
+  Files,
+  FolderKanban,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  PhoneCall,
+  Receipt,
+  RefreshCw,
+  Search,
+  Settings2,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
+  Users,
+  WalletCards,
+  type LucideIcon,
+} from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assert/Logo.jpeg";
-import { getSidebarModuleForPath } from "../config/portalNavigation";
 import {
-  hasStoreModuleAccess,
+  getSidebarModuleForPath,
+  type PortalNavKey,
+} from "../config/portalNavigation";
+import {
+  getAllowedPageRoutes,
   isAdminUser,
-  isPathAllowed,
 } from "../utils/accessControl";
 
-type NavSubItem = {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SidebarLinkItem {
+  kind: "link";
+  key: string;
   name: string;
-  path?: string;
-  pro?: boolean;
-  new?: boolean;
-  subItems?: NavSubItem[];
-};
+  path: string;
+  icon: LucideIcon;
+  requiresAdmin?: boolean;
+}
 
-type NavItem = {
+interface SidebarGroupItem {
+  kind: "group";
+  key: string;
   name: string;
-  icon: ReactNode;
-  path?: string;
-  subItems?: NavSubItem[];
+  icon: LucideIcon;
+  items: SidebarNode[];
+  sectionLabel?: string;
+  defaultOpen?: boolean;
+}
+
+type SidebarNode = SidebarLinkItem | SidebarGroupItem;
+
+interface SidebarSection {
+  key: Exclude<PortalNavKey, "home">;
+  title: string;
+  caption?: string;
+  icon: LucideIcon;
+  homeItem?: SidebarLinkItem;
+  nodes: SidebarNode[];
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const normalizePath = (path: string) => {
+  const cleaned = path.split("?")[0].replace(/\/$/, "");
+  return cleaned === "" ? "/" : cleaned;
 };
 
-const dashboardItem: NavItem = {
-  icon: <PieChartIcon />,
-  name: "Dashboard",
-  path: "/",
+const isNode = (value: SidebarNode | null): value is SidebarNode => value !== null;
+
+const hasExactPathMatch = (targetPath: string, allowedPaths: Set<string>) => {
+  const normalized = normalizePath(targetPath);
+  return allowedPaths.has(normalized);
 };
 
-const o2dItem: NavItem = {
-  icon: <BoxCubeIcon />,
-  name: "O2D",
-  subItems: [
-    { name: "Orders", path: "/o2d/orders", pro: false },
-    { name: "Enquiry", path: "/o2d/enquiry", pro: false },
-    { name: "Enquiry List", path: "/o2d/enquiry-list", pro: false },
-    { name: "Pending Vehicles", path: "/o2d/process", pro: false },
-    { name: "Customers", path: "/o2d/customers", pro: false },
-    { name: "Follow Ups", path: "/o2d/follow-ups", pro: false },
+// ─── Responsive design tokens ─────────────────────────────────────────────────
+
+const TEXT_ITEM = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
+const TEXT_CHILD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
+const TEXT_LABEL = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[11px] 2xl:text-[11px]";
+const TEXT_LOGO = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
+const TEXT_LOGO_SUB = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[12px] 2xl:text-[12px]";
+const TEXT_MOD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
+const TEXT_MOD_CAP = "text-[10px] md:text-[10px] lg:text-[10px] xl:text-[11px] 2xl:text-[11px]";
+
+const ICON_ROOT = "h-[15px] w-[15px] md:h-[15px] md:w-[15px] lg:h-[17px] lg:w-[17px] xl:h-[18px] xl:w-[18px] 2xl:h-5 2xl:w-5";
+const ICON_CHILD = "h-[13px] w-[13px] md:h-[13px] md:w-[13px] lg:h-[15px] lg:w-[15px] xl:h-[16px] xl:w-[16px] 2xl:h-[17px] 2xl:w-[17px]";
+
+const PY_ROOT = "py-[7px] md:py-[7px] lg:py-[9px] xl:py-[10px] 2xl:py-[11px]";
+const PY_CHILD = "py-[6px] md:py-[6px] lg:py-[7px] xl:py-[8px] 2xl:py-[9px]";
+
+const SIDEBAR_W = "xl:w-[250px] 2xl:w-[280px]";
+const SIDEBAR_W_COLLAPSED = "xl:w-[56px] 2xl:w-[64px]";
+
+const LOGO_IMG = "h-7 w-7 md:h-8 md:w-8 lg:h-8 lg:w-8 2xl:h-9 2xl:w-9";
+
+// ─── Section data ─────────────────────────────────────────────────────────────
+
+const salesWorkspaceSection: SidebarSection = {
+  key: "sales",
+  title: "Sales Workspace",
+  caption: "Main Navigation",
+  icon: BriefcaseBusiness,
+  homeItem: {
+    kind: "link",
+    key: "sales-dashboard",
+    name: "Dashboard",
+    path: "/o2d/dashboard",
+    icon: LayoutDashboard,
+  },
+  nodes: [
+    { kind: "link", key: "o2d-section-label", name: "O2D SECTION", path: "/__label__/o2d", icon: Truck },
+    { kind: "link", key: "o2d-orders", name: "Orders", path: "/o2d/orders", icon: ClipboardList },
+    { kind: "link", key: "o2d-enquiry", name: "Enquiry", path: "/o2d/enquiry", icon: Search },
+    { kind: "link", key: "o2d-enquiry-list", name: "Enquiry List", path: "/o2d/enquiry-list", icon: Files },
+    { kind: "link", key: "o2d-pending-vehicles", name: "Pending Vehicles", path: "/o2d/process", icon: Truck },
+    { kind: "link", key: "o2d-customers", name: "Customers", path: "/o2d/customers", icon: Users },
+    { kind: "link", key: "o2d-follow-ups", name: "Follow Ups", path: "/o2d/follow-ups", icon: RefreshCw },
+    { kind: "link", key: "batchcode-section-label", name: "BATCHCODE SECTION", path: "/__label__/batchcode", icon: Boxes },
+    { kind: "link", key: "batchcode-laddel", name: "Laddel", path: "/batchcode/laddel", icon: Boxes },
+    { kind: "link", key: "batchcode-tundis", name: "Tundis", path: "/batchcode/tundis", icon: Boxes },
+    { kind: "link", key: "batchcode-sms-register", name: "SMS Register", path: "/batchcode/sms-register", icon: FileText },
+    { kind: "link", key: "batchcode-hot-coil", name: "Hot Coil", path: "/batchcode/hot-coil", icon: Boxes },
+    { kind: "link", key: "batchcode-recoiler", name: "Recoiler", path: "/batchcode/recoiler", icon: Boxes },
+    { kind: "link", key: "batchcode-pipe-mill", name: "Pipe Mill", path: "/batchcode/pipe-mill", icon: BriefcaseBusiness },
+    { kind: "link", key: "batchcode-qc-lab", name: "QC Lab", path: "/batchcode/qc-lab", icon: ClipboardList },
+    { kind: "link", key: "lead-section-label", name: "LEAD TO ORDER SECTION", path: "/__label__/lead", icon: BriefcaseBusiness },
+    { kind: "link", key: "lead-to-order-leads", name: "Leads", path: "/lead-to-order/leads", icon: Users },
+    { kind: "link", key: "lead-to-order-follow-up", name: "Follow Up", path: "/lead-to-order/follow-up", icon: RefreshCw },
+    { kind: "link", key: "lead-to-order-call-tracker", name: "Call Tracker", path: "/lead-to-order/call-tracker", icon: PhoneCall },
+    { kind: "link", key: "lead-to-order-quotation", name: "Quotation", path: "/lead-to-order/quotation", icon: FileText },
+    { kind: "link", key: "lead-to-order-settings", name: "Settings", path: "/lead-to-order/settings", icon: Settings2 },
+    { kind: "link", key: "lead-to-order-sys-access", name: "System Access", path: "/lead-to-order/settings", icon: ShieldCheck },
+    { kind: "link", key: "lead-to-order-page-access", name: "Page Access", path: "/lead-to-order/settings", icon: BadgeCheck },
   ],
 };
 
-const batchCodeItem: NavItem = {
-  icon: <BoxCubeIcon />,
-  name: "BatchCode",
-  subItems: [
-    { name: "Laddel", path: "/batchcode/laddel", pro: false },
-    { name: "Tundis", path: "/batchcode/tundis", pro: false },
-    { name: "SMS Register", path: "/batchcode/sms-register", pro: false },
-    { name: "Hot Coil", path: "/batchcode/hot-coil", pro: false },
-    { name: "Recoiler", path: "/batchcode/recoiler", pro: false },
-    { name: "Pipe Mill", path: "/batchcode/pipe-mill", pro: false },
-    { name: "QC Lab", path: "/batchcode/qc-lab", pro: false },
-  ],
-};
-
-const leadToOrderBaseItem: NavItem = {
-  icon: <PlugInIcon />,
-  name: "Lead to Order",
-};
-
-const leadToOrderBaseSubItems: NavSubItem[] = [
-  { name: "Leads", path: "/lead-to-order/leads", pro: false },
-  { name: "Follow Up", path: "/lead-to-order/follow-up", pro: false },
-  { name: "Call Tracker", path: "/lead-to-order/call-tracker", pro: false },
-  { name: "Quotation", path: "/lead-to-order/quotation", pro: false },
-];
-
-const leadToOrderSettingsItem: NavItem = {
-  icon: <BoxCubeIcon />,
-  name: "Settings",
-  path: "/lead-to-order/settings",
-};
-
-const hrfmsItem: NavItem = {
-  icon: <Users className="h-4 w-4" />,
-  name: "HRFMS",
-  subItems: [
-    { name: "Dashboard", path: "/hrfms/dashboard" },
-    { name: "My Profile", path: "/hrfms/my-profile" },
-    { name: "MainPower Request", path: "/hrfms/resume-request" },
-    { name: "MainPower List", path: "/hrfms/resume-list" },
-    { name: "Travel Request", path: "/hrfms/requests" },
-    { name: "Tickets", path: "/hrfms/tickets" },
-    { name: "Travel Status", path: "/hrfms/travel-status" },
-    { name: "Resume", path: "/hrfms/resumes" },
-    { name: "Resume Upload", path: "/hrfms/resume-form" },
-    { name: "Leave Request", path: "/hrfms/leave-request" },
-    { name: "Leave Approvals", path: "/hrfms/leave-approvals" },
-    { name: "HOD Approval", path: "/hrfms/commercial-head-approval" },
-    { name: "HR Approvals", path: "/hrfms/leave-hr-approvals" },
-    { name: "Plant Visitor", path: "/hrfms/plant-visitor" },
-    { name: "Plant Visitor List", path: "/hrfms/plant-visitorlist" },
-    { name: "Candidate Status", path: "/hrfms/condidate-list" },
-    { name: "Selected Candidate", path: "/hrfms/condidate-select" },
-  ],
-};
-
-const documentItem: NavItem = {
-  icon: <FileText className="h-4 w-4" />,
-  name: "Document",
-  subItems: [
+const subscriptionSection: SidebarSection = {
+  key: "subscription",
+  title: "Document Control",
+  caption: "Documents And Finance",
+  icon: FileText,
+  homeItem: {
+    kind: "link", key: "document-dashboard", name: "Dashboard",
+    path: "/document/dashboard", icon: LayoutDashboard,
+  },
+  nodes: [
     {
-      name: "Resource Manager",
-      subItems: [
-        { name: "All Resources", path: "/resource-manager" },
+      kind: "group", key: "document-resource-manager", name: "Resource Manager",
+      icon: FolderKanban, defaultOpen: false,
+      items: [
+        { kind: "link", key: "resource-manager-all", name: "All Resources", path: "/resource-manager", icon: Files },
         {
-          name: "Renewals",
-          subItems: [
-            { name: "Document Renewal", path: "/document/renewal" },
-            { name: "Subscription Renewal", path: "/subscription/renewal" },
+          kind: "group", key: "subscription-renewals", name: "Renewals",
+          icon: RefreshCw, defaultOpen: false,
+          items: [
+            { kind: "link", key: "document-renewal", name: "Document Renewal", path: "/document/renewal", icon: RefreshCw },
+            { kind: "link", key: "subscription-renewal-link", name: "Subscription Renewal", path: "/subscription/renewal", icon: RefreshCw },
           ],
         },
-        { name: "Document Shared", path: "/document/shared" },
-        { name: "Subscription Approval", path: "/subscription/approval" },
-        { name: "Subscription Payment", path: "/subscription/payment" },
+        { kind: "link", key: "subscription-all", name: "All Subscriptions", path: "/subscription/all", icon: Files },
+        { kind: "link", key: "subscription-approval", name: "Subscription Approval", path: "/subscription/approval", icon: BadgeCheck },
+        { kind: "link", key: "document-shared", name: "Document Shared", path: "/document/shared", icon: FileText },
+
       ],
     },
     {
-      name: "Loan",
-      subItems: [
-        { name: "All Loan", path: "/loan/all" },
-        { name: "Request Forecloser", path: "/loan/foreclosure" },
-        { name: "Collect NOC", path: "/loan/noc" },
+      kind: "group", key: "document-loan", name: "Loan", icon: Landmark, defaultOpen: false,
+      items: [
+        { kind: "link", key: "loan-all", name: "All Loan", path: "/loan/all", icon: Files },
+        { kind: "link", key: "loan-foreclosure", name: "Request Forecloser", path: "/loan/foreclosure", icon: Receipt },
       ],
     },
-    { name: "Master", path: "/master" },
+    { kind: "link", key: "document-master", name: "Master", path: "/master", icon: ShieldCheck },
   ],
 };
 
-const storeItem: NavItem = {
-  icon: <BoxCubeIcon />,
-  name: "Store",
-  subItems: [
-    { name: "Dashboard", path: "/store/dashboard" },
-    { name: "Store Issue", path: "/store/store-issue" },
-    { name: "Indent", path: "/store/approve-indent" },
-    { name: "Approve Indent HOD", path: "/store/approve-indent-data" },
-    { name: "Approve Indent GM", path: "/store/approve-indent-gm" },
-    { name: "Purchase Order", path: "/store/pending-indents" },
-    { name: "Inventory", path: "/store/inventory" },
-    { name: "Returnable", path: "/store/returnable" },
-    { name: "Repair Gate Pass", path: "/store/repair-gate-pass" },
-    { name: "Repair Follow Up", path: "/store/repair-followup" },
-    { name: "Store GRN", path: "/store/store-grn" },
-    { name: "Store GRN Admin Approval", path: "/store/store-grn-admin" },
-    { name: "Store GRN GM Approval", path: "/store/store-grn-gm" },
-    { name: "Store GRN Close", path: "/store/store-grn-close" },
-    { name: "Store Out Approval", path: "/store/store-out-approval" },
-    { name: "Completed Items", path: "/store/completed-items" },
-    { name: "My Indent (Erp)", path: "/store/erp-indent" },
-    { name: "Requested Indent", path: "/store/user-indent-list-indent" },
-    { name: "Requisition", path: "/store/user-requisition" },
-    { name: "Create Indent", path: "/store/user-indent" },
+const checklistSection: SidebarSection = {
+  key: "checklist", title: "Checklist Combined", caption: "Task Navigation", icon: ClipboardList,
+  nodes: [
+    { kind: "link", key: "checklist-overview", name: "Overview", path: "/checklist", icon: LayoutDashboard },
+    { kind: "link", key: "checklist-pending", name: "Pending Tasks", path: "/checklist/pending", icon: ClipboardList },
+    { kind: "link", key: "checklist-history", name: "Task History", path: "/checklist/history", icon: FileText },
+    { kind: "link", key: "checklist-settings", name: "Settings", path: "/checklist/settings", icon: Settings2 },
   ],
 };
 
-const parentBaseClass =
-  "group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200";
-const parentActiveClass = "bg-gradient-to-r from-[#EE1C23] to-[#ff3b42] text-white shadow-sm";
-const parentInactiveClass = "text-slate-700 hover:bg-slate-100";
-const subBaseClass =
-  "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200";
-const subActiveClass = "bg-[#EE1C23]/12 text-[#B51219]";
-const subInactiveClass = "text-slate-600 hover:bg-slate-100 hover:text-slate-800";
+const hrmsSection: SidebarSection = {
+  key: "hrms", title: "HRMS", caption: "Human Resources", icon: Users,
+  nodes: [
+    { kind: "link", key: "hrms-dashboard", name: "Dashboard", path: "/hrfms/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "hrms-profile", name: "My Profile", path: "/hrfms/my-profile", icon: Users },
+    { kind: "link", key: "hrms-manpower-request", name: "MainPower Request", path: "/hrfms/resume-request", icon: FileText },
+    { kind: "link", key: "hrms-manpower-list", name: "MainPower List", path: "/hrfms/resume-list", icon: Files },
+    { kind: "link", key: "hrms-travel-request", name: "Travel Request", path: "/hrfms/requests", icon: FileText },
+    { kind: "link", key: "hrms-tickets", name: "Tickets", path: "/hrfms/tickets", icon: ClipboardList },
+    { kind: "link", key: "hrms-travel-status", name: "Travel Status", path: "/hrfms/travel-status", icon: RefreshCw },
+    { kind: "link", key: "hrms-resume-upload", name: "Resume Upload", path: "/hrfms/resume-form", icon: FileText },
+    { kind: "link", key: "hrms-leave-request", name: "Leave Request", path: "/hrfms/leave-request", icon: FileText },
+    { kind: "link", key: "hrms-leave-approvals", name: "Leave Approvals", path: "/hrfms/leave-approvals", icon: BadgeCheck },
+    { kind: "link", key: "hrms-hr-approvals", name: "HR Approvals", path: "/hrfms/leave-hr-approvals", icon: BadgeCheck },
+    { kind: "link", key: "hrms-plant-visitor", name: "Plant Visitor", path: "/hrfms/plant-visitor", icon: ShieldCheck },
+    { kind: "link", key: "hrms-plant-visitor-list", name: "Plant Visitor List", path: "/hrfms/plant-visitorlist", icon: Files },
+    { kind: "link", key: "hrms-candidate-status", name: "Candidate Status", path: "/hrfms/condidate-list", icon: Users },
+    { kind: "link", key: "hrms-selected-candidate", name: "Selected Candidate", path: "/hrfms/condidate-select", icon: BadgeCheck },
+  ],
+};
 
-const isDocumentPath = (path: string) => {
-  return (
-    path.startsWith("/document") ||
-    path.startsWith("/subscription") ||
-    path.startsWith("/loan") ||
-    path.startsWith("/payment") ||
-    path.startsWith("/account") ||
-    path.startsWith("/resource-manager") ||
-    path.startsWith("/master")
-  );
+const storeSection: SidebarSection = {
+  key: "store", title: "Store and Purchase", caption: "Material Operations", icon: ShoppingCart,
+  nodes: [
+    { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/item-issue", icon: ClipboardList },
+    { kind: "link", key: "store-indent", name: "Indent", path: "/store/indent", icon: FileText },
+    { kind: "link", key: "store-approve-indent-hod", name: "Approve Indent HOD", path: "/store/approve-indent", icon: BadgeCheck },
+    { kind: "link", key: "store-approve-indent-gm", name: "Approve Indent GM", path: "/store/approve-indent-data", icon: BadgeCheck },
+    { kind: "link", key: "store-purchase-order", name: "Purchase Order", path: "/store/pending-indents", icon: ShoppingCart },
+    { kind: "link", key: "store-inventory", name: "Inventory", path: "/store/inventory", icon: Boxes },
+    { kind: "link", key: "store-returnable", name: "Returnable", path: "/store/returnable", icon: RefreshCw },
+    { kind: "link", key: "store-repair-gate-pass", name: "Repair Gate Pass", path: "/store/repair-gate-pass", icon: ShieldCheck },
+    { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
+    { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
+    { kind: "link", key: "store-grn-admin", name: "Store GRN Admin", path: "/store/store-grn-admin", icon: BadgeCheck },
+    { kind: "link", key: "store-grn-gm", name: "Store GRN GM", path: "/store/store-grn-gm", icon: BadgeCheck },
+    { kind: "link", key: "store-grn-close", name: "Store GRN Close", path: "/store/store-grn-close", icon: ShieldCheck },
+    { kind: "link", key: "store-out-approval", name: "Store Out Approval", path: "/store/store-out-approval", icon: BadgeCheck },
+    { kind: "link", key: "store-completed-items", name: "Completed Items", path: "/store/completed-items", icon: Files },
+    { kind: "link", key: "store-my-indent", name: "My Indent", path: "/store/user-indent-list-indent", icon: FileText },
+    { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
+    { kind: "link", key: "store-create-indent", name: "Create Indent", path: "/store/user-indent", icon: FileText },
+  ],
+};
+
+const visitorSection: SidebarSection = {
+  key: "visitor-gate-pass", title: "Visitor Gate Pass", caption: "Security Access", icon: ShieldCheck,
+  nodes: [{ kind: "link", key: "visitor-gate-pass", name: "Visitor Gate Pass", path: "/gatepass/visitor", icon: ShieldCheck }],
+};
+
+const closeGateSection: SidebarSection = {
+  key: "close-gate-pass", title: "Close Gate Pass", caption: "Security Access", icon: BookCopy,
+  nodes: [{ kind: "link", key: "close-gate-pass", name: "Close Gate Pass", path: "/gatepass/close", icon: BookCopy }],
+};
+
+const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
+  checklist: checklistSection,
+  sales: salesWorkspaceSection,
+  logistic: salesWorkspaceSection,
+  batchcode: salesWorkspaceSection,
+  hrms: hrmsSection,
+  store: storeSection,
+  subscription: subscriptionSection,
+  "visitor-gate-pass": visitorSection,
+  "close-gate-pass": closeGateSection,
 };
 
 const AppSidebar: FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
-  const location = useLocation();
   const { logout, user } = useAuth();
+  const location = useLocation();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const activeModule = getSidebarModuleForPath(location.pathname);
+  const section = activeModule ? moduleSections[activeModule as Exclude<PortalNavKey, "home">] : null;
   const isAdmin = useMemo(() => isAdminUser(user), [user]);
   const showText = isExpanded || isHovered || isMobileOpen;
-  const activeSidebarModule = useMemo(
-    () => getSidebarModuleForPath(location.pathname),
-    [location.pathname]
-  );
+  const allowedPagePaths = useMemo(() => {
+    if (isAdmin) return new Set<string>();
+    return new Set(getAllowedPageRoutes(user).map((path) => normalizePath(path)));
+  }, [isAdmin, user]);
 
-  const [isO2dOpen, setIsO2dOpen] = useState<boolean>(true);
-  const [isBatchCodeOpen, setIsBatchCodeOpen] = useState<boolean>(() =>
-    location.pathname.startsWith("/batchcode")
-  );
-  const [isLeadToOrderOpen, setIsLeadToOrderOpen] = useState<boolean>(() =>
-    location.pathname.startsWith("/lead-to-order")
-  );
-  const [isHrfmsOpen, setIsHrfmsOpen] = useState<boolean>(() =>
-    location.pathname.startsWith("/hrfms")
-  );
-  const [isStoreOpen, setIsStoreOpen] = useState<boolean>(() =>
-    location.pathname.startsWith("/store")
-  );
-  const [isDocumentOpen, setIsDocumentOpen] = useState<boolean>(() =>
-    isDocumentPath(location.pathname)
-  );
-  const [nestedOpen, setNestedOpen] = useState<Record<string, boolean>>({});
+  const isLinkActive = (path: string) => {
+    const currentPath = normalizePath(location.pathname);
+    const targetPath = normalizePath(path);
+    return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
+  };
 
-  useEffect(() => {
-    if (location.pathname.startsWith("/o2d")) {
-      setIsO2dOpen(true);
+  const canAccessLink = (item: SidebarLinkItem) => {
+    if (!section) return false;
+    if (item.requiresAdmin && !isAdmin) return false;
+    if (isAdmin) return true;
+    return hasExactPathMatch(item.path, allowedPagePaths);
+  };
+
+  const filterNode = (node: SidebarNode): SidebarNode | null => {
+    if (node.kind === "link") {
+      if (node.path.startsWith("/__label__/")) return node;
+      return canAccessLink(node) ? node : null;
     }
-    if (location.pathname.startsWith("/batchcode")) {
-      setIsBatchCodeOpen(true);
-    }
-    if (location.pathname.startsWith("/lead-to-order")) {
-      setIsLeadToOrderOpen(true);
-    }
-    if (location.pathname.startsWith("/hrfms")) {
-      setIsHrfmsOpen(true);
-    }
-    if (location.pathname.startsWith("/store")) {
-      setIsStoreOpen(true);
-    }
-    if (isDocumentPath(location.pathname)) {
-      setIsDocumentOpen(true);
-    }
-  }, [location.pathname]);
+    const visibleItems = node.items.map(filterNode).filter(isNode);
+    if (visibleItems.length === 0) return null;
+    return { ...node, items: visibleItems };
+  };
 
-  const handleLinkClick = useCallback(() => {
-    if (isMobileOpen) {
-      toggleMobileSidebar();
-    }
-  }, [isMobileOpen, toggleMobileSidebar]);
+  const filteredHomeItem = useMemo(() => {
+    if (!section?.homeItem) return null;
+    return canAccessLink(section.homeItem) ? section.homeItem : null;
+  }, [isAdmin, section, user]);
 
-  const isActive = useCallback(
-    (path: string) => {
-      if (path.includes("?tab=")) {
-        const [basePath, queryParam] = path.split("?");
-        const tabValue = queryParam?.split("=")[1];
-        const currentTab = new URLSearchParams(location.search).get("tab");
+  const filteredNodes = useMemo(() => {
+    if (!section) return [];
 
-        if (location.pathname === "/" || location.pathname === "/dashboard") {
-          if (tabValue && currentTab === tabValue) return true;
-          if (!tabValue && !currentTab && basePath === "/") return true;
-        }
-
-        return location.pathname === basePath && currentTab === tabValue;
-      }
-      return location.pathname === path;
-    },
-    [location.pathname, location.search]
-  );
-
-  const filterSubItems = useCallback(
-    (subItems?: NavSubItem[]): NavSubItem[] => {
-      if (!subItems || subItems.length === 0) return [];
-
-      return subItems.reduce<NavSubItem[]>((acc, subItem) => {
-        if (subItem.subItems && subItem.subItems.length > 0) {
-          const filteredChildren = filterSubItems(subItem.subItems);
-          if (filteredChildren.length > 0 || isAdmin) {
-            acc.push({
-              ...subItem,
-              subItems: isAdmin ? subItem.subItems : filteredChildren,
-            });
-          }
-          return acc;
-        }
-
-        if (subItem.path && (isAdmin || isPathAllowed(subItem.path, user))) {
-          acc.push(subItem);
-        }
-        return acc;
-      }, []);
-    },
-    [isAdmin, user]
-  );
-
-  const leadToOrderNavItem = useMemo(() => {
-    const subItems = leadToOrderBaseSubItems.filter((subItem) =>
-      isPathAllowed(subItem.path || "", user)
-    );
-
-    return {
-      ...leadToOrderBaseItem,
-      subItems,
-    };
-  }, [user]);
-
-  const filteredO2dItem = useMemo(() => {
-    if (
-      !isAdmin &&
-      !isPathAllowed("/o2d", user) &&
-      !o2dItem.subItems?.some((s) => isPathAllowed(s.path || "", user))
-    ) {
-      return null;
-    }
-
-    const filteredSubItems = filterSubItems(o2dItem.subItems);
-    if (filteredSubItems.length === 0 && !isAdmin) return null;
-
-    return { ...o2dItem, subItems: filteredSubItems };
-  }, [filterSubItems, isAdmin, user]);
-
-  const filteredBatchCodeItem = useMemo(() => {
-    if (
-      !isAdmin &&
-      !isPathAllowed("/batchcode", user) &&
-      !batchCodeItem.subItems?.some((s) => isPathAllowed(s.path || "", user))
-    ) {
-      return null;
-    }
-
-    const filteredSubItems = filterSubItems(batchCodeItem.subItems);
-    if (filteredSubItems.length === 0 && !isAdmin) return null;
-
-    return { ...batchCodeItem, subItems: filteredSubItems };
-  }, [filterSubItems, isAdmin, user]);
-
-  const filteredHrfmsItem = useMemo(() => {
-    if (
-      !isAdmin &&
-      !isPathAllowed("/hrfms", user) &&
-      !hrfmsItem.subItems?.some((s) => isPathAllowed(s.path || "", user))
-    ) {
-      return null;
-    }
-
-    const filteredSubItems = filterSubItems(hrfmsItem.subItems);
-    if (filteredSubItems.length === 0 && !isAdmin) return null;
-
-    return { ...hrfmsItem, subItems: filteredSubItems };
-  }, [filterSubItems, isAdmin, user]);
-
-  const filteredStoreItem = useMemo(() => {
-    if (
-      !isAdmin &&
-      !hasStoreModuleAccess(user) &&
-      !storeItem.subItems?.some((s) => isPathAllowed(s.path || "", user))
-    ) {
-      return null;
-    }
-
-    const filteredSubItems = filterSubItems(storeItem.subItems);
-    if (filteredSubItems.length === 0 && !isAdmin) return null;
-
-    return { ...storeItem, subItems: filteredSubItems };
-  }, [filterSubItems, isAdmin, user]);
-
-  const filteredDocumentItem = useMemo(() => {
-    if (
-      !isAdmin &&
-      !isPathAllowed("/document", user) &&
-      !documentItem.subItems?.some((s) =>
-        s.path ? isPathAllowed(s.path, user) : s.subItems?.some((c) => isPathAllowed(c.path || "", user))
-      )
-    ) {
-      return null;
-    }
-
-    const filteredSubItems = filterSubItems(documentItem.subItems);
-    if (filteredSubItems.length === 0 && !isAdmin) return null;
-
-    return { ...documentItem, subItems: filteredSubItems };
-  }, [filterSubItems, isAdmin, user]);
-
-  const showDashboard = useMemo(() => {
-    return isPathAllowed("/", user) || isPathAllowed("/dashboard", user);
-  }, [user]);
-  const showSalesSections = activeSidebarModule === "sales";
-  const showHrfmsSection = activeSidebarModule === "hrms";
-  const showStoreSection = activeSidebarModule === "store";
-  const showDocumentSection = activeSidebarModule === "subscription";
-  const showAdminSettings = isAdmin && showSalesSections;
-
-  const buildSubKey = useCallback((item: NavSubItem, parentKey: string) => {
-    return `${parentKey}>${item.path || item.name}`;
-  }, []);
-
-  const isSubItemActive = useCallback(
-    (item: NavSubItem): boolean => {
-      if (item.path && isActive(item.path)) return true;
-      if (item.subItems && item.subItems.length > 0) {
-        return item.subItems.some((sub) => isSubItemActive(sub));
-      }
-      return false;
-    },
-    [isActive]
-  );
-
-  useEffect(() => {
-    if (!filteredDocumentItem?.subItems) return;
-
-    const activeParentKeys = new Set<string>();
-
-    const collectActiveParentKeys = (items: NavSubItem[], parentKey: string): boolean => {
-      let hasActive = false;
-
-      for (const item of items) {
-        const key = buildSubKey(item, parentKey);
-        const selfActive = Boolean(item.path && isActive(item.path));
-        const childActive = item.subItems
-          ? collectActiveParentKeys(item.subItems, key)
-          : false;
-
-        if (item.subItems && (selfActive || childActive)) {
-          activeParentKeys.add(key);
-        }
-
-        if (selfActive || childActive) {
-          hasActive = true;
-        }
-      }
-
-      return hasActive;
-    };
-
-    collectActiveParentKeys(filteredDocumentItem.subItems, "document-root");
-
-    if (activeParentKeys.size === 0) return;
-
-    setNestedOpen((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      activeParentKeys.forEach((key) => {
-        if (!next[key]) {
-          next[key] = true;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
+    // First pass: filter normal links and groups
+    const intermediate = section.nodes.map(node => {
+      if (node.kind === "link" && node.path.startsWith("/__label__/")) return node;
+      return filterNode(node);
     });
-  }, [buildSubKey, filteredDocumentItem, isActive]);
 
-  const isGroupActive = useCallback(
-    (nav: NavItem) => {
-      if (nav.path && isActive(nav.path)) return true;
-      return Boolean(nav.subItems?.some((subItem) => isSubItemActive(subItem)));
-    },
-    [isActive, isSubItemActive]
-  );
+    // Second pass: remove labels that have no following visible links (until next label)
+    const final: SidebarNode[] = [];
+    for (let i = 0; i < intermediate.length; i++) {
+      const node = intermediate[i];
+      if (!node) continue;
 
-  const renderSubItems = useCallback(
-    (subItems: NavSubItem[] | undefined, parentKey: string, depth = 0) => {
-      if (!showText || !subItems || subItems.length === 0) return null;
-
-      return (
-        <ul className="mt-1 space-y-0.5 border-l border-slate-200 pl-2.5 ml-4">
-          {subItems.map((subItem) => {
-            const key = buildSubKey(subItem, parentKey);
-            const hasChildren = Boolean(subItem.subItems && subItem.subItems.length > 0);
-            const subItemActive = isSubItemActive(subItem);
-            const rowClass = `${subBaseClass} ${subItemActive ? subActiveClass : subInactiveClass} ${depth > 0 ? "text-[13px]" : ""
-              }`;
-
-            if (hasChildren) {
-              const isOpen = Boolean(nestedOpen[key]);
-              return (
-                <li key={key}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNestedOpen((prev) => ({
-                        ...prev,
-                        [key]: !prev[key],
-                      }))
-                    }
-                    className={`${rowClass} justify-between`}
-                    aria-expanded={isOpen}
-                    aria-label={`${subItem.name} submenu`}
-                  >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                      <span className="truncate">{subItem.name}</span>
-                    </span>
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
-                        }`}
-                    />
-                  </button>
-                  {isOpen ? renderSubItems(subItem.subItems, key, depth + 1) : null}
-                </li>
-              );
-            }
-
-            if (!subItem.path) return null;
-
-            return (
-              <li key={key}>
-                <Link to={subItem.path} onClick={handleLinkClick} className={rowClass}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                  <span className="truncate">{subItem.name}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      );
-    },
-    [buildSubKey, handleLinkClick, isSubItemActive, nestedOpen, showText]
-  );
-
-  const renderGroupToggle = useCallback(
-    (nav: NavItem, isOpen: boolean, onToggle?: () => void) => {
-      const isDirectActive = Boolean(nav.path && isActive(nav.path));
-      const hasActiveChild = !nav.path && isGroupActive(nav);
-      const stateClass = isDirectActive
-        ? parentActiveClass
-        : hasActiveChild
-          ? "text-[#B51219]"
-          : parentInactiveClass;
-      const commonClass = `${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${stateClass}`;
-      const content = (
-        <>
-          <span className="flex-shrink-0 text-current">{nav.icon}</span>
-          {showText && (
-            <>
-              <span className="flex-1 truncate text-left">{nav.name}</span>
-              {onToggle ? (
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                />
-              ) : null}
-            </>
-          )}
-        </>
-      );
-
-      if (!onToggle) {
-        return <div className={commonClass}>{content}</div>;
+      if (node.kind === "link" && node.path.startsWith("/__label__/")) {
+        let hasVisibleSubItem = false;
+        for (let j = i + 1; j < intermediate.length; j++) {
+          const subNode = intermediate[j];
+          if (!subNode) continue;
+          if (subNode.kind === "link" && subNode.path.startsWith("/__label__/")) break;
+          hasVisibleSubItem = true;
+          break;
+        }
+        if (hasVisibleSubItem) final.push(node);
+      } else {
+        final.push(node);
       }
+    }
+    return final;
+  }, [isAdmin, section, user]);
 
-      return (
+  const nodeContainsActivePath = (node: SidebarNode): boolean => {
+    if (node.kind === "link") {
+      if (node.path.startsWith("/__label__/")) return false;
+      return isLinkActive(node.path);
+    }
+    return node.items.some(nodeContainsActivePath);
+  };
+
+  useEffect(() => {
+    if (!section) return;
+    setOpenGroups((current) => {
+      const next = { ...current };
+      const primeGroups = (nodes: SidebarNode[]) => {
+        nodes.forEach((node) => {
+          if (node.kind !== "group") return;
+          if (current[node.key] === undefined && node.defaultOpen) {
+            next[node.key] = true;
+          }
+          primeGroups(node.items);
+        });
+      };
+      primeGroups(filteredNodes);
+      return next;
+    });
+  }, [section, filteredNodes]);
+
+  if (!section || (!filteredHomeItem && filteredNodes.length === 0)) return null;
+
+  const handleLinkClick = () => { if (isMobileOpen) toggleMobileSidebar(); };
+  const toggleGroup = (key: string) => setOpenGroups((c) => ({ ...c, [key]: !c[key] }));
+
+  const renderLink = (item: SidebarLinkItem, depth = 0) => {
+    const Icon = item.icon;
+
+    if (item.path.startsWith("/__label__/")) {
+      return showText ? (
+        <p key={item.key} className={`mt-3 mb-0.5 px-4 pt-1 font-bold uppercase tracking-[0.2em] text-[#94a3b8] select-none ${TEXT_LABEL}`}>
+          {item.name}
+        </p>
+      ) : null;
+    }
+
+    const isActive = isLinkActive(item.path);
+    const pyCls = depth === 0 ? PY_ROOT : PY_CHILD;
+    const iconCls = depth === 0 ? ICON_ROOT : ICON_CHILD;
+    const textCls = depth === 0 ? TEXT_ITEM : TEXT_CHILD;
+
+    const itemCls = isActive
+      ? "bg-[#ee1c23] text-white shadow-[0_4px_16px_rgba(238,28,35,0.30)] font-semibold"
+      : "text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]";
+
+    const shapeAndIndent = showText
+      ? depth === 0
+        ? `mx-2 px-3 rounded-xl gap-2.5 ${pyCls}`
+        : depth === 1
+          ? `ml-6 mr-2 px-3 rounded-xl gap-2 ${pyCls}`
+          : `ml-10 mr-2 px-2 rounded-lg gap-2 ${pyCls}`
+      : `justify-center mx-auto w-10 rounded-xl ${pyCls}`;
+
+    return (
+      <Link
+        key={item.key}
+        to={item.path}
+        onClick={handleLinkClick}
+        title={!showText ? item.name : undefined}
+        style={{ textDecoration: "none" }}
+        className={`flex items-center transition-all duration-200 ${shapeAndIndent} ${itemCls}`}
+      >
+        <Icon className={`shrink-0 ${iconCls} ${isActive ? "text-white" : "text-[#94a3b8]"}`} />
+        {showText && <span className={`truncate leading-5 ${textCls}`}>{item.name}</span>}
+      </Link>
+    );
+  };
+
+  const renderGroup = (group: SidebarGroupItem, depth = 0) => {
+    const GroupIcon = group.icon;
+    const isOpen = Boolean(openGroups[group.key]);
+    const hasActive = group.items.some(nodeContainsActivePath);
+    const pyCls = depth === 0 ? PY_ROOT : PY_CHILD;
+    const iconCls = depth === 0 ? ICON_ROOT : ICON_CHILD;
+    const textCls = depth === 0 ? TEXT_ITEM : TEXT_CHILD;
+
+    const itemCls = hasActive
+      ? "bg-[#ee1c23] text-white shadow-[0_4px_16px_rgba(238,28,35,0.30)] font-semibold"
+      : "text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]";
+
+    const shapeAndIndent = showText
+      ? depth === 0
+        ? `mx-2 px-3 rounded-xl gap-2.5 ${pyCls}`
+        : `ml-6 mr-2 px-3 rounded-xl gap-2 ${pyCls}`
+      : `justify-center mx-auto w-10 rounded-xl ${pyCls}`;
+
+    return (
+      <div key={group.key}>
+        {depth === 0 && group.sectionLabel && showText && (
+          <p className={`mt-3 mb-0.5 px-4 pt-1 font-bold uppercase tracking-[0.2em] text-[#94a3b8] select-none ${TEXT_LABEL}`}>
+            {group.sectionLabel}
+          </p>
+        )}
+
         <button
           type="button"
-          onClick={onToggle}
-          className={commonClass}
+          onClick={() => toggleGroup(group.key)}
+          title={!showText ? group.name : undefined}
           aria-expanded={isOpen}
-          aria-label={`${nav.name} menu`}
+          className={`flex w-full items-center transition-all duration-200 ${shapeAndIndent} ${itemCls}`}
         >
-          {content}
+          <GroupIcon className={`shrink-0 ${iconCls} ${hasActive ? "text-white" : "text-[#94a3b8]"}`} />
+          {showText && (
+            <>
+              <span className={`flex-1 truncate text-left leading-5 ${textCls}`}>{group.name}</span>
+              <ChevronDown
+                className={[
+                  "shrink-0 transition-transform duration-200",
+                  "h-3.5 w-3.5 lg:h-4 lg:w-4",
+                  hasActive ? "text-white/70" : "text-[#94a3b8]",
+                  isOpen ? "rotate-180" : "",
+                ].join(" ")}
+              />
+            </>
+          )}
         </button>
-      );
-    },
-    [isActive, isGroupActive, showText]
-  );
+
+        {showText && isOpen && (
+          <div className="mt-0.5 border-l border-[#e2e8f0] ml-5">
+            {group.items.map((node) =>
+              node.kind === "link" ? renderLink(node, depth + 1) : renderGroup(node, depth + 1)
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside
-      className={`fixed left-0 flex flex-col bg-white text-gray-800 transition-all duration-300 ease-in-out z-[1000] border-r border-gray-100 shadow-xl
-        ${isMobileOpen
-          ? "top-[72px] h-[calc(100dvh-72px)] w-[280px] translate-x-0"
-          : "top-0 h-[100dvh] -translate-x-full xl:translate-x-0"}
-        ${!isMobileOpen ? (isExpanded || isHovered ? "xl:w-[290px]" : "xl:w-[90px]") : ""}
-      `}
+      className={[
+        "fixed left-0 z-[1000] flex flex-col",
+        "bg-white border-r border-[#e2e8f0]",
+        "transition-all duration-300 ease-in-out",
+        isMobileOpen
+          ? "top-[58px] h-[calc(100dvh-58px)] w-[240px] md:w-[260px] translate-x-0"
+          : "top-0 h-[100dvh] -translate-x-full xl:translate-x-0",
+        !isMobileOpen
+          ? isExpanded || isHovered ? SIDEBAR_W : SIDEBAR_W_COLLAPSED
+          : "",
+      ].join(" ")}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`shrink-0 h-[72px] hidden xl:flex items-center shadow-sm relative z-10 transition-all duration-300
-          ${!isExpanded && !isHovered && !isMobileOpen ? "justify-center px-0 bg-white" : "justify-center px-0 bg-[#EE1C23]"}`}
+        className={[
+          "hidden shrink-0 items-center xl:flex",
+          "h-[54px] lg:h-[60px] 2xl:h-[66px]",
+          "border-b border-[#e2e8f0] bg-white",
+          showText ? "px-4 gap-3" : "justify-center",
+        ].join(" ")}
       >
-        <Link to="/" onClick={handleLinkClick} className="flex items-center w-full h-full overflow-hidden group">
-          <div
-            className={`flex-shrink-0 transition-all duration-300 ease-in-out w-full
-              ${!isExpanded && !isHovered && !isMobileOpen ? "h-10" : "h-full"}`}
-          >
-            <img
-              src={logo}
-              alt="SMRPL Logo"
-              className={`w-full h-full transition-transform duration-300 group-hover:scale-105
-                ${!isExpanded && !isHovered && !isMobileOpen ? "object-contain" : "object-fill"}`}
-            />
-          </div>
+        <Link to="/" onClick={handleLinkClick} className="flex items-center gap-3 w-full overflow-hidden">
+          <img
+            src={logo}
+            alt="SMRPL Logo"
+            className={`shrink-0 rounded-lg object-cover ring-2 ring-[#ee1c2320] border border-[#e2e8f0] ${LOGO_IMG}`}
+          />
+          {showText && (
+            <div className="min-w-0">
+              <p className={`truncate font-bold text-[#0f172a] leading-tight ${TEXT_LOGO}`}>Integrated Portal</p>
+              <p className={`truncate uppercase tracking-[0.2em] text-[#94a3b8] leading-tight ${TEXT_LOGO_SUB}`}>
+                {section.title}
+              </p>
+            </div>
+          )}
         </Link>
       </div>
 
-      <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-2 py-3">
-        {showDashboard ? (
-          <div className="mb-1">
-            <Link
-              to={dashboardItem.path || "/"}
-              onClick={handleLinkClick}
-              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${isActive(dashboardItem.path || "/") ? parentActiveClass : parentInactiveClass
-                }`}
-            >
-              <span className="flex-shrink-0 text-current">{dashboardItem.icon}</span>
-              {showText ? <span className="truncate">{dashboardItem.name}</span> : null}
-            </Link>
-          </div>
-        ) : null}
+      {showText && (
+        <div className="shrink-0 border-b border-[#e2e8f0] px-4 py-2 bg-[#f8fafc]">
+          <p className={`font-bold uppercase tracking-[0.2em] text-[#ee1c23] ${TEXT_MOD_CAP}`}>
+            {section.caption || "Navigation"}
+          </p>
+          <p className={`font-semibold text-[#334155] leading-tight ${TEXT_MOD}`}>{section.title}</p>
+        </div>
+      )}
 
-        {showSalesSections && filteredO2dItem ? (
-          <div className="mb-1">
-            {renderGroupToggle(filteredO2dItem, isO2dOpen, () => setIsO2dOpen((prev) => !prev))}
-            {isO2dOpen ? renderSubItems(filteredO2dItem.subItems, "o2d-root") : null}
-          </div>
-        ) : null}
+      <nav
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5
+          [&::-webkit-scrollbar]:w-1
+          [&::-webkit-scrollbar-track]:bg-transparent
+          [&::-webkit-scrollbar-thumb]:bg-[#e2e8f0]
+          [&::-webkit-scrollbar-thumb]:rounded-full"
+      >
+        {filteredHomeItem && renderLink(filteredHomeItem, 0)}
+        {filteredNodes.map((node) =>
+          node.kind === "link" ? renderLink(node, 0) : renderGroup(node, 0)
+        )}
+      </nav>
 
-        {showSalesSections && filteredBatchCodeItem ? (
-          <div className="mb-1">
-            {renderGroupToggle(filteredBatchCodeItem, isBatchCodeOpen, () =>
-              setIsBatchCodeOpen((prev) => !prev)
-            )}
-            {isBatchCodeOpen ? renderSubItems(filteredBatchCodeItem.subItems, "batchcode-root") : null}
-          </div>
-        ) : null}
-
-        {showSalesSections && leadToOrderNavItem.subItems && leadToOrderNavItem.subItems.length > 0 ? (
-          <div className="mb-1">
-            {renderGroupToggle(leadToOrderNavItem, isLeadToOrderOpen, () =>
-              setIsLeadToOrderOpen((prev) => !prev)
-            )}
-            {isLeadToOrderOpen ? renderSubItems(leadToOrderNavItem.subItems, "lead-root") : null}
-          </div>
-        ) : null}
-
-        {showHrfmsSection && filteredHrfmsItem ? (
-          <div className="mb-1">
-            {renderGroupToggle(filteredHrfmsItem, isHrfmsOpen, () => setIsHrfmsOpen((prev) => !prev))}
-            {isHrfmsOpen ? renderSubItems(filteredHrfmsItem.subItems, "hrfms-root") : null}
-          </div>
-        ) : null}
-
-        {showStoreSection && filteredStoreItem ? (
-          <div className="mb-1">
-            {renderGroupToggle(filteredStoreItem, isStoreOpen, () => setIsStoreOpen((prev) => !prev))}
-            {isStoreOpen ? renderSubItems(filteredStoreItem.subItems, "store-root") : null}
-          </div>
-        ) : null}
-
-        {showDocumentSection && filteredDocumentItem ? (
-          <div className="mb-1">
-            {renderGroupToggle(filteredDocumentItem, isDocumentOpen, () =>
-              setIsDocumentOpen((prev) => !prev)
-            )}
-            {isDocumentOpen ? renderSubItems(filteredDocumentItem.subItems, "document-root") : null}
-          </div>
-        ) : null}
-
-        {showAdminSettings ? (
-          <div className="mb-1">
-            <Link
-              to={leadToOrderSettingsItem.path || "/lead-to-order/settings"}
-              onClick={handleLinkClick}
-              className={`${parentBaseClass} ${showText ? "" : "justify-center px-2"} ${isActive(leadToOrderSettingsItem.path || "/lead-to-order/settings")
-                ? parentActiveClass
-                : parentInactiveClass
-                }`}
-            >
-              <span className="flex-shrink-0 text-current">{leadToOrderSettingsItem.icon}</span>
-              {showText ? <span className="truncate">{leadToOrderSettingsItem.name}</span> : null}
-            </Link>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-auto shrink-0 border-t border-gray-100 px-3 py-3 bg-white">
+      <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2">
         <button
           onClick={logout}
-          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${showText
-            ? "text-red-600 hover:bg-red-50"
-            : "justify-center text-gray-400 hover:bg-red-50 hover:text-red-600"
-            }`}
-          title="Logout"
+          title="Sign Out"
+          className={[
+            "flex w-full items-center gap-2.5 rounded-xl transition-all duration-200",
+            "text-[#f87171] hover:bg-[#450a0a20] hover:text-[#ef4444]",
+            `${TEXT_ITEM} ${PY_ROOT}`,
+            showText ? "px-3" : "justify-center",
+          ].join(" ")}
         >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          {showText ? <span className="truncate">Sign Out</span> : null}
+          <LogOut className={`shrink-0 ${ICON_ROOT}`} />
+          {showText && <span className="truncate font-medium">Sign Out</span>}
         </button>
       </div>
     </aside>

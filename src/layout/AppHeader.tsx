@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import UserDropdown from "../components/header/UserDropdown";
@@ -9,7 +9,6 @@ import {
   DEFAULT_PORTAL_NAV_ITEMS,
   getActivePortalNavKey,
   resolvePortalNavItem,
-  resolvePortalSystemDefinition,
   shouldShowSidebarForPath,
 } from "../config/portalNavigation";
 import {
@@ -24,6 +23,26 @@ interface MasterSystemRecord {
   systems: string;
   link?: string | null;
 }
+
+interface DesktopNavLayout {
+  fontSize: number;
+  visibleCount: number;
+}
+
+const MIN_DESKTOP_NAV_FONT_SIZE = 10;
+const MAX_DESKTOP_NAV_FONT_SIZE = 14;
+const DESKTOP_NAV_GAP = 4;
+const DESKTOP_NAV_FONT_STEP = 0.25;
+const OVERFLOW_NAV_LABEL = "More";
+
+const clampValue = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const estimateNavButtonWidth = (label: string, fontSize: number) => {
+  const normalizedLabel = label.replace(/\s+/g, " ").trim();
+  const totalHorizontalPadding = Math.max(22, fontSize * 2.2);
+  return normalizedLabel.length * fontSize * 0.58 + totalHorizontalPadding;
+};
 
 const parseCsv = (value?: string | null) => {
   const raw = (value || "").trim();
@@ -55,22 +74,39 @@ const AppHeader: React.FC = () => {
   const { user, logout, token } = useAuth();
 
   const [isModuleMenuOpen, setModuleMenuOpen] = useState(false);
+  const [isDesktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
   const [masterSystems, setMasterSystems] = useState<MasterSystemRecord[]>([]);
+  const [desktopNavLayout, setDesktopNavLayout] = useState<DesktopNavLayout>({
+    fontSize: MAX_DESKTOP_NAV_FONT_SIZE,
+    visibleCount: DEFAULT_PORTAL_NAV_ITEMS.length,
+  });
   const headerRef = useRef<HTMLDivElement>(null);
+  const desktopNavRef = useRef<HTMLDivElement>(null);
 
   const hasSidebar = shouldShowSidebarForPath(location.pathname);
   const activeNavKey = getActivePortalNavKey(location.pathname);
 
   useEffect(() => {
     let mounted = true;
+
     const loadSystems = async () => {
-      if (!token || !user) { if (mounted) setMasterSystems([]); return; }
+      if (!token || !user) {
+        if (mounted) {
+          setMasterSystems([]);
+        }
+        return;
+      }
+
       const systems = await fetchSystemsApi();
       if (!mounted) return;
       setMasterSystems(Array.isArray(systems) ? systems : []);
     };
+
     void loadSystems();
-    return () => { mounted = false; };
+
+    return () => {
+      mounted = false;
+    };
   }, [token, user]);
 
   const visibleNavItems = useMemo(() => {
@@ -84,60 +120,231 @@ const AppHeader: React.FC = () => {
     const seenKeys = new Set<string>([homeItem.key]);
 
     const pushNavItem = (item: ReturnType<typeof resolvePortalNavItem>, fallbackPath?: string) => {
-      if (!item) return;
-      if (seenKeys.has(item.key)) return;
+      if (!item || seenKeys.has(item.key)) return;
       seenKeys.add(item.key);
       navItems.push({ ...item, path: fallbackPath || item.path });
     };
 
     if (isAdmin) {
-      if (masterSystems.length > 0) masterSystems.forEach((s) => pushNavItem(resolvePortalNavItem(s.systems)));
+      if (masterSystems.length > 0) {
+        masterSystems.forEach((system) => pushNavItem(resolvePortalNavItem(system.systems)));
+      }
       DEFAULT_PORTAL_NAV_ITEMS.slice(1).forEach((item) => pushNavItem(item));
       return navItems;
     }
 
-    // Navbar modules come ONLY from system_access
-    const systemAccessCsv = user?.system_access || "";
-    const systemAccessList = systemAccessCsv ? systemAccessCsv.split(",").map(s => s.trim()).filter(Boolean) : [];
-
-    systemAccessList.forEach((accessName) => {
+    parseCsv(user?.system_access).forEach((accessName) => {
       const item = resolvePortalNavItem(accessName);
       if (item) {
-        // Use the module path from definition, handleNavClick will resolve correct child route
         pushNavItem(item, item.path);
       }
     });
 
     return navItems;
-  }, [user, masterSystems]);
+  }, [masterSystems, user]);
+
+  const getPrimaryNavItemsForCount = (count: number) => {
+    const nextPrimaryItems = visibleNavItems.slice(
+      0,
+      Math.max(1, Math.min(count, visibleNavItems.length))
+    );
+    const activeItem = visibleNavItems.find((item) => item.key === activeNavKey);
+
+    if (
+      activeItem &&
+      !nextPrimaryItems.some((item) => item.key === activeItem.key) &&
+      nextPrimaryItems.length > 0
+    ) {
+      nextPrimaryItems[nextPrimaryItems.length - 1] = activeItem;
+    }
+
+    return nextPrimaryItems;
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(event.target as Node))
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
         setModuleMenuOpen(false);
+        setDesktopOverflowOpen(false);
+      }
     };
-    if (isModuleMenuOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isModuleMenuOpen]);
+
+    if (isModuleMenuOpen || isDesktopOverflowOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDesktopOverflowOpen, isModuleMenuOpen]);
+
+  useEffect(() => {
+    setModuleMenuOpen(false);
+    setDesktopOverflowOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const navElement = desktopNavRef.current;
+    if (!navElement) return;
+
+    const updateDesktopNavLayout = () => {
+      const availableWidth = navElement.clientWidth;
+      const totalItems = visibleNavItems.length;
+
+      if (!availableWidth || totalItems === 0) {
+        setDesktopNavLayout((current) => {
+          if (
+            current.visibleCount === totalItems &&
+            current.fontSize === MAX_DESKTOP_NAV_FONT_SIZE
+          ) {
+            return current;
+          }
+
+          return {
+            visibleCount: totalItems,
+            fontSize: MAX_DESKTOP_NAV_FONT_SIZE,
+          };
+        });
+        return;
+      }
+
+      let nextLayout: DesktopNavLayout = {
+        visibleCount: 1,
+        fontSize: MIN_DESKTOP_NAV_FONT_SIZE,
+      };
+      let matchedLayout = false;
+
+      for (
+        let fontSize = MAX_DESKTOP_NAV_FONT_SIZE;
+        fontSize >= MIN_DESKTOP_NAV_FONT_SIZE;
+        fontSize -= DESKTOP_NAV_FONT_STEP
+      ) {
+        const normalizedFontSize = Number(fontSize.toFixed(2));
+
+        for (let count = totalItems; count >= 1; count -= 1) {
+          const primaryItems = getPrimaryNavItemsForCount(count);
+          const hasOverflowItems = primaryItems.length < totalItems;
+          const primaryItemsWidth = primaryItems.reduce(
+            (total, item) => total + estimateNavButtonWidth(item.label, normalizedFontSize),
+            0
+          );
+          const gapCount =
+            Math.max(0, primaryItems.length - 1) + (hasOverflowItems ? 1 : 0);
+          const overflowWidth = hasOverflowItems
+            ? estimateNavButtonWidth(OVERFLOW_NAV_LABEL, normalizedFontSize) + normalizedFontSize
+            : 0;
+          const totalRequiredWidth =
+            primaryItemsWidth + overflowWidth + gapCount * DESKTOP_NAV_GAP;
+
+          nextLayout = {
+            visibleCount: primaryItems.length,
+            fontSize: normalizedFontSize,
+          };
+
+          if (totalRequiredWidth <= availableWidth) {
+            matchedLayout = true;
+            break;
+          }
+        }
+
+        if (matchedLayout) {
+          break;
+        }
+      }
+
+      setDesktopNavLayout((current) => {
+        if (
+          current.visibleCount === nextLayout.visibleCount &&
+          Math.abs(current.fontSize - nextLayout.fontSize) < 0.1
+        ) {
+          return current;
+        }
+
+        return nextLayout;
+      });
+    };
+
+    const frameId = window.requestAnimationFrame(updateDesktopNavLayout);
+    const resizeObserver = new ResizeObserver(updateDesktopNavLayout);
+    resizeObserver.observe(navElement);
+    window.addEventListener("resize", updateDesktopNavLayout);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateDesktopNavLayout);
+    };
+  }, [activeNavKey, visibleNavItems]);
+
+  const desktopPrimaryNavItems = useMemo(
+    () => getPrimaryNavItemsForCount(desktopNavLayout.visibleCount),
+    [desktopNavLayout.visibleCount, activeNavKey, visibleNavItems]
+  );
+
+  const desktopPrimaryNavKeys = useMemo(
+    () => new Set(desktopPrimaryNavItems.map((item) => item.key)),
+    [desktopPrimaryNavItems]
+  );
+
+  const desktopOverflowNavItems = useMemo(
+    () => visibleNavItems.filter((item) => !desktopPrimaryNavKeys.has(item.key)),
+    [desktopPrimaryNavKeys, visibleNavItems]
+  );
+
+  useEffect(() => {
+    if (desktopOverflowNavItems.length === 0) {
+      setDesktopOverflowOpen(false);
+    }
+  }, [desktopOverflowNavItems.length]);
+
+  const desktopNavButtonStyle = useMemo(() => {
+    const horizontalPadding = clampValue(
+      desktopNavLayout.fontSize * 0.7,
+      8,
+      12
+    );
+
+    return {
+      fontSize: `${desktopNavLayout.fontSize}px`,
+      paddingLeft: `${horizontalPadding}px`,
+      paddingRight: `${horizontalPadding}px`,
+      paddingTop: "7px",
+      paddingBottom: "7px",
+    };
+  }, [desktopNavLayout.fontSize]);
+
+  const isOverflowNavActive = desktopOverflowNavItems.some(
+    (item) => item.key === activeNavKey
+  );
 
   const handleSidebarToggle = () => {
-    if (window.innerWidth >= 1280) { toggleSidebar(); return; }
+    if (window.innerWidth >= 1280) {
+      toggleSidebar();
+      return;
+    }
+
     toggleMobileSidebar();
   };
 
   const handleNavClick = (path: string) => {
-    if (/^https?:\/\//i.test(path)) { window.location.href = path; setModuleMenuOpen(false); return; }
+    if (/^https?:\/\//i.test(path)) {
+      window.location.href = path;
+      setModuleMenuOpen(false);
+      setDesktopOverflowOpen(false);
+      return;
+    }
 
     const modulePath = path;
     let resolvedPath = isAdminUser(user)
       ? path
-      : (getFirstAllowedPathForModule(path, user) || getDefaultAllowedPath(user));
+      : getFirstAllowedPathForModule(path, user) || getDefaultAllowedPath(user);
 
     if (!resolvedPath || resolvedPath === "/login") {
       resolvedPath = getDefaultAllowedPath(user);
     }
 
     navigate(resolvedPath);
+
     if (shouldShowSidebarForPath(modulePath) || shouldShowSidebarForPath(resolvedPath)) {
       if (window.innerWidth >= 1280) {
         if (!isExpanded) {
@@ -149,16 +356,16 @@ const AppHeader: React.FC = () => {
     }
 
     setModuleMenuOpen(false);
+    setDesktopOverflowOpen(false);
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-[1010] border-b border-slate-200 bg-[rgba(248,248,249,0.97)] shadow-[0_2px_14px_rgba(15,23,42,0.06)] backdrop-blur">
+    <header className="fixed top-0 left-0 right-0 z-[1010] w-full border-b border-slate-200 bg-[rgba(248,248,249,0.97)] shadow-[0_2px_14px_rgba(15,23,42,0.06)] backdrop-blur">
       <div
         ref={headerRef}
-        className="relative flex h-[58px] items-center justify-between gap-3 px-3 md:px-4 xl:px-5"
+        className="relative flex h-[58px] items-center justify-between gap-2 px-3 md:px-4 xl:gap-3 xl:px-4 2xl:px-5"
       >
-        {/* ── LEFT: sidebar toggle (mobile) + logo (desktop) ── */}
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {hasSidebar ? (
             <button
               type="button"
@@ -170,48 +377,108 @@ const AppHeader: React.FC = () => {
             </button>
           ) : null}
 
-          {/* Logo — desktop left group */}
           <Link
             to="/"
-            className="hidden xl:flex shrink-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+            className="hidden shrink-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:flex"
           >
             <img src={logo} alt="Sagar TMT and Pipes" className="h-8 w-auto object-contain md:h-9" />
           </Link>
         </div>
 
-        {/* ── MOBILE LOGO — absolutely centered ── */}
         <Link
           to="/"
-          className="absolute left-1/2 -translate-x-1/2 flex xl:hidden shrink-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+          className="absolute left-1/2 flex shrink-0 -translate-x-1/2 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:hidden"
         >
           <img src={logo} alt="Sagar TMT and Pipes" className="h-8 w-auto object-contain" />
         </Link>
 
-        {/* ── CENTER: desktop nav ── */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center overflow-hidden xl:flex">
-          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-            {visibleNavItems.map((item) => {
-              const isActive = item.key === activeNavKey;
-              return (
+        <nav className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:flex">
+          <div
+            ref={desktopNavRef}
+            className="flex w-full min-w-0 justify-center"
+          >
+            <div
+              className="flex max-w-full items-center rounded-xl border border-slate-200/80 bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+              style={{ gap: `${DESKTOP_NAV_GAP}px` }}
+            >
+              {desktopPrimaryNavItems.map((item) => {
+                const isActive = item.key === activeNavKey;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    title={item.label}
+                    onClick={() => handleNavClick(item.path)}
+                    style={desktopNavButtonStyle}
+                    className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg font-bold leading-[1.05] tracking-[-0.01em] transition ${isActive
+                      ? "bg-gradient-to-r from-[#ee1c23] to-[#ff6a00] text-white shadow-[0_8px_18px_rgba(238,28,35,0.25)]"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {desktopOverflowNavItems.length > 0 ? (
+              <div className="relative shrink-0">
                 <button
-                  key={item.key}
                   type="button"
-                  onClick={() => handleNavClick(item.path)}
-                  className={`shrink-0 rounded-lg px-4 py-2 text-[13px] font-bold leading-none transition ${isActive
+                  aria-expanded={isDesktopOverflowOpen}
+                  aria-label="Open more modules"
+                  onClick={() => setDesktopOverflowOpen((open) => !open)}
+                  style={desktopNavButtonStyle}
+                  className={`inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg font-bold leading-none tracking-[-0.01em] transition ${isOverflowNavActive || isDesktopOverflowOpen
                     ? "bg-gradient-to-r from-[#ee1c23] to-[#ff6a00] text-white shadow-[0_8px_18px_rgba(238,28,35,0.25)]"
-                    : "text-slate-600 hover:bg-white hover:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                 >
-                  {item.label}
+                  <span>{OVERFLOW_NAV_LABEL}</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${isDesktopOverflowOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
-              );
-            })}
+
+                {isDesktopOverflowOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+10px)] z-[1060] w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_45px_rgba(15,23,42,0.16)]">
+                    <div className="mb-1 px-2 pb-2 pt-1">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        Additional Modules
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      {desktopOverflowNavItems.map((item) => {
+                        const isActive = item.key === activeNavKey;
+
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => handleNavClick(item.path)}
+                            className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition ${isActive
+                              ? "bg-[#ee1c23] text-white shadow-[0_4px_14px_rgba(238,28,35,0.25)]"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                              }`}
+                          >
+                            <span className="truncate">{item.label}</span>
+                            {isActive ? (
+                              <span className="ml-2 h-2 w-2 shrink-0 rounded-full bg-white/85" />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </nav>
 
-        {/* ── RIGHT: desktop welcome + settings, mobile menu toggle ── */}
-        <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-2 text-right xl:flex">
+        <div className="flex shrink-0 items-center gap-2 xl:gap-1.5 2xl:gap-2">
+          <div className="hidden items-center gap-2 text-right 2xl:flex">
             <p className="text-sm font-semibold text-slate-600">
               Welcome,{" "}
               <span className="font-bold capitalize text-slate-900">
@@ -224,7 +491,6 @@ const AppHeader: React.FC = () => {
             <UserDropdown variant="settings" />
           </div>
 
-          {/* Mobile menu toggle — red gradient when open */}
           <button
             type="button"
             onClick={() => setModuleMenuOpen((open) => !open)}
@@ -238,24 +504,19 @@ const AppHeader: React.FC = () => {
           </button>
         </div>
 
-        {/* ══ Mobile navigation panel — RIGHT side drawer (like sidebar) ══ */}
         {isModuleMenuOpen ? (
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 top-[58px] z-[1048] bg-black/30 backdrop-blur-sm lg:hidden"
               onClick={() => setModuleMenuOpen(false)}
             />
 
-            {/* Right-side half panel — same structure as AppSidebar */}
-            <div className="fixed right-0 top-[58px] z-[1050] flex h-[calc(100dvh-58px)] w-[240px] md:w-[260px] flex-col bg-white shadow-[-8px_0_32px_rgba(15,23,42,0.18)] xl:hidden">
-
-              {/* ─ Branded gradient user header ─ */}
+            <div className="fixed right-0 top-[58px] z-[1050] flex h-[calc(100dvh-58px)] w-[240px] flex-col bg-white shadow-[-8px_0_32px_rgba(15,23,42,0.18)] md:w-[260px] xl:hidden">
               <div className="shrink-0 bg-gradient-to-r from-[#ee1c23] to-[#ff6a00] px-5 py-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
                   Welcome back
                 </p>
-                <p className="mt-1 text-[17px] font-extrabold capitalize text-white leading-tight">
+                <p className="mt-1 text-[17px] font-extrabold capitalize leading-tight text-white">
                   {user?.username || user?.user_name || "User"}
                 </p>
                 <p className="mt-0.5 text-xs text-white/60">
@@ -263,44 +524,51 @@ const AppHeader: React.FC = () => {
                 </p>
               </div>
 
-              {/* ─ Module label bar ─ */}
-              <div className="shrink-0 border-b border-[#e2e8f0] px-4 py-2 bg-[#f8fafc]">
+              <div className="shrink-0 border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ee1c23]">
                   Module Navigation
                 </p>
-                <p className="text-[13px] font-semibold text-[#334155] leading-tight">Select Module</p>
+                <p className="text-[13px] font-semibold leading-tight text-[#334155]">
+                  Select Module
+                </p>
               </div>
 
-              {/* ─ Scrollable nav items ─ */}
-              <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5
-                [&::-webkit-scrollbar]:w-1
-                [&::-webkit-scrollbar-track]:bg-transparent
-                [&::-webkit-scrollbar-thumb]:bg-[#e2e8f0]
-                [&::-webkit-scrollbar-thumb]:rounded-full">
+              <nav
+                className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2
+                  [&::-webkit-scrollbar-thumb]:rounded-full
+                  [&::-webkit-scrollbar-thumb]:bg-[#e2e8f0]
+                  [&::-webkit-scrollbar-track]:bg-transparent
+                  [&::-webkit-scrollbar]:w-1"
+              >
                 {visibleNavItems.map((item) => {
                   const isActive = item.key === activeNavKey;
+
                   return (
                     <button
                       key={item.key}
                       type="button"
                       onClick={() => handleNavClick(item.path)}
                       className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition-all ${isActive
-                        ? "bg-[#ee1c23] text-white shadow-[0_4px_14px_rgba(238,28,35,0.30)] font-bold"
+                        ? "bg-[#ee1c23] font-bold text-white shadow-[0_4px_14px_rgba(238,28,35,0.30)]"
                         : "text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]"
                         }`}
                     >
                       <span>{item.label}</span>
-                      {isActive && <span className="h-2 w-2 rounded-full bg-white/80 shrink-0" />}
+                      {isActive ? (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-white/80" />
+                      ) : null}
                     </button>
                   );
                 })}
               </nav>
 
-              {/* ─ Sign out pinned to bottom ─ */}
               <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2">
                 <button
                   type="button"
-                  onClick={() => { logout(); setModuleMenuOpen(false); }}
+                  onClick={() => {
+                    logout();
+                    setModuleMenuOpen(false);
+                  }}
                   className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium text-[#f87171] transition hover:bg-[#450a0a20] hover:text-[#ef4444]"
                 >
                   <LogOut className="h-4 w-4 shrink-0" />
@@ -310,7 +578,6 @@ const AppHeader: React.FC = () => {
             </div>
           </>
         ) : null}
-
       </div>
     </header>
   );

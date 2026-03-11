@@ -53,13 +53,13 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
   {
     key: "sales",
     label: "SALES MODULE",
-    path: "/lead-to-order/leads",
+    path: "/o2d/dashboard",
     aliases: ["salesmodule", "sales", "sale", "leadtoorder", "lead_to_order", "crm", "o2d", "logistic", "logistics", "dispatch", "batchcode", "batch"],
   },
   {
     key: "subscription",
     label: "SUBSCRIPTION",
-    path: "/subscription/all",
+    path: "/document/dashboard",
     aliases: ["subscription", "document", "documents", "loan", "payment", "resource"],
   },
   {
@@ -88,7 +88,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
-  { key: "subscription", label: "SUBSCRIPTION", path: "/subscription/all" },
+  { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
   { key: "hrms", label: "HRMS", path: "/hrfms/dashboard" },
   // { key: "logistic", label: "LOGISTIC", path: "https://triofleet.trieon.in/" },
   // { key: "batchcode", label: "BATCHCODE", path: "/batchcode/hot-coil" },

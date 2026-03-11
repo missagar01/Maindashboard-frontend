@@ -33,6 +33,12 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
     };
 
     useEffect(() => {
+        if (!showAllUsersModal) {
+            return;
+        }
+
+        let cancelled = false;
+
         const fetchAdminData = async () => {
             try {
                 let users = apiCache.get("users_all");
@@ -40,21 +46,36 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                     users = await fetchUserDetailsApi();
                     apiCache.set("users_all", users);
                 }
+
+                const [systemsData, attendanceRes] = await Promise.all([
+                    fetchSystemsApi(),
+                    fetchAttendanceSummaryApi(),
+                ]);
+
+                if (cancelled) {
+                    return;
+                }
+
                 setAllUsers(Array.isArray(users) ? users : []);
-                const systemsData = await fetchSystemsApi();
                 setSystemsList(Array.isArray(systemsData) ? systemsData : []);
 
-                const attendanceRes = await fetchAttendanceSummaryApi();
                 const attendanceList = Array.isArray(attendanceRes?.data?.data)
                     ? attendanceRes.data.data
                     : [];
                 setAttendance(attendanceList);
             } catch (error) {
-                console.error("Error fetching admin data:", error);
+                if (!cancelled) {
+                    console.error("Error fetching admin data:", error);
+                }
             }
         };
+
         fetchAdminData();
-    }, []);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showAllUsersModal]);
 
     const attendanceMap = attendance.reduce((acc, a) => {
         acc[String(a.employee_id).trim()] = a.status;

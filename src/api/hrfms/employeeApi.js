@@ -34,10 +34,23 @@ export const getEmployeeById = async (id, token) => {
     if (status !== 404) {
       throw error;
     }
-    return apiRequest(`/api/employees/${id}`, {
-      method: 'GET',
-      token,
-    });
+
+    try {
+      return await apiRequest(`/api/hrfms/dashboard/employee/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        token,
+      });
+    } catch (dashboardError) {
+      const fallbackStatus = dashboardError?.status ?? dashboardError?.response?.status;
+      if (fallbackStatus !== 404) {
+        throw dashboardError;
+      }
+
+      return apiRequest(`/api/employees/${id}`, {
+        method: 'GET',
+        token,
+      });
+    }
   }
 };
 

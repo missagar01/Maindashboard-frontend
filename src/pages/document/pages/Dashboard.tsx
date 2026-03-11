@@ -10,7 +10,8 @@ import {
     Wallet,
     BarChart3,
     Clock,
-    TrendingUp
+    TrendingUp,
+    type LucideIcon
 } from 'lucide-react';
 import useDocumentAuth from '../hooks/useDocumentAuth';
 import { useNavigate } from 'react-router-dom';
@@ -73,23 +74,137 @@ interface DashboardLoan {
     finalSettlementStatus?: string;
 }
 
-const StatCard = ({ title, value, icon: Icon, color, subtext, onClick, bgColor = "bg-white" }: any) => (
-    <div
-        onClick={onClick}
-        className={`${bgColor} p-5 sm:p-6 rounded-2xl shadow-input hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden`}
-    >
-        <div className="relative z-10 flex justify-between items-start">
-            <div>
-                <p className="text-gray-500 text-sm font-semibold tracking-wide uppercase">{title}</p>
-                <h3 className="text-3xl font-extrabold text-gray-900 mt-2 tracking-tight group-hover:text-indigo-600 transition-colors">{value}</h3>
-                {subtext && <p className="text-xs text-gray-400 mt-2 font-medium">{subtext}</p>}
-            </div>
-            <div className={`p-3 rounded-xl ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-all`}>
-                <Icon size={24} className={color.replace('bg-', 'text-')} />
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: LucideIcon;
+    color: string;
+    subtext?: string;
+    onClick?: () => void;
+    bgColor?: string;
+}
+
+const PANEL_CARD_CLASS = "relative overflow-hidden rounded-2xl border border-slate-200/80 bg-[linear-gradient(145deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_18px_36px_rgba(15,23,42,0.08)]";
+
+const resolveStatCardTheme = (color: string) => {
+    if (color.includes('blue')) {
+        return {
+            surfaceClass: 'border-blue-100/90 bg-[linear-gradient(145deg,#eef5ff_0%,#ffffff_55%,#dbeafe_100%)]',
+            haloClass: 'bg-blue-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#dbeafe_0%,#93c5fd_100%)] shadow-[0_12px_24px_rgba(59,130,246,0.20)]',
+            iconClass: 'text-blue-600'
+        };
+    }
+
+    if (color.includes('purple')) {
+        return {
+            surfaceClass: 'border-purple-100/90 bg-[linear-gradient(145deg,#f7f0ff_0%,#ffffff_55%,#eadcff_100%)]',
+            haloClass: 'bg-purple-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#f0d9ff_0%,#c084fc_100%)] shadow-[0_12px_24px_rgba(168,85,247,0.22)]',
+            iconClass: 'text-purple-600'
+        };
+    }
+
+    if (color.includes('emerald')) {
+        return {
+            surfaceClass: 'border-emerald-100/90 bg-[linear-gradient(145deg,#effdf7_0%,#ffffff_55%,#d1fae5_100%)]',
+            haloClass: 'bg-emerald-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#d1fae5_0%,#6ee7b7_100%)] shadow-[0_12px_24px_rgba(16,185,129,0.20)]',
+            iconClass: 'text-emerald-600'
+        };
+    }
+
+    if (color.includes('orange')) {
+        return {
+            surfaceClass: 'border-orange-100/90 bg-[linear-gradient(145deg,#fff7ed_0%,#ffffff_55%,#fed7aa_100%)]',
+            haloClass: 'bg-orange-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#fed7aa_0%,#fb923c_100%)] shadow-[0_12px_24px_rgba(249,115,22,0.22)]',
+            iconClass: 'text-orange-600'
+        };
+    }
+
+    if (color.includes('indigo')) {
+        return {
+            surfaceClass: 'border-indigo-100/90 bg-[linear-gradient(145deg,#eef2ff_0%,#ffffff_55%,#c7d2fe_100%)]',
+            haloClass: 'bg-indigo-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#c7d2fe_0%,#818cf8_100%)] shadow-[0_12px_24px_rgba(99,102,241,0.22)]',
+            iconClass: 'text-indigo-600'
+        };
+    }
+
+    if (color.includes('teal')) {
+        return {
+            surfaceClass: 'border-teal-100/90 bg-[linear-gradient(145deg,#effcfb_0%,#ffffff_55%,#99f6e4_100%)]',
+            haloClass: 'bg-teal-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#99f6e4_0%,#2dd4bf_100%)] shadow-[0_12px_24px_rgba(20,184,166,0.22)]',
+            iconClass: 'text-teal-600'
+        };
+    }
+
+    if (color.includes('green')) {
+        return {
+            surfaceClass: 'border-green-100/90 bg-[linear-gradient(145deg,#f0fdf4_0%,#ffffff_55%,#bbf7d0_100%)]',
+            haloClass: 'bg-green-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#bbf7d0_0%,#4ade80_100%)] shadow-[0_12px_24px_rgba(34,197,94,0.22)]',
+            iconClass: 'text-green-600'
+        };
+    }
+
+    if (color.includes('yellow')) {
+        return {
+            surfaceClass: 'border-yellow-100/90 bg-[linear-gradient(145deg,#fffbeb_0%,#ffffff_55%,#fde68a_100%)]',
+            haloClass: 'bg-yellow-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#fde68a_0%,#facc15_100%)] shadow-[0_12px_24px_rgba(234,179,8,0.20)]',
+            iconClass: 'text-yellow-600'
+        };
+    }
+
+    if (color.includes('cyan')) {
+        return {
+            surfaceClass: 'border-cyan-100/90 bg-[linear-gradient(145deg,#ecfeff_0%,#ffffff_55%,#a5f3fc_100%)]',
+            haloClass: 'bg-cyan-300/35',
+            iconWrapClass: 'bg-[linear-gradient(145deg,#a5f3fc_0%,#22d3ee_100%)] shadow-[0_12px_24px_rgba(34,211,238,0.20)]',
+            iconClass: 'text-cyan-600'
+        };
+    }
+
+    return {
+        surfaceClass: 'border-slate-200/80 bg-[linear-gradient(145deg,#ffffff_0%,#f8fafc_60%,#e2e8f0_100%)]',
+        haloClass: 'bg-slate-300/30',
+        iconWrapClass: 'bg-[linear-gradient(145deg,#e2e8f0_0%,#cbd5e1_100%)] shadow-[0_12px_24px_rgba(148,163,184,0.20)]',
+        iconClass: 'text-slate-600'
+    };
+};
+
+const StatCard = ({ title, value, icon: Icon, color, subtext, onClick, bgColor = "bg-white" }: StatCardProps) => {
+    const theme = resolveStatCardTheme(color);
+    const surfaceClass = bgColor === "bg-white" ? theme.surfaceClass : bgColor;
+
+    return (
+        <div
+            onClick={onClick}
+            className={`${surfaceClass} min-h-[132px] cursor-pointer overflow-hidden rounded-[20px] border p-4 shadow-[0_18px_36px_rgba(15,23,42,0.08)] transition-all duration-300 group relative hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.12)] sm:min-h-[148px] sm:p-5 md:hover:-translate-y-1`}
+        >
+            <div className={`pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full blur-2xl ${theme.haloClass}`} />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0)_42%)]" />
+
+            <div className="relative z-10 flex h-full items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase leading-4 tracking-[0.08em] text-slate-600 sm:text-xs">{title}</p>
+                    <h3 className="mt-2 text-[28px] font-extrabold leading-none tracking-tight text-slate-950 transition-colors group-hover:text-indigo-600 sm:text-3xl">{value}</h3>
+                    {subtext ? (
+                        <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-4 text-slate-500 sm:text-xs">
+                            {subtext}
+                        </p>
+                    ) : null}
+                </div>
+                <div className={`shrink-0 rounded-2xl p-2.5 transition-all duration-300 group-hover:scale-105 sm:p-3 ${theme.iconWrapClass}`}>
+                    <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${theme.iconClass}`} />
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const Dashboard = () => {
     const { setTitle, currentUser,
@@ -443,27 +558,27 @@ const Dashboard = () => {
 
 
     return (
-        <div className="space-y-8 pb-10 relative">
+        <div className="relative space-y-6 pb-8 sm:space-y-8 sm:pb-10">
 
             {/* Tab Navigation */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className={`${PANEL_CARD_CLASS} flex flex-col items-start justify-between gap-3 p-3 md:flex-row md:items-center md:gap-4 md:p-4`}>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Dashboard</h1>
+                    <p className="mt-1 text-xs text-gray-500 sm:text-sm">
                         {activeTab === 'overview' ? 'Overview of all resources' : activeTab === 'payment' ? 'Payment workflow overview' : 'Account FMS overview'}
                     </p>
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
+                <div className="flex w-full rounded-lg bg-gray-100 p-1 md:w-auto">
                     <button
                         onClick={() => setActiveTab('overview')}
-                        className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-all sm:px-4 sm:py-2.5 sm:text-sm md:flex-none ${activeTab === 'overview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         <FileText size={16} />
                         Overview
                     </button>
                     <button
                         onClick={() => setActiveTab('payment')}
-                        className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'payment' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-all sm:px-4 sm:py-2.5 sm:text-sm md:flex-none ${activeTab === 'payment' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         <Wallet size={16} />
                         Payment
@@ -519,8 +634,8 @@ const Dashboard = () => {
                 <>
                     {/* Primary Stats: Totals */}
                     <div>
-                        <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Resource Overview</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <h2 className="mb-3 px-1 text-base font-bold text-gray-800 sm:mb-4 sm:text-lg">Resource Overview</h2>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 md:gap-6">
                             <StatCard
                                 title="Total Documents"
                                 value={totalDocuments}
@@ -550,8 +665,8 @@ const Dashboard = () => {
 
                     {/* Secondary Stats: Action Items */}
                     <div>
-                        <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Action Items & Status</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <h2 className="mb-3 px-1 text-base font-bold text-gray-800 sm:mb-4 sm:text-lg">Action Items & Status</h2>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 md:gap-6">
                             <StatCard
                                 title="Renewals Pending"
                                 value={totalRenewals}
@@ -583,7 +698,7 @@ const Dashboard = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                         {/* 1. Subscription Breakdown Chart */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-input flex flex-col items-center">
+                        <div className={`${PANEL_CARD_CLASS} lg:col-span-1 flex flex-col items-center p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2 w-full text-left">Subscriptions</h3>
                             <p className="text-xs text-gray-500 mb-4 w-full text-left">By status</p>
                             <div className="h-[200px] w-full relative">
@@ -613,7 +728,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* 2. Document Status Chart */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-input flex flex-col items-center">
+                        <div className={`${PANEL_CARD_CLASS} lg:col-span-1 flex flex-col items-center p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2 w-full text-left">Documents</h3>
                             <p className="text-xs text-gray-500 mb-4 w-full text-left">By renewal status</p>
                             <div className="h-[200px] w-full relative">
@@ -643,7 +758,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* 3. Loan Status Chart */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-input flex flex-col items-center">
+                        <div className={`${PANEL_CARD_CLASS} lg:col-span-1 flex flex-col items-center p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2 w-full text-left">Loans</h3>
                             <p className="text-xs text-gray-500 mb-4 w-full text-left">By active status</p>
                             <div className="h-[200px] w-full relative">
@@ -674,7 +789,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Activity Timeline */}
-                    <div className="bg-white p-6 rounded-2xl shadow-input">
+                    <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                         <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
                             <CheckCircle size={20} className="text-blue-600" />
                             Recent Activity
@@ -756,7 +871,7 @@ const Dashboard = () => {
             {activeTab === 'payment' && (
                 <>
                     {/* Payment Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
                         <StatCard title="Total Requests" value={paymentStats.totalRequests} icon={BarChart3} color="bg-blue-500 text-blue-600" subtext={`₹${(paymentStats.totalAmount / 1000).toFixed(1)}K total`} onClick={() => navigate('/payment/request-form')} />
                         <StatCard title="Pending Approvals" value={paymentStats.pendingApprovals} icon={Clock} color="bg-yellow-500 text-yellow-600" subtext="Awaiting review" onClick={() => navigate('/payment/approval')} />
                         <StatCard title="Payments Made" value={paymentStats.paymentsMade} icon={CheckCircle} color="bg-green-500 text-green-600" subtext={`₹${(paymentStats.paidAmount / 1000).toFixed(1)}K paid`} onClick={() => navigate('/payment/make-payment')} />
@@ -766,7 +881,7 @@ const Dashboard = () => {
                     {/* Payment Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Payment Status Pie */}
-                        <div className="bg-white p-6 rounded-2xl shadow-input">
+                        <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2">Payment Status</h3>
                             <p className="text-xs text-gray-500 mb-4">Distribution by status</p>
                             <div className="h-[280px] relative">
@@ -796,32 +911,32 @@ const Dashboard = () => {
                         </div>
 
                         {/* Amount Summary */}
-                        <div className="bg-white p-6 rounded-2xl shadow-input">
+                        <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2">Amount Summary</h3>
                             <p className="text-xs text-gray-500 mb-4">Financial overview</p>
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-[linear-gradient(145deg,#f8fbff_0%,#ffffff_100%)] p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                                         <span className="text-sm font-medium text-gray-700">Total Requested</span>
                                     </div>
                                     <span className="text-lg font-bold text-gray-900">₹{paymentStats.totalAmount.toLocaleString()}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-[linear-gradient(145deg,#f4fff8_0%,#ffffff_100%)] p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
                                         <span className="text-sm font-medium text-gray-700">Approved</span>
                                     </div>
                                     <span className="text-lg font-bold text-green-600">₹{paymentStats.approvedAmount.toLocaleString()}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-[linear-gradient(145deg,#f0fdf8_0%,#ffffff_100%)] p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
                                         <span className="text-sm font-medium text-gray-700">Paid</span>
                                     </div>
                                     <span className="text-lg font-bold text-emerald-600">₹{paymentStats.paidAmount.toLocaleString()}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-[linear-gradient(145deg,#fffbea_0%,#ffffff_100%)] p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                                         <span className="text-sm font-medium text-gray-700">Pending</span>
@@ -833,14 +948,14 @@ const Dashboard = () => {
                     </div>
 
                     {/* Recent Payment Activity */}
-                    <div className="bg-white p-6 rounded-2xl shadow-input">
+                    <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                         <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
                             <CheckCircle size={20} className="text-blue-600" />
                             Recent Payment Activity
                         </h3>
                         <div className="space-y-4">
                             {recentPayments.length > 0 ? recentPayments.map((activity) => (
-                                <div key={activity.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div key={activity.id} className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-[linear-gradient(145deg,#ffffff_0%,#f8fafc_100%)] p-4 transition-colors hover:bg-[linear-gradient(145deg,#f8fbff_0%,#ffffff_100%)]">
                                     <div className="flex-1">
                                         <p className="text-sm font-medium text-gray-800">{activity.desc}</p>
                                         <p className="text-xs text-gray-400 mt-1">Pay To: {activity.payTo} • {activity.time}</p>
@@ -865,7 +980,7 @@ const Dashboard = () => {
             {activeTab === 'account' && (
                 <>
                     {/* Account Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
                         <StatCard title="Total Entries" value="1,240" icon={TrendingUp} color="bg-blue-500 text-blue-600" subtext="+12% from last month" onClick={() => navigate('/account/tally-data')} />
                         <StatCard title="Approved" value="829" icon={CheckCircle} color="bg-green-500 text-green-600" subtext="+8% this month" onClick={() => navigate('/account/audit')} />
                         <StatCard title="Pending Audit" value="148" icon={Clock} color="bg-yellow-500 text-yellow-600" subtext="Awaiting review" onClick={() => navigate('/account/audit')} />
@@ -877,7 +992,7 @@ const Dashboard = () => {
                     {/* Account Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Status Distribution Pie */}
-                        <div className="bg-white p-6 rounded-2xl shadow-input">
+                        <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2">Status Distribution</h3>
                             <p className="text-xs text-gray-500 mb-4">Current entries by status</p>
                             <div className="h-[280px]">
@@ -902,7 +1017,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Monthly Entry Bar Chart */}
-                        <div className="bg-white p-6 rounded-2xl shadow-input">
+                        <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                             <h3 className="font-bold text-base text-gray-800 mb-2">Monthly Entry Count</h3>
                             <p className="text-xs text-gray-500 mb-4">Entries vs Approved</p>
                             <div className="h-[280px]">
@@ -929,7 +1044,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Recent Account Activity */}
-                    <div className="bg-white p-6 rounded-2xl shadow-input">
+                    <div className={`${PANEL_CARD_CLASS} p-5 sm:p-6`}>
                         <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
                             <CheckCircle size={20} className="text-blue-600" />
                             Recent Account Activity
@@ -942,7 +1057,7 @@ const Dashboard = () => {
                                 { id: 4, action: 'Tally entry submitted', vendor: 'Finance Ltd', amount: '₹12,300', time: '2 days ago', status: 'pending' },
                                 { id: 5, action: 'Bill filed', vendor: 'Express Logistics', amount: '₹2,500', time: '2 days ago', status: 'filed' },
                             ].map((activity) => (
-                                <div key={activity.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                                <div key={activity.id} className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-[linear-gradient(145deg,#ffffff_0%,#f8fafc_100%)] p-4 transition-colors hover:bg-[linear-gradient(145deg,#f8fbff_0%,#ffffff_100%)]">
                                     <div className="flex-1">
                                         <p className="text-sm font-medium text-gray-800">{activity.action}</p>
                                         <p className="text-xs text-gray-400 mt-1">{activity.vendor} • {activity.time}</p>

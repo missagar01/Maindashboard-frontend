@@ -48,12 +48,12 @@ const MyProfile = () => {
 
   const fetchProfile = useCallback(async (isAutoSync = false) => {
     try {
-      const profileLookupId = user?.id || user?.employee_id;
+      const profileLookupId = user?.id ?? user?.employee_id;
       if (!token || !profileLookupId) return;
 
       if (!isAutoSync) setLoading(true);
       const response = await getEmployeeById(profileLookupId, token);
-      const profile = response?.data;
+      const profile = response?.data ?? response?.user ?? response ?? null;
       if (!profile) {
         throw new Error('No profile data found');
       }
