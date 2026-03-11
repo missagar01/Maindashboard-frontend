@@ -1,5 +1,22 @@
-import { DashboardView } from "../O2D/dashboard-view";
+import { useRef } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { isAdminUser } from "../../utils/accessControl";
+import AdminHomePage from "../master/pages/AdminPage";
+import UserHomePage from "../master/pages/AllUsers";
 
 export default function Home() {
-  return <DashboardView />;
+  const { user } = useAuth();
+  const allUsersRef = useRef<HTMLDivElement | null>(null);
+
+  if (isAdminUser(user)) {
+    return (
+      <AdminHomePage
+        allUsersRef={allUsersRef}
+        showAllUsersModal={false}
+        setShowAllUsersModal={() => undefined}
+      />
+    );
+  }
+
+  return <UserHomePage />;
 }

@@ -1596,8 +1596,7 @@ export function DashboardView() {
 
 
             {/* Sales Performance Report Section */}
-             {/* Sales Performance Report Section */}
-            <div className='w-full'>
+               <div className='w-full'>
               <div className="w-full m-0 p-0 bg-white">
                 <CardHeader className="bg-white border-b border-slate-100 px-0 sm:px-4 py-1 sm:py-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -1690,7 +1689,7 @@ export function DashboardView() {
                           const avgOrderClientsValue = totalOrderClients / dataRows.length;
                           const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
                           const avgTotalRsSaleValue = totalRsSale / dataRows.length;
-                          const avgAvgRsSale = (dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0) / dataRows.length).toFixed(2);
+                          const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
 
                           return (
                             <>
@@ -1834,8 +1833,7 @@ export function DashboardView() {
                               const avgConversionRatio = (dataRows.reduce((sum, row) => sum + parseFloat(row.conversionRatio || '0'), 0) / dataRows.length).toFixed(2);
                               const avgTotalRsSaleValue = dataRows.reduce((sum, row) => sum + Number(row.totalRsSale || 0), 0) / dataRows.length;
                               const avgTotalRsSale = avgTotalRsSaleValue.toFixed(0);
-                              // Average Rs Sale = Average Total Rs Sale / Average Order Clients
-                              const avgAvgRsSale = (dataRows.reduce((sum, row) => sum + parseFloat(row.avgRsSale || '0'), 0) / dataRows.length).toFixed(2);
+                              const avgAvgRsSale = avgOrderClientsValue > 0 ? (avgTotalRsSaleValue / avgOrderClientsValue).toFixed(2) : '0.00';
 
                               return (
                                 <tr className="bg-purple-50 font-bold border-t-2 border-purple-200 hover:bg-purple-100/80 transition-colors text-[9px] sm:text-sm">

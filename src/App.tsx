@@ -86,7 +86,6 @@ import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
 import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
 import StoreRepairFollowup from "./pages/store/pages/store/RepairFollowup";
 import StoreReturnable from "./pages/store/pages/store/ReturnablePage";
-import StoreSettings from "./pages/store/pages/store/Settings";
 import StoreGRN from "./pages/store/pages/store/StoreGRN";
 import StoreGRNAdminApproval from "./pages/store/pages/store/StoreGRNAdminApproval";
 import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
@@ -224,7 +223,6 @@ export default function App() {
               <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
               <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
               <Route path="/store/returnable" element={<RouteGuard><StoreReturnable /></RouteGuard>} />
-              <Route path="/store/settings" element={<RouteGuard><StoreSettings /></RouteGuard>} />
               <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
               <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
               <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />

@@ -5,6 +5,7 @@ import { ChevronDown, FileText, LogOut, Users } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assert/Logo.jpeg";
+import { getSidebarModuleForPath } from "../config/portalNavigation";
 import {
   hasStoreModuleAccess,
   isAdminUser,
@@ -187,6 +188,10 @@ const AppSidebar: FC = () => {
   const { logout, user } = useAuth();
   const isAdmin = useMemo(() => isAdminUser(user), [user]);
   const showText = isExpanded || isHovered || isMobileOpen;
+  const activeSidebarModule = useMemo(
+    () => getSidebarModuleForPath(location.pathname),
+    [location.pathname]
+  );
 
   const [isO2dOpen, setIsO2dOpen] = useState<boolean>(true);
   const [isBatchCodeOpen, setIsBatchCodeOpen] = useState<boolean>(() =>
@@ -368,6 +373,11 @@ const AppSidebar: FC = () => {
   const showDashboard = useMemo(() => {
     return isPathAllowed("/", user) || isPathAllowed("/dashboard", user);
   }, [user]);
+  const showSalesSections = activeSidebarModule === "sales";
+  const showHrfmsSection = activeSidebarModule === "hrms";
+  const showStoreSection = activeSidebarModule === "store";
+  const showDocumentSection = activeSidebarModule === "subscription";
+  const showAdminSettings = isAdmin && showSalesSections;
 
   const buildSubKey = useCallback((item: NavSubItem, parentKey: string) => {
     return `${parentKey}>${item.path || item.name}`;
@@ -586,14 +596,14 @@ const AppSidebar: FC = () => {
           </div>
         ) : null}
 
-        {filteredO2dItem ? (
+        {showSalesSections && filteredO2dItem ? (
           <div className="mb-1">
             {renderGroupToggle(filteredO2dItem, isO2dOpen, () => setIsO2dOpen((prev) => !prev))}
             {isO2dOpen ? renderSubItems(filteredO2dItem.subItems, "o2d-root") : null}
           </div>
         ) : null}
 
-        {filteredBatchCodeItem ? (
+        {showSalesSections && filteredBatchCodeItem ? (
           <div className="mb-1">
             {renderGroupToggle(filteredBatchCodeItem, isBatchCodeOpen, () =>
               setIsBatchCodeOpen((prev) => !prev)
@@ -602,7 +612,7 @@ const AppSidebar: FC = () => {
           </div>
         ) : null}
 
-        {leadToOrderNavItem.subItems && leadToOrderNavItem.subItems.length > 0 ? (
+        {showSalesSections && leadToOrderNavItem.subItems && leadToOrderNavItem.subItems.length > 0 ? (
           <div className="mb-1">
             {renderGroupToggle(leadToOrderNavItem, isLeadToOrderOpen, () =>
               setIsLeadToOrderOpen((prev) => !prev)
@@ -611,21 +621,21 @@ const AppSidebar: FC = () => {
           </div>
         ) : null}
 
-        {filteredHrfmsItem ? (
+        {showHrfmsSection && filteredHrfmsItem ? (
           <div className="mb-1">
             {renderGroupToggle(filteredHrfmsItem, isHrfmsOpen, () => setIsHrfmsOpen((prev) => !prev))}
             {isHrfmsOpen ? renderSubItems(filteredHrfmsItem.subItems, "hrfms-root") : null}
           </div>
         ) : null}
 
-        {filteredStoreItem ? (
+        {showStoreSection && filteredStoreItem ? (
           <div className="mb-1">
             {renderGroupToggle(filteredStoreItem, isStoreOpen, () => setIsStoreOpen((prev) => !prev))}
             {isStoreOpen ? renderSubItems(filteredStoreItem.subItems, "store-root") : null}
           </div>
         ) : null}
 
-        {filteredDocumentItem ? (
+        {showDocumentSection && filteredDocumentItem ? (
           <div className="mb-1">
             {renderGroupToggle(filteredDocumentItem, isDocumentOpen, () =>
               setIsDocumentOpen((prev) => !prev)
@@ -634,7 +644,7 @@ const AppSidebar: FC = () => {
           </div>
         ) : null}
 
-        {isAdmin ? (
+        {showAdminSettings ? (
           <div className="mb-1">
             <Link
               to={leadToOrderSettingsItem.path || "/lead-to-order/settings"}
