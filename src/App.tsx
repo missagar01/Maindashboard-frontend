@@ -58,6 +58,10 @@ import HRFMSCandidateStatus from "./pages/hrfms/pages/CandidateStatusPage";
 import HRFMSSelectedCandidate from "./pages/hrfms/pages/SelectedCondidate";
 import HRFMSPlantVisitor from "./pages/hrfms/pages/PlantVisitor";
 import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
+import GatePassApprovals from "./pages/gatepass/pages/ApprovelPage";
+import GatePassAllData from "./pages/gatepass/pages/AllData";
+import GatePassClosePass from "./pages/gatepass/pages/ClosePass";
+import GatePassRequestVisit from "./pages/gatepass/pages/RequestVisit";
 
 // Store pages
 import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
@@ -194,6 +198,14 @@ export default function App() {
             <Route path="/hrfms/condidate-select" element={<RouteGuard><HRFMSSelectedCandidate /></RouteGuard>} />
             <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
             <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
+            <Route path="/gatepass" element={<RouteGuard><Navigate to="/gatepass/visitor" replace /></RouteGuard>} />
+            <Route path="/gatepass/visitor" element={<RouteGuard><Navigate to="/gatepass/approvals" replace /></RouteGuard>} />
+            <Route path="/gatepass/approvals" element={<RouteGuard><GatePassApprovals /></RouteGuard>} />
+            <Route path="/gatepass/approve" element={<RouteGuard><Navigate to="/gatepass/approvals" replace /></RouteGuard>} />
+            <Route path="/gatepass/all-data" element={<RouteGuard><GatePassAllData /></RouteGuard>} />
+            <Route path="/gatepass/request-visit" element={<RouteGuard><GatePassRequestVisit /></RouteGuard>} />
+            <Route path="/gatepass/close" element={<RouteGuard><Navigate to="/gatepass/close-pass" replace /></RouteGuard>} />
+            <Route path="/gatepass/close-pass" element={<RouteGuard><GatePassClosePass /></RouteGuard>} />
 
             {/* Store Routes — provider wraps ALL store pages so data persists across navigation */}
             <Route element={<StoreDashboardProvider><Outlet /></StoreDashboardProvider>}>

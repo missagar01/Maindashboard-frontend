@@ -88,8 +88,17 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Selected Candidate": "/hrfms/condidate-select",
   "Checklist Combined": "/checklist",
   Checklist: "/checklist",
-  "Visitor Gate Pass": "/gatepass/visitor",
-  "Close Gate Pass": "/gatepass/close",
+  "Visitor Gate Pass": "/gatepass/approvals",
+  Approvals: "/gatepass/approvals",
+  "Gate Pass Approvals": "/gatepass/approvals",
+  "All Data": "/gatepass/all-data",
+  "Gate Pass All Data": "/gatepass/all-data",
+  "Request List": "/gatepass/request-visit",
+  "Gate Pass Request Visit": "/gatepass/request-visit",
+  "Gate Pass Request List": "/gatepass/request-visit",
+  "Close Gate Pass": "/gatepass/close-pass",
+  "Close Pass": "/gatepass/close-pass",
+  "Gate Pass Close Pass": "/gatepass/close-pass",
   "Sales Module": "/lead-to-order/leads",
   "System Access": "/lead-to-order/settings",
   "Page Access": "/lead-to-order/settings",
@@ -149,6 +158,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Rate Approval": "/store/rate-approval",
   "Vendor Update": "/store/vendor-update",
   "User Indent": "/store/user-indent",
+  "Create Indent": "/store/user-indent",
   "User Indent List": "/store/user-indent-list",
   "User Indent Details": "/store/user-indent-list-indent",
   "My Indent": "/store/user-indent-list-indent",
@@ -495,7 +505,7 @@ const normalizePageEntryToRoute = (
     if (hasStore) return "/store/dashboard";
     if (hasDocument) return "/document/dashboard";
     if (hasChecklist) return "/checklist";
-    if (hasGatePass) return "/gatepass/visitor";
+    if (hasGatePass) return "/gatepass/approvals";
     return "/";
   };
 
@@ -522,6 +532,9 @@ const normalizePageEntryToRoute = (
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
+    if (normalized === "/gatepass") return "/gatepass/approvals";
+    if (normalized === "/gatepass/visitor") return "/gatepass/approvals";
+    if (normalized === "/gatepass/close") return "/gatepass/close-pass";
 
     if (HRFMS_LEGACY_ROUTE_MAP[normalized] && hasSystemAccess(availableSystems, "hrfms")) {
       return HRFMS_LEGACY_ROUTE_MAP[normalized];
@@ -561,16 +574,12 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
     getStoreAllowedRoutes(user).forEach((route) => routes.add(route));
   }
 
-  // Inject system default routes so the sidebar at least opens the root page when the user has system_access
+  // Inject system default routes so the sidebar at least opens the root page when the user has system_access.
+  // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
   if (hasSystemAccess(availableSystems, "document")) routes.add("/subscription/all");
   // Store dashboard is mapped by getStoreAllowedRoutes above automatically
   if (hasSystemAccess(availableSystems, "checklist")) routes.add("/checklist");
-  if (hasSystemAccess(availableSystems, "gatepass")) {
-    if (availableSystems.some(s => s.includes("visitor"))) routes.add("/gatepass/visitor");
-    else if (availableSystems.some(s => s.includes("close"))) routes.add("/gatepass/close");
-    else routes.add("/gatepass/visitor");
-  }
 
   return Array.from(routes);
 };

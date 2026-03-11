@@ -631,13 +631,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      // Use unified auth endpoint - Backend expects user_name, not username
-      const response = await api.post('/api/auth/login', {
-        user_name: username.trim(),
-        password: password,
-      });
+      const normalizedUsername = username.trim();
+      const legacyLoginBaseUrl = (import.meta.env.VITE_API_BASE_USER_URL || "").trim().replace(/\/+$/, "");
+      const loginPayload = {
+        username: normalizedUsername,
+        user_name: normalizedUsername,
+        employee_id: normalizedUsername,
+        password,
+      };
+      const loginEndpoints = Array.from(
+        new Set(
+          [
+            "/api/auth/login",
+            "/api/login",
+            "/login",
+            legacyLoginBaseUrl ? `${legacyLoginBaseUrl}/login` : "",
+          ].filter(Boolean)
+        )
+      );
 
-      const payload = response.data || {};
+      let response: { data?: Record<string, unknown> } | null = null;
+      let lastError: unknown = null;
+
+      for (const endpoint of loginEndpoints) {
+        try {
+          response = await api.post(endpoint, loginPayload);
+          break;
+        } catch (error) {
+          const endpointError = error as { response?: { status?: number } };
+          if (endpointError.response?.status === 404) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (!response) {
+        throw (
+          lastError instanceof Error
+            ? lastError
+            : new Error("Login endpoint not found")
+        );
+      }
+
+      const payload = (response.data || {}) as Record<string, any>;
 
       // Backend response structure: { success: true, data: { user: {...}, token: "..." } }
       const apiUser = payload.data?.user || payload.user || {};

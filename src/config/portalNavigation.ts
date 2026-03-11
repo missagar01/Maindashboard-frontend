@@ -7,8 +7,7 @@ export type PortalNavKey =
   | "hrms"
   | "logistic"
   | "batchcode"
-  | "visitor-gate-pass"
-  | "close-gate-pass";
+  | "visitor-gate-pass";
 
 export interface PortalNavItem {
   key: string;
@@ -73,13 +72,17 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     key: "visitor-gate-pass",
     label: "VISITOR GATE PASS",
     path: "/gatepass/visitor",
-    aliases: ["visitorgatepass", "visitorpass", "visitorgate", "gatepassvisitor", "gatepass"],
-  },
-  {
-    key: "close-gate-pass",
-    label: "CLOSE GATE PASS",
-    path: "/gatepass/close",
-    aliases: ["closegatepass", "closepass", "closegate", "gatepassclose"],
+    aliases: [
+      "visitorgatepass",
+      "visitorpass",
+      "visitorgate",
+      "gatepassvisitor",
+      "gatepass",
+      "closegatepass",
+      "closepass",
+      "closegate",
+      "gatepassclose",
+    ],
   },
 ];
 
@@ -93,7 +96,6 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   // { key: "logistic", label: "LOGISTIC", path: "https://triofleet.trieon.in/" },
   // { key: "batchcode", label: "BATCHCODE", path: "/batchcode/hot-coil" },
   { key: "visitor-gate-pass", label: "VISITOR GATE PASS", path: "/gatepass/visitor" },
-  { key: "close-gate-pass", label: "CLOSE GATE PASS", path: "/gatepass/close" },
 ];
 
 export const resolvePortalSystemDefinition = (systemName?: string | null) => {
@@ -156,8 +158,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
   ) {
     return "sales";
   }
-  if (normalized.startsWith("/gatepass/visitor")) return "visitor-gate-pass";
-  if (normalized.startsWith("/gatepass/close")) return "close-gate-pass";
+  if (normalized.startsWith("/gatepass")) return "visitor-gate-pass";
 
   return "home";
 };

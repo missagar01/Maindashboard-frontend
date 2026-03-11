@@ -28,7 +28,7 @@ const Login: React.FC = () => {
     type: "success",
   });
 
-  
+
   useEffect(() => {
     if (isAuthenticated && !loading && user) {
       navigate("/", { replace: true });
@@ -68,17 +68,15 @@ const Login: React.FC = () => {
 
       {toast.show && (
         <div
-          className={`fixed left-1/2 top-5 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border bg-white/95 px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur ${
-            toast.type === "success"
+          className={`fixed left-1/2 top-5 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border bg-white/95 px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur ${toast.type === "success"
               ? "border-emerald-200 text-emerald-700"
               : "border-red-200 text-red-700"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2.5 text-sm font-medium">
             <span
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                toast.type === "success" ? "bg-emerald-50" : "bg-red-50"
-              }`}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${toast.type === "success" ? "bg-emerald-50" : "bg-red-50"
+                }`}
             >
               {toast.type === "success" ? (
                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">

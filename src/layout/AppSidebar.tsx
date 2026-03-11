@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FC } from "react";
 import { Link, useLocation } from "react-router";
 import {
   BadgeCheck,
-  BookCopy,
   Boxes,
   BriefcaseBusiness,
   ChevronDown,
@@ -245,12 +244,12 @@ const storeSection: SidebarSection = {
 
 const visitorSection: SidebarSection = {
   key: "visitor-gate-pass", title: "Visitor Gate Pass", caption: "Security Access", icon: ShieldCheck,
-  nodes: [{ kind: "link", key: "visitor-gate-pass", name: "Visitor Gate Pass", path: "/gatepass/visitor", icon: ShieldCheck }],
-};
-
-const closeGateSection: SidebarSection = {
-  key: "close-gate-pass", title: "Close Gate Pass", caption: "Security Access", icon: BookCopy,
-  nodes: [{ kind: "link", key: "close-gate-pass", name: "Close Gate Pass", path: "/gatepass/close", icon: BookCopy }],
+  nodes: [
+    { kind: "link", key: "gatepass-approvals", name: "Approvals", path: "/gatepass/approvals", icon: BadgeCheck },
+    { kind: "link", key: "gatepass-all-data", name: "All Data", path: "/gatepass/all-data", icon: Files },
+    { kind: "link", key: "gatepass-close-pass", name: "Close Pass", path: "/gatepass/close-pass", icon: ShieldCheck },
+    { kind: "link", key: "gatepass-request-visit", name: "Request List", path: "/gatepass/request-visit", icon: FileText },
+  ],
 };
 
 const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
@@ -262,7 +261,6 @@ const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   store: storeSection,
   subscription: subscriptionSection,
   "visitor-gate-pass": visitorSection,
-  "close-gate-pass": closeGateSection,
 };
 
 const AppSidebar: FC = () => {

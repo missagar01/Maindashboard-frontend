@@ -207,28 +207,28 @@ const AttendanceCard = ({ attendance, month }) => {
     const dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
     return (
-        <div className="bg-emerald-500 rounded-xl shadow-lg overflow-hidden text-white transition-all duration-300">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden text-slate-900 border border-slate-200 transition-all duration-300">
             {/* Calendar Header */}
-            <div className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center border-b border-emerald-400/30 gap-4">
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center border-b border-slate-200 gap-4">
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                     <div className="flex items-center gap-2">
-                        <Calendar className="text-white" size={24} />
+                        <Calendar className="text-emerald-600" size={24} />
                         <h2 className="text-xl font-bold">Attendance Calendar</h2>
                     </div>
                 </div>
 
                 {/* Stats Chips */}
-                <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-medium bg-emerald-600/40 p-1.5 sm:px-4 sm:py-2 rounded-lg backdrop-blur-sm w-full sm:w-auto justify-around sm:justify-start">
+                <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-medium bg-emerald-50 text-emerald-700 p-1.5 sm:px-4 sm:py-2 rounded-lg border border-emerald-100 w-full sm:w-auto justify-around sm:justify-start">
                     <div className="flex items-center gap-1.5">
-                        <CheckCircle2 size={16} className="text-white" />
+                        <CheckCircle2 size={16} className="text-emerald-600" />
                         <span><span className="opacity-80">Present:</span> <strong>{attendance.present}</strong></span>
                     </div>
-                    <div className="flex items-center gap-1.5 sm:border-l sm:border-emerald-400/50 sm:pl-4">
-                        <XCircle size={16} className="text-white" />
+                    <div className="flex items-center gap-1.5 sm:border-l sm:border-emerald-200 sm:pl-4">
+                        <XCircle size={16} className="text-rose-500" />
                         <span><span className="opacity-80">Absent:</span> <strong>{attendance.absent}</strong></span>
                     </div>
-                    <div className="flex items-center gap-1.5 sm:border-l sm:border-emerald-400/50 sm:pl-4 hidden sm:flex">
-                        <Briefcase size={16} className="text-white" />
+                    <div className="flex items-center gap-1.5 sm:border-l sm:border-emerald-200 sm:pl-4 hidden sm:flex">
+                        <Briefcase size={16} className="text-emerald-600" />
                         <span><span className="opacity-80">Working:</span> <strong>{attendance.totalWorkingDays}</strong></span>
                     </div>
                 </div>
@@ -243,7 +243,7 @@ const AttendanceCard = ({ attendance, month }) => {
 
                 <div className="grid grid-cols-7 gap-1 sm:gap-2 max-w-4xl mx-auto">
                     {dayLabels.map(day => (
-                        <div key={day} className="text-center text-xs sm:text-sm font-bold opacity-80 py-2 uppercase tracking-wider">
+                        <div key={day} className="text-center text-xs sm:text-sm font-bold text-slate-500 py-2 uppercase tracking-wider">
                             {day}
                         </div>
                     ))}
@@ -256,22 +256,31 @@ const AttendanceCard = ({ attendance, month }) => {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         const status = attendance.details[dateStr];
                         const isToday = isSameDay(day, new Date());
+                        const statusLabel =
+                            status === 'P' ? 'Present' :
+                            status === 'A' ? 'Absent' :
+                            status === 'AL' ? 'Approved Leave' :
+                            status === 'L' ? 'Leave' :
+                            status === 'H' ? 'Holiday' :
+                            status;
 
-                        let cellBg = 'hover:bg-emerald-400/20';
+                        let cellBg = 'bg-slate-50 text-slate-500 hover:bg-slate-100';
 
-                        if (status === 'P') cellBg = 'bg-white/20 font-bold shadow-sm';
+                        if (status === 'P') cellBg = 'bg-emerald-100 text-emerald-900 font-bold shadow-sm';
                         else if (status === 'A') cellBg = 'bg-rose-500 font-bold shadow-sm';
+                        else if (status === 'AL') cellBg = 'bg-violet-300 text-violet-950 font-bold shadow-sm';
+                        else if (status === 'L') cellBg = 'bg-sky-300 text-sky-950 font-bold shadow-sm';
                         else if (status === 'H') cellBg = 'bg-amber-400 text-amber-900 font-bold shadow-sm';
 
                         if (isToday) {
-                            cellBg += ' ring-2 ring-white z-10';
+                            cellBg += ' ring-2 ring-emerald-500 z-10';
                         }
 
                         return (
                             <div
                                 key={dateStr}
                                 className={`
-                                    aspect-square rounded-md sm:rounded-lg flex flex-col items-center justify-center relative transition-all duration-200
+                                    aspect-square rounded-md sm:rounded-lg flex flex-col items-center justify-center relative transition-all duration-200 border border-transparent
                                     ${cellBg}
                                 `}
                             >
@@ -280,7 +289,7 @@ const AttendanceCard = ({ attendance, month }) => {
                                     <div className="mt-0.5">
                                         <span className="text-[10px] font-extrabold sm:hidden">{status}</span>
                                         <span className="text-[10px] font-medium hidden sm:block opacity-90">
-                                            {status === 'P' ? 'Present' : status === 'A' ? 'Absent' : status}
+                                            {statusLabel}
                                         </span>
                                     </div>
                                 )}

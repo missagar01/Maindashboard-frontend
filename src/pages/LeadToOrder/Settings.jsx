@@ -7,21 +7,19 @@ import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 
 // System options
 const SYSTEM_OPTIONS = [
-  { value: "SALE", label: "SALE MODULE" },
-  { value: "HRFMS", label: "HRMS" },
-  { value: "STORE", label: "STORE AND PURCHASE" },
-  { value: "SUBSCRIPTION", label: "Document Control" },
   { value: "CHECKLIST", label: "CHECKLIST" },
   { value: "MAINTENANCE", label: "MAINTENANCE" },
-  { value: "HOUSEKEEPING", label: "HOUSEKEEPING" },
-  { value: "CHECKLIST_COMBINED", label: "CHECKLIST COMBINED" },
-  { value: "GATEPASS", label: "GATE PASS" },
+  { value: "STORE AND PURCHASE", label: "STORE AND PURCHASE" },
+  { value: "HRFMS", label: "HRFMS" },
+  { value: "VISITOR GATE PASS", label: "VISITOR GATE PASS" },
+  { value: "SALES MODULE", label: "SALES MODULE" },
+  { value: "SUBSCRIPTION", label: "SUBSCRIPTION" },
 ];
 
 // Page routes organized by system
 // Structure: { value: "PageName", label: "Display Label", route: "/actual/route" }
 const PAGE_ROUTES = {
-  "SALE": [
+  "SALES MODULE": [
     { value: "Dashboard", label: "Dashboard", route: "/" },
     { value: "Orders", label: "Orders", route: "/o2d/orders" },
     { value: "Enquiry", label: "Enquiry", route: "/o2d/enquiry" },
@@ -74,7 +72,7 @@ const PAGE_ROUTES = {
     { value: "Interviwer List", label: "Interviwer List", route: "/hrfms/condidate-list" },
     { value: "Selected Condidate", label: "Selected Condidate", route: "/hrfms/condidate-select" },
   ],
-  "STORE": [
+  "STORE AND PURCHASE": [
     { value: "Store Dashboard", label: "Dashboard", route: "/store/dashboard" },
     { value: "Store Issue", label: "Store Issue", route: "/store/item-issue" },
     { value: "Indent", label: "Indent", route: "/store/indent" },
@@ -106,6 +104,12 @@ const PAGE_ROUTES = {
     { value: "All Loan", label: "All Loan", route: "/loan/all" },
     { value: "Request Forecloser", label: "Request Forecloser", route: "/loan/foreclosure" },
     { value: "Master", label: "Master", route: "/master" },
+  ],
+  "VISITOR GATE PASS": [
+    { value: "Gate Pass Approvals", label: "Approvals", route: "/gatepass/approvals" },
+    { value: "Gate Pass All Data", label: "All Data", route: "/gatepass/all-data" },
+    { value: "Close Gate Pass", label: "Close Gate Pass", route: "/gatepass/close-pass" },
+    { value: "Gate Pass Request List", label: "Request List", route: "/gatepass/request-visit" },
   ],
 };
 
@@ -178,29 +182,53 @@ const ROUTE_TO_PAGE_NAME_MAP = {
   "/loan/all": "All Loan",
   "/loan/foreclosure": "Request Forecloser",
   "/master": "Master",
+  "/gatepass/visitor": "Gate Pass Approvals",
+  "/gatepass/approvals": "Gate Pass Approvals",
+  "/gatepass/all-data": "Gate Pass All Data",
+  "/gatepass/request-visit": "Gate Pass Request List",
+  "/gatepass/close": "Close Gate Pass",
+  "/gatepass/close-pass": "Close Gate Pass",
 };
 
+const ALLOWED_SYSTEM_VALUES = new Set(SYSTEM_OPTIONS.map((option) => option.value));
+
+const normalizeLookupKey = (value) =>
+  (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
 const SYSTEM_ALIASES = {
-  "leadtoorder": "SALE",
-  "lead_to_order": "SALE",
-  "lead-to-order": "SALE",
-  "o2d": "SALE",
-  "batchcode": "SALE",
-  "hrms": "HRFMS",
-  "hrfms": "HRFMS",
-  "stores": "STORE",
-  "store": "STORE",
-  "storefms": "STORE",
-  "store-fms": "STORE",
-  "inventory": "STORE",
-  "documents": "SUBSCRIPTION",
-  "docs": "SUBSCRIPTION",
-  "subscriptions": "SUBSCRIPTION",
-  "subscription": "SUBSCRIPTION",
-  "loans": "SUBSCRIPTION",
-  "loan": "SUBSCRIPTION",
-  "payments": "PAYMENT",
-  "payment": "PAYMENT",
+  checklist: "CHECKLIST",
+  checklistcombined: "CHECKLIST",
+  housekeeping: "CHECKLIST",
+  maintenance: "MAINTENANCE",
+  store: "STORE AND PURCHASE",
+  stores: "STORE AND PURCHASE",
+  storeandpurchase: "STORE AND PURCHASE",
+  storefms: "STORE AND PURCHASE",
+  inventory: "STORE AND PURCHASE",
+  purchase: "STORE AND PURCHASE",
+  hrms: "HRFMS",
+  hrfms: "HRFMS",
+  visitorgatepass: "VISITOR GATE PASS",
+  gatepass: "VISITOR GATE PASS",
+  closegatepass: "VISITOR GATE PASS",
+  visitorpass: "VISITOR GATE PASS",
+  salesmodule: "SALES MODULE",
+  sale: "SALES MODULE",
+  sales: "SALES MODULE",
+  leadtoorder: "SALES MODULE",
+  o2d: "SALES MODULE",
+  batchcode: "SALES MODULE",
+  subscription: "SUBSCRIPTION",
+  subscriptions: "SUBSCRIPTION",
+  documentcontrol: "SUBSCRIPTION",
+  document: "SUBSCRIPTION",
+  documents: "SUBSCRIPTION",
+  docs: "SUBSCRIPTION",
+  loan: "SUBSCRIPTION",
+  loans: "SUBSCRIPTION",
+  payment: "SUBSCRIPTION",
+  payments: "SUBSCRIPTION",
+  resourcemanager: "SUBSCRIPTION",
 };
 
 const PAGE_VALUE_LOOKUP = Object.values(PAGE_ROUTES)
@@ -212,6 +240,13 @@ const PAGE_VALUE_LOOKUP = Object.values(PAGE_ROUTES)
     dashboard: "Dashboard",
     master: "Master",
     settings: "Settings",
+    approvals: "Gate Pass Approvals",
+    "all data": "Gate Pass All Data",
+    "visitor gate pass": "Gate Pass Approvals",
+    "close pass": "Close Gate Pass",
+    "gate pass close pass": "Close Gate Pass",
+    "request list": "Gate Pass Request List",
+    "gate pass request visit": "Gate Pass Request List",
   });
 
 const parseCsv = (value) =>
@@ -223,9 +258,19 @@ const parseCsv = (value) =>
 const toUnique = (values) => Array.from(new Set(values));
 
 const normalizeSystemName = (value) => {
-  const normalized = (value || "").toLowerCase().trim();
-  return SYSTEM_ALIASES[normalized] || normalized.toUpperCase();
+  const normalized = normalizeLookupKey(value);
+  return SYSTEM_ALIASES[normalized] || null;
 };
+
+const normalizeSystemAccessEntries = (value) =>
+  toUnique(
+    parseCsv(value)
+      .map(normalizeSystemName)
+      .filter((entry) => Boolean(entry) && ALLOWED_SYSTEM_VALUES.has(entry))
+  );
+
+const formatSystemAccessForDisplay = (value) =>
+  normalizeSystemAccessEntries(value).join(",");
 
 const normalizePageName = (value) => {
   const trimmed = (value || "").trim();
@@ -337,9 +382,7 @@ const Settings = () => {
     setFormMode("edit");
     setSelectedUserId(userRecord.id);
 
-    const systemAccess = toUnique(
-      parseCsv(userRecord.system_access).map(normalizeSystemName)
-    ).join(",");
+    const systemAccess = normalizeSystemAccessEntries(userRecord.system_access).join(",");
 
     const convertedPageAccess = toUnique(
       parseCsv(userRecord.page_access).map(normalizePageName).filter(Boolean)
@@ -398,9 +441,7 @@ const Settings = () => {
     }
 
     // Handle system_access and page_access - convert arrays to comma-separated strings
-    const systemAccess = Array.isArray(formData.system_access)
-      ? formData.system_access.join(",")
-      : formData.system_access || null;
+    const systemAccess = normalizeSystemAccessEntries(formData.system_access).join(",") || null;
 
     const pageAccess = Array.isArray(formData.page_access)
       ? formData.page_access.join(",")
@@ -466,14 +507,17 @@ const Settings = () => {
 
   const handleSystemAccessChange = useCallback((systemValue, checked) => {
     setFormData((prev) => {
-      const currentSystems = toUnique(
-        parseCsv(prev.system_access).map(normalizeSystemName)
-      );
+      const canonicalSystem = normalizeSystemName(systemValue);
+      if (!canonicalSystem) {
+        return prev;
+      }
+
+      const currentSystems = normalizeSystemAccessEntries(prev.system_access);
       let newSystems;
       if (checked) {
-        newSystems = toUnique([...currentSystems, normalizeSystemName(systemValue)]);
+        newSystems = toUnique([...currentSystems, canonicalSystem]);
       } else {
-        newSystems = currentSystems.filter((s) => s !== normalizeSystemName(systemValue));
+        newSystems = currentSystems.filter((s) => s !== canonicalSystem);
       }
 
       return {
@@ -512,9 +556,7 @@ const Settings = () => {
 
   // Get available pages based on selected system access grouped by system
   const getAvailablePages = useMemo(() => {
-    const systems = toUnique(
-      parseCsv(formData.system_access).map(normalizeSystemName)
-    );
+    const systems = normalizeSystemAccessEntries(formData.system_access);
     if (systems.length === 0) {
       return [];
     }
@@ -555,9 +597,7 @@ const Settings = () => {
   // Get selected system values as array
   const getSelectedSystems = useMemo(() => {
     if (!formData.system_access) return [];
-    return toUnique(
-      parseCsv(formData.system_access).map(normalizeSystemName)
-    );
+    return normalizeSystemAccessEntries(formData.system_access);
   }, [formData.system_access]);
 
   if (!isAdmin) {
@@ -711,7 +751,9 @@ const Settings = () => {
                   </div>
                   <div className="col-span-2">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Access</p>
-                    <p className="font-medium text-slate-700 text-xs mt-0.5 truncate">{userEntry.system_access || "—"}</p>
+                    <p className="font-medium text-slate-700 text-xs mt-0.5 truncate">
+                      {formatSystemAccessForDisplay(userEntry.system_access) || "—"}
+                    </p>
                   </div>
                 </div>
 
@@ -821,7 +863,9 @@ const Settings = () => {
                       </td>
                       <td className="px-3 py-3 text-xs leading-tight hidden lg:table-cell whitespace-nowrap">
                         <div className="truncate max-w-[200px] font-medium text-slate-600">{userEntry.page_access || "—"}</div>
-                        <div className="truncate text-[10px] text-slate-400 max-w-[200px]">{userEntry.system_access || "—"}</div>
+                        <div className="truncate text-[10px] text-slate-400 max-w-[200px]">
+                          {formatSystemAccessForDisplay(userEntry.system_access) || "—"}
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-[10px] sm:text-xs text-slate-400 hidden xl:table-cell whitespace-nowrap font-medium">
                         {userEntry.created_at

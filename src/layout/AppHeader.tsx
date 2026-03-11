@@ -8,10 +8,12 @@ import logo from "../assert/Logo.jpeg";
 import {
   DEFAULT_PORTAL_NAV_ITEMS,
   getActivePortalNavKey,
+  normalizeSystemIdentifier,
   resolvePortalNavItem,
   shouldShowSidebarForPath,
 } from "../config/portalNavigation";
 import {
+  getAllowedPageRoutes,
   getDefaultAllowedPath,
   getFirstAllowedPathForModule,
   isAdminUser,
@@ -134,11 +136,25 @@ const AppHeader: React.FC = () => {
     }
 
     parseCsv(user?.system_access).forEach((accessName) => {
+      const normalizedAccessName = normalizeSystemIdentifier(accessName);
+      if (normalizedAccessName.includes("gatepass") || normalizedAccessName.includes("visitorpass")) {
+        return;
+      }
+
       const item = resolvePortalNavItem(accessName);
       if (item) {
         pushNavItem(item, item.path);
       }
     });
+
+    const allowedPageRoutes = getAllowedPageRoutes(user);
+    if (
+      allowedPageRoutes.some(
+        (route) => route.startsWith("/gatepass")
+      )
+    ) {
+      pushNavItem(resolvePortalNavItem("gatepass"), "/gatepass/visitor");
+    }
 
     return navItems;
   }, [masterSystems, user]);
