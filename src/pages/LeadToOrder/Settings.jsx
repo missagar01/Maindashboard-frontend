@@ -137,7 +137,6 @@ const PAGE_ROUTES = {
     createPageOption("Resource Manager", "Resource Manager", "/resource-manager", ["/resource-manager"]),
     createPageOption("Document Renewal", "Document Renewal", "/document/renewal", ["/document/renewal"]),
     createPageOption("Subscription Renewal", "Subscription Renewal", "/subscription/renewal", ["/subscription/renewal"]),
-    createPageOption("All Subscriptions", "All Subscriptions", "/subscription/all", ["/subscription/all"]),
     createPageOption("Subscription Approval", "Subscription Approval", "/subscription/approval", ["/subscription/approval"]),
     createPageOption("Document Shared", "Document Shared", "/document/shared", ["/document/shared"]),
     createPageOption("All Loan", "All Loan", "/loan/all", ["/loan/all"]),

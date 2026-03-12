@@ -6,8 +6,6 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   ClipboardList,
-  CreditCard,
-  FileSpreadsheet,
   FileText,
   Files,
   FolderKanban,
@@ -23,7 +21,6 @@ import {
   ShoppingCart,
   Truck,
   Users,
-  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -169,10 +166,8 @@ const subscriptionSection: SidebarSection = {
             { kind: "link", key: "subscription-renewal-link", name: "Subscription Renewal", path: "/subscription/renewal", icon: RefreshCw },
           ],
         },
-        { kind: "link", key: "subscription-all", name: "All Subscriptions", path: "/subscription/all", icon: Files },
         { kind: "link", key: "subscription-approval", name: "Subscription Approval", path: "/subscription/approval", icon: BadgeCheck },
         { kind: "link", key: "document-shared", name: "Document Shared", path: "/document/shared", icon: FileText },
-
       ],
     },
     {

@@ -597,10 +597,14 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
     getStoreAllowedRoutes(user).forEach((route) => routes.add(route));
   }
 
+  const hasExplicitPageAccessConfig = source.length > 0;
+
   // Inject system default routes so the sidebar at least opens the root page when the user has system_access.
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
-  if (hasSystemAccess(availableSystems, "document")) routes.add("/subscription/all");
+  if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
+    routes.add("/document/dashboard");
+  }
   // Store dashboard is mapped by getStoreAllowedRoutes above automatically
   if (hasSystemAccess(availableSystems, "checklist")) routes.add("/checklist");
 
