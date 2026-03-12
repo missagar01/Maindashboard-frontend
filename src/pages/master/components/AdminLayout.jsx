@@ -8,9 +8,9 @@ import {
   createSystemApi,
   updateSystemApi,
   deleteSystemApi,
-} from "../api/systemsApi";
-import { storage } from "../utils/storage";
+} from "../../../api/master/systemsApi";
 import AllUserScore from "../pages/AllUserScore";
+import { storage } from "../runtime";
 
 
 

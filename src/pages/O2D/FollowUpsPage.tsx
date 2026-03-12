@@ -117,6 +117,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
     if (!isOpen) return null;
 
     const inputBase = "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3.5 text-slate-800 font-semibold text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all focus:bg-white";
+    const labelCls = "block mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400";
 
     // Styled date picker: invisible native input layered over pretty display div
     const DatePickerField = ({
@@ -146,12 +147,14 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
     };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-center items-end sm:items-center p-0 sm:p-4">
-            <div className="bg-white w-full sm:w-[90%] lg:max-w-xl max-h-[92vh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-250">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4">
+            <div className="flex w-full max-w-[38rem] max-h-[calc(100svh-1.5rem)] flex-col overflow-hidden rounded-[1.4rem] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.2)] animate-in slide-in-from-bottom duration-250 sm:max-h-[92vh] sm:rounded-[1.75rem]">
 
                 {/* ── Header ── */}
-                <div className="px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                    <div>
+                <div className="shrink-0 border-b border-slate-100 bg-slate-50/95 px-4 py-3.5 backdrop-blur-sm sm:px-6 sm:py-4">
+                    <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
+                    <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
                         <h2 className="text-base sm:text-lg font-black text-slate-800">
                             {followup ? "Edit Follow Up" : "New Follow Up"}
                         </h2>
@@ -159,13 +162,15 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                             {followup ? `ID: #${followup.id}` : "New interaction record"}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-700 active:scale-90">
+                    <button onClick={onClose} className="shrink-0 rounded-full bg-white p-2.5 text-slate-400 shadow-sm transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90">
                         <X className="w-5 h-5" />
                     </button>
+                    </div>
                 </div>
 
                 {/* ── Body ── */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+                    <div className="space-y-5">
 
                     {error && (
                         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-700">
@@ -183,7 +188,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Client Information</span>
                             </div>
                             <div>
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Client Name</label>
+                                <label className={labelCls}>Client Name</label>
                                 <input
                                     type="text" required
                                     value={formData.client_name}
@@ -194,7 +199,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Sales Person</label>
+                                    <label className={labelCls}>Sales Person</label>
                                     <input
                                         type="text" required
                                         value={formData.sales_person}
@@ -204,7 +209,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Date of Calling</label>
+                                    <label className={labelCls}>Date of Calling</label>
                                     <DatePickerField
                                         value={formData.date_of_calling}
                                         onChange={(v) => setFormData({ ...formData, date_of_calling: v })}
@@ -220,9 +225,9 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order Status</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Quantity (MT)</label>
+                                    <label className={labelCls}>Quantity (MT)</label>
                                     <input
                                         type="number"
                                         value={formData.order_quantity}
@@ -232,7 +237,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Order Date</label>
+                                    <label className={labelCls}>Order Date</label>
                                     <DatePickerField
                                         value={formData.order_date}
                                         onChange={(v) => setFormData({ ...formData, order_date: v })}
@@ -249,45 +254,48 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Follow Up Schedule</span>
                             </div>
                             <div className={waitingForResponse ? 'opacity-40 pointer-events-none' : ''}>
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Next Calling Date</label>
+                                <label className={labelCls}>Next Calling Date</label>
                                 <DatePickerField
                                     value={formData.next_calling_date}
                                     onChange={(v) => setFormData({ ...formData, next_calling_date: v })}
                                     disabled={waitingForResponse}
                                 />
                             </div>
-                            <label className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors active:scale-[0.99]">
+                            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 cursor-pointer transition-colors hover:border-blue-200 hover:bg-blue-50 active:scale-[0.99]">
                                 <input
                                     type="checkbox"
                                     checked={waitingForResponse}
                                     onChange={(e) => setWaitingForResponse(e.target.checked)}
-                                    className="w-4 h-4 text-blue-600 rounded border-slate-300 accent-blue-600"
+                                    className="h-4 w-4 rounded border-slate-300 text-blue-600 accent-blue-600"
                                 />
                                 <span className="text-xs font-bold text-slate-600">Waiting for Response (No Date)</span>
                             </label>
                         </div>
 
                     </form>
+                    </div>
                 </div>
 
                 {/* ── Footer ── */}
-                <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex gap-3 shrink-0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-                    <button
-                        type="button" onClick={onClose}
-                        className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100 transition-all active:scale-95"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit" form="followup-form" disabled={loading}
-                        className="flex-[2] py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm flex justify-center items-center gap-2 transition-all disabled:opacity-50 shadow-sm active:scale-95"
-                    >
-                        {loading ? (
-                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>
-                        ) : (
-                            <span>{followup ? 'Update Follow Up' : 'Save Follow Up'}</span>
-                        )}
-                    </button>
+                <div className="shrink-0 border-t border-slate-100 bg-slate-50/95 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                            type="button" onClick={onClose}
+                            className="w-full flex-1 rounded-xl border border-slate-200 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 active:scale-95"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit" form="followup-form" disabled={loading}
+                            className="flex w-full flex-[2] items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 hover:bg-blue-700 active:scale-95"
+                        >
+                            {loading ? (
+                                <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>Saving...</span></>
+                            ) : (
+                                <span>{followup ? 'Update Follow Up' : 'Save Follow Up'}</span>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

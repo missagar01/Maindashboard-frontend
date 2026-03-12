@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "../../context/AuthContext"
 import * as leadToOrderAPI from "../../api/leadToOrderAPI";
 import { Loader2 } from "lucide-react"
 import { ArrowRightIcon } from "./Icons"
@@ -31,7 +30,6 @@ function Leads() {
   const [companyDetailsMap, setCompanyDetailsMap] = useState({})
   const [nobOptions, setNobOptions] = useState([])
   const [stateOptions, setStateOptions] = useState([])
-  const { user } = useAuth()
   const showNotification = (message, type) => {
     // Simple notification - can be enhanced with toast library
     alert(message)
@@ -40,13 +38,10 @@ function Leads() {
   // // Script URL
   // const scriptUrl = "https://script.google.com/macros/s/AKfycbyLTNpTAVKaVuGH_-GrVNxDOgXqbWiBYzdf8PQWWwIFhLiIz_1lT3qEQkl7BS1osfToGQ/exec"
 
-  // Function to format date as dd/mm/yyyy
-  const formatDate = (date) => {
-    const day = String(date.getDate()).padStart(2, '0')
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const year = date.getFullYear()
-    return `${day}/${month}/${year}`
-  }
+  const labelClass = "ml-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-xs"
+  const fieldClass = "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[16px] font-medium text-slate-700 transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:rounded-xl sm:py-3 sm:text-[15px]"
+  const emphasisFieldClass = `${fieldClass} font-bold text-slate-900`
+  const sectionTitleClass = "flex items-center gap-2 text-lg font-bold text-slate-900 sm:text-xl"
 
   const fetchLeadDropdowns = async () => {
     try {
@@ -182,44 +177,50 @@ function Leads() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-6 sm:py-8 lg:py-12 px-4 sm:px-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+    <div className="min-h-[calc(100dvh-58px)] w-full bg-slate-50/60 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 sm:pb-8 lg:px-6 lg:pt-2">
+      <div className="mx-auto w-full max-w-none">
+        <div className="px-3 pb-3 pt-3 sm:px-0 sm:pb-5 sm:pt-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+            <h1 className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-[clamp(1.9rem,4.8vw,2.8rem)] font-black tracking-tight text-transparent">
               Lead Management
             </h1>
-            <p className="text-slate-500 mt-1 font-medium text-sm sm:text-base">Quickly register and track new business leads</p>
+            <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500 sm:text-base">
+              Quickly register and track new business leads
+            </p>
           </div>
-          <div className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider hidden sm:block">
+          <div className="hidden rounded-full bg-blue-100 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700 sm:inline-flex sm:text-xs">
             New Lead Form
           </div>
         </div>
+        </div>
 
-        <div className="bg-white rounded-2xl shadow-xl shadow-blue-900/5 border border-slate-200 overflow-hidden transition-all">
-          <div className="p-6 sm:p-8 border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-sm">
+        <div className="w-full overflow-hidden border-y border-slate-200 bg-white shadow-none transition-all sm:rounded-2xl sm:border sm:shadow-[0_20px_55px_rgba(30,41,59,0.06)]">
+          <div className="border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white p-3 sm:p-6 lg:p-8">
+            <h2 className={sectionTitleClass}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 sm:h-8 sm:w-8 sm:rounded-lg sm:text-sm">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
               </span>
               Lead Information
             </h2>
-            <p className="text-sm text-slate-500 mt-1 ml-10">Fill in all required fields to create a new lead reference.</p>
+            <p className="ml-11 mt-1 max-w-3xl text-sm text-slate-500 sm:ml-10">
+              Fill in all required fields to create a new lead reference.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="divide-y divide-slate-100">
-            <div className="p-6 sm:p-8 space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="space-y-4 p-3 sm:space-y-7 sm:p-6 lg:p-8">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
                 {/* Receiver Name */}
                 <div className="space-y-2">
-                  <label htmlFor="receiverName" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="receiverName" className={labelClass}>
                     Lead Receiver Name
                   </label>
                   <select
                     id="receiverName"
                     value={formData.receiverName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     required
                   >
                     <option value="">Select receiver</option>
@@ -231,14 +232,14 @@ function Leads() {
 
                 {/* SC Name */}
                 <div className="space-y-2">
-                  <label htmlFor="scName" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="scName" className={labelClass}>
                     SC Name
                   </label>
                   <select
                     id="scName"
                     value={formData.scName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     required
                   >
                     <option value="">Select SC Name</option>
@@ -250,14 +251,14 @@ function Leads() {
 
                 {/* Lead Source */}
                 <div className="space-y-2">
-                  <label htmlFor="source" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="source" className={labelClass}>
                     Lead Source
                   </label>
                   <select
                     id="source"
                     value={formData.source}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     required
                   >
                     <option value="">Select source</option>
@@ -269,7 +270,7 @@ function Leads() {
 
                 {/* Company Name */}
                 <div className="space-y-2">
-                  <label htmlFor="companyName" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="companyName" className={labelClass}>
                     Company Name
                   </label>
                   <div className="relative">
@@ -279,7 +280,7 @@ function Leads() {
                       value={formData.companyName}
                       onChange={handleChange}
                       placeholder="Type or select company..."
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-900"
+                      className={emphasisFieldClass}
                       required
                     />
                     <datalist id="companyOptions">
@@ -292,49 +293,49 @@ function Leads() {
 
                 {/* Phone Number */}
                 <div className="space-y-2">
-                  <label htmlFor="phoneNumber" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="phoneNumber" className={labelClass}>
                     Phone Number
                   </label>
                   <input
                     id="phoneNumber"
                     value={formData.phoneNumber}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     placeholder="Enter phone number"
                   />
                 </div>
 
                 {/* Contact Person */}
                 <div className="space-y-2">
-                  <label htmlFor="salespersonName" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="salespersonName" className={labelClass}>
                     Contact Person
                   </label>
                   <input
                     id="salespersonName"
                     value={formData.salespersonName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     placeholder="Auto-fills from company"
                   />
                 </div>
 
                 {/* Location */}
                 <div className="space-y-2">
-                  <label htmlFor="location" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="location" className={labelClass}>
                     Location
                   </label>
                   <input
                     id="location"
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     placeholder="Auto-fills from company"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="email" className={labelClass}>
                     Email Address
                   </label>
                   <input
@@ -342,21 +343,21 @@ function Leads() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     placeholder="Auto-fills from company"
                   />
                 </div>
 
                 {/* State */}
                 <div className="space-y-2">
-                  <label htmlFor="state" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="state" className={labelClass}>
                     State
                   </label>
                   <select
                     id="state"
                     value={formData.state}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                   >
                     <option value="">Select state</option>
                     {stateOptions.map((state, index) => (
@@ -367,7 +368,7 @@ function Leads() {
 
                 {/* NOB */}
                 <div className="space-y-2">
-                  <label htmlFor="nob" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="nob" className={labelClass}>
                     Nature of Business (NOB)
                   </label>
                   <input
@@ -376,7 +377,7 @@ function Leads() {
                     name="nob"
                     value={formData.nob}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700"
+                    className={fieldClass}
                     placeholder="Select or type NOB"
                   />
                   <datalist id="nob-options">
@@ -387,17 +388,17 @@ function Leads() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-4">
+              <div className="grid grid-cols-1 gap-3 pt-0.5 sm:gap-5 sm:pt-1 md:grid-cols-2 lg:gap-6">
                 {/* Address */}
                 <div className="space-y-2">
-                  <label htmlFor="address" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="address" className={labelClass}>
                     Address
                   </label>
                   <textarea
                     id="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700 min-h-[100px]"
+                    className={`${fieldClass} min-h-[120px] resize-y`}
                     placeholder="Enter complete address details"
                     rows="3"
                   />
@@ -405,14 +406,14 @@ function Leads() {
 
                 {/* Notes */}
                 <div className="space-y-2">
-                  <label htmlFor="notes" className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                  <label htmlFor="notes" className={labelClass}>
                     Additional Notes
                   </label>
                   <textarea
                     id="notes"
                     value={formData.notes}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-700 min-h-[100px]"
+                    className={`${fieldClass} min-h-[120px] resize-y`}
                     placeholder="Any specific instructions or remarks"
                     rows="3"
                   />
@@ -420,18 +421,18 @@ function Leads() {
               </div>
             </div>
 
-            <div className="p-6 sm:p-8 bg-slate-50 flex flex-col sm:flex-row justify-end items-center gap-4">
+            <div className="sticky bottom-0 z-10 flex flex-col gap-2.5 border-t border-slate-100 bg-white/95 p-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:bg-slate-50 sm:p-6 lg:p-8">
               <button
                 type="button"
                 onClick={() => setFormData(INITIAL_FORM_DATA)}
-                className="w-full sm:w-auto px-8 py-3 text-slate-500 font-bold hover:text-slate-700 transition-colors"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-500 transition-colors hover:text-slate-700 sm:w-auto sm:border-transparent sm:bg-transparent sm:px-8 sm:py-3"
               >
                 Reset Form
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-10 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-xl shadow-lg shadow-blue-200 transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-200 transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50 hover:from-blue-700 hover:to-indigo-700 sm:w-auto sm:px-10 sm:rounded-xl sm:py-3"
               >
                 {isSubmitting ? (
                   <>

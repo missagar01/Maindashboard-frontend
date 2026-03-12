@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchUserScoresApi } from "../api/userScoreApi";
-import { apiCache } from "../utils/apiCache";
+import { fetchUserScoresApi } from "../../../api/master/userScoreApi";
+import { apiCache } from "../runtime";
 
 /* -------------------- UTILITIES -------------------- */
 

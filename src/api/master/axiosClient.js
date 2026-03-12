@@ -26,10 +26,85 @@ const axiosClient = axios.create({
     },
 });
 
+const AUTH_STORAGE_KEYS = [
+    "token",
+    "user",
+    "currentUser",
+    "user-name",
+    "username",
+    "user_name",
+    "user_id",
+    "role",
+    "employee_id",
+    "department",
+    "user_access",
+    "page_access",
+    "system_access",
+    "store_access",
+];
+
+const decodeTokenPayload = (token) => {
+    try {
+        const [, rawPayload = ""] = String(token || "").split(".");
+        if (!rawPayload) return null;
+
+        const normalized = rawPayload.replace(/-/g, "+").replace(/_/g, "/");
+        const paddingNeeded = normalized.length % 4;
+        const padded = paddingNeeded === 0 ? normalized : `${normalized}${"=".repeat(4 - paddingNeeded)}`;
+        return JSON.parse(atob(padded));
+    } catch {
+        return null;
+    }
+};
+
+const isTokenExpired = (token) => {
+    const exp = Number(decodeTokenPayload(token)?.exp);
+    if (!Number.isFinite(exp)) return false;
+    return exp <= Math.floor(Date.now() / 1000);
+};
+
+const getStoredToken = () => {
+    const sessionToken = sessionStorage.getItem("token");
+    const localToken = localStorage.getItem("token");
+
+    if (!sessionToken) return localToken;
+    if (!localToken) return sessionToken;
+    if (sessionToken === localToken) return sessionToken;
+
+    const sessionExpired = isTokenExpired(sessionToken);
+    const localExpired = isTokenExpired(localToken);
+
+    if (sessionExpired && !localExpired) return localToken;
+    if (!sessionExpired && localExpired) return sessionToken;
+
+    return localToken;
+};
+
+const clearAuthStorage = () => {
+    AUTH_STORAGE_KEYS.forEach((key) => {
+        sessionStorage.removeItem(key);
+        localStorage.removeItem(key);
+    });
+};
+
+const shouldForceLogout = (error) => {
+    if (error.response?.status !== 401) {
+        return false;
+    }
+
+    const responseCode = String(error.response?.data?.code || "").toUpperCase();
+    if (responseCode === "SESSION_REVOKED" || responseCode === "TOKEN_EXPIRED" || responseCode === "TOKEN_INVALID") {
+        return true;
+    }
+
+    const token = getStoredToken();
+    return Boolean(token && isTokenExpired(token));
+};
+
 // Add a request interceptor to include the JWT token
 axiosClient.interceptors.request.use(
     (config) => {
-        const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+        const token = getStoredToken();
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -42,10 +117,8 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            // Token expired or invalid
-            sessionStorage.clear();
-            localStorage.clear();
+        if (shouldForceLogout(error) && window.location.pathname !== "/login") {
+            clearAuthStorage();
             window.location.href = "/login";
         }
         return Promise.reject(error);

@@ -1,16 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom" // Import useNavigate
 import AdminLayout from "../components/AdminLayout"
 
 export default function AdminDashboard() {
-  // const [filteblueData, setFilteblueData] = useState([])
-  const navigate = useNavigate(); // Initialize navigate
-
-  const handleClick = () => {
-    navigate('/dashboard/assign-task');
-  };
 
   return (
     <AdminLayout>

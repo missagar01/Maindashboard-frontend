@@ -31,18 +31,69 @@ interface DesktopNavLayout {
   visibleCount: number;
 }
 
-const MIN_DESKTOP_NAV_FONT_SIZE = 10;
-const MAX_DESKTOP_NAV_FONT_SIZE = 14;
+const MIN_DESKTOP_NAV_FONT_SIZE = 10.5;
+const MAX_DESKTOP_NAV_FONT_SIZE = 16;
 const DESKTOP_NAV_GAP = 4;
 const DESKTOP_NAV_FONT_STEP = 0.25;
 const OVERFLOW_NAV_LABEL = "More";
+const DESKTOP_NAV_MIN_HORIZONTAL_PADDING = 10;
+const DESKTOP_NAV_MAX_HORIZONTAL_PADDING = 14.75;
+const DESKTOP_NAV_MIN_VERTICAL_PADDING = 6.5;
+const DESKTOP_NAV_MAX_VERTICAL_PADDING = 8.75;
+const DESKTOP_NAV_MIN_ICON_SIZE = 14;
+const DESKTOP_NAV_MAX_ICON_SIZE = 16.75;
+const DESKTOP_NAV_MIN_ICON_GAP = 4;
+const DESKTOP_NAV_MAX_ICON_GAP = 5.75;
 
 const clampValue = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const formatPx = (value: number) => `${Number(value.toFixed(2))}px`;
+
+const buildResponsiveClamp = (
+  min: number,
+  preferred: number,
+  max: number,
+  viewportWeight: number
+) =>
+  `clamp(${formatPx(min)}, calc(${formatPx(preferred)} + ${viewportWeight}vw), ${formatPx(max)})`;
+
+const getDesktopNavHorizontalPadding = (fontSize: number) =>
+  clampValue(
+    fontSize * 0.9,
+    DESKTOP_NAV_MIN_HORIZONTAL_PADDING,
+    DESKTOP_NAV_MAX_HORIZONTAL_PADDING
+  );
+
+const getDesktopNavHorizontalPaddingUpperBound = (fontSize: number) =>
+  clampValue(
+    getDesktopNavHorizontalPadding(fontSize) + 1.75,
+    DESKTOP_NAV_MIN_HORIZONTAL_PADDING,
+    16.5
+  );
+
+const getDesktopNavVerticalPadding = (fontSize: number) =>
+  clampValue(
+    fontSize * 0.52,
+    DESKTOP_NAV_MIN_VERTICAL_PADDING,
+    DESKTOP_NAV_MAX_VERTICAL_PADDING
+  );
+
+const getDesktopNavOverflowIconSize = (fontSize: number) =>
+  clampValue(fontSize * 0.98, DESKTOP_NAV_MIN_ICON_SIZE, DESKTOP_NAV_MAX_ICON_SIZE);
+
+const getDesktopNavOverflowIconUpperBound = (fontSize: number) =>
+  clampValue(getDesktopNavOverflowIconSize(fontSize) + 1.25, DESKTOP_NAV_MIN_ICON_SIZE, 18);
+
+const getDesktopNavOverflowGap = (fontSize: number) =>
+  clampValue(fontSize * 0.32, DESKTOP_NAV_MIN_ICON_GAP, DESKTOP_NAV_MAX_ICON_GAP);
+
+const getDesktopNavOverflowGapUpperBound = (fontSize: number) =>
+  clampValue(getDesktopNavOverflowGap(fontSize) + 0.75, DESKTOP_NAV_MIN_ICON_GAP, 6.25);
+
 const estimateNavButtonWidth = (label: string, fontSize: number) => {
   const normalizedLabel = label.replace(/\s+/g, " ").trim();
-  const totalHorizontalPadding = Math.max(22, fontSize * 2.2);
+  const totalHorizontalPadding = getDesktopNavHorizontalPaddingUpperBound(fontSize) * 2;
   return normalizedLabel.length * fontSize * 0.58 + totalHorizontalPadding;
 };
 
@@ -247,7 +298,9 @@ const AppHeader: React.FC = () => {
           const gapCount =
             Math.max(0, primaryItems.length - 1) + (hasOverflowItems ? 1 : 0);
           const overflowWidth = hasOverflowItems
-            ? estimateNavButtonWidth(OVERFLOW_NAV_LABEL, normalizedFontSize) + normalizedFontSize
+            ? estimateNavButtonWidth(OVERFLOW_NAV_LABEL, normalizedFontSize) +
+              getDesktopNavOverflowIconUpperBound(normalizedFontSize) +
+              getDesktopNavOverflowGapUpperBound(normalizedFontSize)
             : 0;
           const totalRequiredWidth =
             primaryItemsWidth + overflowWidth + gapCount * DESKTOP_NAV_GAP;
@@ -313,21 +366,81 @@ const AppHeader: React.FC = () => {
     }
   }, [desktopOverflowNavItems.length]);
 
+  const desktopNavMetrics = useMemo(() => {
+    const horizontalPadding = getDesktopNavHorizontalPadding(desktopNavLayout.fontSize);
+    const verticalPadding = getDesktopNavVerticalPadding(desktopNavLayout.fontSize);
+    const iconSize = getDesktopNavOverflowIconSize(desktopNavLayout.fontSize);
+    const iconGap = getDesktopNavOverflowGap(desktopNavLayout.fontSize);
+
+    return {
+      horizontalPadding,
+      verticalPadding,
+      iconSize,
+      iconGap,
+    };
+  }, [desktopNavLayout.fontSize]);
+
   const desktopNavButtonStyle = useMemo(() => {
-    const horizontalPadding = clampValue(
-      desktopNavLayout.fontSize * 0.7,
-      8,
-      12
-    );
+    const horizontalPadding = desktopNavMetrics.horizontalPadding;
+    const verticalPadding = desktopNavMetrics.verticalPadding;
 
     return {
       fontSize: `${desktopNavLayout.fontSize}px`,
-      paddingLeft: `${horizontalPadding}px`,
-      paddingRight: `${horizontalPadding}px`,
-      paddingTop: "7px",
-      paddingBottom: "7px",
+      paddingLeft: buildResponsiveClamp(
+        clampValue(horizontalPadding - 0.75, DESKTOP_NAV_MIN_HORIZONTAL_PADDING, 15.5),
+        horizontalPadding,
+        getDesktopNavHorizontalPaddingUpperBound(desktopNavLayout.fontSize),
+        0.14
+      ),
+      paddingRight: buildResponsiveClamp(
+        clampValue(horizontalPadding - 0.75, DESKTOP_NAV_MIN_HORIZONTAL_PADDING, 15.5),
+        horizontalPadding,
+        getDesktopNavHorizontalPaddingUpperBound(desktopNavLayout.fontSize),
+        0.14
+      ),
+      paddingTop: buildResponsiveClamp(
+        clampValue(verticalPadding - 0.35, DESKTOP_NAV_MIN_VERTICAL_PADDING, 9.5),
+        verticalPadding,
+        clampValue(verticalPadding + 0.9, DESKTOP_NAV_MIN_VERTICAL_PADDING, 10.25),
+        0.08
+      ),
+      paddingBottom: buildResponsiveClamp(
+        clampValue(verticalPadding - 0.35, DESKTOP_NAV_MIN_VERTICAL_PADDING, 9.5),
+        verticalPadding,
+        clampValue(verticalPadding + 0.9, DESKTOP_NAV_MIN_VERTICAL_PADDING, 10.25),
+        0.08
+      ),
     };
-  }, [desktopNavLayout.fontSize]);
+  }, [desktopNavLayout.fontSize, desktopNavMetrics.horizontalPadding, desktopNavMetrics.verticalPadding]);
+
+  const desktopOverflowButtonStyle = useMemo(() => {
+    return {
+      ...desktopNavButtonStyle,
+      gap: buildResponsiveClamp(
+        clampValue(desktopNavMetrics.iconGap - 0.4, DESKTOP_NAV_MIN_ICON_GAP, 5.5),
+        desktopNavMetrics.iconGap,
+        getDesktopNavOverflowGapUpperBound(desktopNavLayout.fontSize),
+        0.06
+      ),
+    };
+  }, [desktopNavButtonStyle, desktopNavLayout.fontSize, desktopNavMetrics.iconGap]);
+
+  const desktopOverflowIconStyle = useMemo(() => {
+    return {
+      width: buildResponsiveClamp(
+        clampValue(desktopNavMetrics.iconSize - 0.45, DESKTOP_NAV_MIN_ICON_SIZE, 17),
+        desktopNavMetrics.iconSize,
+        getDesktopNavOverflowIconUpperBound(desktopNavLayout.fontSize),
+        0.1
+      ),
+      height: buildResponsiveClamp(
+        clampValue(desktopNavMetrics.iconSize - 0.45, DESKTOP_NAV_MIN_ICON_SIZE, 17),
+        desktopNavMetrics.iconSize,
+        getDesktopNavOverflowIconUpperBound(desktopNavLayout.fontSize),
+        0.1
+      ),
+    };
+  }, [desktopNavLayout.fontSize, desktopNavMetrics.iconSize]);
 
   const isOverflowNavActive = desktopOverflowNavItems.some(
     (item) => item.key === activeNavKey
@@ -376,12 +489,19 @@ const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[1010] w-full border-b border-slate-200 bg-[rgba(248,248,249,0.97)] shadow-[0_2px_14px_rgba(15,23,42,0.06)] backdrop-blur">
+    <header className="fixed top-0 left-0 right-0 z-[1010] w-full bg-[rgba(248,248,249,0.92)] shadow-[0_2px_14px_rgba(15,23,42,0.06)] backdrop-blur">
       <div
         ref={headerRef}
-        className="relative flex h-[58px] items-center justify-between gap-2 px-3 md:px-4 xl:gap-3 xl:px-4 2xl:px-5"
+        className="relative mx-[clamp(0.25rem,0.12rem+0.35vw,0.9rem)] overflow-visible rounded-[18px]"
       >
-        <div className="flex shrink-0 items-center gap-3">
+        <div aria-hidden="true" className="app-header-gradient-border pointer-events-none absolute inset-0" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-[1.25px] rounded-[17px] bg-[rgba(248,248,249,0.97)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur"
+        />
+
+        <div className="relative z-10 flex h-[58px] w-full items-center justify-between gap-2 px-3 md:px-4 xl:gap-[clamp(0.75rem,0.45rem+0.35vw,1.25rem)] xl:px-[clamp(1rem,0.75rem+0.4vw,1.75rem)]">
+          <div className="flex shrink-0 items-center gap-3 xl:gap-[clamp(0.75rem,0.45rem+0.32vw,1.1rem)]">
           {hasSidebar ? (
             <button
               type="button"
@@ -395,9 +515,13 @@ const AppHeader: React.FC = () => {
 
           <Link
             to="/"
-            className="hidden shrink-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:flex"
+            className="hidden shrink-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:flex xl:px-[clamp(0.55rem,0.35rem+0.22vw,0.9rem)] xl:py-[clamp(0.3rem,0.22rem+0.1vw,0.45rem)]"
           >
-            <img src={logo} alt="Sagar TMT and Pipes" className="h-8 w-auto object-contain md:h-9" />
+            <img
+              src={logo}
+              alt="Sagar TMT and Pipes"
+              className="h-8 w-auto object-contain md:h-9 xl:h-[clamp(2rem,1.8rem+0.35vw,2.5rem)]"
+            />
           </Link>
         </div>
 
@@ -408,13 +532,13 @@ const AppHeader: React.FC = () => {
           <img src={logo} alt="Sagar TMT and Pipes" className="h-8 w-auto object-contain" />
         </Link>
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:flex">
+        <nav className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:flex xl:px-[clamp(0.35rem,0.18rem+0.22vw,0.75rem)]">
           <div
             ref={desktopNavRef}
             className="flex w-full min-w-0 justify-center"
           >
             <div
-              className="flex max-w-full items-center rounded-xl border border-slate-200/80 bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+              className="flex max-w-full items-center rounded-xl border border-slate-200/80 bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:p-[clamp(0.25rem,0.18rem+0.1vw,0.45rem)]"
               style={{ gap: `${DESKTOP_NAV_GAP}px` }}
             >
               {desktopPrimaryNavItems.map((item) => {
@@ -445,15 +569,16 @@ const AppHeader: React.FC = () => {
                   aria-expanded={isDesktopOverflowOpen}
                   aria-label="Open more modules"
                   onClick={() => setDesktopOverflowOpen((open) => !open)}
-                  style={desktopNavButtonStyle}
-                  className={`inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg font-bold leading-none tracking-[-0.01em] transition ${isOverflowNavActive || isDesktopOverflowOpen
+                  style={desktopOverflowButtonStyle}
+                  className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg font-bold leading-none tracking-[-0.01em] transition ${isOverflowNavActive || isDesktopOverflowOpen
                     ? "bg-gradient-to-r from-[#ee1c23] to-[#ff6a00] text-white shadow-[0_8px_18px_rgba(238,28,35,0.25)]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                 >
                   <span>{OVERFLOW_NAV_LABEL}</span>
                   <ChevronDown
-                    className={`h-3.5 w-3.5 transition-transform ${isDesktopOverflowOpen ? "rotate-180" : ""}`}
+                    style={desktopOverflowIconStyle}
+                    className={`shrink-0 transition-transform ${isDesktopOverflowOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
@@ -493,9 +618,9 @@ const AppHeader: React.FC = () => {
           </div>
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2 xl:gap-1.5 2xl:gap-2">
+        <div className="flex shrink-0 items-center gap-2 xl:gap-[clamp(0.5rem,0.3rem+0.2vw,0.875rem)]">
           <div className="hidden items-center gap-2 text-right 2xl:flex">
-            <p className="text-sm font-semibold text-slate-600">
+            <p className="text-[clamp(0.875rem,0.82rem+0.12vw,1rem)] font-semibold text-slate-600">
               Welcome,{" "}
               <span className="font-bold capitalize text-slate-900">
                 {user?.username || user?.user_name || "User"}
@@ -594,6 +719,7 @@ const AppHeader: React.FC = () => {
             </div>
           </>
         ) : null}
+        </div>
       </div>
     </header>
   );

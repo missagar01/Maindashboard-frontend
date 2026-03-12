@@ -70,37 +70,42 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
 
     const customerName = followup?.customerName || customer?.["Client Name"] || customer?.name;
     const isBooked = formData.order_booked === 'true';
+    const fieldLabelCls = "mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400 sm:text-[11px]";
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-3 sm:p-4">
             <div onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-200">
+            <div className="relative flex w-full max-w-[34rem] flex-col overflow-hidden rounded-[1.4rem] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.2)] max-h-[calc(100svh-1.5rem)] animate-in slide-in-from-bottom duration-200 sm:max-h-[92vh] sm:rounded-[1.75rem]">
 
                 {/* Header */}
-                <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                    <div className="min-w-0">
-                        <h2 className="text-sm sm:text-base font-black text-slate-800 truncate">
+                <div className="shrink-0 border-b border-slate-100 bg-slate-50/95 px-4 py-3.5 backdrop-blur-sm sm:px-6 sm:py-4">
+                    <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <h2 className="truncate text-base font-black text-slate-800 sm:text-lg">
                             Follow Up: <span className="text-blue-600">{customerName}</span>
-                        </h2>
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Interaction Record</p>
+                            </h2>
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Interaction Record</p>
+                        </div>
+                        <button onClick={onClose} className="ml-2 shrink-0 rounded-full bg-white p-2.5 text-slate-400 shadow-sm transition-colors hover:text-slate-600">
+                            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm ml-3 flex-shrink-0">
-                        <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+                    <div className="space-y-4 sm:space-y-5">
 
                     {/* Booked toggle */}
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Is Order Booked?</label>
+                    <div className="space-y-2.5">
+                        <label className={fieldLabelCls}>Is Order Booked?</label>
                         <div className="grid grid-cols-2 gap-2">
                             {[
                                 { val: 'true', label: 'Yes, Booked', Icon: CheckCircle, cls: 'bg-emerald-50 border-emerald-500 text-emerald-700' },
                                 { val: 'false', label: 'No / Pending', Icon: Clock, cls: 'bg-blue-50 border-blue-500 text-blue-700' },
                             ].map(({ val, label, Icon, cls }) => (
-                                <label key={val} className={`flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all text-xs font-black ${formData.order_booked === val ? cls : 'bg-white border-slate-100 text-slate-400'}`}>
+                                <label key={val} className={`flex min-h-[3.25rem] items-center justify-center rounded-xl border-2 px-2 py-3 text-center text-xs font-black transition-all sm:rounded-2xl ${formData.order_booked === val ? cls : 'bg-white border-slate-100 text-slate-400'}`}>
                                     <input type="radio" name="order_booked" value={val} checked={formData.order_booked === val}
                                         onChange={(e) => setFormData({ ...formData, order_booked: e.target.value })} className="hidden" />
                                     <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -112,16 +117,16 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
 
                     {/* Booked - YES */}
                     {isBooked && (
-                        <div className="space-y-3 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 animate-in fade-in">
+                        <div className="animate-in space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3.5 fade-in sm:p-4">
                             <div>
-                                <label className="text-[9px] font-black text-emerald-700 uppercase tracking-widest block mb-1">Order Quantity</label>
+                                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-emerald-700">Order Quantity</label>
                                 <input type="number" required value={formData.order_quantity}
                                     onChange={(e) => setFormData({ ...formData, order_quantity: e.target.value })}
                                     className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2.5 text-slate-800 font-semibold text-sm outline-none focus:border-emerald-500 transition-all"
                                     placeholder="Enter quantity" />
                             </div>
                             <div>
-                                <label className="text-[9px] font-black text-emerald-700 uppercase tracking-widest block mb-1">Order Date</label>
+                                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-emerald-700">Order Date</label>
                                 <div className="relative">
                                     <input type="date" required value={formData.order_date}
                                         onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
@@ -138,13 +143,13 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
 
                     {/* Booked - NO */}
                     {!isBooked && (
-                        <div className="space-y-3 animate-in fade-in">
+                        <div className="animate-in space-y-3 fade-in">
                             <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl">
                                 <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                                 <span className="text-xs font-bold text-amber-800">Schedule a follow-up call</span>
                             </div>
                             <div>
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Date of Calling</label>
+                                <label className={fieldLabelCls}>Date of Calling</label>
                                 <div className="relative">
                                     <input type="date" required value={formData.date_of_calling}
                                         onChange={(e) => setFormData({ ...formData, date_of_calling: e.target.value })}
@@ -157,7 +162,7 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                 </div>
                             </div>
                             <div className={waitingForResponse ? 'opacity-40 pointer-events-none' : ''}>
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Calling Date</label>
+                                <label className={fieldLabelCls}>Next Calling Date</label>
                                 <div className="relative">
                                     <input type="date" required={!waitingForResponse} disabled={waitingForResponse}
                                         value={formData.next_calling_date}
@@ -170,21 +175,22 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
                                     </div>
                                 </div>
                             </div>
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 cursor-pointer transition-colors hover:bg-blue-50 hover:border-blue-200">
                                 <input type="checkbox" checked={waitingForResponse}
                                     onChange={(e) => setWaitingForResponse(e.target.checked)}
-                                    className="w-4 h-4 text-blue-600 rounded border-slate-300" />
+                                    className="h-4 w-4 rounded border-slate-300 text-blue-600" />
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Waiting for Response</span>
                             </label>
                         </div>
                     )}
+                    </div>
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 sm:p-5 bg-white border-t border-slate-100 shrink-0">
+                <div className="shrink-0 border-t border-slate-100 bg-white/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-5">
                     <button onClick={handleSubmit} disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 sm:py-4 rounded-2xl shadow-lg shadow-blue-500/30 transition-all flex justify-center items-center gap-2 text-sm active:scale-[0.98] disabled:opacity-50">
-                        {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Submitting...</span></> : 'Submit Follow Up'}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-50 hover:bg-blue-700 sm:py-4">
+                        {loading ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>Submitting...</span></> : 'Submit Follow Up'}
                     </button>
                 </div>
             </div>

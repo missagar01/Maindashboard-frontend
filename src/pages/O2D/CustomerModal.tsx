@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, User, Building, Phone, Briefcase, Tag } from 'lucide-react';
+import { X, Save, User, Building, Phone, Briefcase } from 'lucide-react';
 import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 
@@ -82,31 +82,35 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
     if (!isOpen) return null;
 
-    const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 sm:py-3 text-slate-800 font-semibold text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all focus:bg-white";
-    const iconInputCls = (left = true) => `${inputCls} ${left ? 'pl-9 sm:pl-10' : ''}`;
+    const labelCls = "mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400 sm:text-[11px]";
+    const inputCls = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 sm:rounded-2xl sm:px-3.5";
+    const iconInputCls = (left = true) => `${inputCls} ${left ? 'pl-10 sm:pl-11' : ''}`;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-3 sm:p-4">
             <div onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-200">
+            <div className="relative flex w-full max-w-[34rem] flex-col overflow-hidden rounded-[1.4rem] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.2)] max-h-[calc(100svh-1.5rem)] animate-in slide-in-from-bottom duration-200 sm:max-h-[92vh] sm:rounded-[1.75rem]">
 
                 {/* Header */}
-                <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                    <div>
-                        <h2 className="text-sm sm:text-base font-black text-slate-800">{customerToEdit ? 'Edit Customer' : 'Add Customer'}</h2>
-                        <p className="text-[9px] font-black uppercase text-blue-600/60 tracking-widest">O2D Management</p>
+                <div className="shrink-0 border-b border-slate-100 bg-slate-50/95 px-4 py-3.5 backdrop-blur-sm sm:px-6 sm:py-4">
+                    <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-base font-black text-slate-800 sm:text-lg">{customerToEdit ? 'Edit Customer' : 'Add Customer'}</h2>
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600/60">O2D Management</p>
+                        </div>
+                        <button onClick={onClose} className="ml-2 rounded-full bg-white p-2.5 text-slate-400 shadow-sm transition-colors hover:text-slate-600">
+                            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm ml-3">
-                        <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
                 </div>
 
                 {/* Body */}
-                <form onSubmit={handleSubmit} id="customer-form" className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
+                <form onSubmit={handleSubmit} id="customer-form" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:space-y-5 sm:p-6">
 
                     {/* Client Name */}
                     <div>
-                        <label className="text-[9px] font-black text-slate-400 mb-1 block uppercase tracking-widest">Client Name *</label>
+                        <label className={labelCls}>Client Name *</label>
                         <div className="relative">
                             <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <input type="text" required value={formData["Client Name"]}
@@ -116,15 +120,15 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
                     </div>
 
                     {/* City + Contact Person */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label className="text-[9px] font-black text-slate-400 mb-1 block uppercase tracking-widest">City</label>
+                            <label className={labelCls}>City</label>
                             <input type="text" value={formData["City"]}
                                 onChange={(e) => handleChange("City", e.target.value)}
                                 className={inputCls} placeholder="City" />
                         </div>
                         <div>
-                            <label className="text-[9px] font-black text-slate-400 mb-1 block uppercase tracking-widest">Contact Person</label>
+                            <label className={labelCls}>Contact Person</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                                 <input type="text" value={formData["Contact Person"]}
@@ -136,7 +140,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
                     {/* Contact Details */}
                     <div>
-                        <label className="text-[9px] font-black text-slate-400 mb-1 block uppercase tracking-widest">Contact Details *</label>
+                        <label className={labelCls}>Contact Details *</label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <input type="text" required value={formData["Contact Details"]}
@@ -147,7 +151,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
                     {/* Sales Person */}
                     <div>
-                        <label className="text-[9px] font-black text-slate-400 mb-1 block uppercase tracking-widest">Sales Person *</label>
+                        <label className={labelCls}>Sales Person *</label>
                         <div className="relative">
                             <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <select
@@ -162,11 +166,11 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
                     {/* Client Type */}
                     <div>
-                        <label className="text-[9px] font-black text-slate-400 mb-1.5 block uppercase tracking-widest">Client Type</label>
+                        <label className={labelCls}>Client Type</label>
                         <div className="grid grid-cols-2 gap-2">
                             {['NBD', 'CRR'].map(type => (
                                 <button key={type} type="button" onClick={() => handleChange("Client Type", type)}
-                                    className={`py-2.5 sm:py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all border-2 ${formData["Client Type"] === type ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                                    className={`rounded-xl border-2 py-3 text-xs font-black uppercase tracking-wider transition-all sm:rounded-2xl ${formData["Client Type"] === type ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'}`}>
                                     {type}
                                 </button>
                             ))}
@@ -176,11 +180,11 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
                     {/* Status (edit mode only) */}
                     {customerToEdit && (
                         <div>
-                            <label className="text-[9px] font-black text-slate-400 mb-1.5 block uppercase tracking-widest">Status</label>
+                            <label className={labelCls}>Status</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {['Active', 'Inactive', 'Lead'].map(status => (
                                     <button key={status} type="button" onClick={() => handleChange("Status", status)}
-                                        className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border-2 ${formData["Status"] === status ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                                        className={`rounded-xl border-2 py-2.5 text-[10px] font-black uppercase tracking-wider transition-all sm:rounded-2xl ${formData["Status"] === status ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'}`}>
                                         {status}
                                     </button>
                                 ))}
@@ -190,13 +194,13 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
                 </form>
 
                 {/* Footer */}
-                <div className="p-4 sm:p-5 bg-white border-t border-slate-100 shrink-0">
+                <div className="shrink-0 border-t border-slate-100 bg-white/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-5">
                     <button type="submit" form="customer-form" disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 sm:py-4 rounded-2xl shadow-lg shadow-blue-500/30 transition-all flex justify-center items-center gap-2 text-sm active:scale-[0.98] disabled:opacity-50">
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-50 hover:bg-blue-700 sm:py-4">
                         {loading ? (
-                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>
+                            <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>Saving...</span></>
                         ) : (
-                            <><Save className="w-4 h-4" /><span>{customerToEdit ? 'Update Customer' : 'Save Customer'}</span></>
+                            <><Save className="h-4 w-4" /><span>{customerToEdit ? 'Update Customer' : 'Save Customer'}</span></>
                         )}
                     </button>
                 </div>

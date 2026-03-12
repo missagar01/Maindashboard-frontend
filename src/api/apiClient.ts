@@ -17,9 +17,112 @@ const api = axios.create({
   },
 });
 
+const AUTH_STORAGE_KEYS = [
+  'token',
+  'user',
+  'currentUser',
+  'user-name',
+  'username',
+  'user_name',
+  'user_id',
+  'role',
+  'employee_id',
+  'department',
+  'user_access',
+  'page_access',
+  'system_access',
+  'store_access',
+] as const;
+
+const decodeJwtPayload = (token: string): { exp?: number } | null => {
+  try {
+    const [, rawPayload = ''] = token.split('.');
+    if (!rawPayload) {
+      return null;
+    }
+
+    const normalized = rawPayload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddingNeeded = normalized.length % 4;
+    const paddedPayload =
+      paddingNeeded === 0 ? normalized : `${normalized}${'='.repeat(4 - paddingNeeded)}`;
+
+    const decoded = atob(paddedPayload);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const getTokenExp = (token: string): number | null => {
+  const payload = decodeJwtPayload(token);
+  const exp = Number(payload?.exp);
+  return Number.isFinite(exp) ? exp : null;
+};
+
+export const isJwtExpired = (token: string): boolean => {
+  const exp = getTokenExp(token);
+  if (!exp) {
+    return false;
+  }
+  return exp <= Math.floor(Date.now() / 1000);
+};
+
+export const getStoredToken = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const sessionToken = sessionStorage.getItem('token');
+  const localToken = localStorage.getItem('token');
+
+  if (!sessionToken) return localToken;
+  if (!localToken) return sessionToken;
+  if (sessionToken === localToken) return sessionToken;
+
+  const sessionExpired = isJwtExpired(sessionToken);
+  const localExpired = isJwtExpired(localToken);
+
+  if (sessionExpired && !localExpired) return localToken;
+  if (!sessionExpired && localExpired) return sessionToken;
+
+  const sessionExp = getTokenExp(sessionToken) || 0;
+  const localExp = getTokenExp(localToken) || 0;
+  return localExp >= sessionExp ? localToken : sessionToken;
+};
+
+export const clearStoredAuth = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
+};
+
+const isSessionAuthFailure = (error: any) => {
+  if (error.response?.status !== 401) {
+    return false;
+  }
+
+  const responseCode = String(error.response?.data?.code || '').toUpperCase();
+  if (responseCode === 'SESSION_REVOKED' || responseCode === 'TOKEN_EXPIRED' || responseCode === 'TOKEN_INVALID') {
+    return true;
+  }
+
+  const requestUrl = String(error.config?.url || '').toLowerCase();
+  if (requestUrl.includes('/api/auth/verify-session')) {
+    return responseCode === 'SESSION_REVOKED' || responseCode === 'TOKEN_EXPIRED' || responseCode === 'TOKEN_INVALID';
+  }
+
+  const token = getStoredToken();
+  return Boolean(token && isJwtExpired(token));
+};
+
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const token = getStoredToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,12 +141,10 @@ let redirectingToLogin = false;
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (isSessionAuthFailure(error)) {
       if (!redirectingToLogin && window.location.pathname !== '/login') {
         redirectingToLogin = true;
-        sessionStorage.removeItem('token');
-        localStorage.removeItem('token');
-        localStorage.removeItem('currentUser');
+        clearStoredAuth();
         window.location.href = '/login';
       }
     }
@@ -89,5 +190,3 @@ export const apiRequest = async (path: string, options: ApiRequestOptions = {}) 
 };
 
 export default api;
-
-

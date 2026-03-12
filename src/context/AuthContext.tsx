@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from "react";
+import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from "react";
 import api from "../config/api.js";
 import { lookupStoreAccessForUser } from "../api/store/storeSettingsApi";
+import { getStoredToken } from "../api/apiClient";
 
 interface User {
   id: string | number;
@@ -365,6 +366,15 @@ const decodeToken = (token: string) => {
   }
 };
 
+const isTokenExpired = (token: string) => {
+  const decoded = decodeToken(token);
+  if (!decoded?.exp) {
+    return false;
+  }
+
+  return Number(decoded.exp) <= Math.floor(Date.now() / 1000);
+};
+
 const DUMMY_SHARE_DATA: ShareItem[] = [];
 const DUMMY_SUBSCRIPTIONS: SubscriptionItem[] = [];
 const DEFAULT_DOCUMENTS: DocumentItem[] = [];
@@ -376,6 +386,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionUnauthorizedCountRef = useRef(0);
+  const sessionRevocationPollingEnabled =
+    String(import.meta.env.VITE_ENABLE_SESSION_REVOCATION_POLLING || '').toLowerCase() === 'true';
 
   // Document Management State
   const [title, setTitle] = useState('');
@@ -507,8 +520,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initializeAuth = async () => {
       try {
-        const storedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
+        const storedToken = getStoredToken();
         if (storedToken) {
+          if (isTokenExpired(storedToken)) {
+            setToken(null);
+            setUser(null);
+            clearAuthStorage();
+            delete api.defaults.headers.common['Authorization'];
+            setLoading(false);
+            return;
+          }
+
           const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
           if (storedUser) {
             try {
@@ -589,43 +611,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // If another device logs in with the same credentials, the backend marks the
   // previous session_token invalid — this hook detects that and auto-logs out.
   useEffect(() => {
-    if (!token) return;
+    if (!sessionRevocationPollingEnabled || !token) return;
+    sessionUnauthorizedCountRef.current = 0;
+
+    const forceLogout = (reason: string) => {
+      clearAuthStorage();
+      setToken(null);
+      setUser(null);
+      delete api.defaults.headers.common['Authorization'];
+      if (window.location.pathname !== '/login') {
+        window.location.href = `/login?reason=${reason}`;
+      }
+    };
 
     const checkSession = async () => {
       try {
         const res = await api.get('/api/auth/verify-session');
         if (!res.data?.success) {
-          clearAuthStorage();
-          setToken(null);
-          setUser(null);
-          delete api.defaults.headers.common['Authorization'];
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login?reason=session_revoked';
+          sessionUnauthorizedCountRef.current += 1;
+          if (sessionUnauthorizedCountRef.current >= 2) {
+            forceLogout('session_revoked');
           }
+          return;
         }
+        sessionUnauthorizedCountRef.current = 0;
       } catch (err: unknown) {
         // 401 = session revoked or expired
         const axiosErr = err as { response?: { status?: number; data?: { code?: string } } };
         if (axiosErr?.response?.status === 401) {
-          clearAuthStorage();
-          setToken(null);
-          setUser(null);
-          delete api.defaults.headers.common['Authorization'];
-          if (window.location.pathname !== '/login') {
-            const reason = axiosErr.response.data?.code === 'SESSION_REVOKED'
-              ? 'session_revoked'
-              : 'token_expired';
-            window.location.href = `/login?reason=${reason}`;
+          const reason = axiosErr.response.data?.code === 'SESSION_REVOKED'
+            ? 'session_revoked'
+            : 'token_expired';
+
+          if (reason === 'session_revoked') {
+            forceLogout(reason);
+            return;
           }
+
+          sessionUnauthorizedCountRef.current += 1;
+          if (sessionUnauthorizedCountRef.current >= 2) {
+            forceLogout(reason);
+          }
+          return;
         }
         // Other errors (network down etc.) — ignore, don't kick user out
       }
     };
 
     // Check once immediately after token is set, then every 60 s
+    void checkSession();
     const timer = setInterval(checkSession, 60_000);
     return () => clearInterval(timer);
-  }, [token]);
+  }, [sessionRevocationPollingEnabled, token]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     try {

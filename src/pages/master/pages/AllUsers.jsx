@@ -1,39 +1,60 @@
-import { useState, useEffect } from "react"
-import { storage } from "../utils/storage";
-import { fetchUserDetailsApiById } from "../../../api/master/settingApi";
-import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
-import { patchEmpImageApi } from "../../../api/master/userApi";
-import { Award, Pencil, Target } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
-    getPendingTodayApi,
-    getCompletedTodayApi,
+    AlertTriangle,
+    Award,
+    BadgeCheck,
+    Clock3,
+    Mail,
+    MapPin,
+    Pencil,
+    Phone,
+    Target,
+} from "lucide-react";
+import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
+import {
     getCompletedTaskApi,
-    getPendingTaskApi,
+    getCompletedTodayApi,
     getOverdueTaskApi,
+    getPendingTaskApi,
+    getPendingTodayApi,
 } from "../../../api/master/dashboardApi";
+import { fetchUserDetailsApiById } from "../../../api/master/settingApi";
+import { patchEmpImageApi } from "../../../api/master/userApi";
 import { fetchUserScoreApiByName } from "../../../api/master/userScoreApi";
-import { decodeToken } from "../utils/jwtUtils";
-import { apiCache } from "../utils/apiCache";
+import { apiCache, decodeToken, storage } from "../runtime";
 
-const formatDate = (d) => d.toISOString().split("T")[0];
+const SECTION_PAD = "py-[clamp(1.5rem,0.9rem+2vw,3rem)]";
+const CONTAINER = "max-w-[86rem] px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
+const HERO = "rounded-none border-y border-slate-100 bg-white/95 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.24)] sm:rounded-[3rem] sm:border";
+const CARD = "rounded-none border-y border-slate-100 bg-white/95 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.18)] sm:rounded-[2.5rem] sm:border";
+const PAD = "px-4 py-5 sm:px-[clamp(1.5rem,0.9rem+1.8vw,2.6rem)] sm:py-[clamp(1.35rem,0.85rem+1.4vw,2.3rem)]";
+const PAD_LG = "px-4 py-5 sm:px-[clamp(1.75rem,1rem+2vw,3.25rem)] sm:py-[clamp(1.75rem,1.1rem+1.9vw,3rem)]";
+const GRID_GAP = "gap-[clamp(1.25rem,0.7rem+1.6vw,2.25rem)]";
+const NAME = "text-[clamp(1.9rem,1.3rem+1.85vw,3.75rem)]";
+const TITLE = "text-[clamp(1.45rem,1.1rem+0.95vw,2.25rem)]";
+const ROLE = "text-[clamp(1rem,0.92rem+0.45vw,1.35rem)]";
+const BODY = "text-[clamp(0.98rem,0.9rem+0.28vw,1.12rem)]";
+const LABEL = "text-[clamp(0.62rem,0.56rem+0.14vw,0.74rem)]";
+const VALUE = "text-[clamp(1.35rem,1.05rem+0.95vw,2.15rem)]";
+const STATUS = "text-[clamp(0.7rem,0.64rem+0.16vw,0.82rem)]";
+const ICON_BOX = "h-[clamp(3rem,2.5rem+0.8vw,3.9rem)] w-[clamp(3rem,2.5rem+0.8vw,3.9rem)]";
+const ICON = "h-[clamp(1.35rem,1.15rem+0.45vw,1.8rem)] w-[clamp(1.35rem,1.15rem+0.45vw,1.8rem)]";
+const AVATAR = "h-[clamp(8.5rem,7rem+5vw,13rem)] w-[clamp(8.5rem,7rem+5vw,13rem)]";
+
+const formatDate = (date) => date.toISOString().split("T")[0];
 
 const buildMonthOptions = (count = 6) => {
     const today = new Date();
-    return Array.from({ length: count }).map((_, i) => {
-        const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    return Array.from({ length: count }).map((_, index) => {
+        const monthDate = new Date(today.getFullYear(), today.getMonth() - index, 1);
         const isCurrentMonth =
             monthDate.getMonth() === today.getMonth() &&
             monthDate.getFullYear() === today.getFullYear();
 
         return {
             key: `${monthDate.getFullYear()}-${monthDate.getMonth()}`,
-            label: monthDate.toLocaleString("default", {
-                month: "long",
-                year: "numeric",
-            }),
-            startDate: formatDate(
-                new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
-            ),
+            label: monthDate.toLocaleString("default", { month: "long", year: "numeric" }),
+            startDate: formatDate(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)),
             endDate: isCurrentMonth
                 ? formatDate(today)
                 : formatDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)),
@@ -43,9 +64,8 @@ const buildMonthOptions = (count = 6) => {
 };
 
 const HomePage = () => {
-
     const [userDetails, setUserDetails] = useState(null);
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(true);
     const [attendance, setAttendance] = useState(null);
     const [pendingToday, setPendingToday] = useState(0);
     const [completedToday, setCompletedToday] = useState(0);
@@ -56,37 +76,37 @@ const HomePage = () => {
     const [imageError, setImageError] = useState(false);
     const [uploadWarning, setUploadWarning] = useState("");
     const [uploadSuccess, setUploadSuccess] = useState("");
-
     const [userScore, setUserScore] = useState(null);
+
     const monthOptions = buildMonthOptions(6);
     const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]);
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
-    const WARN_FILE_SIZE = 3 * 1024 * 1024;
-    const ALLOWED_FORMATS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const handleEmpImageChange = async (event) => {
+        const file = event.target.files?.[0];
+        const maxFileSize = 5 * 1024 * 1024;
+        const warnFileSize = 3 * 1024 * 1024;
+        const allowedFormats = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-    const handleEmpImageChange = async (e) => {
-        const file = e.target.files?.[0];
         if (!file || uploading || !userDetails?.id) return;
 
         setUploadWarning("");
         setUploadSuccess("");
 
-        if (!ALLOWED_FORMATS.includes(file.type)) {
-            setUploadWarning(`❌ Invalid file format. Allowed formats: JPEG, PNG, GIF, WebP`);
-            e.target.value = "";
+        if (!allowedFormats.includes(file.type)) {
+            setUploadWarning("Invalid file format. Allowed formats: JPEG, PNG, GIF, WebP.");
+            event.target.value = "";
             return;
         }
 
         const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-        if (file.size > MAX_FILE_SIZE) {
-            setUploadWarning(`⚠️ File size (${fileSizeInMB}MB) exceeds maximum limit of 5MB. Please choose a smaller image.`);
-            e.target.value = "";
+        if (file.size > maxFileSize) {
+            setUploadWarning(`File size (${fileSizeInMB}MB) exceeds the maximum limit of 5MB.`);
+            event.target.value = "";
             return;
         }
 
-        if (file.size > WARN_FILE_SIZE) {
-            setUploadWarning(`⚠️ File size (${fileSizeInMB}MB) is large. Consider using a smaller image for faster uploads.`);
+        if (file.size > warnFileSize) {
+            setUploadWarning(`File size (${fileSizeInMB}MB) is large. Consider using a smaller image.`);
         }
 
         try {
@@ -95,38 +115,19 @@ const HomePage = () => {
             await patchEmpImageApi(userDetails.id, file);
             const result = await fetchUserDetailsApiById(userDetails.id);
 
-            if (result?.data && result.data.emp_image) {
-                setUserDetails(result.data);
-                apiCache.set(`user_${userDetails.id}`, result.data);
-                apiCache.invalidate("users_all");
-                setUploadSuccess(`✅ Profile image updated successfully!`);
-                setUploadWarning("");
-                setTimeout(() => setUploadSuccess(""), 15000);
-            } else {
-                throw new Error("Image update failed");
-            }
-        } catch (err) {
-            console.error("Profile image upload failed:", err);
-            setUploadWarning(`❌ Failed to update profile image. ${err.message || "Please try again."}`);
+            if (!result?.data?.emp_image) throw new Error("Image update failed");
+
+            setUserDetails(result.data);
+            apiCache.set(`user_${userDetails.id}`, result.data);
+            apiCache.invalidate("users_all");
+            setUploadSuccess("Profile image updated successfully.");
+            setTimeout(() => setUploadSuccess(""), 15000);
+        } catch (error) {
+            console.error("Profile image upload failed:", error);
+            setUploadWarning(`Failed to update profile image. ${error.message || "Please try again."}`);
         } finally {
             setUploading(false);
-            e.target.value = "";
-        }
-    };
-
-    const fetchUserScore = async (userName, startDate, endDate) => {
-        try {
-            const res = await fetchUserScoreApiByName(userName, {
-                startDate,
-                endDate,
-            });
-            if (res?.data?.length) {
-                setUserScore(res.data[0]);
-            } else {
-                setUserScore(null);
-            }
-        } catch (err) {
-            console.error("Failed to fetch user score", err);
+            event.target.value = "";
         }
     };
 
@@ -140,7 +141,10 @@ const HomePage = () => {
                 const decodedToken = decodeToken(token);
                 const userId = decodedToken?.id || storage.get("user_id");
 
-                if (!userId || ["admin", "aakash agrawal"].includes(username?.toLowerCase())) return;
+                if (!userId || ["admin", "aakash agrawal"].includes(username?.toLowerCase())) {
+                    setLoading(false);
+                    return;
+                }
 
                 let matchedUser = apiCache.get(`user_${userId}`);
                 if (!matchedUser) {
@@ -149,349 +153,461 @@ const HomePage = () => {
                 }
                 setUserDetails(matchedUser || null);
 
-                if (matchedUser?.user_name && selectedMonth) {
-                    fetchUserScore(
-                        matchedUser.user_name,
-                        selectedMonth.startDate,
-                        selectedMonth.endDate
-                    );
+                if (matchedUser?.user_name) {
+                    const scoreResponse = await fetchUserScoreApiByName(matchedUser.user_name, {
+                        startDate: selectedMonth.startDate,
+                        endDate: selectedMonth.endDate,
+                    });
+                    setUserScore(scoreResponse?.data?.[0] || null);
                 }
 
-                const attendanceRes = await fetchAttendanceSummaryApi();
-                const attendanceList = Array.isArray(attendanceRes?.data?.data)
-                    ? attendanceRes.data.data
+                const attendanceResponse = await fetchAttendanceSummaryApi();
+                const attendanceList = Array.isArray(attendanceResponse?.data?.data)
+                    ? attendanceResponse.data.data
                     : [];
+                const matchedAttendance = attendanceList.find(
+                    (entry) => String(entry.employee_id).trim() === String(matchedUser?.employee_id).trim()
+                );
+                setAttendance(matchedAttendance || null);
 
-                if (matchedUser?.employee_id) {
-                    const matchedAttendance = attendanceList.find(
-                        (a) => String(a.employee_id).trim() === String(matchedUser.employee_id).trim()
-                    );
-                    setAttendance(matchedAttendance || null);
-                }
-
-                const dashboardType = "checklist";
                 const cacheKey = `stats_${username}_${selectedMonth.key}`;
                 let stats = apiCache.get(cacheKey);
-
                 if (!stats) {
-                    const [pendingCountToday, completedCountToday, completedCount, pendingCount, overdueCount] = await Promise.all([
+                    const dashboardType = "checklist";
+                    const [
+                        pendingCountToday,
+                        completedCountToday,
+                        completedCount,
+                        pendingCount,
+                        overdueCount,
+                    ] = await Promise.all([
                         getPendingTodayApi({ dashboardType, role, username }),
                         getCompletedTodayApi({ dashboardType, role, username }),
                         getCompletedTaskApi({ dashboardType, role, username }),
                         getPendingTaskApi({ dashboardType, role, username }),
                         getOverdueTaskApi({ dashboardType, role, username }),
                     ]);
-                    stats = { pendingCountToday, completedCountToday, completedCount, pendingCount, overdueCount };
-                    apiCache.set(cacheKey, stats, 1 * 60 * 1000); // 1 minute TTL for stats
+                    stats = {
+                        pendingCountToday,
+                        completedCountToday,
+                        completedCount,
+                        pendingCount,
+                        overdueCount,
+                    };
+                    apiCache.set(cacheKey, stats, 60 * 1000);
                 }
 
-                const { pendingCountToday, completedCountToday, completedCount, pendingCount, overdueCount } = stats;
-
-                setPendingToday(pendingCountToday || 0);
-                setCompletedToday(completedCountToday || 0);
-                setCompleted(Number(completedCount) || 0);
-                setPending(Number(pendingCount) || 0);
-                setOverdue(Number(overdueCount) || 0);
-
+                setPendingToday(stats.pendingCountToday || 0);
+                setCompletedToday(stats.completedCountToday || 0);
+                setCompleted(Number(stats.completedCount) || 0);
+                setPending(Number(stats.pendingCount) || 0);
+                setOverdue(Number(stats.overdueCount) || 0);
             } catch (error) {
                 console.error("Error fetching employee details:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchEmployeeDetails();
+
+        void fetchEmployeeDetails();
     }, [selectedMonth]);
 
-    const SCORE_RADIUS = 60;
-    const SCORE_CIRCUMFERENCE = 2 * Math.PI * SCORE_RADIUS;
+    const scoreRadius = 72;
+    const scoreSize = 196;
+    const scoreCenter = scoreSize / 2;
+    const scoreCircumference = 2 * Math.PI * scoreRadius;
     const rawScore = Number(userScore?.total_score ?? 0);
     const clampedScore = Math.max(-100, Math.min(100, rawScore));
-    const graphPercent = Math.min(100, Math.abs(clampedScore));
-    const scoreLength = (graphPercent / 100) * SCORE_CIRCUMFERENCE;
+    const scorePercent = Math.min(100, Math.abs(clampedScore));
+    const scoreStroke = (scorePercent / 100) * scoreCircumference;
+    const scoreColor = clampedScore <= -51 ? "#ef4444" : clampedScore <= -26 ? "#f59e0b" : "#10b981";
+    const scoreTone = clampedScore <= -51 ? "Needs recovery" : clampedScore <= -26 ? "Watch list" : "On track";
+    const taskCompletionRate = completed + pending > 0 ? Math.round((completed / (completed + pending)) * 100) : 0;
+    const attendancePresent = attendance?.status === "IN";
+    const isActiveUser = userDetails?.status?.toLowerCase() === "active";
 
-    const getScoreColor = (score) => {
-        if (score <= -51) return "#ef4444";
-        if (score <= -26) return "#f59e0b";
-        return "#10b981";
-    };
-    const scoreColor = getScoreColor(clampedScore);
+    const profileCards = [
+        { key: "employee", label: "Employee ID", value: userDetails?.employee_id || "N/A", icon: BadgeCheck, tone: "bg-red-50 text-red-600 ring-red-100" },
+        { key: "phone", label: "Contact Number", value: userDetails?.number || "N/A", icon: Phone, tone: "bg-emerald-50 text-emerald-600 ring-emerald-100" },
+        { key: "email", label: "Email Address", value: userDetails?.email_id || "N/A", icon: Mail, tone: "bg-blue-50 text-blue-600 ring-blue-100" },
+    ];
+
+    const activityCards = [
+        { key: "pending", label: "Pending Today", value: pendingToday, tone: "border-amber-100 bg-amber-50 text-amber-600" },
+        { key: "done", label: "Completed Today", value: completedToday, tone: "border-emerald-100 bg-emerald-50 text-emerald-600" },
+        { key: "overdue", label: "Overdue", value: overdue, tone: "border-rose-100 bg-rose-50 text-rose-600" },
+    ];
+
+    const performanceCards = [
+        { key: "tasks", label: "Total Tasks", value: userScore?.total_tasks ?? 0, tone: "bg-slate-50 text-slate-700" },
+        { key: "completed", label: "Completed", value: userScore?.total_completed_tasks ?? 0, tone: "bg-emerald-50 text-emerald-700" },
+        { key: "ontime", label: "On Time", value: userScore?.total_done_on_time ?? 0, tone: "bg-blue-50 text-blue-700" },
+        { key: "open", label: "Open Work", value: pending, tone: "bg-amber-50 text-amber-700" },
+    ];
 
     return (
-        <div className="w-full bg-gray-50/50 min-h-full">
-            <section className="py-6 md:py-10">
-                <div className="container mx-auto px-4 md:px-8 max-w-6xl">
-                    {/* Profile Card */}
-                    <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden mb-8">
-                        <div className="flex flex-col md:flex-row p-6 md:p-10 gap-8 lg:gap-12 items-center md:items-start text-center md:text-left">
-                            {/* Profile Image Section */}
-                            <div className="relative shrink-0 group">
-                                <div className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 rounded-3xl overflow-hidden shadow-2xl border-4 border-white transition-transform duration-300 group-hover:scale-[1.02]">
-                                    <img
-                                        src={!imageError && userDetails?.emp_image ? userDetails.emp_image : "/user.png"}
-                                        alt="Employee"
-                                        className="w-full h-full object-cover bg-gray-50"
-                                        loading="lazy"
-                                        onError={() => setImageError(true)}
-                                    />
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+        <div className="min-h-full w-full bg-[radial-gradient(circle_at_top,#ffffff_0%,#f8fafc_48%,#eef2f7_100%)]">
+            <section className={SECTION_PAD}>
+                <div className={`container mx-auto ${CONTAINER}`}>
+                    <div className={`relative mb-[clamp(1.5rem,0.9rem+1.8vw,2.75rem)] overflow-hidden ${HERO} ${PAD_LG}`}>
+                        <div className="absolute left-0 top-0 h-40 w-40 -translate-x-1/3 -translate-y-1/3 rounded-full bg-red-50 blur-3xl" />
+                        <div className="absolute bottom-0 right-0 h-40 w-40 translate-x-1/3 translate-y-1/3 rounded-full bg-blue-50 blur-3xl" />
+
+                        <div className={`relative z-10 grid items-start ${GRID_GAP} xl:grid-cols-[auto_minmax(0,1fr)]`}>
+                            <div className="mx-auto xl:mx-0">
+                                <div className="relative group">
+                                    <div className={`overflow-hidden rounded-[2rem] border-4 border-white bg-slate-100 shadow-[0_24px_44px_-22px_rgba(15,23,42,0.35)] ${AVATAR}`}>
+                                        <img
+                                            src={!imageError && userDetails?.emp_image ? userDetails.emp_image : "/user.png"}
+                                            alt="Employee"
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                                            loading="lazy"
+                                            onError={() => setImageError(true)}
+                                        />
+                                    </div>
+                                    <label
+                                        title="Edit profile image"
+                                        className={`absolute bottom-2 right-2 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl text-white shadow-[0_18px_28px_-12px_rgba(239,68,68,0.65)] transition-all ${uploading ? "bg-slate-400" : "bg-gradient-to-br from-red-600 to-red-500 hover:scale-105"}`}
+                                    >
+                                        {uploading ? (
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                        ) : (
+                                            <Pencil className="h-[18px] w-[18px]" strokeWidth={2.5} />
+                                        )}
+                                        <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleEmpImageChange} />
+                                    </label>
                                 </div>
-                                <label
-                                    title="Edit profile image"
-                                    className={`absolute -bottom-2 -right-2 flex items-center justify-center w-10 h-10 rounded-2xl text-white cursor-pointer shadow-xl transition-all duration-300 ${uploading ? "bg-gray-400 rotate-180" : "bg-red-600 hover:bg-red-700 hover:scale-110"}`}
-                                >
-                                    {uploading ? <span className="text-xs">⏳</span> : <Pencil size={18} strokeWidth={2.5} />}
-                                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleEmpImageChange} />
-                                </label>
                             </div>
 
-                            {/* Profile Details Section */}
-                            <div className="flex-1 flex flex-col min-w-0 w-full">
+                            <div className="min-w-0">
                                 {(uploadWarning || uploadSuccess) && (
-                                    <div className="mb-6 w-full">
+                                    <div className="mb-4 space-y-3">
                                         {uploadWarning && (
-                                            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm animate-pulse flex items-center gap-2">
-                                                <span className="shrink-0 text-lg">⚠️</span>
-                                                <p className="font-medium">{uploadWarning}</p>
+                                            <div className="flex items-start gap-3 rounded-[1.4rem] border border-red-100 bg-red-50 px-4 py-3 text-red-700">
+                                                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                                                <p className={`font-medium leading-[1.65] ${BODY}`}>{uploadWarning}</p>
                                             </div>
                                         )}
                                         {uploadSuccess && (
-                                            <div className="p-3 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2">
-                                                <span className="shrink-0 text-lg">✅</span>
-                                                <p className="font-medium">{uploadSuccess}</p>
+                                            <div className="flex items-start gap-3 rounded-[1.4rem] border border-emerald-100 bg-emerald-50 px-4 py-3 text-emerald-700">
+                                                <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                                                <p className={`font-medium leading-[1.65] ${BODY}`}>{uploadSuccess}</p>
                                             </div>
                                         )}
                                     </div>
                                 )}
 
                                 {loading ? (
-                                    <div className="space-y-4 max-w-md">
-                                        <div className="h-8 bg-gray-100 rounded-lg w-64 mx-auto md:mx-0 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded-lg w-48 mx-auto md:mx-0 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded-lg w-56 mx-auto md:mx-0 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded-lg w-40 mx-auto md:mx-0 animate-pulse"></div>
+                                    <div className="space-y-6">
+                                        <div className="space-y-3">
+                                            <div className="h-10 w-64 animate-pulse rounded-2xl bg-slate-100" />
+                                            <div className="h-5 w-40 animate-pulse rounded-xl bg-slate-100" />
+                                            <div className="h-4 w-80 animate-pulse rounded-xl bg-slate-100" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                                            {Array.from({ length: 3 }).map((_, index) => (
+                                                <div
+                                                    key={index}
+                                                    className={`rounded-[1.75rem] border border-slate-100 bg-slate-50/90 p-5 ${index === 2 ? "col-span-2 xl:col-span-1" : ""}`}
+                                                >
+                                                    <div className="mb-3 h-10 w-10 animate-pulse rounded-2xl bg-slate-100" />
+                                                    <div className="mb-2 h-3 w-24 animate-pulse rounded bg-slate-100" />
+                                                    <div className="h-5 w-32 animate-pulse rounded bg-slate-100" />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : userDetails ? (
-                                    <div className="space-y-6">
-                                        <div>
-                                            <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2">
-                                                <h3 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">
-                                                    {userDetails.user_name || "N/A"}
-                                                </h3>
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider md:ml-2 w-fit mx-auto md:mx-0 ${userDetails.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                    <div className="space-y-6 text-center xl:text-left">
+                                        <div className="space-y-3">
+                                            <div className="flex flex-col items-center gap-3 xl:flex-row">
+                                                <h3 className={`font-black tracking-[-0.04em] text-slate-900 ${NAME}`}>{userDetails.user_name || "N/A"}</h3>
+                                                <span className={`inline-flex w-fit items-center rounded-full px-4 py-2 font-bold uppercase tracking-[0.22em] ${STATUS} ${isActiveUser ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                                                     {userDetails.status || "N/A"}
                                                 </span>
                                             </div>
-                                            <p className="text-lg text-red-600 font-bold tracking-wide uppercase italic opacity-80">
-                                                {userDetails.user_access || "N/A"}
-                                            </p>
+                                            <p className={`font-bold uppercase tracking-[0.2em] text-red-600/90 ${ROLE}`}>{userDetails.user_access || "N/A"}</p>
+                                           
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-gray-100">
-                                            <div className="flex flex-col items-center md:items-start group">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Employee ID</span>
-                                                <span className="text-gray-800 font-semibold group-hover:text-red-600 transition-colors">{userDetails.employee_id || "N/A"}</span>
-                                            </div>
-                                            <div className="flex flex-col items-center md:items-start group">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Contact Number</span>
-                                                <span className="text-gray-800 font-semibold group-hover:text-red-600 transition-colors">{userDetails.number || "N/A"}</span>
-                                            </div>
-                                            <div className="flex flex-col items-center md:items-start group sm:col-span-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Email Address</span>
-                                                <span className="text-gray-800 font-semibold group-hover:text-red-600 transition-colors break-all">{userDetails.email_id || "N/A"}</span>
-                                            </div>
+                                        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                                            {profileCards.map((card, index) => {
+                                                const IconComponent = card.icon;
+                                                return (
+                                                    <div
+                                                        key={card.key}
+                                                        className={`rounded-[1.75rem] border border-slate-100 bg-slate-50/90 p-5 text-left shadow-[0_12px_24px_-20px_rgba(15,23,42,0.22)] ${index === profileCards.length - 1 ? "col-span-2 xl:col-span-1" : ""}`}
+                                                    >
+                                                        <div className={`mb-4 flex items-center justify-center rounded-2xl ring-1 ${card.tone} ${ICON_BOX}`}>
+                                                            <IconComponent className={ICON} />
+                                                        </div>
+                                                        <p className={`mb-2 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>{card.label}</p>
+                                                        <p className={`break-words font-bold text-slate-900 ${BODY}`}>{card.value}</p>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="py-10 text-center md:text-left">
-                                        <h3 className="text-xl font-bold text-gray-800 mb-2">User Not Found</h3>
-                                        <p className="text-gray-500">Could not retrieve profile information at this time.</p>
+                                    <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-12 text-center xl:text-left">
+                                        <h3 className={`mb-2 font-black text-slate-900 ${TITLE}`}>User Not Found</h3>
+                                        <p className={`text-slate-500 ${BODY}`}>Could not retrieve profile information at this time.</p>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Dashboard Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                        {/* Task Summary Card */}
-                        <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8 transition-transform duration-300 hover:scale-[1.01]">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                                    <div className="w-1.5 h-6 bg-red-600 rounded-full" />
-                                    Today's Activity
-                                </h3>
-                                <div className="p-2 bg-red-50 rounded-xl">
-                                    <Target className="w-6 h-6 text-red-600" />
+                    <div className={`grid grid-cols-1 xl:grid-cols-2 ${GRID_GAP}`}>
+                        <div className={`${CARD} ${PAD}`}>
+                            <div className="mb-6 flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className={`flex items-center gap-3 font-black text-slate-900 ${TITLE}`}>
+                                        <span className="h-8 w-1.5 rounded-full bg-red-600" />
+                                        Today's Activity
+                                    </h3>
+                                    <p className={`mt-2 max-w-[44ch] text-slate-500 ${BODY}`}>Daily task movement with pending, completed, and overdue load.</p>
+                                </div>
+                                <div className={`flex items-center justify-center rounded-2xl bg-red-50 text-red-600 ${ICON_BOX}`}>
+                                    <Target className={ICON} />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-gray-50 rounded-2xl p-6 text-center group hover:bg-yellow-50 transition-colors">
-                                    <div className="text-3xl font-black text-yellow-600 mb-1">{pendingToday}</div>
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pending Tasks</div>
+
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                {activityCards.map((card, index) => (
+                                    <div key={card.key} className={`rounded-[1.7rem] border px-4 py-5 text-center ${card.tone} ${index === 2 ? "col-span-2 sm:col-span-1" : ""}`}>
+                                        <div className={`mb-2 font-black tracking-[-0.04em] ${VALUE}`}>{card.value}</div>
+                                        <div className={`font-bold uppercase tracking-[0.22em] text-slate-500 ${LABEL}`}>{card.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-5 rounded-[1.7rem] border border-slate-100 bg-slate-50/90 p-4">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                    <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Completion Rate</p>
+                                    <p className={`font-black text-slate-800 ${BODY}`}>{taskCompletionRate}%</p>
                                 </div>
-                                <div className="bg-gray-50 rounded-2xl p-6 text-center group hover:bg-green-50 transition-colors">
-                                    <div className="text-3xl font-black text-green-600 mb-1">{completedToday}</div>
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Completed</div>
+                                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-orange-400 to-emerald-500" style={{ width: `${taskCompletionRate}%` }} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Attendance Card */}
-                        <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8 transition-transform duration-300 hover:scale-[1.01]">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                                    <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-                                    Attendance Status
-                                </h3>
-                                <div className="p-2 bg-blue-50 rounded-xl">
-                                    <Award className="w-6 h-6 text-blue-600" />
+                        <div className={`${CARD} ${PAD}`}>
+                            <div className="mb-6 flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className={`flex items-center gap-3 font-black text-slate-900 ${TITLE}`}>
+                                        <span className="h-8 w-1.5 rounded-full bg-blue-600" />
+                                        Attendance Status
+                                    </h3>
+                                    <p className={`mt-2 max-w-[42ch] text-slate-500 ${BODY}`}>Present status and current month attendance in one place.</p>
+                                </div>
+                                <div className={`flex items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ${ICON_BOX}`}>
+                                    <Award className={ICON} />
                                 </div>
                             </div>
 
                             {attendance ? (
-                                <div className="flex items-center justify-around">
-                                    <div className="text-center">
-                                        <div className="text-4xl font-black text-gray-900">
-                                            {attendance.monthly_attendance}
-                                            <span className="text-blue-600 text-2xl">/{new Date().getDate()}</span>
+                                <div className="space-y-5">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="rounded-[1.7rem] border border-slate-100 bg-slate-50/90 px-4 py-5 text-center">
+                                            <div className={`font-black tracking-[-0.04em] text-slate-900 ${VALUE}`}>
+                                                {Number(attendance?.monthly_attendance ?? 0)}
+                                                <span className="ml-1 text-blue-600/90">/{new Date().getDate()}</span>
+                                            </div>
+                                            <div className={`mt-2 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Monthly Count</div>
                                         </div>
-                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Monthly Count</div>
+                                        <div className="rounded-[1.7rem] border border-slate-100 bg-slate-50/90 px-4 py-5 text-center">
+                                            <div className={`font-black uppercase tracking-[0.14em] ${ROLE} ${attendancePresent ? "text-emerald-600" : "text-red-600"}`}>
+                                                {attendancePresent ? "Present" : "Absent"}
+                                            </div>
+                                            <div className={`mt-2 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Current Status</div>
+                                        </div>
                                     </div>
-                                    <div className="w-px h-12 bg-gray-100" />
-                                    <div className="text-center">
-                                        <div className={`text-xl font-bold uppercase tracking-wider mb-1 ${attendance.status === "IN" ? "text-green-600" : "text-red-600"}`}>
-                                            {attendance.status === "IN" ? "Present" : "Absent"}
+
+                                    <div className={`flex items-start gap-3 rounded-[1.7rem] border px-4 py-4 ${attendancePresent ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-red-100 bg-red-50 text-red-700"}`}>
+                                        <Clock3 className="mt-0.5 h-5 w-5 shrink-0" />
+                                        <div>
+                                            <p className={`font-bold ${BODY}`}>{attendancePresent ? "You are marked present for today." : "No in-time attendance marked for today."}</p>
+                                            <p className={`mt-1 font-bold uppercase tracking-[0.22em] ${LABEL} ${attendancePresent ? "text-emerald-600/80" : "text-red-600/80"}`}>Live attendance snapshot</p>
                                         </div>
-                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Status</div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-center py-6 text-gray-400 font-medium">
-                                    No attendance data found
+                                <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-12 text-center">
+                                    <Clock3 className="mx-auto mb-4 h-10 w-10 text-slate-300" />
+                                    <p className={`font-semibold text-slate-500 ${BODY}`}>No attendance data found</p>
                                 </div>
                             )}
                         </div>
+                    </div>
 
-                        {/* Performance Score Card */}
-                        <div className="md:col-span-2 bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 lg:p-12 mt-4 relative overflow-hidden">
-                            {/* Decorative background element */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-red-50/30 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+                    <div className={`relative mt-[clamp(1.25rem,0.75rem+1.5vw,2.25rem)] overflow-hidden ${HERO} ${PAD_LG}`}>
+                        <div className="absolute left-0 top-0 h-48 w-48 -translate-x-1/3 -translate-y-1/3 rounded-full bg-red-50 blur-3xl" />
+                        <div className="absolute bottom-0 right-0 h-48 w-48 translate-x-1/3 translate-y-1/3 rounded-full bg-amber-50 blur-3xl" />
 
-                            <div className="relative z-10">
-                                <div className="flex flex-col sm:flex-row items-center justify-between mb-10 gap-4">
-                                    <h3 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                                        <div className="w-2 h-8 bg-red-600 rounded-full" />
+                        <div className="relative z-10">
+                            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div>
+                                    <h3 className={`flex items-center gap-3 font-black text-slate-900 ${TITLE}`}>
+                                        <span className="h-8 w-1.5 rounded-full bg-red-600" />
                                         Performance Analytics
                                     </h3>
-                                    <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl border border-gray-100">
-                                        <select
-                                            value={selectedMonth.key}
-                                            onChange={(e) => setSelectedMonth(monthOptions.find((m) => m.key === e.target.value))}
-                                            className="px-4 py-2 text-sm font-bold rounded-xl border-none bg-transparent focus:outline-none focus:ring-0 text-gray-700 cursor-pointer hover:text-red-600 transition-colors"
-                                        >
-                                            {monthOptions.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-                                        </select>
-                                    </div>
+                                    <p className={`mt-2 max-w-[48ch] text-slate-500 ${BODY}`}>Monthly score overview with task output, completion, and execution consistency.</p>
                                 </div>
 
-                                {userScore ? (
-                                    <div className="flex flex-col lg:flex-row items-center justify-around gap-12">
-                                        <div className="relative group">
-                                            <div className="absolute inset-0 bg-gray-100 rounded-full blur-xl opacity-0 group-hover:opacity-50 transition-opacity" />
-                                            <div className="relative w-48 h-48 lg:w-56 lg:h-56">
-                                                <svg className="w-full h-full rotate-[-90deg] drop-shadow-xl">
-                                                    <circle cx="50%" cy="50%" r={SCORE_RADIUS + 20} stroke="#f3f4f6" strokeWidth="16" fill="none" />
+                                <div className="w-full max-w-[15rem] rounded-[1.4rem] border border-slate-200 bg-slate-50/90 p-1.5">
+                                    <select
+                                        value={selectedMonth.key}
+                                        onChange={(event) => {
+                                            const nextMonth = monthOptions.find((month) => month.key === event.target.value);
+                                            if (nextMonth) setSelectedMonth(nextMonth);
+                                        }}
+                                        className={`w-full rounded-[1rem] border-none bg-transparent px-4 py-2.5 font-bold text-slate-700 outline-none hover:text-red-600 ${BODY}`}
+                                    >
+                                        {monthOptions.map((month) => (
+                                            <option key={month.key} value={month.key}>{month.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {userScore ? (
+                                <div className={`grid grid-cols-1 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] ${GRID_GAP}`}>
+                                    <div className="flex flex-col items-center gap-6 rounded-[2rem] border border-slate-100 bg-white/70 px-4 py-6 text-center lg:flex-row lg:text-left">
+                                        <div className="relative shrink-0">
+                                            <div className="absolute inset-0 rounded-full bg-slate-100 blur-2xl opacity-80" />
+                                            <div className="relative h-[clamp(13rem,11rem+6vw,16rem)] w-[clamp(13rem,11rem+6vw,16rem)]">
+                                                <svg viewBox={`0 0 ${scoreSize} ${scoreSize}`} className="h-full w-full -rotate-90 drop-shadow-xl">
+                                                    <circle cx={scoreCenter} cy={scoreCenter} r={scoreRadius} stroke="#e2e8f0" strokeWidth="16" fill="none" />
                                                     <circle
-                                                        cx="50%" cy="50%" r={SCORE_RADIUS + 20}
-                                                        stroke={scoreColor} strokeWidth="16" fill="none"
-                                                        strokeDasharray={`${scoreLength * 1.3} ${SCORE_CIRCUMFERENCE * 1.3}`}
+                                                        cx={scoreCenter}
+                                                        cy={scoreCenter}
+                                                        r={scoreRadius}
+                                                        stroke={scoreColor}
+                                                        strokeWidth="16"
+                                                        fill="none"
+                                                        strokeDasharray={`${scoreStroke} ${scoreCircumference}`}
                                                         strokeLinecap="round"
                                                         className="transition-all duration-1000 ease-out"
                                                     />
                                                 </svg>
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                    <span className="text-3xl font-black text-gray-900 tracking-tighter">{clampedScore}</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">Total Score</span>
+                                                    <span className={`font-black tracking-[-0.05em] text-slate-900 ${NAME}`}>{clampedScore}</span>
+                                                    <span className={`mt-1 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Total Score</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-6 w-full lg:w-auto">
-                                            <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 hover:border-red-100 transition-all hover:shadow-md cursor-default">
-                                                <div className="w-3 h-3 rounded-full bg-gray-400 shadow-[0_0_8px_rgba(156,163,175,0.6)]" />
-                                                <div>
-                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Tasks</div>
-                                                    <div className="text-xl font-black text-gray-800">{userScore?.total_tasks ?? 0}</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 hover:border-green-100 transition-all hover:shadow-md cursor-default">
-                                                <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                                                <div>
-                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Completed</div>
-                                                    <div className="text-xl font-black text-green-700">{userScore?.total_completed_tasks ?? 0}</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 hover:border-blue-100 transition-all hover:shadow-md cursor-default">
-                                                <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                                                <div>
-                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">On Time</div>
-                                                    <div className="text-xl font-black text-blue-700">{userScore?.total_done_on_time ?? 0}</div>
-                                                </div>
-                                            </div>
+                                        <div className="max-w-[28rem]">
+                                            <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Score Summary</p>
+                                            <p className={`mt-3 font-black text-slate-900 ${TITLE}`}>{scoreTone}</p>
+                                            <p className={`mt-3 text-slate-500 ${BODY}`}>This view combines your selected month score with current checklist load so you can see progress and next action quickly.</p>
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="text-center py-20 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                                        <div className="text-4xl mb-4">📊</div>
-                                        <div className="text-lg font-bold text-gray-400">No score data available for this period</div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {performanceCards.map((card) => (
+                                            <div key={card.key} className={`rounded-[1.75rem] border border-slate-100 px-4 py-5 ${card.tone}`}>
+                                                <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>{card.label}</p>
+                                                <p className={`mt-3 font-black tracking-[-0.04em] ${VALUE}`}>{card.value}</p>
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center">
+                                    <Target className="mx-auto mb-4 h-10 w-10 text-slate-300" />
+                                    <p className={`font-semibold text-slate-500 ${BODY}`}>No score data available for this period</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </section>
 
+            <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-[clamp(2.5rem,1.8rem+2.6vw,4.5rem)] text-white">
+                <div className={`container mx-auto ${CONTAINER}`}>
+                    <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] ${GRID_GAP}`}>
+                        <div className="rounded-none border-y border-white/10 bg-white/5 px-4 py-5 backdrop-blur sm:rounded-[2.5rem] sm:border sm:px-8 sm:py-8">
+                            <h4 className={`mb-6 flex items-center gap-3 font-black text-white ${TITLE}`}>
+                                <span className="h-8 w-1.5 rounded-full bg-red-500" />
+                                Contact Us
+                            </h4>
 
-            <section className="py-12 md:py-20 bg-gradient-to-br from-gray-800 to-gray-900 text-white">
-                <div className="container mx-auto px-4 md:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-                        <div className="text-center md:text-left">
-                            <h4 className="text-xl font-semibold mb-4 text-red-400">Contact Us</h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    <span className="text-gray-300">+917225061350 , </span>
-                                    <span className="text-gray-300">+918839494655</span>
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Phone className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Phone</p>
+                                        <p className={`mt-1 text-slate-100 ${BODY}`}>+91 72250 61350, +91 88394 94655</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    <span className="text-gray-300">admin@sagartmt.com</span>
+
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Mail className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Email</p>
+                                        <p className={`mt-1 break-all text-slate-100 ${BODY}`}>admin@sagartmt.com</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                    <span className="text-gray-300">Achholi Road Kanhera , Urla Industrial Area<br />Raipur C.G.</span>
+
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Clock3 className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Support Window</p>
+                                        <p className={`mt-1 text-slate-100 ${BODY}`}>Production support and portal assistance through business hours.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="">
-                            <h5 className="text-lg font-medium mb-4 text-red-400">Our Location</h5>
-                            <div className="w-full h-48 md:h-64 lg:h-48">
-                                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d529.0000000000001!2d81.6093303!3d21.3333512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a28e700143df22d%3A0x89321ea274817173!2sSourabh%20Rolling%20Mill%20Pvt.%20Ltd.!5e0!3m2!1sen!2sin!4v1690000000000!5m2!1sen!2sin" width="100%" height="100%" style={{ border: 0 }} allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Google Map Location"></iframe>
+
+                        <div className="rounded-none border-y border-white/10 bg-white/5 px-4 py-5 backdrop-blur sm:rounded-[2.5rem] sm:border sm:px-8 sm:py-8">
+                            <div className="mb-6 flex items-center gap-3">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                    <MapPin className="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <h5 className={`font-black text-white ${TITLE}`}>Our Location</h5>
+                                    <p className={`mt-1 text-slate-400 ${BODY}`}>Achholi Road Kanhera, Urla Industrial Area, Raipur, Chhattisgarh</p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/30 shadow-[0_20px_40px_-28px_rgba(15,23,42,0.6)]">
+                                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-slate-300">
+                                    <MapPin className="h-4 w-4 text-red-300" />
+                                    <span className={`font-bold uppercase tracking-[0.22em] ${LABEL}`}>Google Map</span>
+                                </div>
+                                <div className="h-[clamp(16rem,14rem+8vw,22rem)]">
+                                    <iframe
+                                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d529.0000000000001!2d81.6093303!3d21.3333512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a28e700143df22d%3A0x89321ea274817173!2sSourabh%20Rolling%20Mill%20Pvt.%20Ltd.!5e0!3m2!1sen!2sin!4v1690000000000!5m2!1sen!2sin"
+                                        width="100%"
+                                        height="100%"
+                                        style={{ border: 0 }}
+                                        allowFullScreen=""
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                        title="Google Map Location"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="border-t border-gray-700 my-8"></div>
-                    <div className="text-center">
-                        <p className="text-gray-400">&copy; {new Date().getFullYear()} Sagar Pipe. All rights reserved.</p>
-                        <p>Powered By <a href="https://botivate.in/" className="text-red-500 hover:underline">Botivate</a></p>
+
+                    <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-center md:flex-row md:text-left">
+                        <p className={`text-slate-400 ${BODY}`}>&copy; {new Date().getFullYear()} Sagar Pipe. All rights reserved.</p>
+                        <p className={`text-slate-300 ${BODY}`}>
+                            Powered By{" "}
+                            <a href="https://botivate.in/" className="font-semibold text-red-400 transition-colors hover:text-red-300 hover:underline">
+                                Botivate
+                            </a>
+                        </p>
                     </div>
                 </div>
             </section>

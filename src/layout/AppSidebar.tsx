@@ -83,24 +83,30 @@ const hasExactPathMatch = (targetPath: string, allowedPaths: Set<string>) => {
 
 // ─── Responsive design tokens ─────────────────────────────────────────────────
 
-const TEXT_ITEM = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
-const TEXT_CHILD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
-const TEXT_LABEL = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[11px] 2xl:text-[11px]";
-const TEXT_LOGO = "text-[13px] md:text-[13px] lg:text-[14px] xl:text-[15px] 2xl:text-[15px]";
-const TEXT_LOGO_SUB = "text-[10px] md:text-[10px] lg:text-[11px] xl:text-[12px] 2xl:text-[12px]";
-const TEXT_MOD = "text-[12px] md:text-[12px] lg:text-[13px] xl:text-[14px] 2xl:text-[14px]";
-const TEXT_MOD_CAP = "text-[10px] md:text-[10px] lg:text-[10px] xl:text-[11px] 2xl:text-[11px]";
+// Typography
+const TEXT_ITEM = "text-[clamp(14px,0.9vw,20px)]";
+const TEXT_CHILD = "text-[clamp(13px,0.8vw,18px)]";
+const TEXT_LABEL = "text-[clamp(11px,0.7vw,14px)]";
+const TEXT_LOGO = "text-[clamp(15px,1vw,22px)]";
+const TEXT_LOGO_SUB = "text-[clamp(11px,0.8vw,14px)]";
+const TEXT_MOD = "text-[clamp(13px,0.9vw,18px)]";
+const TEXT_MOD_CAP = "text-[clamp(11px,0.7vw,14px)]";
 
-const ICON_ROOT = "h-[15px] w-[15px] md:h-[15px] md:w-[15px] lg:h-[17px] lg:w-[17px] xl:h-[18px] xl:w-[18px] 2xl:h-5 2xl:w-5";
-const ICON_CHILD = "h-[13px] w-[13px] md:h-[13px] md:w-[13px] lg:h-[15px] lg:w-[15px] xl:h-[16px] xl:w-[16px] 2xl:h-[17px] 2xl:w-[17px]";
+// Icons
+const ICON_ROOT = "h-[clamp(18px,1vw,26px)] w-[clamp(18px,1vw,26px)]";
+const ICON_CHILD = "h-[clamp(16px,0.9vw,22px)] w-[clamp(16px,0.9vw,22px)]";
+const ICON_CHEVRON = "h-[clamp(16px,0.9vw,20px)] w-[clamp(16px,0.9vw,20px)]";
 
-const PY_ROOT = "py-[7px] md:py-[7px] lg:py-[9px] xl:py-[10px] 2xl:py-[11px]";
-const PY_CHILD = "py-[6px] md:py-[6px] lg:py-[7px] xl:py-[8px] 2xl:py-[9px]";
+// Padding
+const PY_ROOT = "py-[clamp(8px,0.6vw,12px)]";
+const PY_CHILD = "py-[clamp(6px,0.5vw,10px)]";
 
-const SIDEBAR_W = "xl:w-[250px] 2xl:w-[280px]";
-const SIDEBAR_W_COLLAPSED = "xl:w-[56px] 2xl:w-[64px]";
+// Sidebar width
+const SIDEBAR_W = "xl:w-[clamp(260px,14vw,340px)]";
+const SIDEBAR_W_COLLAPSED = "xl:w-[clamp(56px,3vw,70px)]";
 
-const LOGO_IMG = "h-7 w-7 md:h-8 md:w-8 lg:h-8 lg:w-8 2xl:h-9 2xl:w-9";
+// Logo
+const LOGO_IMG = "h-[clamp(32px,2vw,42px)] w-[clamp(32px,2vw,42px)]";
 
 // ─── Section data ─────────────────────────────────────────────────────────────
 
@@ -447,7 +453,7 @@ const AppSidebar: FC = () => {
               <ChevronDown
                 className={[
                   "shrink-0 transition-transform duration-200",
-                  "h-3.5 w-3.5 lg:h-4 lg:w-4",
+                  ICON_CHEVRON,
                   hasActive ? "text-white/70" : "text-[#94a3b8]",
                   isOpen ? "rotate-180" : "",
                 ].join(" ")}
@@ -470,8 +476,8 @@ const AppSidebar: FC = () => {
   return (
     <aside
       className={[
-        "fixed left-0 z-[1000] flex flex-col",
-        "bg-white border-r border-[#e2e8f0]",
+        "fixed left-0 z-[1000] flex flex-col overflow-hidden",
+        "bg-transparent shadow-[10px_0_28px_rgba(15,23,42,0.08)]",
         "transition-all duration-300 ease-in-out",
         isMobileOpen
           ? "top-[58px] h-[calc(100dvh-58px)] w-[240px] md:w-[260px] translate-x-0"
@@ -483,67 +489,75 @@ const AppSidebar: FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      <div aria-hidden="true" className="app-sidebar-surface pointer-events-none absolute inset-0" />
       <div
-        className={[
-          "hidden shrink-0 items-center xl:flex",
-          "h-[54px] lg:h-[60px] 2xl:h-[66px]",
-          "border-b border-[#e2e8f0] bg-white",
-          showText ? "px-4 gap-3" : "justify-center",
-        ].join(" ")}
-      >
-        <Link to="/" onClick={handleLinkClick} className="flex items-center gap-3 w-full overflow-hidden">
-          <img
-            src={logo}
-            alt="SMRPL Logo"
-            className={`shrink-0 rounded-lg object-cover ring-2 ring-[#ee1c2320] border border-[#e2e8f0] ${LOGO_IMG}`}
-          />
-          {showText && (
-            <div className="min-w-0">
-              <p className={`truncate font-bold text-[#0f172a] leading-tight ${TEXT_LOGO}`}>Integrated Portal</p>
-              <p className={`truncate uppercase tracking-[0.2em] text-[#94a3b8] leading-tight ${TEXT_LOGO_SUB}`}>
-                {section.title}
-              </p>
-            </div>
-          )}
-        </Link>
-      </div>
+        aria-hidden="true"
+        className="app-sidebar-gradient-border pointer-events-none absolute inset-y-0 right-0 z-20 w-[3px] rounded-l-full"
+      />
 
-      {showText && (
-        <div className="shrink-0 border-b border-[#e2e8f0] px-4 py-2 bg-[#f8fafc]">
-          <p className={`font-bold uppercase tracking-[0.2em] text-[#ee1c23] ${TEXT_MOD_CAP}`}>
-            {section.caption || "Navigation"}
-          </p>
-          <p className={`font-semibold text-[#334155] leading-tight ${TEXT_MOD}`}>{section.title}</p>
-        </div>
-      )}
-
-      <nav
-        className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5
-          [&::-webkit-scrollbar]:w-1
-          [&::-webkit-scrollbar-track]:bg-transparent
-          [&::-webkit-scrollbar-thumb]:bg-[#e2e8f0]
-          [&::-webkit-scrollbar-thumb]:rounded-full"
-      >
-        {filteredHomeItem && renderLink(filteredHomeItem, 0)}
-        {filteredNodes.map((node) =>
-          node.kind === "link" ? renderLink(node, 0) : renderGroup(node, 0)
-        )}
-      </nav>
-
-      <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2">
-        <button
-          onClick={logout}
-          title="Sign Out"
+      <div className="relative z-10 flex h-full flex-col">
+        <div
           className={[
-            "flex w-full items-center gap-2.5 rounded-xl transition-all duration-200",
-            "text-[#f87171] hover:bg-[#450a0a20] hover:text-[#ef4444]",
-            `${TEXT_ITEM} ${PY_ROOT}`,
-            showText ? "px-3" : "justify-center",
+            "hidden shrink-0 items-center xl:flex",
+            "h-[clamp(3.375rem,3.05rem+0.5vw,4.125rem)]",
+            "border-b border-[#e2e8f0]/80 bg-white/88 backdrop-blur",
+            showText ? "px-4 gap-3" : "justify-center",
           ].join(" ")}
         >
-          <LogOut className={`shrink-0 ${ICON_ROOT}`} />
-          {showText && <span className="truncate font-medium">Sign Out</span>}
-        </button>
+          <Link to="/" onClick={handleLinkClick} className="flex items-center gap-3 w-full overflow-hidden">
+            <img
+              src={logo}
+              alt="SMRPL Logo"
+              className={`shrink-0 rounded-lg object-cover ring-2 ring-[#ee1c2320] border border-[#e2e8f0] ${LOGO_IMG}`}
+            />
+            {showText && (
+              <div className="min-w-0">
+                <p className={`truncate font-bold text-[#0f172a] leading-tight ${TEXT_LOGO}`}>Integrated Portal</p>
+                <p className={`truncate uppercase tracking-[0.2em] text-[#94a3b8] leading-tight ${TEXT_LOGO_SUB}`}>
+                  {section.title}
+                </p>
+              </div>
+            )}
+          </Link>
+        </div>
+
+        {showText && (
+          <div className="shrink-0 border-b border-[#e2e8f0]/80 bg-[#f8fafc]/88 px-4 py-2 backdrop-blur">
+            <p className={`font-bold uppercase tracking-[0.2em] text-[#ee1c23] ${TEXT_MOD_CAP}`}>
+              {section.caption || "Navigation"}
+            </p>
+            <p className={`font-semibold text-[#334155] leading-tight ${TEXT_MOD}`}>{section.title}</p>
+          </div>
+        )}
+
+        <nav
+          className="flex-1 overflow-y-auto overflow-x-hidden py-2 pr-[6px] space-y-0.5
+            [&::-webkit-scrollbar]:w-1
+            [&::-webkit-scrollbar-track]:bg-transparent
+            [&::-webkit-scrollbar-thumb]:bg-[#cbd5e1]
+            [&::-webkit-scrollbar-thumb]:rounded-full"
+        >
+          {filteredHomeItem && renderLink(filteredHomeItem, 0)}
+          {filteredNodes.map((node) =>
+            node.kind === "link" ? renderLink(node, 0) : renderGroup(node, 0)
+          )}
+        </nav>
+
+        <div className="shrink-0 border-t border-[#e2e8f0]/80 bg-white/88 px-2 py-2 backdrop-blur">
+          <button
+            onClick={logout}
+            title="Sign Out"
+            className={[
+              "flex w-full items-center gap-2.5 rounded-xl transition-all duration-200",
+              "text-[#f87171] hover:bg-[#450a0a20] hover:text-[#ef4444]",
+              `${TEXT_ITEM} ${PY_ROOT}`,
+              showText ? "px-3" : "justify-center",
+            ].join(" ")}
+          >
+            <LogOut className={`shrink-0 ${ICON_ROOT}`} />
+            {showText && <span className="truncate font-medium">Sign Out</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );

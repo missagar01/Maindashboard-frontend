@@ -2,8 +2,34 @@ import { useState, useEffect } from "react"
 import { fetchUserDetailsApi, patchSystemAccessApi } from "../../../api/master/settingApi";
 import { fetchSystemsApi } from "../../../api/master/systemsApi";
 import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
-import { Award, Target } from "lucide-react";
-import { apiCache } from "../utils/apiCache";
+import { Award, Clock3, Mail, MapPin, Phone, Target } from "lucide-react";
+import { apiCache } from "../runtime";
+
+const LANDING_SECTION_PADDING = "py-[clamp(1.5rem,0.85rem+2.2vw,3.25rem)]";
+const LANDING_CONTAINER_PADDING = "px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
+const LANDING_STACK_GAP = "gap-[clamp(1.75rem,1rem+1.8vw,3rem)]";
+const LANDING_CARD_PADDING = "px-4 py-5 sm:p-[clamp(2.1rem,1.45rem+1.8vw,3.6rem)]";
+const LANDING_CARD_PADDING_LG = "px-4 py-5 sm:px-[clamp(2rem,1.1rem+2.4vw,4.25rem)] sm:py-[clamp(1.75rem,1.1rem+1.8vw,3.25rem)]";
+const LANDING_TITLE = "text-[clamp(2.2rem,1.45rem+2.2vw,4.75rem)]";
+const LANDING_SUBTITLE = "text-[clamp(1rem,0.8rem+0.72vw,1.7rem)]";
+const LANDING_SUBTITLE_TEXT = "\u092e\u091c\u092c\u0942\u0924\u0940 \u0914\u0930 \u0935\u093f\u0936\u094d\u0935\u093e\u0938 \u0939\u0948 \u0939\u092e...";
+const LANDING_SECTION_TITLE = "text-[clamp(1.75rem,1.2rem+1.15vw,2.8rem)]";
+const LANDING_CARD_TITLE = "text-[clamp(1.55rem,1.15rem+0.8vw,2.15rem)]";
+const LANDING_PRODUCT_TITLE = "text-[clamp(1.45rem,1.05rem+0.9vw,2.3rem)]";
+const LANDING_BODY = "text-[clamp(1rem,0.92rem+0.35vw,1.18rem)]";
+const LANDING_BODY_LARGE = "text-[clamp(1rem,0.88rem+0.5vw,1.32rem)]";
+const LANDING_ICON_WRAP = "h-[clamp(4.25rem,3.55rem+1vw,5.5rem)] w-[clamp(4.25rem,3.55rem+1vw,5.5rem)]";
+const LANDING_ICON_SIZE = "h-[clamp(2rem,1.5rem+0.8vw,2.8rem)] w-[clamp(2rem,1.5rem+0.8vw,2.8rem)]";
+const LANDING_ACCENT_BAR = "h-[clamp(2.4rem,1.6rem+1vw,3.25rem)] w-[clamp(0.375rem,0.28rem+0.15vw,0.6rem)]";
+const LANDING_PRODUCT_OVERLAY = "bottom-[clamp(1.25rem,0.9rem+1vw,2rem)] p-[clamp(1rem,0.8rem+0.7vw,1.5rem)]";
+const LANDING_HERO_CARD_WIDTH = "max-w-none sm:max-w-[78rem]";
+const LANDING_HERO_CARD_MIN_HEIGHT = "min-h-[clamp(17rem,15vw,21rem)]";
+const LANDING_INFO_CARD_MIN_HEIGHT = "min-h-[clamp(20rem,18vw,24rem)]";
+const FOOTER_CONTAINER = "max-w-[86rem] px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
+const FOOTER_GRID_GAP = "gap-[clamp(1.25rem,0.7rem+1.6vw,2.25rem)]";
+const FOOTER_TITLE = "text-[clamp(1.45rem,1.1rem+0.95vw,2.25rem)]";
+const FOOTER_BODY = "text-[clamp(0.98rem,0.9rem+0.28vw,1.12rem)]";
+const FOOTER_LABEL = "text-[clamp(0.62rem,0.56rem+0.14vw,0.74rem)]";
 
 const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => {
     const [allUsers, setAllUsers] = useState([]);
@@ -103,14 +129,13 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
 
     return (
         <div className="w-full bg-gray-50/50 min-h-full">
-            <section className="py-6 md:py-12 bg-transparent">
-                <div className="container mx-auto px-4 md:px-8 max-w-6xl">
-                    <div className="text-center mb-1">
-                        <div className="inline-block relative">
+            <section className={`${LANDING_SECTION_PADDING} bg-transparent`}>
+                <div className={`container mx-auto max-w-[84rem] ${LANDING_CONTAINER_PADDING}`}>
+                    <div className="mb-[clamp(0.5rem,0.3rem+0.5vw,1rem)] text-center">
+                        <div className="relative w-full sm:inline-block sm:w-auto">
                             <h2
                                 className="
-                                    text-2xl md:text-3xl lg:text-4xl font-black
-                                    inline-block px-8 py-4 mb-1 rounded-3xl
+                                    inline-block rounded-3xl px-[clamp(1.5rem,1rem+1.5vw,3rem)] py-[clamp(0.85rem,0.55rem+1vw,1.4rem)] mb-[clamp(0.2rem,0.12rem+0.2vw,0.5rem)]
                                     bg-clip-text text-transparent
                                     bg-gradient-to-r from-red-600 to-red-900
                                     drop-shadow-sm transition-all duration-500
@@ -122,26 +147,36 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                                     WebkitBackgroundClip: "text",
                                 }}
                             >
-                                Sourabh Rolling Mill
+                                <span className={`${LANDING_TITLE} font-black tracking-[-0.03em]`}>
+                                    Sourabh Rolling Mill
+                                </span>
                             </h2>
-                            <div className="">
-                                <p className="typing-effect text-lg md:text-xl font-bold leading-relaxed inline-block bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-red-400 drop-shadow-sm">
-                                    मजबूती और विश्वास है हम...
-                                </p>
+                            <div className="landing-marquee-wrap mx-auto w-full max-w-none overflow-hidden sm:max-w-[clamp(16rem,34vw,34rem)]">
+                                <div className="landing-marquee" dir="rtl">
+                                    <span className={`landing-marquee__item bg-gradient-to-r from-red-600 to-red-400 bg-clip-text font-bold leading-[1.25] text-right text-transparent drop-shadow-sm ${LANDING_SUBTITLE}`}>
+                                        {LANDING_SUBTITLE_TEXT}
+                                    </span>
+                                    <span
+                                        aria-hidden="true"
+                                        className={`landing-marquee__item bg-gradient-to-r from-red-600 to-red-400 bg-clip-text font-bold leading-[1.25] text-right text-transparent drop-shadow-sm ${LANDING_SUBTITLE}`}
+                                    >
+                                        {LANDING_SUBTITLE_TEXT}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="max-w-5xl mx-auto mb-10 bg-white rounded-[3rem] shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] border border-gray-100 px-8 md:px-16 py-12 md:py-20 relative overflow-hidden group hover:shadow-[0_40px_80px_-20px_rgba(220,38,38,0.15)] transition-all duration-700">
+                    <div className={`${LANDING_HERO_CARD_WIDTH} ${LANDING_HERO_CARD_MIN_HEIGHT} mx-auto mb-[clamp(2.25rem,1.1rem+3vw,4.5rem)] w-full rounded-none border-y border-gray-100 bg-white ${LANDING_CARD_PADDING_LG} relative overflow-hidden shadow-[0_20px_40px_-18px_rgba(0,0,0,0.1)] transition-all duration-700 sm:rounded-[3rem] sm:border sm:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] group hover:shadow-[0_40px_80px_-20px_rgba(220,38,38,0.15)]`}>
                         {/* Decorative element */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-red-100 transition-colors" />
+                        <div className="absolute top-0 right-0 h-[clamp(6rem,4.5rem+3vw,8rem)] w-[clamp(6rem,4.5rem+3vw,8rem)] rounded-full bg-red-50 blur-2xl transition-colors group-hover:bg-red-100 translate-x-[35%] -translate-y-[35%]" />
 
                         <div className="relative z-10">
-                            <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-8 text-center flex items-center justify-center gap-4">
-                                <div className="w-2 h-10 bg-red-600 rounded-full" />
+                            <h2 className={`mb-[clamp(0.9rem,0.6rem+0.8vw,1.5rem)] flex items-center justify-center gap-[clamp(0.75rem,0.5rem+0.7vw,1.25rem)] text-center font-black text-gray-900 ${LANDING_SECTION_TITLE}`}>
+                                <div className={`rounded-full bg-red-600 ${LANDING_ACCENT_BAR}`} />
                                 About Us
                             </h2>
-                            <p className="text-md text-gray-600 leading-relaxed text-justify first-letter:text-5xl first-letter:font-black first-letter:text-red-600 first-letter:mr-3 first-letter:float-left">
+                            <p className={`mx-auto max-w-[72ch] text-left leading-[1.85] tracking-[0.01em] text-gray-600 first-letter:float-left first-letter:mr-[clamp(0.35rem,0.22rem+0.24vw,0.55rem)] first-letter:text-[clamp(2.6rem,2.1rem+1.25vw,4rem)] first-letter:leading-[0.82] first-letter:font-black first-letter:text-red-600 ${LANDING_BODY}`}>
                                 Sourabh Rolling Mills Pvt. Ltd., a premium manufacturing unit of Pankaj Group,
                                 is located in Village Kanhera, Urla Industrial Area, Raipur, Chhattisgarh.
                                 As one of the leading companies within Pankaj Group,
@@ -153,39 +188,39 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 mt-12 mb-10">
-                        <div className="group p-8 lg:p-12 bg-white rounded-[2.5rem] shadow-xl border border-gray-100 hover:scale-[1.02] transition-all duration-500 hover:shadow-2xl">
-                            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-red-600 transition-colors duration-500">
-                                <Target className="w-10 h-10 text-red-600 group-hover:text-white transition-colors" />
+                    <div className={`mt-[clamp(2.5rem,1.3rem+2.8vw,4.5rem)] mb-[clamp(2.25rem,1.15rem+2.8vw,4.25rem)] grid grid-cols-1 md:grid-cols-2 ${LANDING_STACK_GAP}`}>
+                        <div className={`${LANDING_INFO_CARD_MIN_HEIGHT} group rounded-none border-y border-gray-100 bg-white ${LANDING_CARD_PADDING} shadow-[0_18px_36px_-22px_rgba(0,0,0,0.12)] transition-all duration-500 sm:rounded-[2.5rem] sm:border sm:shadow-xl hover:scale-[1.02] hover:shadow-2xl`}>
+                            <div className={`mb-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] flex items-center justify-center rounded-3xl bg-red-50 transition-colors duration-500 group-hover:bg-red-600 ${LANDING_ICON_WRAP}`}>
+                                <Target className={`${LANDING_ICON_SIZE} text-red-600 transition-colors group-hover:text-white`} />
                             </div>
-                            <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Our Mission</h3>
-                            <p className="text-gray-500 text-lg leading-relaxed">Creating sustainable happiness and excellence through consistent high-value achievements.</p>
+                            <h3 className={`mb-[clamp(0.75rem,0.5rem+0.5vw,1.1rem)] font-black tracking-tight text-gray-900 ${LANDING_CARD_TITLE}`}>Our Mission</h3>
+                            <p className={`leading-[1.8] text-gray-500 ${LANDING_BODY_LARGE}`}>Creating sustainable happiness and excellence through consistent high-value achievements.</p>
                         </div>
-                        <div className="group p-8 lg:p-12 bg-white rounded-[2.5rem] shadow-xl border border-gray-100 hover:scale-[1.02] transition-all duration-500 hover:shadow-2xl">
-                            <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors duration-500">
-                                <Award className="w-10 h-10 text-blue-600 group-hover:text-white transition-colors" />
+                        <div className={`${LANDING_INFO_CARD_MIN_HEIGHT} group rounded-none border-y border-gray-100 bg-white ${LANDING_CARD_PADDING} shadow-[0_18px_36px_-22px_rgba(0,0,0,0.12)] transition-all duration-500 sm:rounded-[2.5rem] sm:border sm:shadow-xl hover:scale-[1.02] hover:shadow-2xl`}>
+                            <div className={`mb-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] flex items-center justify-center rounded-3xl bg-blue-50 transition-colors duration-500 group-hover:bg-blue-600 ${LANDING_ICON_WRAP}`}>
+                                <Award className={`${LANDING_ICON_SIZE} text-blue-600 transition-colors group-hover:text-white`} />
                             </div>
-                            <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Our Vision</h3>
-                            <p className="text-gray-500 text-lg leading-relaxed">Becoming a global benchmark in steel manufacturing with a humble heart and a creative mindset.</p>
+                            <h3 className={`mb-[clamp(0.75rem,0.5rem+0.5vw,1.1rem)] font-black tracking-tight text-gray-900 ${LANDING_CARD_TITLE}`}>Our Vision</h3>
+                            <p className={`leading-[1.8] text-gray-500 ${LANDING_BODY_LARGE}`}>Becoming a global benchmark in steel manufacturing with a humble heart and a creative mindset.</p>
                         </div>
                     </div>
 
-                    <div className="mb-20">
-                        <div className="flex items-center justify-center gap-4 mb-12">
+                    <div className="mb-[clamp(3rem,1.6rem+3.8vw,5rem)]">
+                        <div className="mb-[clamp(1.75rem,1rem+2vw,3rem)] flex items-center justify-center gap-[clamp(0.75rem,0.5rem+0.8vw,1.5rem)]">
                             <div className="h-px bg-gray-200 flex-1" />
-                            <h3 className="text-3xl font-black text-gray-900 tracking-tight px-4">Our Excellence in Products</h3>
+                            <h3 className={`px-[clamp(0.75rem,0.5rem+0.7vw,1.25rem)] font-black tracking-tight text-gray-900 ${LANDING_SECTION_TITLE}`}>Our Excellence in Products</h3>
                             <div className="h-px bg-gray-200 flex-1" />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                        <div className={`grid grid-cols-1 md:grid-cols-2 ${LANDING_STACK_GAP}`}>
                             <div
                                 className="relative aspect-video lg:aspect-[16/9] overflow-hidden rounded-[3rem] shadow-2xl border-8 border-white group cursor-pointer"
                                 onClick={() => setActiveIndex(activeIndex === 0 ? null : 0)}
                             >
                                 <img src="/pipe1.jpg" alt="Steel Pipes" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                 <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500 ${activeIndex === 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
-                                <div className={`absolute bottom-8 left-0 w-full text-center p-6 transition-all duration-500 transform ${activeIndex === 0 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"}`}>
-                                    <span className="text-white text-2xl font-black tracking-wider uppercase">MS Pipes (Circle)</span>
-                                    <div className="w-12 h-1 bg-red-600 mx-auto mt-2 rounded-full" />
+                                <div className={`absolute left-0 w-full text-center transition-all duration-500 transform ${LANDING_PRODUCT_OVERLAY} ${activeIndex === 0 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"}`}>
+                                    <span className={`font-black uppercase tracking-[0.12em] text-white ${LANDING_PRODUCT_TITLE}`}>MS Pipes (Circle)</span>
+                                    <div className="mx-auto mt-[clamp(0.35rem,0.25rem+0.3vw,0.65rem)] h-[clamp(0.22rem,0.16rem+0.06vw,0.3rem)] w-[clamp(2.75rem,2.2rem+0.8vw,3.5rem)] rounded-full bg-red-600" />
                                 </div>
                             </div>
 
@@ -195,9 +230,9 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                             >
                                 <img src="/pipe2.png" alt="TMT Bars" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                 <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500 ${activeIndex === 1 ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
-                                <div className={`absolute bottom-8 left-0 w-full text-center p-6 transition-all duration-500 transform ${activeIndex === 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"}`}>
-                                    <span className="text-white text-2xl font-black tracking-wider uppercase">MS Pipes (Square)</span>
-                                    <div className="w-12 h-1 bg-red-600 mx-auto mt-2 rounded-full" />
+                                <div className={`absolute left-0 w-full text-center transition-all duration-500 transform ${LANDING_PRODUCT_OVERLAY} ${activeIndex === 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"}`}>
+                                    <span className={`font-black uppercase tracking-[0.12em] text-white ${LANDING_PRODUCT_TITLE}`}>MS Pipes (Square)</span>
+                                    <div className="mx-auto mt-[clamp(0.35rem,0.25rem+0.3vw,0.65rem)] h-[clamp(0.22rem,0.16rem+0.06vw,0.3rem)] w-[clamp(2.75rem,2.2rem+0.8vw,3.5rem)] rounded-full bg-red-600" />
                                 </div>
                             </div>
                         </div>
@@ -316,63 +351,144 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                 </div>
             )}
 
-            <section className="py-12 md:py-20 bg-gradient-to-br from-gray-800 to-gray-900 text-white">
-                <div className="container mx-auto px-4 md:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-                        <div className="text-center md:text-left">
-                            <h4 className="text-xl font-semibold mb-4 text-red-400">Contact Us</h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    <span className="text-gray-300">+917225061350 , </span>
-                                    <span className="text-gray-300">+918839494655</span>
+            <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-[clamp(2.5rem,1.8rem+2.6vw,4.5rem)] text-white">
+                <div className={`container mx-auto ${FOOTER_CONTAINER}`}>
+                    <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] ${FOOTER_GRID_GAP}`}>
+                        <div className="rounded-none border-y border-white/10 bg-white/5 px-4 py-5 backdrop-blur sm:rounded-[2.5rem] sm:border sm:px-8 sm:py-8">
+                            <h4 className={`mb-6 flex items-center gap-3 font-black text-white ${FOOTER_TITLE}`}>
+                                <span className="h-8 w-1.5 rounded-full bg-red-500" />
+                                Contact Us
+                            </h4>
+
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Phone className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${FOOTER_LABEL}`}>Phone</p>
+                                        <p className={`mt-1 text-slate-100 ${FOOTER_BODY}`}>+91 72250 61350, +91 88394 94655</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    <span className="text-gray-300">admin@sagartmt.com</span>
+
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Mail className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${FOOTER_LABEL}`}>Email</p>
+                                        <p className={`mt-1 break-all text-slate-100 ${FOOTER_BODY}`}>admin@sagartmt.com</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                    <span className="text-gray-300">Achholi Road Kanhera, Urla Industrial Area, Raipur C.G.</span>
+
+                                <div className="flex items-start gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                        <Clock3 className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold uppercase tracking-[0.22em] text-slate-400 ${FOOTER_LABEL}`}>Support Window</p>
+                                        <p className={`mt-1 text-slate-100 ${FOOTER_BODY}`}>Production support and portal assistance through business hours.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="">
-                            <h5 className="text-lg font-medium mb-4 text-red-400">Our Location</h5>
-                            <div className="w-full h-48 md:h-64 lg:h-48">
-                                <iframe
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d529.0000000000001!2d81.6093303!3d21.3333512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a28e700143df22d%3A0x89321ea274817173!2sSourabh%20Rolling%20Mill%20Pvt.%20Ltd.!5e0!3m2!1sen!2sin!4v1690000000000!5m2!1sen!2sin"
-                                    width="100%" height="100%" style={{ border: 0 }} allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Google Map Location"
-                                ></iframe>
+
+                        <div className="rounded-none border-y border-white/10 bg-white/5 px-4 py-5 backdrop-blur sm:rounded-[2.5rem] sm:border sm:px-8 sm:py-8">
+                            <div className="mb-6 flex items-center gap-3">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/12 text-red-300">
+                                    <MapPin className="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <h5 className={`font-black text-white ${FOOTER_TITLE}`}>Our Location</h5>
+                                    <p className={`mt-1 text-slate-400 ${FOOTER_BODY}`}>Achholi Road Kanhera, Urla Industrial Area, Raipur, Chhattisgarh</p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/30 shadow-[0_20px_40px_-28px_rgba(15,23,42,0.6)]">
+                                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-slate-300">
+                                    <MapPin className="h-4 w-4 text-red-300" />
+                                    <span className={`font-bold uppercase tracking-[0.22em] ${FOOTER_LABEL}`}>Google Map</span>
+                                </div>
+                                <div className="h-[clamp(16rem,14rem+8vw,22rem)]">
+                                    <iframe
+                                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d529.0000000000001!2d81.6093303!3d21.3333512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a28e700143df22d%3A0x89321ea274817173!2sSourabh%20Rolling%20Mill%20Pvt.%20Ltd.!5e0!3m2!1sen!2sin!4v1690000000000!5m2!1sen!2sin"
+                                        width="100%"
+                                        height="100%"
+                                        style={{ border: 0 }}
+                                        allowFullScreen=""
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                        title="Google Map Location"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="border-t border-gray-700 my-8"></div>
-                    <div className="text-center">
-                        <p className="text-gray-400">&copy; {new Date().getFullYear()} Sagar Pipe. All rights reserved.</p>
-                        <p>Powered By <a href="https://botivate.in/" className="text-red-500 hover:underline">Botivate</a></p>
+
+                    <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-center md:flex-row md:text-left">
+                        <p className={`text-slate-400 ${FOOTER_BODY}`}>&copy; {new Date().getFullYear()} Sagar Pipe. All rights reserved.</p>
+                        <p className={`text-slate-300 ${FOOTER_BODY}`}>
+                            Powered By{" "}
+                            <a href="https://botivate.in/" className="font-semibold text-red-400 transition-colors hover:text-red-300 hover:underline">
+                                Botivate
+                            </a>
+                        </p>
                     </div>
                 </div>
             </section>
 
             <style>
                 {`
-                .typing-effect {
-                    white-space: nowrap;
-                    overflow: hidden;
-                    width: 0;
-                    animation: typing 4s steps(60, end) forwards;
+                .landing-marquee-wrap {
+                    width: 100%;
                 }
-                @keyframes typing {
-                    from { width: 0 }
-                    to { width: 100% }
+
+                .landing-marquee {
+                    display: flex;
+                    width: max-content;
+                    min-width: 100%;
+                    align-items: center;
+                    animation: landing-marquee 10s linear infinite;
+                    will-change: transform;
+                }
+
+                .landing-marquee__item {
+                    flex-shrink: 0;
+                    white-space: nowrap;
+                    padding-right: clamp(2.5rem, 1.8rem + 2vw, 4.5rem);
+                }
+
+                @keyframes landing-marquee {
+                    from { transform: translate3d(0, 0, 0); }
+                    to { transform: translate3d(-50%, 0, 0); }
+                }
+
+                @media (max-width: 640px) {
+                    .landing-marquee {
+                        width: 200%;
+                        min-width: 200%;
+                        direction: rtl;
+                        animation-duration: 8s;
+                    }
+
+                    .landing-marquee__item {
+                        width: 50%;
+                        padding-right: 0;
+                        padding-left: 0.75rem;
+                        text-align: right;
+                    }
+                }
+
+                @media (prefers-reduced-motion: reduce) {
+                    .landing-marquee {
+                        width: 100%;
+                        justify-content: flex-end;
+                        animation: none;
+                    }
+
+                    .landing-marquee__item:last-child {
+                        display: none;
+                    }
                 }
                 `}
             </style>

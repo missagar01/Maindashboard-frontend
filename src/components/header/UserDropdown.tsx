@@ -33,7 +33,7 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-[1070]" ref={dropdownRef}>
       {variant === "settings" ? (
         <button
           onClick={() => setIsOpen((open) => !open)}
@@ -65,7 +65,7 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
         </button>
       )}
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-3 w-52 rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-[0_20px_45px_rgba(15,23,42,0.16)] dark:border-gray-800 dark:bg-gray-900 dark:text-white/90">
+        <div className="absolute right-0 top-[calc(100%+10px)] z-[1080] w-52 rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-[0_20px_45px_rgba(15,23,42,0.16)] dark:border-gray-800 dark:bg-gray-900 dark:text-white/90">
           <p className="font-semibold">{user?.username || user?.user_name || "User"}</p>
           <p className="mb-3 text-xs text-gray-500">
             {user?.email_id || user?.role || "No email"}
