@@ -16,181 +16,146 @@ const SYSTEM_OPTIONS = [
   { value: "SUBSCRIPTION", label: "SUBSCRIPTION" },
 ];
 
+const createPageOption = (value, label, route, aliases = []) => ({
+  value,
+  label,
+  route,
+  aliases,
+});
+
+const CHECKLIST_SHARED_PAGES = [
+  createPageOption("dashboard", "Dashboard", "/checklist", [
+    "Checklist Dashboard",
+    "/checklist",
+  ]),
+  createPageOption("assign-task", "Assign Task", "/checklist/assign-task", [
+    "Assign Task",
+    "/checklist/assign-task",
+  ]),
+  createPageOption("mis-report", "MIS Report", "/checklist/mis-report", [
+    "MIS Report",
+    "/checklist/mis-report",
+  ]),
+  createPageOption("hrmanager", "HR Manager", "/checklist/hr-manager", [
+    "HR Manager",
+    "HRManager",
+    "/checklist/hr-manager",
+  ]),
+  createPageOption("machines", "Machines", "/maintenance/machines", [
+    "Machines",
+    "/maintenance/machines",
+    "/mainatce/machines",
+  ]),
+  createPageOption("all-task", "All Task", "/checklist/all-task", [
+    "All Task",
+    "/checklist/all-task",
+  ]),
+  createPageOption("quick-task", "Quick Task", "/checklist/quick-task", [
+    "Quick Task",
+    "/checklist/quick-task",
+  ]),
+  createPageOption("delegation", "Delegation", "/checklist/delegation", [
+    "Delegation",
+    "/checklist/delegation",
+  ]),
+  createPageOption("setting", "Setting", "/checklist/settings", [
+    "Setting",
+    "Settings",
+    "/checklist/settings",
+  ]),
+];
+
 // Page routes organized by system
-// Structure: { value: "PageName", label: "Display Label", route: "/actual/route" }
+// `value` is the canonical string persisted in `page_access`.
 const PAGE_ROUTES = {
+  "CHECKLIST": CHECKLIST_SHARED_PAGES,
+  "MAINTENANCE": CHECKLIST_SHARED_PAGES,
   "SALES MODULE": [
-    { value: "Dashboard", label: "Dashboard", route: "/" },
-    { value: "Orders", label: "Orders", route: "/o2d/orders" },
-    { value: "Enquiry", label: "Enquiry", route: "/o2d/enquiry" },
-    { value: "Enquiry List", label: "Enquiry List", route: "/o2d/enquiry-list" },
-    { value: "Pending Vehicles", label: "Pending Vehicles", route: "/o2d/process" },
-    { value: "Customers", label: "Customers", route: "/o2d/customers" },
-    { value: "Follow Ups", label: "Follow Ups", route: "/o2d/follow-ups" },
-    { value: "Hot Coil", label: "Hot Coil", route: "/batchcode/hot-coil" },
-    { value: "QC Lab", label: "QC Lab", route: "/batchcode/qc-lab" },
-    { value: "SMS Register", label: "SMS Register", route: "/batchcode/sms-register" },
-    { value: "Recoiler", label: "Recoiler", route: "/batchcode/recoiler" },
-    { value: "Pipe Mill", label: "Pipe Mill", route: "/batchcode/pipe-mill" },
-    { value: "Laddel", label: "Laddel", route: "/batchcode/laddel" },
-    { value: "Tundis", label: "Tundis", route: "/batchcode/tundis" },
-    { value: "Leads", label: "Leads", route: "/lead-to-order/leads" },
-    { value: "Follow Up", label: "Follow Up", route: "/lead-to-order/follow-up" },
-    { value: "Call Tracker", label: "Call Tracker", route: "/lead-to-order/call-tracker" },
-    { value: "Quotation", label: "Quotation", route: "/lead-to-order/quotation" },
+    createPageOption("Dashboard", "Dashboard", "/", ["/", "/o2d/dashboard", "O2D Dashboard"]),
+    createPageOption("Orders", "Orders", "/o2d/orders", ["/o2d/orders"]),
+    createPageOption("Enquiry", "Enquiry", "/o2d/enquiry", ["/o2d/enquiry"]),
+    createPageOption("Enquiry List", "Enquiry List", "/o2d/enquiry-list", ["/o2d/enquiry-list"]),
+    createPageOption("Pending Vehicles", "Pending Vehicles", "/o2d/process", ["/o2d/process"]),
+    createPageOption("Customers", "Customers", "/o2d/customers", ["/o2d/customers"]),
+    createPageOption("Follow Ups", "Follow Ups", "/o2d/follow-ups", ["/o2d/follow-ups"]),
+    createPageOption("Hot Coil", "Hot Coil", "/batchcode/hot-coil", ["/batchcode/hot-coil"]),
+    createPageOption("QC Lab", "QC Lab", "/batchcode/qc-lab", ["/batchcode/qc-lab"]),
+    createPageOption("SMS Register", "SMS Register", "/batchcode/sms-register", ["/batchcode/sms-register"]),
+    createPageOption("Recoiler", "Recoiler", "/batchcode/recoiler", ["/batchcode/recoiler"]),
+    createPageOption("Pipe Mill", "Pipe Mill", "/batchcode/pipe-mill", ["/batchcode/pipe-mill"]),
+    createPageOption("Laddel", "Laddel", "/batchcode/laddel", ["/batchcode/laddel"]),
+    createPageOption("Tundis", "Tundis", "/batchcode/tundis", ["/batchcode/tundis"]),
+    createPageOption("Leads", "Leads", "/lead-to-order/leads", ["/lead-to-order/leads"]),
+    createPageOption("Follow Up", "Follow Up", "/lead-to-order/follow-up", ["/lead-to-order/follow-up"]),
+    createPageOption("Call Tracker", "Call Tracker", "/lead-to-order/call-tracker", ["/lead-to-order/call-tracker"]),
+    createPageOption("Quotation", "Quotation", "/lead-to-order/quotation", ["/lead-to-order/quotation"]),
   ],
   "HRFMS": [
-    { value: "HRFMS Dashboard", label: "Dashboard", route: "/hrfms/dashboard" },
-    { value: "My Profile", label: "My Profile", route: "/hrfms/my-profile" },
-    { value: "MainPower Request", label: "MainPower Request", route: "/hrfms/resume-request" },
-    { value: "MainPower List", label: "MainPower List", route: "/hrfms/resume-list" },
-    { value: "Employee", label: "Employee", route: "/hrfms/employee-create" },
-    { value: "Travel Form", label: "Travel Form", route: "/hrfms/requests" },
-    { value: "Tickets", label: "Tickets", route: "/hrfms/tickets" },
-    { value: "Travel Status", label: "Travel Status", route: "/hrfms/travel-status" },
-    { value: "Resume", label: "Resume", route: "/hrfms/resumes" },
-    { value: "Resume Upload", label: "Resume Upload", route: "/hrfms/resume-form" },
-    { value: "Leave Request", label: "Leave Request", route: "/hrfms/leave-request" },
-    { value: "Leave Approvals", label: "Leave Approvals", route: "/hrfms/leave-approvals" },
-    { value: "Hod Approval", label: "Hod Approval", route: "/hrfms/commercial-head-approval" },
-    { value: "HRFMS Dashboard", label: "Dashboard", route: "/hrfms/dashboard" },
-    { value: "My Profile", label: "My Profile", route: "/hrfms/my-profile" },
-    { value: "MainPower Request", label: "MainPower Request", route: "/hrfms/resume-request" },
-    { value: "MainPower List", label: "MainPower List", route: "/hrfms/resume-list" },
-    { value: "Employee", label: "Employee", route: "/hrfms/employee-create" },
-    { value: "Travel Form", label: "Travel Form", route: "/hrfms/requests" },
-    { value: "Tickets", label: "Tickets", route: "/hrfms/tickets" },
-    { value: "Travel Status", label: "Travel Status", route: "/hrfms/travel-status" },
-    { value: "Resume", label: "Resume", route: "/hrfms/resumes" },
-    { value: "Resume Upload", label: "Resume Upload", route: "/hrfms/resume-form" },
-    { value: "Leave Request", label: "Leave Request", route: "/hrfms/leave-request" },
-    { value: "Leave Approvals", label: "Leave Approvals", route: "/hrfms/leave-approvals" },
-    { value: "Hod Approval", label: "Hod Approval", route: "/hrfms/commercial-head-approval" },
-    { value: "HR Approvals", label: "HR Approvals", route: "/hrfms/leave-hr-approvals" },
-    { value: "Plant Visitor", label: "Plant Visitor", route: "/hrfms/plant-visitor" },
-    { value: "Plant Visitor List", label: "Plant Visitor List", route: "/hrfms/plant-visitorlist" },
-    { value: "Interviwer List", label: "Interviwer List", route: "/hrfms/condidate-list" },
-    { value: "Selected Condidate", label: "Selected Condidate", route: "/hrfms/condidate-select" },
+    createPageOption("/dashboard", "Dashboard", "/hrfms/dashboard", ["HRFMS Dashboard", "/hrfms/dashboard"]),
+    createPageOption("/my-profile", "My Profile", "/hrfms/my-profile", ["/hrfms/my-profile"]),
+    createPageOption("/resume-request", "MainPower Request", "/hrfms/resume-request", ["MainPower Request", "/hrfms/resume-request"]),
+    createPageOption("/requests", "Travel Form", "/hrfms/requests", ["Travel Form", "Travel Request", "/hrfms/requests"]),
+    createPageOption("/resumes", "Resume", "/hrfms/resumes", ["/hrfms/resumes", "/hrfms/resume"]),
+    createPageOption("/travel-status", "Travel Status", "/hrfms/travel-status", ["/hrfms/travel-status"]),
+    createPageOption("/leave-request", "Leave Request", "/hrfms/leave-request", ["/hrfms/leave-request"]),
+    createPageOption("/plant-visitor", "Plant Visitor", "/hrfms/plant-visitor", ["/hrfms/plant-visitor"]),
+    createPageOption("/commercial-head-approval", "Hod Approval", "/hrfms/commercial-head-approval", ["Hod Approval", "/hrfms/commercial-head-approval"]),
+    createPageOption("/leave-hr-approvals", "HR Approvals", "/hrfms/leave-hr-approvals", ["HR Approvals", "/hrfms/leave-hr-approvals"]),
+    createPageOption("/resume-list", "MainPower List", "/hrfms/resume-list", ["MainPower List", "/hrfms/resume-list"]),
+    createPageOption("/plant-visitorlist", "Plant Visitor List", "/hrfms/plant-visitorlist", ["/hrfms/plant-visitorlist"]),
+    createPageOption("/leave-approvals", "Leave Approvals", "/hrfms/leave-approvals", ["/hrfms/leave-approvals"]),
+    createPageOption("/tickets", "Tickets", "/hrfms/tickets", ["/hrfms/tickets"]),
+    createPageOption("/resume-form", "Resume Upload", "/hrfms/resume-form", ["Resume Upload", "/hrfms/resume-form"]),
+    createPageOption("/condidate-list", "Interviwer List", "/hrfms/condidate-list", ["Candidate Status", "/hrfms/condidate-list"]),
+    createPageOption("/condidate-select", "Selected Condidate", "/hrfms/condidate-select", ["Selected Candidate", "/hrfms/condidate-select"]),
+    createPageOption("/employee-create", "Employee", "/hrfms/employee-create", ["/hrfms/employee-create"]),
   ],
+  
   "STORE AND PURCHASE": [
-    { value: "Store Dashboard", label: "Dashboard", route: "/store/dashboard" },
-    { value: "Store Issue", label: "Store Issue", route: "/store/item-issue" },
-    { value: "Indent", label: "Indent", route: "/store/indent" },
-    { value: "Approve Indent HOD", label: "Approve Indent HOD", route: "/store/approve-indent" },
-    { value: "Approve Indent GM", label: "Approve Indent GM", route: "/store/approve-indent-data" },
-    { value: "Purchase Order", label: "Purchase Order", route: "/store/pending-indents" },
-    { value: "Inventory", label: "Inventory", route: "/store/inventory" },
-    { value: "Returnable", label: "Returnable", route: "/store/returnable" },
-    { value: "Repair Gate Pass", label: "Repair Gate Pass", route: "/store/repair-gate-pass" },
-    { value: "Repair Follow Up", label: "Repair Follow Up", route: "/store/repair-followup" },
-    { value: "Store GRN", label: "Store GRN", route: "/store/store-grn" },
-    { value: "Store GRN Admin Approval", label: "Store GRN Admin Approval", route: "/store/store-grn-admin" },
-    { value: "Store GRN GM Approval", label: "Store GRN GM Approval", route: "/store/store-grn-gm" },
-    { value: "Store GRN Close", label: "Store GRN Close", route: "/store/store-grn-close" },
-    { value: "Store Out Approval", label: "Store Out Approval", route: "/store/store-out-approval" },
-    { value: "Completed Items", label: "Completed Items", route: "/store/completed-items" },
-    { value: "My Indent", label: "My Indent", route: "/store/user-indent-list-indent" },
-    { value: "Requisition", label: "Requisition", route: "/store/user-requisition" },
-    { value: "Create Indent", label: "Create Indent", route: "/store/user-indent" },
+    createPageOption("Store Dashboard", "Dashboard", "/store/dashboard", ["/store/dashboard"]),
+    createPageOption("Store Issue", "Store Issue", "/store/item-issue", ["/store/item-issue"]),
+    createPageOption("Indent", "Indent", "/store/indent", ["/store/indent"]),
+    createPageOption("Approve Indent HOD", "Approve Indent HOD", "/store/approve-indent", ["/store/approve-indent"]),
+    createPageOption("Approve Indent GM", "Approve Indent GM", "/store/approve-indent-data", ["/store/approve-indent-data"]),
+    createPageOption("Purchase Order", "Purchase Order", "/store/pending-indents", ["/store/pending-indents"]),
+    createPageOption("Inventory", "Inventory", "/store/inventory", ["/store/inventory"]),
+    createPageOption("Returnable", "Returnable", "/store/returnable", ["/store/returnable"]),
+    createPageOption("Repair Gate Pass", "Repair Gate Pass", "/store/repair-gate-pass", ["/store/repair-gate-pass"]),
+    createPageOption("Repair Follow Up", "Repair Follow Up", "/store/repair-followup", ["/store/repair-followup"]),
+    createPageOption("Store GRN", "Store GRN", "/store/store-grn", ["/store/store-grn"]),
+    createPageOption("Store GRN Admin Approval", "Store GRN Admin Approval", "/store/store-grn-admin", ["/store/store-grn-admin"]),
+    createPageOption("Store GRN GM Approval", "Store GRN GM Approval", "/store/store-grn-gm", ["/store/store-grn-gm"]),
+    createPageOption("Store GRN Close", "Store GRN Close", "/store/store-grn-close", ["/store/store-grn-close"]),
+    createPageOption("Store Out Approval", "Store Out Approval", "/store/store-out-approval", ["/store/store-out-approval"]),
+    createPageOption("Completed Items", "Completed Items", "/store/completed-items", ["/store/completed-items"]),
+    createPageOption("My Indent", "My Indent", "/store/user-indent-list-indent", ["/store/user-indent-list-indent"]),
+    createPageOption("Requisition", "Requisition", "/store/user-requisition", ["/store/user-requisition"]),
+    createPageOption("Create Indent", "Create Indent", "/store/user-indent", ["/store/user-indent"]),
   ],
   "SUBSCRIPTION": [
-    { value: "Document Dashboard", label: "Document Dashboard", route: "/document/dashboard" },
-    { value: "Resource Manager", label: "Resource Manager", route: "/resource-manager" },
-    { value: "Document Renewal", label: "Document Renewal", route: "/document/renewal" },
-    { value: "Subscription Renewal", label: "Subscription Renewal", route: "/subscription/renewal" },
-    { value: "All Subscriptions", label: "All Subscriptions", route: "/subscription/all" },
-    { value: "Subscription Approval", label: "Subscription Approval", route: "/subscription/approval" },
-    { value: "Document Shared", label: "Document Shared", route: "/document/shared" },
-    { value: "All Loan", label: "All Loan", route: "/loan/all" },
-    { value: "Request Forecloser", label: "Request Forecloser", route: "/loan/foreclosure" },
-    { value: "Master", label: "Master", route: "/master" },
+    createPageOption("Document Dashboard", "Document Dashboard", "/document/dashboard", ["/document/dashboard"]),
+    createPageOption("Resource Manager", "Resource Manager", "/resource-manager", ["/resource-manager"]),
+    createPageOption("Document Renewal", "Document Renewal", "/document/renewal", ["/document/renewal"]),
+    createPageOption("Subscription Renewal", "Subscription Renewal", "/subscription/renewal", ["/subscription/renewal"]),
+    createPageOption("All Subscriptions", "All Subscriptions", "/subscription/all", ["/subscription/all"]),
+    createPageOption("Subscription Approval", "Subscription Approval", "/subscription/approval", ["/subscription/approval"]),
+    createPageOption("Document Shared", "Document Shared", "/document/shared", ["/document/shared"]),
+    createPageOption("All Loan", "All Loan", "/loan/all", ["/loan/all"]),
+    createPageOption("Request Forecloser", "Request Forecloser", "/loan/foreclosure", ["/loan/foreclosure"]),
+    createPageOption("Master", "Master", "/master", ["/master"]),
   ],
   "VISITOR GATE PASS": [
-    { value: "Gate Pass Approvals", label: "Approvals", route: "/gatepass/approvals" },
-    { value: "Gate Pass All Data", label: "All Data", route: "/gatepass/all-data" },
-    { value: "Close Gate Pass", label: "Close Gate Pass", route: "/gatepass/close-pass" },
-    { value: "Gate Pass Request List", label: "Request List", route: "/gatepass/request-visit" },
+    createPageOption("Gate Pass Approvals", "Approvals", "/gatepass/approvals", ["/gatepass/approvals", "/gatepass/visitor"]),
+    createPageOption("Gate Pass All Data", "All Data", "/gatepass/all-data", ["/gatepass/all-data"]),
+    createPageOption("Close Gate Pass", "Close Gate Pass", "/gatepass/close-pass", ["/gatepass/close-pass", "/gatepass/close"]),
+    createPageOption("Gate Pass Request List", "Request List", "/gatepass/request-visit", ["/gatepass/request-visit"]),
   ],
-};
-
-const ROUTE_TO_PAGE_NAME_MAP = {
-  "/": "Dashboard",
-  "/o2d/orders": "Orders",
-  "/o2d/enquiry": "Enquiry",
-  "/o2d/enquiry-list": "Enquiry List",
-  "/o2d/process": "Pending Vehicles",
-  "/o2d/complaint-details": "Complaint Details",
-  "/o2d/permissions": "Permissions",
-  "/o2d/customers": "Customers",
-  "/o2d/follow-ups": "Follow Ups",
-  "/batchcode/hot-coil": "Hot Coil",
-  "/batchcode/qc-lab": "QC Lab",
-  "/batchcode/sms-register": "SMS Register",
-  "/batchcode/recoiler": "Recoiler",
-  "/batchcode/pipe-mill": "Pipe Mill",
-  "/batchcode/laddel": "Laddel",
-  "/batchcode/tundis": "Tundis",
-  "/lead-to-order/leads": "Leads",
-  "/lead-to-order/follow-up": "Follow Up",
-  "/lead-to-order/call-tracker": "Call Tracker",
-  "/lead-to-order/quotation": "Quotation",
-  "/lead-to-order/settings": "Settings",
-  "/hrfms/dashboard": "HRFMS Dashboard",
-  "/hrfms/my-profile": "My Profile",
-  "/hrfms/resume-request": "MainPower Request",
-  "/hrfms/resume-list": "MainPower List",
-  "/hrfms/employee-create": "Employee",
-  "/hrfms/requests": "Travel Form",
-  "/hrfms/tickets": "Tickets",
-  "/hrfms/travel-status": "Travel Status",
-  "/hrfms/resumes": "Resume",
-  "/hrfms/resume-form": "Resume Upload",
-  "/hrfms/leave-request": "Leave Request",
-  "/hrfms/leave-approvals": "Leave Approvals",
-  "/hrfms/commercial-head-approval": "Hod Approval",
-  "/hrfms/leave-hr-approvals": "HR Approvals",
-  "/hrfms/plant-visitor": "Plant Visitor",
-  "/hrfms/plant-visitorlist": "Plant Visitor List",
-  "/hrfms/condidate-list": "Interviwer List",
-  "/hrfms/condidate-select": "Selected Condidate",
-  "/store/dashboard": "Store Dashboard",
-  "/store/item-issue": "Store Issue",
-  "/store/indent": "Indent",
-  "/store/approve-indent": "Approve Indent HOD",
-  "/store/approve-indent-data": "Approve Indent GM",
-  "/store/pending-indents": "Purchase Order",
-  "/store/inventory": "Inventory",
-  "/store/returnable": "Returnable",
-  "/store/repair-gate-pass": "Repair Gate Pass",
-  "/store/repair-followup": "Repair Follow Up",
-  "/store/store-grn": "Store GRN",
-  "/store/store-grn-admin": "Store GRN Admin Approval",
-  "/store/store-grn-gm": "Store GRN GM Approval",
-  "/store/store-grn-close": "Store GRN Close",
-  "/store/store-out-approval": "Store Out Approval",
-  "/store/completed-items": "Completed Items",
-  "/store/user-indent-list-indent": "My Indent",
-  "/store/user-requisition": "Requisition",
-  "/store/user-indent": "Create Indent",
-  "/document/dashboard": "Document Dashboard",
-  "/resource-manager": "Resource Manager",
-  "/document/renewal": "Document Renewal",
-  "/subscription/renewal": "Subscription Renewal",
-  "/subscription/all": "All Subscriptions",
-  "/subscription/approval": "Subscription Approval",
-  "/document/shared": "Document Shared",
-  "/loan/all": "All Loan",
-  "/loan/foreclosure": "Request Forecloser",
-  "/master": "Master",
-  "/gatepass/visitor": "Gate Pass Approvals",
-  "/gatepass/approvals": "Gate Pass Approvals",
-  "/gatepass/all-data": "Gate Pass All Data",
-  "/gatepass/request-visit": "Gate Pass Request List",
-  "/gatepass/close": "Close Gate Pass",
-  "/gatepass/close-pass": "Close Gate Pass",
 };
 
 const ALLOWED_SYSTEM_VALUES = new Set(SYSTEM_OPTIONS.map((option) => option.value));
+const ALL_PAGE_OPTIONS = Object.entries(PAGE_ROUTES).flatMap(([system, pages]) =>
+  pages.map((page) => ({ system, ...page }))
+);
 
 const normalizeLookupKey = (value) =>
   (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -231,24 +196,6 @@ const SYSTEM_ALIASES = {
   resourcemanager: "SUBSCRIPTION",
 };
 
-const PAGE_VALUE_LOOKUP = Object.values(PAGE_ROUTES)
-  .flat()
-  .reduce((acc, page) => {
-    acc[page.value.toLowerCase()] = page.value;
-    return acc;
-  }, {
-    dashboard: "Dashboard",
-    master: "Master",
-    settings: "Settings",
-    approvals: "Gate Pass Approvals",
-    "all data": "Gate Pass All Data",
-    "visitor gate pass": "Gate Pass Approvals",
-    "close pass": "Close Gate Pass",
-    "gate pass close pass": "Close Gate Pass",
-    "request list": "Gate Pass Request List",
-    "gate pass request visit": "Gate Pass Request List",
-  });
-
 const parseCsv = (value) =>
   (value || "")
     .split(",")
@@ -262,6 +209,11 @@ const normalizeSystemName = (value) => {
   return SYSTEM_ALIASES[normalized] || null;
 };
 
+const normalizeRoutePath = (value) => {
+  const normalized = (value || "").trim().split("?")[0].replace(/\/$/, "");
+  return normalized || "/";
+};
+
 const normalizeSystemAccessEntries = (value) =>
   toUnique(
     parseCsv(value)
@@ -272,23 +224,19 @@ const normalizeSystemAccessEntries = (value) =>
 const formatSystemAccessForDisplay = (value) =>
   normalizeSystemAccessEntries(value).join(",");
 
-const normalizePageName = (value) => {
-  const trimmed = (value || "").trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("/")) {
-    const normalizedRoute = trimmed.split("?")[0].replace(/\/$/, "") || "/";
-    return ROUTE_TO_PAGE_NAME_MAP[normalizedRoute] || normalizedRoute;
-  }
-  return PAGE_VALUE_LOOKUP[trimmed.toLowerCase()] || trimmed;
-};
+const AMBIGUOUS_PAGE_MATCH = "__ambiguous_page_match__";
 
 const getPageOptionsForSystems = (systems) => {
-  const options = [];
-  systems.forEach((system) => {
-    if (PAGE_ROUTES[system]) {
-      options.push(...PAGE_ROUTES[system]);
-    }
-  });
+  const normalizedSystems = toUnique(
+    (Array.isArray(systems) ? systems : parseCsv(systems))
+      .map(normalizeSystemName)
+      .filter(Boolean)
+  );
+
+  const options =
+    normalizedSystems.length > 0
+      ? ALL_PAGE_OPTIONS.filter((option) => normalizedSystems.includes(option.system))
+      : ALL_PAGE_OPTIONS;
 
   const dedupedByValue = new Map();
   options.forEach((option) => {
@@ -298,6 +246,76 @@ const getPageOptionsForSystems = (systems) => {
   });
 
   return Array.from(dedupedByValue.values());
+};
+
+const resolveSinglePageMatch = (candidates, matcher) => {
+  const matches = candidates.filter(matcher);
+  if (matches.length === 1) {
+    return matches[0].value;
+  }
+  if (matches.length > 1) {
+    return AMBIGUOUS_PAGE_MATCH;
+  }
+  return null;
+};
+
+const normalizePageName = (value, systems = []) => {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return null;
+
+  const scopedCandidates = getPageOptionsForSystems(systems);
+  const candidateSets = [scopedCandidates];
+  if (scopedCandidates.length !== ALL_PAGE_OPTIONS.length) {
+    candidateSets.push(ALL_PAGE_OPTIONS);
+  }
+
+  if (trimmed.startsWith("/")) {
+    const normalizedRoute = normalizeRoutePath(trimmed);
+
+    for (const candidates of candidateSets) {
+      const result = resolveSinglePageMatch(
+        candidates,
+        (page) =>
+          [page.value, page.route, ...(page.aliases || [])]
+            .filter((entry) => typeof entry === "string" && entry.startsWith("/"))
+            .some((entry) => normalizeRoutePath(entry) === normalizedRoute)
+      );
+
+      if (result === AMBIGUOUS_PAGE_MATCH) {
+        return normalizedRoute;
+      }
+
+      if (result) {
+        return result;
+      }
+    }
+
+    return normalizedRoute;
+  }
+
+  const normalizedKey = normalizeLookupKey(trimmed);
+  const matchers = [
+    (page) => normalizeLookupKey(page.value) === normalizedKey,
+    (page) => normalizeLookupKey(page.label) === normalizedKey,
+    (page) =>
+      (page.aliases || []).some(
+        (alias) => typeof alias === "string" && !alias.startsWith("/") && normalizeLookupKey(alias) === normalizedKey
+      ),
+  ];
+
+  for (const candidates of candidateSets) {
+    for (const matcher of matchers) {
+      const result = resolveSinglePageMatch(candidates, matcher);
+      if (result === AMBIGUOUS_PAGE_MATCH) {
+        return trimmed;
+      }
+      if (result) {
+        return result;
+      }
+    }
+  }
+
+  return trimmed;
 };
 
 const defaultForm = {
@@ -385,7 +403,9 @@ const Settings = () => {
     const systemAccess = normalizeSystemAccessEntries(userRecord.system_access).join(",");
 
     const convertedPageAccess = toUnique(
-      parseCsv(userRecord.page_access).map(normalizePageName).filter(Boolean)
+      parseCsv(userRecord.page_access)
+        .map((page) => normalizePageName(page, systemAccess))
+        .filter(Boolean)
     ).join(",");
 
     setFormData({
@@ -530,7 +550,9 @@ const Settings = () => {
   const handlePageAccessChange = useCallback((pageValue, checked) => {
     setFormData((prev) => {
       const currentPages = toUnique(
-        parseCsv(prev.page_access).map(normalizePageName).filter(Boolean)
+        parseCsv(prev.page_access)
+          .map((page) => normalizePageName(page, prev.system_access))
+          .filter(Boolean)
       );
       let newPages;
       if (checked) {
@@ -590,9 +612,11 @@ const Settings = () => {
   const getSelectedPages = useMemo(() => {
     if (!formData.page_access) return [];
     return toUnique(
-      parseCsv(formData.page_access).map(normalizePageName).filter(Boolean)
+      parseCsv(formData.page_access)
+        .map((page) => normalizePageName(page, formData.system_access))
+        .filter(Boolean)
     );
-  }, [formData.page_access]);
+  }, [formData.page_access, formData.system_access]);
 
   // Get selected system values as array
   const getSelectedSystems = useMemo(() => {

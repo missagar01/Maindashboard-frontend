@@ -40,6 +40,17 @@ const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
   "/resume": "/hrfms/resume",
 };
 
+const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
+  assigntask: "/checklist/assign-task",
+  misreport: "/checklist/mis-report",
+  hrmanager: "/checklist/hr-manager",
+  machines: "/maintenance/machines",
+  alltask: "/checklist/all-task",
+  quicktask: "/checklist/quick-task",
+  delegation: "/checklist/delegation",
+  setting: "/checklist/settings",
+};
+
 export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Dashboard: "/",
   "O2D Dashboard": "/o2d/dashboard",
@@ -456,7 +467,13 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "sales";
   }
 
-  if (normalizedPath.startsWith("/checklist")) {
+  if (
+    normalizedPath.startsWith("/checklist") ||
+    normalizedPath.startsWith("/maintenance") ||
+    normalizedPath.startsWith("/mainatce") ||
+    normalizedPath.startsWith("/housekeeping") ||
+    normalizedPath.startsWith("/houskeeping")
+  ) {
     return "checklist";
   }
 
@@ -519,6 +536,8 @@ const normalizePageEntryToRoute = (
     return null;
   }
 
+  const hasChecklist = hasSystemAccess(availableSystems, "checklist");
+
   if (page.startsWith("/")) {
     const normalized = normalizePath(page);
 
@@ -544,6 +563,10 @@ const normalizePageEntryToRoute = (
   }
 
   const normalizedPageLookup = normalizeLookupKey(page);
+  if (hasChecklist && CHECKLIST_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup]) {
+    return CHECKLIST_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup];
+  }
+
   const matchedKey = Object.keys(PAGE_NAME_TO_ROUTE_MAP).find(
     (key) => normalizeLookupKey(key) === normalizedPageLookup
   );

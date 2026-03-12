@@ -1,7 +1,11 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import { getDefaultAllowedPath, isPathAllowed } from "../utils/accessControl";
+import {
+  getDefaultAllowedPath,
+  getFirstAllowedPathForModule,
+  isPathAllowed,
+} from "../utils/accessControl";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -25,7 +29,8 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
       return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    const safePath = getDefaultAllowedPath(user);
+    const safePath =
+      getFirstAllowedPathForModule(location.pathname, user) || getDefaultAllowedPath(user);
 
     // Avoid redirect loops when the fallback path cannot be resolved.
     if (safePath === currentPath || safePath === location.pathname) {
