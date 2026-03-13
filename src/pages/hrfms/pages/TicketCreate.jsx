@@ -22,6 +22,19 @@ const initialForm = {
   upload_bill_image: null,
 };
 
+const formatDate = (value) => {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString();
+};
+
 const TicketCreate = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -205,14 +218,27 @@ const TicketCreate = () => {
     }
   }, [defaultEmployeeCode, navigate]);
 
+  useEffect(() => {
+    if (!showModal) {
+      return undefined;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [showModal]);
+
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
-      <div className="space-y-6 px-4 pb-10 sm:px-6 lg:px-10">
-        <div className="rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 p-6 sm:p-8 shadow-2xl mb-5 ring-1 ring-white/30">
+    <div className="min-h-screen bg-slate-50 py-4 sm:py-8">
+      <div className="space-y-4 px-3 pb-10 sm:space-y-6 sm:px-6 lg:px-10">
+        <div className="mb-5 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 p-5 shadow-2xl ring-1 ring-white/30 sm:p-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-white/80">Tickets</p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Create Ticket Bill</h1>
+              <h1 className="text-2xl font-bold text-white sm:text-3xl">Create Ticket Bill</h1>
               <p className="mt-1 text-sm text-indigo-100">Upload bill details and booking information.</p>
             </div>
             <div className="flex items-center gap-3">
@@ -225,89 +251,162 @@ const TicketCreate = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-xl">
+        <div className="rounded-2xl bg-white p-4 shadow-xl sm:p-8">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Travel Requests</h2>
-              <p className="text-sm text-gray-500">Select a request to book a ticket or create a new ticket directly.</p>
+              <p className="text-sm text-gray-500">
+                Cards are shown on mobile. Full table is available on larger screens.
+              </p>
             </div>
             <button
               type="button"
               onClick={handleCreateTicket}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg sm:w-auto"
             >
               <Plus size={18} />
               <span>Create Ticket</span>
             </button>
           </div>
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[1200px] divide-y divide-gray-200 text-sm">
-              <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Action</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Request No</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Person Name</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Travel Type</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">From City</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">To City</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">From Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">To Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Departure Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">No. of Persons</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {loadingRequests && (
-                  <tr>
-                    <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
-                      Loading requests...
-                    </td>
-                  </tr>
-                )}
-                {!loadingRequests && requests.length === 0 && (
-                  <tr>
-                    <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
-                      No requests found.
-                    </td>
-                  </tr>
-                )}
-                {!loadingRequests && requests.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => handleBookTicket(item)}
-                        className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
-                      >
-                        Book Ticket
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">{item.request_no || `Request ${item.id}`}</td>
-                    <td className="px-4 py-3">{item.person_name || '-'}</td>
-                    <td className="px-4 py-3">{item.type_of_travel || '-'}</td>
-                    <td className="px-4 py-3">{item.from_city || '-'}</td>
-                    <td className="px-4 py-3">{item.to_city || '-'}</td>
-                    <td className="px-4 py-3">{item.from_date ? new Date(item.from_date).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3">{item.to_date ? new Date(item.to_date).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3">{item.departure_date ? new Date(item.departure_date).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3">{item.no_of_person || '-'}</td>
-                  </tr>
+          {loadingRequests ? (
+            <div className="py-10 text-center text-sm text-gray-500">
+              Loading requests...
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-500">
+              No requests found.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 md:hidden">
+                {requests.map((item) => (
+                  <article
+                    key={item.id}
+                    className="w-full rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                          Request No
+                        </p>
+                        <h3 className="mt-1 text-base font-semibold text-gray-900">
+                          {item.request_no || `Request ${item.id}`}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-600">
+                          {item.person_name || '-'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
+                        {item.type_of_travel || 'Travel'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          From City
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{item.from_city || '-'}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          To City
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{item.to_city || '-'}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          From Date
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{formatDate(item.from_date)}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          To Date
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{formatDate(item.to_date)}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Departure
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{formatDate(item.departure_date)}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          No. of Persons
+                        </p>
+                        <p className="mt-1 text-sm text-gray-900">{item.no_of_person || '-'}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBookTicket(item)}
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                    >
+                      Book Ticket
+                    </button>
+                  </article>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              <div className="hidden w-full overflow-x-auto md:block">
+                <table className="w-full min-w-[1200px] divide-y divide-gray-200 text-sm">
+                  <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Action</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Request No</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Person Name</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Travel Type</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">From City</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">To City</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">From Date</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">To Date</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Departure Date</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">No. of Persons</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {requests.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleBookTicket(item)}
+                            className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                          >
+                            Book Ticket
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">{item.request_no || `Request ${item.id}`}</td>
+                        <td className="px-4 py-3">{item.person_name || '-'}</td>
+                        <td className="px-4 py-3">{item.type_of_travel || '-'}</td>
+                        <td className="px-4 py-3">{item.from_city || '-'}</td>
+                        <td className="px-4 py-3">{item.to_city || '-'}</td>
+                        <td className="px-4 py-3">{formatDate(item.from_date)}</td>
+                        <td className="px-4 py-3">{formatDate(item.to_date)}</td>
+                        <td className="px-4 py-3">{formatDate(item.departure_date)}</td>
+                        <td className="px-4 py-3">{item.no_of_person || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
 
         {showModal && (
-          <div className="fixed inset-0 z-40 bg-black/50 pt-16 sm:pt-20">
-            <div className="mx-auto flex h-[calc(100%-4rem)] w-full max-w-3xl items-center px-4 sm:px-6">
-              <div className="flex max-h-full w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div className="fixed inset-0 z-40 bg-black/50 p-0 sm:p-4">
+            <div className="flex h-full w-full items-end justify-center sm:items-center">
+              <div className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl">
+                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 sm:px-5">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
+                    <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                       {selectedRequestId ? 'Book Ticket' : 'Create Ticket'}
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs text-gray-500 sm:text-sm">
                       {selectedRequest?.request_no || 'Create a new ticket bill'}
                     </p>
                   </div>
@@ -320,7 +419,7 @@ const TicketCreate = () => {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                   <form onSubmit={handleSubmit} className="space-y-6" aria-disabled={!isAllowed}>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
@@ -471,18 +570,18 @@ const TicketCreate = () => {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
                       <button
                         type="button"
                         onClick={() => setShowModal(false)}
-                        className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        className="w-full rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 sm:w-auto"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                       >
                         {submitting ? 'Submitting...' : 'Submit Ticket'}
                       </button>

@@ -1658,7 +1658,7 @@ export function DashboardView() {
 
 
             {/* Sales Performance Report Section */}
-               <div className='w-full'>
+            <div className='w-full'>
               <div className="w-full m-0 p-0 bg-white">
                 <CardHeader className="bg-white border-b border-slate-100 px-0 sm:px-4 py-1 sm:py-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -1945,7 +1945,9 @@ export function DashboardView() {
                     const avgCallPerDay = monthlyPerformanceSummary.personCount > 0
                       ? (monthlyPerformanceSummary.totalCallings / monthlyPerformanceSummary.personCount / daysDivisor).toFixed(2)
                       : "0.00";
-                    const avgCallPerPerson = Number(monthlyPerformanceSummary.avgCallings).toFixed(1);
+                    const avgCallPerPerson = monthlyPerformanceSummary.personCount > 0
+                      ? (Number(avgCallPerDay) / monthlyPerformanceSummary.personCount).toFixed(1)
+                      : "0.0";
 
                     return (
                       <div className="mt-1 sm:mt-4 px-0 sm:px-6 pb-1 sm:pb-6">
@@ -2296,7 +2298,7 @@ export function DashboardView() {
           </div>
         </div>
 
-         {/* Customer Feedback Section - Tabular Format */}
+        {/* Customer Feedback Section - Tabular Format */}
         <div className="mt-6 sm:mt-10 space-y-2 sm:space-y-4 font-sans">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 px-1">
             <div className="flex items-center gap-2 sm:gap-4">

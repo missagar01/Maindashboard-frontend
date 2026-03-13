@@ -11,6 +11,33 @@ const isImageUrl = (url = "") =>
 const isPdfUrl = (url = "") =>
   /\.pdf$/i.test(url.split("?")[0]);
 
+const formatDateTime = (value) => {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString();
+};
+
+const getStatusClasses = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  if (normalizedStatus === "yes") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  if (normalizedStatus === "no") {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  return "bg-gray-100 text-gray-700";
+};
+
 const ResumeList = () => {
   const { token } = useAuth();
   const [rows, setRows] = useState([]);
@@ -277,7 +304,7 @@ const ResumeList = () => {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Request List */}
           <div className="p-5 sm:p-8">
             {loading ? (
               <div className="py-10 text-center text-gray-500">
@@ -288,131 +315,263 @@ const ResumeList = () => {
                 No resumes found.
               </div>
             ) : (
-              <div className="rounded-xl border overflow-hidden">
-                <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
-                  <table className="min-w-full table-fixed divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                          Req ID
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-52">
-                          Candidate
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
-                          Mobile
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-56">
-                          Email
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
-                          Applied For
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                          Exp
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                          Prev Salary
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
-                          Status
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                          Resume
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
-                          Created
-                        </th>
-                        <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
+              <>
+                <div className="mb-4 md:hidden">
+                  <p className="text-xs text-gray-500">
+                    Cards are shown on mobile. Full table is available on larger screens.
+                  </p>
+                </div>
 
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {rows.map((r) => (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                <div className="space-y-4 md:hidden">
+                  {rows.map((r) => (
+                    <article
+                      key={r.id}
+                      className="w-full rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                            Req ID
+                          </p>
+                          <h4 className="mt-1 text-base font-semibold text-gray-900">
                             {r.req_id || "-"}
-                          </td>
+                          </h4>
+                          <p className="mt-1 text-sm font-medium text-gray-900">
+                            {r.candidate_name || "-"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {r.previous_company || "No previous company"}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${getStatusClasses(
+                            r.interviewer_status
+                          )}`}
+                        >
+                          {r.interviewer_status || "Pending"}
+                        </span>
+                      </div>
 
-                          <td className="px-4 py-3">
-                            <div className="truncate text-sm font-medium text-gray-900">
-                              {r.candidate_name || "-"}
-                            </div>
-                            <div className="truncate text-xs text-gray-500">
-                              {r.previous_company || ""}
-                            </div>
-                          </td>
+                      <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-700">
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            Applied For
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-900">
+                            {r.applied_for_designation || "-"}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Mobile
+                            </p>
+                            <p className="mt-1 break-words text-sm text-gray-900">
+                              {r.candidate_mobile || "-"}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Experience
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">
+                              {r.experience ?? "-"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            Email
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-900">
+                            {r.candidate_email || "-"}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Previous Salary
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">
+                              {r.previous_salary ?? "-"}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Created
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">
+                              {formatDateTime(r.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {r.candidate_mobile || "-"}
-                          </td>
+                      <div className="mt-4 flex flex-col gap-3">
+                        {r.resume ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadResume(
+                                r.resume,
+                                `${r.candidate_name || "resume"}-${r.req_id || r.id}`
+                              )
+                            }
+                            className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                          >
+                            <Download size={16} className="mr-2" />
+                            Download Resume
+                          </button>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-2.5 text-center text-sm text-gray-400">
+                            Resume not available
+                          </div>
+                        )}
 
-                          <td className="px-4 py-3">
-                            <div className="truncate text-sm text-gray-900">
-                              {r.candidate_email || "-"}
-                            </div>
-                          </td>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(r)}
+                          className="inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+                        >
+                          <Calendar size={16} className="mr-2" />
+                          Schedule Interview
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
 
-                          <td className="px-4 py-3">
-                            <div className="truncate text-sm text-gray-900">
-                              {r.applied_for_designation || "-"}
-                            </div>
-                          </td>
+                <div className="hidden overflow-hidden rounded-xl border md:block">
+                  <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
+                    <table className="min-w-full table-fixed divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                            Req ID
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-52">
+                            Candidate
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                            Mobile
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-56">
+                            Email
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
+                            Applied For
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                            Exp
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                            Prev Salary
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
+                            Status
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                            Resume
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
+                            Created
+                          </th>
+                          <th className="sticky top-0 z-30 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {r.experience ?? "-"}
-                          </td>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {rows.map((r) => (
+                          <tr key={r.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {r.req_id || "-"}
+                            </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {r.previous_salary ?? "-"}
-                          </td>
+                            <td className="px-4 py-3">
+                              <div className="truncate text-sm font-medium text-gray-900">
+                                {r.candidate_name || "-"}
+                              </div>
+                              <div className="truncate text-xs text-gray-500">
+                                {r.previous_company || ""}
+                              </div>
+                            </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-800">
-                              {r.interviewer_status || "-"}
-                            </span>
-                          </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {r.candidate_mobile || "-"}
+                            </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {r.resume ? (
+                            <td className="px-4 py-3">
+                              <div className="truncate text-sm text-gray-900">
+                                {r.candidate_email || "-"}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <div className="truncate text-sm text-gray-900">
+                                {r.applied_for_designation || "-"}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {r.experience ?? "-"}
+                            </td>
+
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {r.previous_salary ?? "-"}
+                            </td>
+
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusClasses(
+                                  r.interviewer_status
+                                )}`}
+                              >
+                                {r.interviewer_status || "-"}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              {r.resume ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    downloadResume(
+                                      r.resume,
+                                      `${r.candidate_name || "resume"}-${r.req_id || r.id}`
+                                    )
+                                  }
+                                  className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                                >
+                                  <Download size={14} className="mr-1" />
+                                  Download
+                                </button>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {formatDateTime(r.created_at)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <button
                                 type="button"
-                                onClick={() => downloadResume(
-                                  r.resume,
-                                  `${r.candidate_name || "resume"}-${r.req_id || r.id}`
-                                )}
-                                className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                                onClick={() => openEditModal(r)}
+                                className="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
                               >
-                                <Download size={14} className="mr-1" />
-                                Download
+                                <Calendar size={14} className="mr-1" />
+                                Schedule Interview
                               </button>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {r.created_at
-                              ? new Date(r.created_at).toLocaleString()
-                              : "-"}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => openEditModal(r)}
-                              className="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
-                            >
-                              <Calendar size={14} className="mr-1" />
-                              Schedule Interview
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>

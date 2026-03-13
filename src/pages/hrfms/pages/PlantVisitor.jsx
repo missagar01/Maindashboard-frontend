@@ -18,6 +18,15 @@ const initialForm = {
   request_status: 'PENDING',
 };
 
+const inputClasses =
+  'mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 sm:text-base';
+
+const statusClasses = {
+  APPROVED: 'bg-emerald-100 text-emerald-700',
+  REJECTED: 'bg-rose-100 text-rose-700',
+  PENDING: 'bg-indigo-100 text-indigo-700',
+};
+
 const PlaneVisitor = () => {
   const { user, token } = useAuth();
   const defaultEmployeeCode = user?.employee_id || user?.employee_code || '';
@@ -41,10 +50,7 @@ const PlaneVisitor = () => {
     () => form.person_name || defaultPersonName,
     [form.person_name, defaultPersonName]
   );
-  const requesterNameValue = useMemo(
-    () => form.requester_name,
-    [form.requester_name]
-  );
+  const requesterNameValue = useMemo(() => form.requester_name, [form.requester_name]);
 
   const resetForm = useCallback(() => {
     setForm({
@@ -79,13 +85,13 @@ const PlaneVisitor = () => {
     loadVisitors();
   }, [loadVisitors]);
 
-  // Prevent background scrolling when modal is open
   useEffect(() => {
     if (showForm) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -144,288 +150,388 @@ const PlaneVisitor = () => {
     if (!value) {
       return '-';
     }
+
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
       return '-';
     }
+
     return date.toLocaleDateString();
   };
 
   return (
-    <div className="min-h-screen py-6 sm:py-10">
-      <div className="mx-auto w-full max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
-        <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-xl">
+    <div className="min-h-screen bg-slate-50 py-3 sm:py-6 md:py-8">
+      <div className="w-full space-y-4 px-0 sm:px-4 lg:px-8">
+        <section className="w-full bg-white px-3 py-4 ring-1 ring-slate-200/70 sm:rounded-2xl sm:px-6 sm:py-6 sm:shadow-xl sm:shadow-slate-900/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-indigo-600">Plant Visitors</p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Plant Visitor Requests</h1>
-
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 sm:text-sm">
+                Plant Visitors
+              </p>
+              <h1 className="mt-1 text-xl font-bold text-gray-900 sm:text-2xl md:text-3xl">
+                Plant Visitor Requests
+              </h1>
+              <p className="mt-2 text-xs text-gray-500 sm:text-sm md:text-base">
+                Submit and review visitor requests in a full-width layout that stays usable on mobile.
+              </p>
             </div>
             <button
               type="button"
               onClick={handleOpenForm}
-              className="inline-flex items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 sm:w-auto sm:rounded-full sm:text-sm"
             >
               Open Visitor Form
             </button>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-xl">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-500">Latest visitors</p>
+        <section className="w-full bg-white ring-1 ring-slate-200/70 sm:rounded-2xl sm:shadow-xl sm:shadow-slate-900/5">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 sm:text-base">Latest visitors</p>
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+                Cards are shown on mobile. Full table is available on larger screens.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => loadVisitors()}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-transparent px-3 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-800 sm:w-auto sm:text-sm"
             >
               Refresh
             </button>
           </div>
-          <div className="mt-4 w-full overflow-x-auto">
-            <div className="max-h-[60vh] overflow-y-auto">
-              <table className="w-full min-w-[1024px] divide-y divide-gray-200 text-sm">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Person</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Employee Code</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Reason</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Request For</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">No. of Persons</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">From Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">To Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Requester</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {loadingVisitors && (
-                    <tr>
-                      <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
-                        Loading visitors...
-                      </td>
-                    </tr>
-                  )}
-                  {!loadingVisitors && planeVisitors.length === 0 && (
-                    <tr>
-                      <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
-                        No plane visitor records yet.
-                      </td>
-                    </tr>
-                  )}
-                  {!loadingVisitors &&
-                    planeVisitors.map((visitor) => (
-                      <tr key={visitor?.id || visitor?.person_name} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">{visitor.id || '-'}</td>
-                        <td className="px-4 py-3">{visitor.person_name || '-'}</td>
-                        <td className="px-4 py-3">{visitor.employee_code || '-'}</td>
-                        <td className="px-4 py-3">{visitor.reason_for_visit || '-'}</td>
-                        <td className="px-4 py-3">{visitor.request_for || '-'}</td>
-                        <td className="px-4 py-3">{visitor.no_of_person ?? '-'}</td>
-                        <td className="px-4 py-3">{formatDate(visitor.from_date)}</td>
-                        <td className="px-4 py-3">{formatDate(visitor.to_date)}</td>
-                        <td className="px-4 py-3">{visitor.requester_name || '-'}</td>
-                        <td className="px-4 py-3">
-                          {visitor.request_status === 'APPROVED' ? (
-                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                              APPROVED
-                            </span>
-                          ) : visitor.request_status === 'REJECTED' ? (
-                            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                              REJECTED
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
-                              {visitor.request_status || 'PENDING'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+
+          {loadingVisitors ? (
+            <div className="px-4 py-10 text-center text-sm text-gray-500">Loading visitors...</div>
+          ) : planeVisitors.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-gray-500">
+              No plane visitor records yet.
             </div>
-          </div>
-        </div>
+          ) : (
+            <>
+              <div className="space-y-4 p-4 md:hidden">
+                {planeVisitors.map((visitor) => {
+                  const normalizedStatus = (visitor.request_status || 'PENDING').toUpperCase();
+                  const badgeClass = statusClasses[normalizedStatus] || statusClasses.PENDING;
+
+                  return (
+                    <article
+                      key={visitor?.id || visitor?.person_name}
+                      className="w-full rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-600">
+                            Visitor ID
+                          </p>
+                          <h3 className="mt-1 text-base font-semibold text-gray-900">
+                            {visitor.id || '-'}
+                          </h3>
+                          <p className="mt-1 text-sm font-medium text-gray-900">
+                            {visitor.person_name || '-'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Employee Code: {visitor.employee_code || '-'}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${badgeClass}`}
+                        >
+                          {normalizedStatus}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            Reason for Visit
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-900">
+                            {visitor.reason_for_visit || '-'}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Request For
+                            </p>
+                            <p className="mt-1 break-words text-sm text-gray-900">
+                              {visitor.request_for || '-'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              No. of Persons
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">{visitor.no_of_person ?? '-'}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              From Date
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">
+                              {formatDate(visitor.from_date)}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              To Date
+                            </p>
+                            <p className="mt-1 text-sm text-gray-900">{formatDate(visitor.to_date)}</p>
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            Requester
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-900">
+                            {visitor.requester_name || '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="hidden w-full overflow-x-auto md:block">
+                <div className="max-h-[65vh] min-w-[960px] overflow-y-auto">
+                  <table className="w-full divide-y divide-gray-200 text-left text-xs sm:text-sm">
+                    <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                      <tr>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">ID</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Person</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Employee Code</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Reason</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Request For</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">No. of Persons</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">From Date</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">To Date</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Requester</th>
+                        <th className="px-3 py-3 font-semibold text-gray-600 sm:px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {planeVisitors.map((visitor) => {
+                        const normalizedStatus = (visitor.request_status || 'PENDING').toUpperCase();
+                        const badgeClass = statusClasses[normalizedStatus] || statusClasses.PENDING;
+
+                        return (
+                          <tr key={visitor?.id || visitor?.person_name} className="hover:bg-gray-50">
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.id || '-'}</td>
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.person_name || '-'}</td>
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.employee_code || '-'}</td>
+                            <td className="max-w-[220px] px-3 py-3 text-gray-700 sm:px-4">
+                              <div className="break-words">{visitor.reason_for_visit || '-'}</div>
+                            </td>
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.request_for || '-'}</td>
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.no_of_person ?? '-'}</td>
+                            <td className="px-3 py-3 whitespace-nowrap text-gray-700 sm:px-4">
+                              {formatDate(visitor.from_date)}
+                            </td>
+                            <td className="px-3 py-3 whitespace-nowrap text-gray-700 sm:px-4">
+                              {formatDate(visitor.to_date)}
+                            </td>
+                            <td className="px-3 py-3 text-gray-700 sm:px-4">{visitor.requester_name || '-'}</td>
+                            <td className="px-3 py-3 sm:px-4">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide sm:text-xs ${badgeClass}`}
+                              >
+                                {normalizedStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm sm:p-6 transition-all duration-300">
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
-            <div className="flex flex-none items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Plant Visitor Requests</h2>
-                <p className="text-sm text-gray-500">Record a new visitor request.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseForm}
-                className="text-sm font-semibold text-gray-600 hover:text-gray-900"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="person_name">
-                      Person Name
-                    </label>
-                    <input
-                      id="person_name"
-                      name="person_name"
-                      value={personNameValue}
-                      onChange={handleChange}
-                      readOnly={Boolean(defaultPersonName)}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      placeholder="Rupesh Sahu"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="employee_code">
-                      Employee Code
-                    </label>
-                    <input
-                      id="employee_code"
-                      name="employee_code"
-                      value={employeeCodeValue}
-                      onChange={handleChange}
-                      readOnly={Boolean(defaultEmployeeCode)}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      placeholder="EMP123"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="requester_name">
-                      Requester Name
-                    </label>
-                    <input
-                      id="requester_name"
-                      name="requester_name"
-                      value={form.requester_name}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      placeholder="Anita Verma"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="reason_for_visit">
-                      Reason for Visit
-                    </label>
-                    <input
-                      id="reason_for_visit"
-                      name="reason_for_visit"
-                      value={form.reason_for_visit}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      placeholder="Stakeholder update"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="request_for">
-                      Request For
-                    </label>
-                    <input
-                      id="request_for"
-                      name="request_for"
-                      value={form.request_for}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      placeholder="Laptop"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="no_of_person">
-                      No. of Persons
-                    </label>
-                    <input
-                      id="no_of_person"
-                      name="no_of_person"
-                      type="number"
-                      min="1"
-                      value={form.no_of_person}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="from_date">
-                      From Date
-                    </label>
-                    <input
-                      id="from_date"
-                      name="from_date"
-                      type="date"
-                      value={form.from_date}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-700" htmlFor="to_date">
-                      To Date
-                    </label>
-                    <input
-                      id="to_date"
-                      name="to_date"
-                      type="date"
-                      value={form.to_date}
-                      onChange={handleChange}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      required
-                    />
-                  </div>
-                </div>
-
+        <div className="fixed inset-0 z-50 bg-black/60 p-0 sm:p-4">
+          <div className="flex h-full w-full items-end justify-center sm:items-center">
+            <div className="flex h-full w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl sm:shadow-2xl">
+              <div className="flex flex-none items-start justify-between gap-4 border-b border-gray-200 px-4 py-4 sm:px-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-700" htmlFor="remarks">
-                    Remarks
-                  </label>
-                  <textarea
-                    id="remarks"
-                    name="remarks"
-                    value={form.remarks}
-                    onChange={handleChange}
-                    rows={3}
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                    placeholder="Add some context about the visit"
-                  />
+                  <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Plant Visitor Requests</h2>
+                  <p className="mt-1 text-xs text-gray-500 sm:text-sm">Record a new visitor request.</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCloseForm}
+                  className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                >
+                  Close
+                </button>
+              </div>
 
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="person_name">
+                        Person Name
+                      </label>
+                      <input
+                        id="person_name"
+                        name="person_name"
+                        value={personNameValue}
+                        onChange={handleChange}
+                        readOnly={Boolean(defaultPersonName)}
+                        className={inputClasses}
+                        placeholder="Rupesh Sahu"
+                        required
+                      />
+                    </div>
 
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="employee_code">
+                        Employee Code
+                      </label>
+                      <input
+                        id="employee_code"
+                        name="employee_code"
+                        value={employeeCodeValue}
+                        onChange={handleChange}
+                        readOnly={Boolean(defaultEmployeeCode)}
+                        className={inputClasses}
+                        placeholder="EMP123"
+                        required
+                      />
+                    </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCloseForm}
-                    className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <Send size={16} className="mr-2" />
-                    {submitting ? 'Submitting...' : 'Submit Request'}
-                  </button>
-                </div>
-              </form>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="requester_name">
+                        Requester Name
+                      </label>
+                      <input
+                        id="requester_name"
+                        name="requester_name"
+                        value={form.requester_name}
+                        onChange={handleChange}
+                        className={inputClasses}
+                        placeholder="Anita Verma"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="reason_for_visit">
+                        Reason for Visit
+                      </label>
+                      <input
+                        id="reason_for_visit"
+                        name="reason_for_visit"
+                        value={form.reason_for_visit}
+                        onChange={handleChange}
+                        className={inputClasses}
+                        placeholder="Stakeholder update"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="request_for">
+                        Request For
+                      </label>
+                      <input
+                        id="request_for"
+                        name="request_for"
+                        value={form.request_for}
+                        onChange={handleChange}
+                        className={inputClasses}
+                        placeholder="Laptop"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="no_of_person">
+                        No. of Persons
+                      </label>
+                      <input
+                        id="no_of_person"
+                        name="no_of_person"
+                        type="number"
+                        min="1"
+                        value={form.no_of_person}
+                        onChange={handleChange}
+                        className={inputClasses}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="from_date">
+                        From Date
+                      </label>
+                      <input
+                        id="from_date"
+                        name="from_date"
+                        type="date"
+                        value={form.from_date}
+                        onChange={handleChange}
+                        className={inputClasses}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700" htmlFor="to_date">
+                        To Date
+                      </label>
+                      <input
+                        id="to_date"
+                        name="to_date"
+                        type="date"
+                        value={form.to_date}
+                        onChange={handleChange}
+                        className={inputClasses}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700" htmlFor="remarks">
+                      Remarks
+                    </label>
+                    <textarea
+                      id="remarks"
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={handleChange}
+                      rows={4}
+                      className={inputClasses}
+                      placeholder="Add some context about the visit"
+                    />
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCloseForm}
+                      className="w-full rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                    >
+                      <Send size={16} className="mr-2" />
+                      {submitting ? 'Submitting...' : 'Submit Request'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

@@ -258,11 +258,11 @@ const AttendanceCard = ({ attendance, month }) => {
                         const isToday = isSameDay(day, new Date());
                         const statusLabel =
                             status === 'P' ? 'Present' :
-                            status === 'A' ? 'Absent' :
-                            status === 'AL' ? 'Approved Leave' :
-                            status === 'L' ? 'Leave' :
-                            status === 'H' ? 'Holiday' :
-                            status;
+                                status === 'A' ? 'Absent' :
+                                    status === 'AL' ? 'Approved Leave' :
+                                        status === 'L' ? 'Leave' :
+                                            status === 'H' ? 'Holiday' :
+                                                status;
 
                         let cellBg = 'bg-slate-50 text-slate-500 hover:bg-slate-100';
 
