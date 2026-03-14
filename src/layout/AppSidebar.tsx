@@ -244,8 +244,6 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-grn-close", name: "Store GRN Close", path: "/store/store-grn-close", icon: ShieldCheck },
     { kind: "link", key: "store-out-approval", name: "Store Out Approval", path: "/store/store-out-approval", icon: BadgeCheck },
     { kind: "link", key: "store-completed-items", name: "Completed Items", path: "/store/completed-items", icon: Files },
-    { kind: "link", key: "store-administration", name: "Administration", path: "/store/administration", icon: Settings2 },
-    { kind: "link", key: "store-settings", name: "Settings", path: "/store/settings", icon: Settings2 },
     { kind: "link", key: "store-my-indent", name: "My Indent", path: "/store/erp-indent", icon: FileText },
     { kind: "link", key: "store-user-indent-list", name: "User Indent List", path: "/store/user-indent-list", icon: Files },
     { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },

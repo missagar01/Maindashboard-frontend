@@ -213,7 +213,6 @@ export default function App() {
               <Route path="/store/dashboard" element={<RouteGuard><StoreDashboard /></RouteGuard>} />
               <Route path="/store/store-issue" element={<RouteGuard><StoreIssue /></RouteGuard>} />
               <Route path="/store/indent" element={<RouteGuard><StoreIndentAll /></RouteGuard>} />
-              <Route path="/store/administration" element={<RouteGuard><StoreAdministration /></RouteGuard>} />
               <Route path="/store/store-out-approval" element={<RouteGuard><StoreOutApproval /></RouteGuard>} />
               <Route path="/store/pending-pos" element={<RouteGuard><StorePendingPOs /></RouteGuard>} />
               <Route path="/store/create-po" element={<RouteGuard><StoreCreatePO /></RouteGuard>} />
@@ -239,7 +238,6 @@ export default function App() {
               <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
               <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
-              <Route path="/store/settings" element={<RouteGuard><Settings /></RouteGuard>} />
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
             </Route>
 

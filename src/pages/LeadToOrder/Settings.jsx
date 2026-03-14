@@ -135,8 +135,6 @@ const PAGE_ROUTES = {
     createPageOption("Store GRN Close", "Store GRN Close", "/store/store-grn-close", ["/store/store-grn-close"]),
     createPageOption("Store Out Approval", "Store Out Approval", "/store/store-out-approval", ["/store/store-out-approval"]),
     createPageOption("Completed Items", "Completed Items", "/store/completed-items", ["/store/completed-items"]),
-    createPageOption("Administration", "Administration", "/store/administration", ["/store/administration"]),
-    createPageOption("Settings", "Settings", "/store/settings", ["Store Settings", "/store/settings"]),
     createPageOption("My Indent", "My Indent", "/store/erp-indent", ["/store/erp-indent"]),
     createPageOption("User Indent List", "User Indent List", "/store/user-indent-list", ["/store/user-indent-list"]),
     createPageOption("Requested Indent", "Requested Indent", "/store/user-indent-list-indent", ["User Indent Details", "/store/user-indent-list-indent"]),

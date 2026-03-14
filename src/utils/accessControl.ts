@@ -243,8 +243,6 @@ const STORE_ADMIN_ROUTE_ALLOWLIST = [
   "/store/dashboard",
   "/store/store-issue",
   "/store/indent",
-  "/store/administration",
-  "/store/settings",
   "/store/store-out-approval",
   "/store/pending-pos",
   "/store/create-po",
