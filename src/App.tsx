@@ -65,7 +65,6 @@ import GatePassRequestVisit from "./pages/gatepass/pages/RequestVisit";
 
 // Store pages
 import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
-import { StoreDashboardProvider } from "./pages/store/context/StoreDashboardContext";
 import StoreIssue from "./pages/store/pages/store/StoreIssue";
 import StoreIndentAll from "./pages/store/pages/store/IndentAll";
 import StoreAdministration from "./pages/store/pages/store/Administration";
@@ -208,7 +207,7 @@ export default function App() {
             <Route path="/gatepass/close-pass" element={<RouteGuard><GatePassClosePass /></RouteGuard>} />
 
             {/* Store Routes — provider wraps ALL store pages so data persists across navigation */}
-            <Route element={<StoreDashboardProvider><Outlet /></StoreDashboardProvider>}>
+            <Route element={<Outlet />}>
               <Route path="/store" element={<RouteGuard><Navigate to="/store/dashboard" replace /></RouteGuard>} />
               <Route path="/store/dashboard" element={<RouteGuard><StoreDashboard /></RouteGuard>} />
               <Route path="/store/store-issue" element={<RouteGuard><StoreIssue /></RouteGuard>} />

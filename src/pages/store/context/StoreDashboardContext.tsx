@@ -1,5 +1,27 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { storeApi } from '@/api/store/storeSystemApi';
+
+type LazyDatasetKey =
+  | 'pendingIndents'
+  | 'historyIndents'
+  | 'poPending'
+  | 'poHistory'
+  | 'repairPending'
+  | 'repairHistory'
+  | 'returnableDetails';
+
+type RepairGatePassCounts = {
+  pending?: number;
+  history?: number;
+} | null;
+
+type ReturnableStats = {
+  TOTAL_COUNT?: number;
+  RETURNABLE_COUNT?: number;
+  NON_RETURNABLE_COUNT?: number;
+  RETURNABLE_COMPLETED_COUNT?: number;
+  RETURNABLE_PENDING_COUNT?: number;
+} | null;
 
 interface StoreDashboardData {
   pendingIndents: any[];
@@ -8,9 +30,10 @@ interface StoreDashboardData {
   poHistory: any[];
   repairPending: any[];
   repairHistory: any[];
-  repairReceived: any[];
   returnableDetails: any[];
   dashboardSummary: any | null;
+  repairGatePassCounts: RepairGatePassCounts;
+  returnableStats: ReturnableStats;
   allVendors: { vendorName: string }[];
   allProducts: { itemName: string }[];
 }
@@ -19,16 +42,45 @@ interface StoreDashboardContextType extends StoreDashboardData {
   isLoading: boolean;
   error: string | null;
   refreshData: () => void;
+  loadDataset: (dataset: LazyDatasetKey) => Promise<any[]>;
+  loadedDatasets: Record<LazyDatasetKey, boolean>;
 }
+
+const initialState: StoreDashboardData = {
+  pendingIndents: [],
+  historyIndents: [],
+  poPending: [],
+  poHistory: [],
+  repairPending: [],
+  repairHistory: [],
+  returnableDetails: [],
+  dashboardSummary: null,
+  repairGatePassCounts: null,
+  returnableStats: null,
+  allVendors: [],
+  allProducts: [],
+};
+
+const initialLoadedDatasets: Record<LazyDatasetKey, boolean> = {
+  pendingIndents: false,
+  historyIndents: false,
+  poPending: false,
+  poHistory: false,
+  repairPending: false,
+  repairHistory: false,
+  returnableDetails: false,
+};
 
 const StoreDashboardContext = createContext<StoreDashboardContextType | undefined>(undefined);
 
-export const useStoreDashboard = () => {
-  const context = useContext(StoreDashboardContext);
-  if (!context) {
-    throw new Error('useStoreDashboard must be used within a StoreDashboardProvider');
-  }
-  return context;
+const DATASET_CONFIG: Record<LazyDatasetKey, () => Promise<any>> = {
+  pendingIndents: () => storeApi.getPendingIndents(),
+  historyIndents: () => storeApi.getHistoryIndents(),
+  poPending: () => storeApi.getPoPending(),
+  poHistory: () => storeApi.getPoHistory(),
+  repairPending: () => storeApi.getRepairGatePassPending(),
+  repairHistory: () => storeApi.getRepairGatePassReceived(),
+  returnableDetails: () => storeApi.getReturnableDetails(),
 };
 
 const extractArray = (res: any): any[] => {
@@ -38,138 +90,170 @@ const extractArray = (res: any): any[] => {
   return [];
 };
 
-export const StoreDashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [data, setData] = useState<StoreDashboardData>({
-    pendingIndents: [],
-    historyIndents: [],
-    poPending: [],
-    poHistory: [],
-    repairPending: [],
-    repairHistory: [],
-    repairReceived: [],
-    returnableDetails: [],
-    dashboardSummary: null,
-    allVendors: [],
-    allProducts: [],
+const normalizeVendorList = (rows: any[]): { vendorName: string }[] => {
+  const seen = new Set<string>();
+  const list: { vendorName: string }[] = [];
+
+  rows.forEach((row) => {
+    const raw = row?.vendorName || row?.VENDOR_NAME || row?.vendor_name || row?.ACC_NAME || row?.acc_name || '';
+    const name = String(raw).trim();
+    if (!name) return;
+
+    const key = name.toUpperCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ vendorName: name });
   });
+
+  return list.sort((a, b) => a.vendorName.localeCompare(b.vendorName));
+};
+
+const normalizeProductList = (rows: any[]): { itemName: string }[] => {
+  const seen = new Set<string>();
+  const list: { itemName: string }[] = [];
+
+  rows.forEach((row) => {
+    const raw = row?.itemName || row?.PRODUCT_NAME || row?.product_name || row?.ITEM_NAME || row?.item_name || '';
+    const name = String(raw).trim();
+    if (!name) return;
+
+    const key = name.toUpperCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ itemName: name });
+  });
+
+  return list.sort((a, b) => a.itemName.localeCompare(b.itemName));
+};
+
+export const useStoreDashboard = () => {
+  const context = useContext(StoreDashboardContext);
+  if (!context) {
+    throw new Error('useStoreDashboard must be used within a StoreDashboardProvider');
+  }
+  return context;
+};
+
+export const StoreDashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [data, setData] = useState<StoreDashboardData>(initialState);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedDatasets, setLoadedDatasets] = useState<Record<LazyDatasetKey, boolean>>(initialLoadedDatasets);
+  const dataRef = useRef<StoreDashboardData>(initialState);
+  const loadedDatasetsRef = useRef<Set<LazyDatasetKey>>(new Set());
+  const pendingDatasetLoadsRef = useRef<Map<LazyDatasetKey, Promise<any[]>>>(new Map());
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  const loadDataset = useCallback(async (dataset: LazyDatasetKey) => {
+    if (loadedDatasetsRef.current.has(dataset)) {
+      return dataRef.current[dataset];
+    }
+
+    const pendingLoad = pendingDatasetLoadsRef.current.get(dataset);
+    if (pendingLoad) {
+      return pendingLoad;
+    }
+
+    const loadPromise = (async () => {
+      const response = await DATASET_CONFIG[dataset]();
+      const rows = extractArray(response);
+
+      loadedDatasetsRef.current.add(dataset);
+      setLoadedDatasets((prev) => ({
+        ...prev,
+        [dataset]: true,
+      }));
+      setData((prev) => ({
+        ...prev,
+        [dataset]: rows,
+      }));
+
+      return rows;
+    })();
+
+    pendingDatasetLoadsRef.current.set(dataset, loadPromise);
+
+    try {
+      return await loadPromise;
+    } finally {
+      pendingDatasetLoadsRef.current.delete(dataset);
+    }
+  }, []);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    loadedDatasetsRef.current.clear();
+    pendingDatasetLoadsRef.current.clear();
+    setLoadedDatasets(initialLoadedDatasets);
 
-    // ── PHASE 1: Fast data — clears loading spinner quickly ────────────────
     try {
       const results = await Promise.allSettled([
-        storeApi.getPendingIndents(),         // 0
-        storeApi.getHistoryIndents(),         // 1
-        storeApi.getPoPending(),              // 2
-        storeApi.getPoHistory(),              // 3
-        storeApi.getRepairGatePassPending(),  // 4
-        storeApi.getRepairGatePassHistory(),  // 5
-        storeApi.getRepairGatePassReceived(), // 6
-        storeApi.getReturnableDetails(),      // 7
-        storeApi.getDashboard(),              // 8
+        storeApi.getStoreIndentDashboard(),    // 0
+        storeApi.getRepairGatePassCounts(),    // 1
+        storeApi.getReturnableStats(),         // 2
       ]);
 
-      const get = (r: PromiseSettledResult<any>) =>
-        r.status === 'fulfilled' ? r.value : null;
-
-      const pendingArr = extractArray(get(results[0]));
-      const historyArr = extractArray(get(results[1]));
-      const poPendingArr = extractArray(get(results[2]));
-      const poHistoryArr = extractArray(get(results[3]));
-      const repairPendArr = extractArray(get(results[4]));
-      const repairHistArr = extractArray(get(results[5]));
-      const repairRecArr = extractArray(get(results[6]));
-      const returnableArr = extractArray(get(results[7]));
-      const dashRes = get(results[8]);
-
-      // Build vendor list from all available data sources
-      const seenVendors = new Set<string>();
-      const vendorList: { vendorName: string }[] = [];
-      const addVendor = (raw: string) => {
-        const name = raw.trim();
-        if (name && !seenVendors.has(name.toUpperCase())) {
-          seenVendors.add(name.toUpperCase());
-          vendorList.push({ vendorName: name });
-        }
-      };
-      [...poHistoryArr, ...poPendingArr].forEach((item: any) =>
-        addVendor(item.VENDOR_NAME || item.vendor_name || '')
-      );
-      [...repairPendArr, ...repairHistArr, ...repairRecArr].forEach((item: any) =>
-        addVendor(item.PARTYNAME || item.partyname || item.PARTY_NAME || item.party_name || '')
-      );
-      returnableArr.forEach((item: any) =>
-        addVendor(item.PARTY_NAME || item.party_name || item.PARTYNAME || item.partyname || '')
-      );
-      vendorList.sort((a, b) => a.vendorName.localeCompare(b.vendorName));
-
-      // Build initial product list from indent history (fast, no extra call)
-      const seenItems = new Set<string>();
-      const productList: { itemName: string }[] = [];
-      const addProduct = (raw: string) => {
-        const name = raw.trim();
-        if (name && !seenItems.has(name.toUpperCase())) {
-          seenItems.add(name.toUpperCase());
-          productList.push({ itemName: name });
-        }
-      };
-      [...historyArr, ...pendingArr].forEach((item: any) =>
-        addProduct(item.ITEM_NAME || item.item_name || '')
-      );
-      productList.sort((a, b) => a.itemName.localeCompare(b.itemName));
+      const get = (result: PromiseSettledResult<any>) =>
+        result.status === 'fulfilled' ? result.value : null;
 
       setData({
-        pendingIndents: pendingArr,
-        historyIndents: historyArr,
-        poPending: poPendingArr,
-        poHistory: poHistoryArr,
-        repairPending: repairPendArr,
-        repairHistory: repairHistArr,
-        repairReceived: repairRecArr,
-        returnableDetails: returnableArr,
-        dashboardSummary: dashRes?.data ?? dashRes ?? null,
-        allVendors: vendorList,
-        allProducts: productList,
+        ...initialState,
+        dashboardSummary: get(results[0])?.data ?? get(results[0]) ?? null,
+        repairGatePassCounts: get(results[1])?.data ?? get(results[1]) ?? null,
+        returnableStats: get(results[2])?.data ?? get(results[2]) ?? null,
       });
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load dashboard data');
+      setData(initialState);
     } finally {
-      setIsLoading(false); // ← Dashboard renders here
+      setIsLoading(false);
     }
 
-    // ── PHASE 2: Master items list (background, non-blocking) ──────────────
-    // Runs after isLoading=false. Updates All Products silently.
-    try {
-      const itemsRes = await storeApi.getItems();
-      const masterItems = extractArray(itemsRes);
-      if (masterItems.length > 0) {
-        setData(prev => {
-          const seen = new Set<string>();
-          const list: { itemName: string }[] = [];
-          const add = (raw: string) => {
-            const name = raw.trim();
-            if (name && !seen.has(name.toUpperCase())) {
-              seen.add(name.toUpperCase());
-              list.push({ itemName: name });
-            }
-          };
-          masterItems.forEach((item: any) =>
-            add(item.itemname || item.item_name || item.ITEM_NAME || '')
-          );
-          prev.allProducts.forEach(p => add(p.itemName));
-          return {
-            ...prev,
-            allProducts: list.sort((a, b) => a.itemName.localeCompare(b.itemName)),
-          };
-        });
+    void (async () => {
+      for (const dataset of [
+        'historyIndents',
+        'pendingIndents',
+        'poHistory',
+        'poPending',
+        'repairPending',
+        'repairHistory',
+        'returnableDetails',
+      ] as const) {
+        try {
+          await loadDataset(dataset);
+        } catch {
+          // Non-blocking background hydration.
+        }
       }
-    } catch {
-      // Non-fatal — indent-derived product list is already shown
-    }
+    })();
+
+    void (async () => {
+      try {
+        const vendors = normalizeVendorList(extractArray(await storeApi.getAllVendors()));
+        setData((prev) => ({
+          ...prev,
+          allVendors: vendors,
+        }));
+      } catch {
+        // Ignore background vendor load failure.
+      }
+    })();
+
+    void (async () => {
+      try {
+        const products = normalizeProductList(extractArray(await storeApi.getAllProducts()));
+        setData((prev) => ({
+          ...prev,
+          allProducts: products.length ? products : prev.allProducts,
+        }));
+      } catch {
+        // Ignore background product load failure.
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -181,7 +265,9 @@ export const StoreDashboardProvider: React.FC<{ children: React.ReactNode }> = (
     isLoading,
     error,
     refreshData,
-  }), [data, isLoading, error, refreshData]);
+    loadDataset,
+    loadedDatasets,
+  }), [data, isLoading, error, refreshData, loadDataset, loadedDatasets]);
 
   return (
     <StoreDashboardContext.Provider value={value}>

@@ -1,7 +1,6 @@
 // Store Dashboard - Modern UI Version with Modal Integration and Status Tracking
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useStoreDashboard, StoreDashboardProvider } from "../../context/StoreDashboardContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, useStoreDashboard } from "@/context/AuthContext";
 import { Navigate } from "react-router";
 import {
   ClipboardList, LayoutDashboard, PackageCheck, Truck,
@@ -66,13 +65,16 @@ export default function StoreDashboard() {
     poHistory,
     repairPending,
     repairHistory,
-    repairReceived,
     returnableDetails,
     dashboardSummary,
+    repairGatePassCounts: backendRepairGatePassCounts,
+    returnableStats: backendReturnableStats,
     allVendors,
     allProducts,
     isLoading: loading,
     error: apiError,
+    loadDataset,
+    loadedDatasets,
   } = useStoreDashboard();
   const { user } = useAuth();
 
@@ -397,62 +399,126 @@ export default function StoreDashboard() {
   };
 
   const dashboardStats = useMemo(() => {
+    const summary = dashboardSummary || {};
     const monthStart = getCurrentMonthStart();
     const filterMonth = (rows: any[]) =>
-      (rows || []).filter(item => {
-        const dateVal = item.VRDATE || item.vrdate || item.INDENT_DATE || item.indent_date || item.RECEIVED_DATE || item.received_date || item.PLANNEDTIMESTAMP;
+      (rows || []).filter((item) => {
+        const dateVal =
+          item.VRDATE ||
+          item.vrdate ||
+          item.INDENT_DATE ||
+          item.indent_date ||
+          item.RECEIVED_DATE ||
+          item.received_date ||
+          item.PLANNEDTIMESTAMP;
         return dateVal && new Date(dateVal) >= monthStart;
       });
 
-    const curMonthPendingIndents = filterMonth(pendingIndents);
-    const curMonthHistoryIndents = filterMonth(historyIndents);
-    const curMonthPoPending = filterMonth(poPending);
-    const curMonthPoHistory = filterMonth(poHistory);
-    const curMonthRepairPending = filterMonth(repairPending);
-    const curMonthRepairHistory = filterMonth(repairHistory);
+    const hasIndentMetrics = loadedDatasets.pendingIndents && loadedDatasets.historyIndents;
+    const hasPoMetrics = loadedDatasets.poPending && loadedDatasets.poHistory;
+    const hasRepairMetrics = loadedDatasets.repairPending && loadedDatasets.repairHistory;
+    const hasReturnableMetrics = loadedDatasets.returnableDetails;
 
-    const curMonthOverdue = curMonthPendingIndents.filter(item => {
-      const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
-      return ts && new Date(ts) < new Date();
-    }).length;
+    const curMonthPendingIndents = hasIndentMetrics ? filterMonth(pendingIndents) : [];
+    const curMonthHistoryIndents = hasIndentMetrics ? filterMonth(historyIndents) : [];
+    const curMonthPoPending = hasPoMetrics ? filterMonth(poPending) : [];
+    const curMonthPoHistory = hasPoMetrics ? filterMonth(poHistory) : [];
+    const curMonthRepairPending = hasRepairMetrics ? filterMonth(repairPending) : [];
+    const curMonthRepairHistory = hasRepairMetrics ? filterMonth(repairHistory) : [];
+    const curMonthReturnable = hasReturnableMetrics
+      ? (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart)
+      : [];
 
-    const completed = curMonthHistoryIndents.length;
-    const pending = curMonthPendingIndents.length;
-    const total = completed + pending;
+    const curMonthOverdue = hasIndentMetrics
+      ? curMonthPendingIndents.filter((item) => {
+          const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
+          return ts && new Date(ts) < new Date();
+        }).length
+      : Number(summary.overdueIndents || 0);
 
-    const completedPercent = total > 0 ? (completed / total) * 100 : 0;
-    const pendingPercent = total > 0 ? (pending / total) * 100 : 0;
+    const completed = hasIndentMetrics
+      ? curMonthHistoryIndents.length
+      : Number(summary.completedIndents || 0);
+    const pending = hasIndentMetrics
+      ? curMonthPendingIndents.length
+      : Number(summary.pendingIndents || 0);
+    const total = hasIndentMetrics
+      ? completed + pending
+      : Number(summary.totalIndents || 0);
 
-    const curMonthReturnable = (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart);
+    const completedPercent = hasIndentMetrics
+      ? (total > 0 ? (completed / total) * 100 : 0)
+      : Number(summary.completedPercent || 0);
+    const pendingPercent = hasIndentMetrics
+      ? (total > 0 ? (pending / total) * 100 : 0)
+      : Number(summary.pendingPercent || 0);
+    const overduePercent = hasIndentMetrics
+      ? (total > 0 ? (curMonthOverdue / total) * 100 : 0)
+      : Number(summary.overduePercent || 0);
 
     return {
       dashboardData: {
-        ...(dashboardSummary || {}),
+        ...summary,
         totalIndents: total,
         completedIndents: completed,
         pendingIndents: pending,
+        upcomingIndents: Number(summary.upcomingIndents || 0),
         overdueIndents: curMonthOverdue,
-        totalPurchaseOrders: curMonthPoHistory.length,
-        pendingPurchaseOrders: curMonthPoPending.length,
-        overallProgress: completedPercent,
-        completedPercent: completedPercent,
-        pendingPercent: pendingPercent,
-        upcomingPercent: 0, // Simplified for local current month view
-        overduePercent: total > 0 ? (curMonthOverdue / total) * 100 : 0,
+        totalIndentedQuantity: Number(summary.totalIndentedQuantity || 0),
+        totalPurchaseOrders: hasPoMetrics
+          ? curMonthPoHistory.length
+          : Number(summary.totalPurchaseOrders || 0),
+        totalPurchasedQuantity: Number(summary.totalPurchasedQuantity || 0),
+        totalIssuedQuantity: Number(summary.totalIssuedQuantity || 0),
+        outOfStockCount: Number(summary.outOfStockCount || 0),
+        overallProgress: hasIndentMetrics ? completedPercent : Number(summary.overallProgress || 0),
+        completedPercent,
+        pendingPercent,
+        upcomingPercent: Number(summary.upcomingPercent || 0),
+        overduePercent,
+        pendingPurchaseOrders: hasPoMetrics
+          ? curMonthPoPending.length
+          : Number(summary.pendingPurchaseOrders || 0),
       },
       repairGatePassCounts: {
-        pending: curMonthRepairPending.length,
-        history: curMonthRepairHistory.length
+        pending: hasRepairMetrics
+          ? curMonthRepairPending.length
+          : Number(backendRepairGatePassCounts?.pending || 0),
+        history: hasRepairMetrics
+          ? curMonthRepairHistory.length
+          : Number(backendRepairGatePassCounts?.history || 0),
       },
       returnableStats: {
-        TOTAL_COUNT: curMonthReturnable.length,
-        RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE').length,
-        NON_RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE').length,
-        RETURNABLE_COMPLETED_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED').length,
-        RETURNABLE_PENDING_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING').length,
-      }
+        TOTAL_COUNT: hasReturnableMetrics
+          ? curMonthReturnable.length
+          : Number(backendReturnableStats?.TOTAL_COUNT || 0),
+        RETURNABLE_COUNT: hasReturnableMetrics
+          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE').length
+          : Number(backendReturnableStats?.RETURNABLE_COUNT || 0),
+        NON_RETURNABLE_COUNT: hasReturnableMetrics
+          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE').length
+          : Number(backendReturnableStats?.NON_RETURNABLE_COUNT || 0),
+        RETURNABLE_COMPLETED_COUNT: hasReturnableMetrics
+          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED').length
+          : Number(backendReturnableStats?.RETURNABLE_COMPLETED_COUNT || 0),
+        RETURNABLE_PENDING_COUNT: hasReturnableMetrics
+          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING').length
+          : Number(backendReturnableStats?.RETURNABLE_PENDING_COUNT || 0),
+      },
     };
-  }, [pendingIndents, historyIndents, poPending, poHistory, repairPending, repairHistory, returnableDetails, dashboardSummary]);
+  }, [
+    dashboardSummary,
+    backendRepairGatePassCounts,
+    backendReturnableStats,
+    loadedDatasets,
+    pendingIndents,
+    historyIndents,
+    poPending,
+    poHistory,
+    repairPending,
+    repairHistory,
+    returnableDetails,
+  ]);
 
   const { dashboardData, repairGatePassCounts, returnableStats } = dashboardStats;
 
@@ -610,35 +676,43 @@ export default function StoreDashboard() {
       let rows: any[] = [];
       switch (type) {
         case 'totalIndents':
-          rows = historyIndents;
+          rows = await loadDataset('historyIndents');
           break;
         case 'pendingIndents':
-          rows = pendingIndents;
+          rows = await loadDataset('pendingIndents');
           break;
         case 'totalPurchases':
-          rows = poHistory;
+          rows = await loadDataset('poHistory');
           break;
         case 'pendingPOs':
-          rows = poPending;
+          rows = await loadDataset('poPending');
           break;
         case 'repairPending':
-          rows = repairPending;
+          rows = await loadDataset('repairPending');
           break;
         case 'repairHistory':
-          rows = repairReceived; // Use repairReceived for history tab
+          rows = await loadDataset('repairHistory');
           break;
-        case 'returnableTotal':
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
+        case 'returnableTotal': {
+          const details = await loadDataset('returnableDetails');
+          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
           break;
-        case 'returnablePending':
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
+        }
+        case 'returnablePending': {
+          const details = await loadDataset('returnableDetails');
+          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
           break;
-        case 'returnableCompleted':
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
+        }
+        case 'returnableCompleted': {
+          const details = await loadDataset('returnableDetails');
+          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
           break;
-        case 'nonReturnable':
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
+        }
+        case 'nonReturnable': {
+          const details = await loadDataset('returnableDetails');
+          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
           break;
+        }
       }
 
       // Filter by current month start
