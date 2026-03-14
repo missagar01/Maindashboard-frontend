@@ -5,6 +5,7 @@ import { Pencil, Trash2, UserPlus, X, ChevronDown, Calendar, MapPin, Plane, Tick
 import { createEmployee, deleteEmployee, getEmployees, updateEmployee } from '../../../api/hrfms/employeeApi';
 import { getEmployeeFullDetails } from '../../../api/hrfms/dashboardApi';
 import { useAuth } from '../../../context/AuthContext';
+import { getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
 
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
   const [error, setError] = useState(false);
@@ -383,7 +384,7 @@ const EmployeeCreate = () => {
         // Explicitly send the list of remaining existing documents
         const existingDocs = documentPreviews
           .filter(doc => !doc.isNew)
-          .map(doc => doc.url);
+          .map(doc => doc.sourceUrl || doc.url);
         payload.append('existing_documents', JSON.stringify(existingDocs));
         payload.append('page_access', JSON.stringify(pageAccessArray));
 
@@ -419,7 +420,7 @@ const EmployeeCreate = () => {
           page_access: pageAccessArray,
           existing_documents: documentPreviews
             .filter(doc => !doc.isNew)
-            .map(doc => doc.url),
+            .map(doc => doc.sourceUrl || doc.url),
         };
 
         if (editingId && !payload.password) {
@@ -487,14 +488,15 @@ const EmployeeCreate = () => {
     };
 
     // Set preview images if they exist
-    setProfileImgPreview(employee?.profile_img || null);
+    setProfileImgPreview(resolveUploadedFileUrl(employee?.profile_img) || null);
 
     if (employee?.document_img) {
       const docs = Array.isArray(employee.document_img) ? employee.document_img : [employee.document_img];
       setDocumentPreviews(docs.map(url => ({
-        url,
-        name: url.split('/').pop(),
-        type: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        url: resolveUploadedFileUrl(url),
+        sourceUrl: url,
+        name: getFileNameFromUrl(url),
+        type: isPdfFileUrl(url) ? 'application/pdf' : 'image/jpeg',
         isNew: false
       })));
     } else {
@@ -773,7 +775,7 @@ const EmployeeCreate = () => {
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
               {documentPreviews.map((doc, index) => (
                 <div key={index} className="relative group rounded-lg border border-gray-200 bg-gray-50 p-2 flex flex-col items-center gap-1">
-                  {doc.type.includes('pdf') || doc.url.toLowerCase().endsWith('.pdf') ? (
+                  {doc.type.includes('pdf') || isPdfFileUrl(doc.url) ? (
                     <div className="flex flex-col items-center gap-1 text-red-500">
                       <FileText size={32} />
                       <span className="text-[10px] text-gray-600 truncate max-w-[80px]">{doc.name}</span>

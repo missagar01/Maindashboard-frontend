@@ -4,6 +4,7 @@ import { Building, Edit3, Mail, Phone, Save, User, X, Hash, Shield, Briefcase, C
 import toast from 'react-hot-toast';
 import { getEmployeeById, updateEmployee } from '../../../api/hrfms/employeeApi';
 import { useAuth } from '../../../context/AuthContext';
+import { getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
 
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
   const [error, setError] = useState(false);
@@ -30,6 +31,17 @@ const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: Fallbac
       onError={() => setError(true)}
     />
   );
+};
+
+const buildDocumentPreview = (url) => {
+  const resolvedUrl = resolveUploadedFileUrl(url);
+  return {
+    url: resolvedUrl,
+    sourceUrl: url,
+    name: getFileNameFromUrl(url),
+    type: isPdfFileUrl(url) ? 'application/pdf' : 'image/jpeg',
+    isExisting: true
+  };
 };
 
 const MyProfile = () => {
@@ -66,16 +78,11 @@ const MyProfile = () => {
 
       // Set initial previews only if not in editing mode or if it's the first load
       if (profile.profile_img && (!isEditing || !previewProfileImg)) {
-        setPreviewProfileImg(profile.profile_img);
+        setPreviewProfileImg(resolveUploadedFileUrl(profile.profile_img));
       }
       if (profile.document_img && (!isEditing || previewDocuments.length === 0)) {
         const docs = Array.isArray(profile.document_img) ? profile.document_img : [profile.document_img];
-        setPreviewDocuments(docs.map(url => ({
-          url,
-          name: url.split('/').pop(),
-          type: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
-          isExisting: true
-        })));
+        setPreviewDocuments(docs.map(buildDocumentPreview));
       }
 
     } catch (error) {
@@ -188,7 +195,7 @@ const MyProfile = () => {
       // Explicitly send the list of remaining existing documents
       const existingDocs = previewDocuments
         .filter(doc => doc.isExisting)
-        .map(doc => doc.url);
+        .map(doc => doc.sourceUrl || doc.url);
       submitData.append('existing_documents', JSON.stringify(existingDocs));
 
       // If we removed existing documents, we'd need to tell the backend.
@@ -208,16 +215,13 @@ const MyProfile = () => {
       setFormData(updatedProfile);
 
       // Update previews/state
-      if (updatedProfile.profile_img) setPreviewProfileImg(updatedProfile.profile_img);
+      if (updatedProfile.profile_img) setPreviewProfileImg(resolveUploadedFileUrl(updatedProfile.profile_img));
 
       if (updatedProfile.document_img) {
         const docs = Array.isArray(updatedProfile.document_img) ? updatedProfile.document_img : [updatedProfile.document_img];
-        setPreviewDocuments(docs.map(url => ({
-          url,
-          name: url.split('/').pop(),
-          type: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
-          isExisting: true
-        })));
+        setPreviewDocuments(docs.map(buildDocumentPreview));
+      } else {
+        setPreviewDocuments([]);
       }
 
       setSelectedProfileImg(null);
@@ -234,7 +238,7 @@ const MyProfile = () => {
 
   const handleCancel = () => {
     setFormData(profileData || {});
-    setPreviewProfileImg(profileData?.profile_img || null);
+    setPreviewProfileImg(resolveUploadedFileUrl(profileData?.profile_img) || null);
 
     // Clean up blob URLs
     previewDocuments.forEach(doc => {
@@ -245,12 +249,7 @@ const MyProfile = () => {
 
     if (profileData?.document_img) {
       const docs = Array.isArray(profileData.document_img) ? profileData.document_img : [profileData.document_img];
-      setPreviewDocuments(docs.map(url => ({
-        url,
-        name: url.split('/').pop(),
-        type: url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
-        isExisting: true
-      })));
+      setPreviewDocuments(docs.map(buildDocumentPreview));
     } else {
       setPreviewDocuments([]);
     }
@@ -535,7 +534,7 @@ const MyProfile = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {previewDocuments.map((doc, index) => (
                         <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-2 min-h-[160px]">
-                          {doc.type.includes('pdf') || doc.url.toLowerCase().endsWith('.pdf') ? (
+                          {doc.type.includes('pdf') || isPdfFileUrl(doc.url) ? (
                             <div className="flex flex-col items-center justify-center text-red-500 gap-2">
                               <FileText size={48} />
                               <span className="text-xs text-gray-600 font-medium truncate max-w-[150px]">{doc.name}</span>

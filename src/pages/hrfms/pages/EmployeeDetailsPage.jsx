@@ -11,6 +11,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay 
 import { getEmployeeFullDetails } from '../../../api/hrfms/dashboardApi';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
 
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
     const [error, setError] = useState(false);
@@ -144,7 +145,7 @@ const EmployeeDetailsPage = () => {
                                 <div className="w-28 h-28 rounded-[1.8rem] bg-gradient-to-tr from-indigo-500 to-purple-500 p-1 shadow-xl">
                                     <div className="w-full h-full bg-white rounded-[1.6rem] p-1 transition-transform hover:scale-105 duration-500 overflow-hidden">
                                         <ImageWithFallback
-                                            src={data.profile.profile_img}
+                                            src={resolveUploadedFileUrl(data.profile.profile_img)}
                                             alt="Profile"
                                             className="w-full h-full object-cover rounded-[1.3rem]"
                                             fallbackIcon={User}
@@ -256,8 +257,9 @@ const EmployeeDetailsPage = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {(Array.isArray(data.profile.document_img) ? data.profile.document_img : [data.profile.document_img]).map((url, idx) => {
-                                        const isPdf = url.toLowerCase().endsWith('.pdf');
-                                        const fileName = url.split('/').pop().split('-').pop(); // Show cleaner name
+                                        const resolvedUrl = resolveUploadedFileUrl(url);
+                                        const isPdf = isPdfFileUrl(url);
+                                        const fileName = getFileNameFromUrl(url).split('-').pop(); // Show cleaner name
 
                                         return (
                                             <div key={idx} className="relative rounded-xl overflow-hidden bg-gray-50 group/doc border border-gray-100 transition-all hover:border-emerald-200 shadow-sm">
@@ -268,7 +270,7 @@ const EmployeeDetailsPage = () => {
                                                         </div>
                                                         <span className="text-[9px] text-gray-600 font-black truncate max-w-full px-2 uppercase tracking-tighter">{fileName}</span>
                                                         <a
-                                                            href={url}
+                                                            href={resolvedUrl}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="mt-1 flex items-center gap-1.5 px-3 py-1 bg-white text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100 shadow-sm hover:bg-emerald-50 transition-colors"
@@ -279,10 +281,10 @@ const EmployeeDetailsPage = () => {
                                                 ) : (
                                                     <div className="relative aspect-video sm:aspect-square flex items-center justify-center overflow-hidden h-full min-h-[140px]">
                                                         <ImageWithFallback
-                                                            src={url}
+                                                            src={resolvedUrl}
                                                             alt={`Document ${idx + 1}`}
                                                             className="w-full h-full object-cover opacity-90 group-hover/doc:opacity-100 transition-opacity cursor-pointer"
-                                                            onClick={() => window.open(url, '_blank')}
+                                                            onClick={() => window.open(resolvedUrl, '_blank')}
                                                             fallbackIcon={FileText}
                                                         />
                                                         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 via-transparent to-transparent opacity-0 group-hover/doc:opacity-100 transition-opacity flex flex-col justify-end p-3">
@@ -291,7 +293,7 @@ const EmployeeDetailsPage = () => {
                                                                     {fileName}
                                                                 </p>
                                                                 <a
-                                                                    href={url}
+                                                                    href={resolvedUrl}
                                                                     target="_blank"
                                                                     rel="noreferrer"
                                                                     className="p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40 transition-colors"
