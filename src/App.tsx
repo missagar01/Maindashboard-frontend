@@ -239,6 +239,7 @@ export default function App() {
               <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
               <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
+              <Route path="/store/settings" element={<RouteGuard><Settings /></RouteGuard>} />
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
             </Route>
 

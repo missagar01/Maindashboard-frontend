@@ -99,6 +99,7 @@ export default function StoreDashboard() {
   }, [apiError]);
 
   // Modal State
+  const MODAL_PAGE_SIZE = 50;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalType, setModalType] = useState("");
@@ -106,7 +107,7 @@ export default function StoreDashboard() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSearch, setModalSearch] = useState("");
   const [modalPage, setModalPage] = useState(1);
-  const MODAL_PAGE_SIZE = 50;
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MODAL_PAGE_SIZE);
 
   // Process Purchaser Performance Data for Chart (Current Month History Only)
   const purchaserChartData = useMemo(() => {
@@ -221,6 +222,178 @@ export default function StoreDashboard() {
     d.setDate(1);
     d.setHours(0, 0, 0, 0);
     return d;
+  };
+
+  const getDisplayValue = (...values: any[]) => {
+    for (const value of values) {
+      if (value === 0) return 0;
+      if (value == null) continue;
+
+      if (typeof value === "string") {
+        const normalized = value.trim();
+        if (!normalized || normalized.toLowerCase() === "null") continue;
+        return normalized;
+      }
+
+      return value;
+    }
+
+    return "--";
+  };
+
+  const getDisplayDate = (...values: any[]) => {
+    const rawValue = getDisplayValue(...values);
+    return rawValue === "--" ? "--" : formatDate(rawValue);
+  };
+
+  const getModalCardGradient = (type: string) => {
+    switch (type) {
+      case "totalIndents":
+      case "pendingIndents":
+        return "from-red-600 via-rose-500 to-orange-500";
+      case "totalPurchases":
+      case "pendingPOs":
+        return "from-emerald-600 via-teal-500 to-cyan-500";
+      case "repairPending":
+      case "repairHistory":
+        return "from-violet-600 via-fuchsia-500 to-purple-500";
+      case "returnablePending":
+      case "returnableCompleted":
+        return "from-amber-500 via-orange-500 to-rose-500";
+      default:
+        return "from-indigo-600 via-blue-500 to-cyan-500";
+    }
+  };
+
+  const getStatusTone = (status: any) => {
+    const normalizedStatus = String(getDisplayValue(status)).toUpperCase();
+
+    if (normalizedStatus === "COMPLETED") return "success";
+    if (normalizedStatus === "PENDING") return "warning";
+
+    return "default";
+  };
+
+  const getModalCardData = (type: string, item: any) => {
+    switch (type) {
+      case "totalIndents":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.indent_no, item.INDENT_NO, item.INDENT_NUMBER),
+          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
+          meta: `Indenter: ${getDisplayValue(item.indenter, item.INDENTER, item.INDENTER_NAME)}`,
+          fields: [
+            { label: "Date", value: getDisplayDate(item.indent_date, item.INDENT_DATE) },
+            { label: "Acknowledge Date", value: getDisplayDate(item.acknowledgedate, item.ACKNOWLEDGEDATE) },
+            { label: "Division", value: getDisplayValue(item.division, item.DIVISION) },
+            { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+            { label: "Item Code", value: getDisplayValue(item.item_code, item.ITEM_CODE), tone: "primary" },
+            { label: "Qty", value: getDisplayValue(item.qtyindent, item.QTYINDENT, item.REQUIRED_QTY), tone: "primary" },
+            { label: "UM", value: getDisplayValue(item.um, item.UM) },
+            { label: "Purchaser", value: getDisplayValue(item.purchaser, item.PURCHASER) },
+            { label: "PO No", value: getDisplayValue(item.po_no, item.PO_NO), tone: "success" },
+            { label: "GRN No", value: getDisplayValue(item.grn_no, item.GRN_NO), tone: "success" },
+          ],
+        };
+      case "pendingIndents":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.INDENT_NUMBER, item.indent_number),
+          subtitle: getDisplayValue(item.ITEM_NAME),
+          meta: `Indenter: ${getDisplayValue(item.INDENTER_NAME)}`,
+          fields: [
+            { label: "Planned Date", value: getDisplayDate(item.PLANNEDTIMESTAMP) },
+            { label: "Indent Date", value: getDisplayDate(item.INDENT_DATE) },
+            { label: "Division", value: getDisplayValue(item.DIVISION) },
+            { label: "Department", value: getDisplayValue(item.DEPARTMENT) },
+            { label: "Qty", value: getDisplayValue(item.REQUIRED_QTY, item.required_qty), tone: "primary" },
+            { label: "UM", value: getDisplayValue(item.UM) },
+            { label: "Vendor Type", value: getDisplayValue(item.VENDOR_TYPE, "Pending"), tone: "warning" },
+            { label: "Remark", value: getDisplayValue(item.REMARK), fullWidth: true },
+            { label: "Specification", value: getDisplayValue(item.SPECIFICATION), fullWidth: true },
+          ],
+        };
+      case "totalPurchases":
+      case "pendingPOs":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.VRNO, item.vrno),
+          subtitle: getDisplayValue(item.ITEM_NAME),
+          meta: `Vendor: ${getDisplayValue(item.VENDOR_NAME)}`,
+          fields: [
+            { label: "Indent No", value: getDisplayValue(item.INDENT_NO) },
+            { label: "Planned Date", value: getDisplayDate(item.PLANNED_TIMESTAMP) },
+            { label: "PO Date", value: getDisplayDate(item.VRDATE) },
+            { label: "Indenter", value: getDisplayValue(item.INDENTER) },
+            { label: "Qty Order", value: getDisplayValue(item.QTYORDER), tone: "primary" },
+            { label: "Qty Execute", value: getDisplayValue(item.QTYEXECUTE), tone: "success" },
+            { label: "Balance Qty", value: getDisplayValue(item.BALANCE_QTY), tone: "danger" },
+            { label: "UM", value: getDisplayValue(item.UM) },
+          ],
+        };
+      case "repairPending":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.vrno, item.VRNO),
+          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
+          meta: `Party: ${getDisplayValue(item.partyname, item.PARTYNAME)}`,
+          fields: [
+            { label: "Date", value: getDisplayDate(item.vrdate, item.VRDATE) },
+            { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+            { label: "Item Code", value: getDisplayValue(item.item_code, item.ITEM_CODE), tone: "primary" },
+            { label: "Qty Issued", value: getDisplayValue(item.qtyissued, item.QTYISSUED), tone: "primary" },
+            { label: "UM", value: getDisplayValue(item.um, item.UM) },
+            { label: "Remarks", value: getDisplayValue(item.remark, item.REMARK), fullWidth: true },
+          ],
+        };
+      case "repairHistory":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.receive_gate_pass, item.RECEIVE_GATE_PASS),
+          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
+          meta: `Repair Gate Pass: ${getDisplayValue(item.repair_gate_pass, item.REPAIR_GATE_PASS)}`,
+          fields: [
+            { label: "Received Date", value: getDisplayDate(item.received_date, item.RECEIVED_DATE) },
+            { label: "Party Name", value: getDisplayValue(item.partyname, item.PARTYNAME) },
+            { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+            { label: "Item Code", value: getDisplayValue(item.item_code, item.ITEM_CODE), tone: "primary" },
+            { label: "Qty Received", value: getDisplayValue(item.qtyrecd, item.QTYRECD, item.qtyreceived, item.QTYRECEIVED), tone: "success" },
+            { label: "UM", value: getDisplayValue(item.um, item.UM) },
+            { label: "Remarks", value: getDisplayValue(item.remark, item.REMARK), fullWidth: true },
+          ],
+        };
+      case "nonReturnable":
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.VRNO, item.vrno),
+          subtitle: getDisplayValue(item.ITEM_NAME, item.item_name),
+          meta: `Party: ${getDisplayValue(item.PARTY_NAME, item.party_name)}`,
+          fields: [
+            { label: "Date", value: getDisplayDate(item.VRDATE, item.vrdate) },
+            { label: "Item Code", value: getDisplayValue(item.ITEM_CODE, item.item_code), tone: "primary" },
+            { label: "Qty Issued", value: getDisplayValue(item.QTYISSUED, item.qtyissued), tone: "primary" },
+            { label: "Qty Received", value: getDisplayValue(item.QTYRECEIVED, item.qtyreceived, 0), tone: "success" },
+            { label: "Unit", value: getDisplayValue(item.UNIT, item.unit) },
+            { label: "Remarks", value: getDisplayValue(item.REMARK, item.remark, "No remarks"), fullWidth: true },
+          ],
+        };
+      default:
+        return {
+          gradient: getModalCardGradient(type),
+          title: getDisplayValue(item.VRNO, item.vrno),
+          subtitle: getDisplayValue(item.ITEM_NAME, item.item_name),
+          meta: `Party: ${getDisplayValue(item.PARTY_NAME, item.party_name)}`,
+          fields: [
+            { label: "Date", value: getDisplayDate(item.VRDATE, item.vrdate) },
+            { label: "Item Code", value: getDisplayValue(item.ITEM_CODE, item.item_code), tone: "primary" },
+            { label: "Qty Issued", value: getDisplayValue(item.QTYISSUED, item.qtyissued), tone: "primary" },
+            { label: "Qty Received", value: getDisplayValue(item.QTYRECEIVED, item.qtyreceived, 0), tone: "success" },
+            { label: "Unit", value: getDisplayValue(item.UNIT, item.unit) },
+            { label: "Status", value: getDisplayValue(item.GATEPASS_STATUS), tone: getStatusTone(item.GATEPASS_STATUS) },
+            { label: "Remarks", value: getDisplayValue(item.REMARK, item.remark, "No remarks"), fullWidth: true },
+          ],
+        };
+    }
   };
 
   const dashboardStats = useMemo(() => {
@@ -598,7 +771,12 @@ export default function StoreDashboard() {
 
   ];
 
-  const filteredModalData = useMemo(() => {
+  useEffect(() => {
+    setModalPage(1);
+    setMobileVisibleCount(MODAL_PAGE_SIZE);
+  }, [modalSearch, modalData, modalType]);
+
+  const filteredModalRows = useMemo(() => {
     let data = modalData;
     if (modalSearch) {
       const lowerSearch = modalSearch.toLowerCase();
@@ -619,13 +797,33 @@ export default function StoreDashboard() {
       });
     }
 
-    const total = data.length;
-    const totalPages = Math.ceil(total / MODAL_PAGE_SIZE);
-    const start = (modalPage - 1) * MODAL_PAGE_SIZE;
-    const paginated = data.slice(start, start + MODAL_PAGE_SIZE);
+    return data;
+  }, [modalData, modalSearch]);
 
-    return { total, totalPages, data: paginated };
-  }, [modalData, modalSearch, modalPage]);
+  const filteredModalData = useMemo(() => {
+    const total = filteredModalRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+    const currentPage = Math.min(modalPage, totalPages);
+    const start = (currentPage - 1) * MODAL_PAGE_SIZE;
+    const paginated = filteredModalRows.slice(start, start + MODAL_PAGE_SIZE);
+
+    return { total, totalPages, currentPage, data: paginated };
+  }, [filteredModalRows, modalPage]);
+
+  const mobileModalData = useMemo(() => {
+    return {
+      total: filteredModalRows.length,
+      data: filteredModalRows.slice(0, mobileVisibleCount),
+    };
+  }, [filteredModalRows, mobileVisibleCount]);
+
+  const handleMobileModalScroll = (e: any) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+
+    if (scrollHeight - scrollTop <= clientHeight + 48 && mobileVisibleCount < filteredModalRows.length) {
+      setMobileVisibleCount((prev) => Math.min(prev + MODAL_PAGE_SIZE, filteredModalRows.length));
+    }
+  };
 
   const modalConfig = useMemo(() => getModalConfig(modalType), [modalType]);
 
@@ -811,32 +1009,32 @@ export default function StoreDashboard() {
 
       {/* Modal Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent aria-describedby={undefined} className="w-[95vw] md:w-[90vw] lg:left-auto lg:right-10 lg:translate-x-0 lg:w-[75vw] lg:max-w-none h-[85vh] md:max-h-[88vh] lg:max-h-[92vh] overflow-hidden flex flex-col p-0 border-0 shadow-2xl rounded-3xl [&>button]:hidden">
-          <DialogHeader className="p-4 md:p-6 bg-indigo-600 text-white shrink-0">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl">
+        <DialogContent aria-describedby={undefined} className="top-[calc(50%+2.5rem)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] w-[96vw] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl [&>button]:hidden md:top-[50%] md:h-[88vh] md:w-[90vw] md:max-h-[88vh] lg:left-auto lg:right-10 lg:h-[92vh] lg:w-[75vw] lg:max-w-none lg:translate-x-0">
+          <DialogHeader className="shrink-0 bg-indigo-600 px-3 py-3 text-white md:p-6">
+            <div className="flex items-center gap-2.5 md:gap-4">
+              <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
+                <div className="rounded-xl bg-white/20 p-2">
                   <LayoutDashboard size={24} />
                 </div>
-                <DialogTitle className="text-xl md:text-2xl font-bold">{modalTitle}</DialogTitle>
+                <DialogTitle className="truncate text-base font-bold md:text-2xl">{modalTitle}</DialogTitle>
                 <DialogDescription className="sr-only">
                   Detailed view of {modalTitle} data and records.
                 </DialogDescription>
               </div>
 
-              <div className="flex items-center gap-3 flex-1 md:max-w-md">
-                <div className="relative w-full">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" size={18} />
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:max-w-md md:gap-3">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" size={16} />
                   <input
                     type="text"
                     placeholder="Search all columns..."
-                    className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 text-white placeholder:text-white/50 rounded-xl outline-none focus:bg-white/20 focus:border-white/40 transition-all text-sm"
+                    className="w-full rounded-xl border border-white/20 bg-white/10 py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/50 outline-none transition-all focus:bg-white/20 focus:border-white/40 md:py-2 md:pl-10 md:pr-4 md:text-sm"
                     value={modalSearch}
                     onChange={(e) => setModalSearch(e.target.value)}
                   />
                 </div>
-                <DialogClose className="p-2 hover:bg-white/20 rounded-full transition-colors outline-none shrink-0">
-                  <X size={20} />
+                <DialogClose className="shrink-0 rounded-full p-2 outline-none transition-colors hover:bg-white/20">
+                  <X size={18} />
                 </DialogClose>
               </div>
             </div>
@@ -849,8 +1047,25 @@ export default function StoreDashboard() {
                 <p className="text-slate-500 font-medium animate-pulse">Fetching detailed data...</p>
               </div>
             ) : filteredModalData.data.length > 0 ? (
-              <div className="overflow-x-auto flex flex-col h-full">
-                <div className="flex-1 overflow-auto">
+              <div className="flex h-full flex-col">
+                <div className="flex-1 overflow-auto md:hidden" onScroll={handleMobileModalScroll}>
+                  <div className="space-y-2 bg-slate-100/70 px-2 pb-2 pt-1.5 dark:bg-slate-950/50">
+                    {mobileModalData.data.map((item: any, idx: number) => {
+                      const cardData = getModalCardData(modalType, item);
+
+                      return (
+                        <ModalDetailCard
+                          key={`${modalType}-${idx}`}
+                          index={idx}
+                          recordLabel={modalTitle}
+                          {...cardData}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="hidden flex-1 overflow-auto md:block">
                   <table className="w-full text-left border-collapse min-w-[1200px]">
                     <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 backdrop-blur-md shadow-sm z-10">
                       <tr className="text-[12px] font-black uppercase text-slate-900 dark:text-slate-100 tracking-widest">
@@ -870,28 +1085,30 @@ export default function StoreDashboard() {
                 </div>
 
                 {/* Pagination Stats in Modal */}
-                <div className="p-4 border-t bg-slate-50 dark:bg-slate-900 flex items-center justify-between shrink-0">
-                  <p className="text-xs font-semibold text-slate-500">
-                    Showing <span className="text-indigo-600">{Math.min(filteredModalData.total, (modalPage - 1) * MODAL_PAGE_SIZE + 1)}</span> to <span className="text-indigo-600">{Math.min(filteredModalData.total, modalPage * MODAL_PAGE_SIZE)}</span> of <span className="text-indigo-600">{filteredModalData.total}</span> items
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setModalPage(p => Math.max(1, p - 1))}
-                      disabled={modalPage === 1}
-                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-bold text-xs"
-                    >
-                      Prev
-                    </button>
-                    <span className="text-xs font-bold px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                      Page {modalPage} of {filteredModalData.totalPages || 1}
-                    </span>
-                    <button
-                      onClick={() => setModalPage(p => Math.min(filteredModalData.totalPages, p + 1))}
-                      disabled={modalPage >= filteredModalData.totalPages}
-                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-bold text-xs"
-                    >
-                      Next
-                    </button>
+                <div className="hidden shrink-0 border-t bg-slate-50 p-4 dark:bg-slate-900 md:block">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[11px] font-semibold text-slate-500 sm:text-xs">
+                    Showing <span className="text-indigo-600">{Math.min(filteredModalData.total, (filteredModalData.currentPage - 1) * MODAL_PAGE_SIZE + 1)}</span> to <span className="text-indigo-600">{Math.min(filteredModalData.total, filteredModalData.currentPage * MODAL_PAGE_SIZE)}</span> of <span className="text-indigo-600">{filteredModalData.total}</span> items
+                    </p>
+                    <div className="flex items-center justify-between gap-2 sm:justify-end">
+                      <button
+                        onClick={() => setModalPage(p => Math.max(1, p - 1))}
+                        disabled={filteredModalData.currentPage === 1}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold transition-all hover:bg-white disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800 sm:text-xs"
+                      >
+                        Prev
+                      </button>
+                      <span className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:text-xs">
+                        Page {filteredModalData.currentPage} of {filteredModalData.totalPages || 1}
+                      </span>
+                      <button
+                        onClick={() => setModalPage(p => Math.min(filteredModalData.totalPages, p + 1))}
+                        disabled={filteredModalData.currentPage >= filteredModalData.totalPages}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold transition-all hover:bg-white disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800 sm:text-xs"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -922,6 +1139,69 @@ function KpiItem({ label, value, color, icon }: any) {
       </div>
       <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
         <div className={`h-full bg-gradient-to-r ${color} rounded-full transition-all duration-1000 ease-out shadow-lg shadow-white/10`} style={{ width: `${Math.min(value, 100)}%` }}></div>
+      </div>
+    </div>
+  );
+}
+
+function getModalFieldValueClasses(tone?: string) {
+  switch (tone) {
+    case "primary":
+      return "text-indigo-700 dark:text-indigo-300";
+    case "success":
+      return "text-emerald-700 dark:text-emerald-300";
+    case "warning":
+      return "text-amber-700 dark:text-amber-300";
+    case "danger":
+      return "text-rose-700 dark:text-rose-300";
+    default:
+      return "text-slate-900 dark:text-slate-100";
+  }
+}
+
+function ModalDetailCard({ recordLabel, index, gradient, title, subtitle, meta, fields }: any) {
+  return (
+    <div className="overflow-hidden rounded-[18px] border border-white/60 bg-white shadow-md shadow-slate-200/70 ring-1 ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:shadow-slate-950/50 dark:ring-slate-800/80">
+      <div className={`bg-gradient-to-br ${gradient} px-3 py-2.5 text-white`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/70 sm:text-[11px]">
+              {recordLabel} #{index + 1}
+            </p>
+            <h3 className="mt-1 break-words text-[15px] font-black leading-tight sm:text-lg">
+              {title}
+            </h3>
+            {subtitle && subtitle !== "--" ? (
+              <p className="mt-0.5 break-words text-[11px] font-medium leading-snug text-white/90 sm:text-sm">
+                {subtitle}
+              </p>
+            ) : null}
+            {meta && meta !== "--" ? (
+              <p className="mt-1 break-words text-[10px] font-semibold text-white/75 sm:text-xs">
+                {meta}
+              </p>
+            ) : null}
+          </div>
+          <div className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/90 backdrop-blur-sm">
+            View
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-2.5 dark:bg-slate-950">
+        {fields.map((field: any, fieldIndex: number) => (
+          <div
+            key={`${field.label}-${fieldIndex}`}
+            className={`min-w-0 border-b border-slate-200/80 pb-1.5 dark:border-slate-800/80 ${field.fullWidth ? "col-span-2" : ""}`}
+          >
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              {field.label}
+            </p>
+            <div className={`mt-0.5 break-words text-[12px] font-bold leading-snug ${getModalFieldValueClasses(field.tone)}`}>
+              {field.value}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
