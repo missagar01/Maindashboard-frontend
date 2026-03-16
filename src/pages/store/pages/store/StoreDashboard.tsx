@@ -6,7 +6,7 @@ import {
   ClipboardList, LayoutDashboard, PackageCheck, Truck,
   Warehouse, FileText, TrendingUp, BarChart3, Activity,
   ArrowUpRight, ArrowDownRight, Package, Users, Calendar,
-  ArrowRight, RefreshCcw, Search, X, CheckCircle2, Clock, Box, ChevronRight,
+  ArrowRight, RefreshCcw, Search, X, CheckCircle2, Clock, Box, ChevronRight, Rows3, Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "../../components/ui/dialog";
@@ -900,6 +900,18 @@ export default function StoreDashboard() {
   };
 
   const modalConfig = useMemo(() => getModalConfig(modalType), [modalType]);
+  const desktopModalSummary = useMemo(() => {
+    const total = filteredModalRows.length;
+    const pageStart = total === 0 ? 0 : (filteredModalData.currentPage - 1) * MODAL_PAGE_SIZE + 1;
+    const pageEnd = Math.min(total, filteredModalData.currentPage * MODAL_PAGE_SIZE);
+
+    return {
+      total,
+      pageStart,
+      pageEnd,
+      hasSearch: modalSearch.trim().length > 0,
+    };
+  }, [filteredModalRows.length, filteredModalData.currentPage, modalSearch]);
 
   if (loading) {
     return (
