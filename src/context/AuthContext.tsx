@@ -658,23 +658,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         storeApi.getReturnableStats(),
       ]);
 
-      const get = (result: PromiseSettledResult<any>) =>
-        result.status === 'fulfilled' ? result.value : null;
-
-      setStoreDashboardData({
-        ...INITIAL_STORE_DASHBOARD_DATA,
-        dashboardSummary: get(results[0])?.data ?? get(results[0]) ?? null,
-        repairGatePassCounts: get(results[1])?.data ?? get(results[1]) ?? null,
-        returnableStats: get(results[2])?.data ?? get(results[2]) ?? null,
-      });
-    } catch (err: any) {
-      setStoreDashboardError(err?.message ?? 'Failed to load dashboard data');
-      setStoreDashboardData(INITIAL_STORE_DASHBOARD_DATA);
-    } finally {
-      setStoreDashboardLoading(false);
-    }
-
-    void (async () => {
       for (const dataset of [
         'historyIndents',
         'pendingIndents',
@@ -684,37 +667,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         'repairHistory',
         'returnableDetails',
       ] as const) {
-        try {
-          await loadStoreDashboardDataset(dataset);
-        } catch {
-          // Non-blocking background hydration.
-        }
+        await loadStoreDashboardDataset(dataset);
       }
-    })();
 
-    void (async () => {
-      try {
-        const vendors = normalizeVendorList(extractArray(await storeApi.getAllVendors()));
-        setStoreDashboardData((prev) => ({
-          ...prev,
-          allVendors: vendors,
-        }));
-      } catch {
-        // Ignore background vendor load failure.
-      }
-    })();
+      await Promise.allSettled([
+        (async () => {
+          const vendors = normalizeVendorList(Object.values(extractArray(await storeApi.getAllVendors())));
+          setStoreDashboardData((prev) => ({
+            ...prev,
+            allVendors: vendors,
+          }));
+        })(),
+        (async () => {
+          const products = normalizeProductList(Object.values(extractArray(await storeApi.getAllProducts())));
+          setStoreDashboardData((prev) => ({
+            ...prev,
+            allProducts: products.length ? products : prev.allProducts,
+          }));
+        })()
+      ]);
 
-    void (async () => {
-      try {
-        const products = normalizeProductList(extractArray(await storeApi.getAllProducts()));
-        setStoreDashboardData((prev) => ({
-          ...prev,
-          allProducts: products.length ? products : prev.allProducts,
-        }));
-      } catch {
-        // Ignore background product load failure.
-      }
-    })();
+      const get = (result: PromiseSettledResult<any>) =>
+        result.status === 'fulfilled' ? result.value : null;
+
+      setStoreDashboardData((prev) => ({
+        ...prev,
+        dashboardSummary: get(results[0])?.data ?? get(results[0]) ?? null,
+        repairGatePassCounts: get(results[1])?.data ?? get(results[1]) ?? null,
+        returnableStats: get(results[2])?.data ?? get(results[2]) ?? null,
+      }));
+    } catch (err: any) {
+      setStoreDashboardError(err?.message ?? 'Failed to load dashboard data');
+      setStoreDashboardData(INITIAL_STORE_DASHBOARD_DATA);
+    } finally {
+      setStoreDashboardLoading(false);
+    }
   }, [loadStoreDashboardDataset]);
 
   const addDocument = (item: DocumentItem) => setDocuments(prev => [...prev, item]);

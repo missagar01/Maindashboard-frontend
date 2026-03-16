@@ -431,9 +431,9 @@ export default function StoreDashboard() {
 
     const curMonthOverdue = hasIndentMetrics
       ? curMonthPendingIndents.filter((item) => {
-          const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
-          return ts && new Date(ts) < new Date();
-        }).length
+        const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
+        return ts && new Date(ts) < new Date();
+      }).length
       : Number(summary.overdueIndents || 0);
 
     const completed = hasIndentMetrics
@@ -894,7 +894,7 @@ export default function StoreDashboard() {
   const handleMobileModalScroll = (e: any) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
 
-    if (scrollHeight - scrollTop <= clientHeight + 48 && mobileVisibleCount < filteredModalRows.length) {
+    if (scrollHeight - scrollTop <= clientHeight + 150 && mobileVisibleCount < filteredModalRows.length) {
       setMobileVisibleCount((prev) => Math.min(prev + MODAL_PAGE_SIZE, filteredModalRows.length));
     }
   };
@@ -1095,7 +1095,7 @@ export default function StoreDashboard() {
 
       {/* Modal Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent aria-describedby={undefined} className="top-[calc(50%+2.5rem)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] w-[96vw] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl [&>button]:hidden md:top-[50%] md:h-[88vh] md:w-[90vw] md:max-h-[88vh] lg:left-auto lg:right-10 lg:h-[92vh] lg:w-[75vw] lg:max-w-none lg:translate-x-0">
+        <DialogContent aria-describedby={undefined} className="top-[calc(50%+2.5rem)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] w-[96vw] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl [&>button]:hidden md:top-[50%] md:h-[88vh] md:w-[90vw] md:max-h-[88vh] lg:h-[85vh] lg:w-[80vw] lg:max-w-[1200px]">
           <DialogHeader className="shrink-0 bg-indigo-600 px-3 py-3 text-white md:p-6">
             <div className="flex items-center gap-2.5 md:gap-4">
               <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
@@ -1132,7 +1132,7 @@ export default function StoreDashboard() {
                 <RefreshCcw className="animate-spin text-indigo-600" size={48} />
                 <p className="text-slate-500 font-medium animate-pulse">Fetching detailed data...</p>
               </div>
-            ) : filteredModalData.data.length > 0 ? (
+            ) : filteredModalRows.length > 0 ? (
               <div className="flex h-full flex-col">
                 <div className="flex-1 overflow-auto md:hidden" onScroll={handleMobileModalScroll}>
                   <div className="space-y-2 bg-slate-100/70 px-2 pb-2 pt-1.5 dark:bg-slate-950/50">
@@ -1151,7 +1151,7 @@ export default function StoreDashboard() {
                   </div>
                 </div>
 
-                <div className="hidden flex-1 overflow-auto md:block">
+                <div className="hidden flex-1 overflow-auto md:block" onScroll={handleMobileModalScroll}>
                   <table className="w-full text-left border-collapse min-w-[1200px]">
                     <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 backdrop-blur-md shadow-sm z-10">
                       <tr className="text-[12px] font-black uppercase text-slate-900 dark:text-slate-100 tracking-widest">
@@ -1161,7 +1161,7 @@ export default function StoreDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filteredModalData.data.map((item: any, idx: number) => (
+                      {mobileModalData.data.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-indigo-950/20 transition-colors group">
                           {modalConfig?.renderRow(item)}
                         </tr>
@@ -1170,31 +1170,17 @@ export default function StoreDashboard() {
                   </table>
                 </div>
 
-                {/* Pagination Stats in Modal */}
-                <div className="hidden shrink-0 border-t bg-slate-50 p-4 dark:bg-slate-900 md:block">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* Infinite Scroll Indicator Stats */}
+                <div className="hidden shrink-0 border-t bg-slate-50 p-3 dark:bg-slate-900 md:block">
+                  <div className="flex items-center justify-between">
                     <p className="text-[11px] font-semibold text-slate-500 sm:text-xs">
-                    Showing <span className="text-indigo-600">{Math.min(filteredModalData.total, (filteredModalData.currentPage - 1) * MODAL_PAGE_SIZE + 1)}</span> to <span className="text-indigo-600">{Math.min(filteredModalData.total, filteredModalData.currentPage * MODAL_PAGE_SIZE)}</span> of <span className="text-indigo-600">{filteredModalData.total}</span> items
+                      Showing <span className="text-indigo-600">{mobileModalData.data.length}</span> of <span className="text-indigo-600">{filteredModalRows.length}</span> items
                     </p>
-                    <div className="flex items-center justify-between gap-2 sm:justify-end">
-                      <button
-                        onClick={() => setModalPage(p => Math.max(1, p - 1))}
-                        disabled={filteredModalData.currentPage === 1}
-                        className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold transition-all hover:bg-white disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800 sm:text-xs"
-                      >
-                        Prev
-                      </button>
-                      <span className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:text-xs">
-                        Page {filteredModalData.currentPage} of {filteredModalData.totalPages || 1}
+                    {mobileVisibleCount < filteredModalRows.length && (
+                      <span className="text-[11px] font-bold text-slate-400 italic animate-pulse">
+                        Scroll down to load more...
                       </span>
-                      <button
-                        onClick={() => setModalPage(p => Math.min(filteredModalData.totalPages, p + 1))}
-                        disabled={filteredModalData.currentPage >= filteredModalData.totalPages}
-                        className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold transition-all hover:bg-white disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800 sm:text-xs"
-                      >
-                        Next
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
