@@ -1,6 +1,8 @@
 // Store Dashboard - Modern UI Version with Modal Integration and Status Tracking
-import { useEffect, useState, useMemo, useRef } from "react";
-import { useAuth, useStoreDashboard } from "@/context/AuthContext";
+// Direct API calls — no AuthContext store dependency
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useAuth } from "../../../../context/AuthContext";
+import { storeApi } from "@/api/store/storeSystemApi";
 import { Navigate } from "react-router";
 import {
   ClipboardList, LayoutDashboard, PackageCheck, Truck,
@@ -14,69 +16,206 @@ import Loading from "./Loading";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
-type DashboardApiResponse = {
-  success: boolean;
-  data: {
-    totalIndents: number;
-    completedIndents: number;
-    pendingIndents: number;
-    upcomingIndents: number;
-    overdueIndents: number;
-    pendingPurchaseOrders: number;
-    totalIndentedQuantity: number;
-    totalPurchaseOrders: number;
-    totalPurchasedQuantity: number;
-    totalIssuedQuantity: number;
-    outOfStockCount: number;
-    overallProgress: number;
-    completedPercent: number;
-    pendingPercent: number;
-    upcomingPercent: number;
-    overduePercent: number;
-    topPurchasedItems: any[];
-    topVendors: any[];
-  };
+// ── Helpers (moved out of component for stable references) ───────────────────
+type LazyDatasetKey =
+  | 'pendingIndents'
+  | 'historyIndents'
+  | 'poPending'
+  | 'poHistory'
+  | 'repairPending'
+  | 'repairHistory'
+  | 'returnableDetails';
+
+const DATASET_FETCHERS: Record<LazyDatasetKey, () => Promise<any>> = {
+  pendingIndents: () => storeApi.getPendingIndents(),
+  historyIndents: () => storeApi.getHistoryIndents(),
+  poPending: () => storeApi.getPoPending(),
+  poHistory: () => storeApi.getPoHistory(),
+  repairPending: () => storeApi.getRepairGatePassPending(),
+  repairHistory: () => storeApi.getRepairGatePassReceived(),
+  returnableDetails: () => storeApi.getReturnableDetails(),
 };
 
-type RepairGatePassCounts = {
-  success: boolean;
-  data: {
-    pending: number;
-    history: number;
-  };
+const extractArray = (res: any): any[] => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (res.data && Array.isArray(res.data)) return res.data;
+  return [];
 };
 
-type ReturnableStats = {
-  success: boolean;
-  data: {
-    TOTAL_COUNT: number;
-    RETURNABLE_COUNT: number;
-    NON_RETURNABLE_COUNT: number;
-    RETURNABLE_COMPLETED_COUNT: number;
-    RETURNABLE_PENDING_COUNT: number;
-  };
+const normalizeVendorList = (rows: any[]): { vendorName: string }[] => {
+  const seen = new Set<string>();
+  const list: { vendorName: string }[] = [];
+  rows.forEach((row) => {
+    const raw = row?.vendorName || row?.VENDOR_NAME || row?.vendor_name || row?.ACC_NAME || row?.acc_name || '';
+    const name = String(raw).trim();
+    if (!name) return;
+    const key = name.toUpperCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ vendorName: name });
+  });
+  return list.sort((a, b) => a.vendorName.localeCompare(b.vendorName));
 };
 
+const normalizeProductList = (rows: any[]): { itemName: string }[] => {
+  const seen = new Set<string>();
+  const list: { itemName: string }[] = [];
+  rows.forEach((row) => {
+    const raw = row?.itemName || row?.PRODUCT_NAME || row?.product_name || row?.ITEM_NAME || row?.item_name || '';
+    const name = String(raw).trim();
+    if (!name) return;
+    const key = name.toUpperCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ itemName: name });
+  });
+  return list.sort((a, b) => a.itemName.localeCompare(b.itemName));
+};
+
+const INITIAL_LOADED: Record<LazyDatasetKey, boolean> = {
+  pendingIndents: false, historyIndents: false,
+  poPending: false, poHistory: false,
+  repairPending: false, repairHistory: false,
+  returnableDetails: false,
+};
+
+// ── Component ────────────────────────────────────────────────────────────────
 export default function StoreDashboard() {
-  const {
-    pendingIndents,
-    historyIndents,
-    poPending,
-    poHistory,
-    repairPending,
-    repairHistory,
-    returnableDetails,
-    dashboardSummary,
-    repairGatePassCounts: backendRepairGatePassCounts,
-    returnableStats: backendReturnableStats,
-    allVendors,
-    allProducts,
-    isLoading: loading,
-    error: apiError,
-    loadDataset,
-    loadedDatasets,
-  } = useStoreDashboard();
   const { user } = useAuth();
+
+  // ── Local dashboard state (replaces useStoreDashboard) ──────────────────
+  const [pendingIndents, setPendingIndents] = useState<any[]>([]);
+  const [historyIndents, setHistoryIndents] = useState<any[]>([]);
+  const [poPending, setPoPending] = useState<any[]>([]);
+  const [poHistory, setPoHistory] = useState<any[]>([]);
+  const [repairPending, setRepairPending] = useState<any[]>([]);
+  const [repairHistory, setRepairHistory] = useState<any[]>([]);
+  const [returnableDetails, setReturnableDetails] = useState<any[]>([]);
+  const [dashboardSummary, setDashboardSummary] = useState<any>(null);
+  const [backendRepairGatePassCounts, setBackendRepairGatePassCounts] = useState<any>(null);
+  const [backendReturnableStats, setBackendReturnableStats] = useState<any>(null);
+  const [allVendors, setAllVendors] = useState<{ vendorName: string }[]>([]);
+  const [allProducts, setAllProducts] = useState<{ itemName: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loadedDatasets, setLoadedDatasets] = useState<Record<LazyDatasetKey, boolean>>(INITIAL_LOADED);
+
+  // Refs for dedup + stable access inside callbacks
+  const datasetsRef = useRef<Record<LazyDatasetKey, any[]>>({
+    pendingIndents: [], historyIndents: [],
+    poPending: [], poHistory: [],
+    repairPending: [], repairHistory: [],
+    returnableDetails: [],
+  });
+  const loadedRef = useRef<Set<LazyDatasetKey>>(new Set());
+  const pendingLoadsRef = useRef<Map<LazyDatasetKey, Promise<any[]>>>(new Map());
+  const mountedRef = useRef(true);
+
+  // State setters map for dynamic dataset updates
+  const datasetSetters = useMemo<Record<LazyDatasetKey, (rows: any[]) => void>>(() => ({
+    pendingIndents: setPendingIndents,
+    historyIndents: setHistoryIndents,
+    poPending: setPoPending,
+    poHistory: setPoHistory,
+    repairPending: setRepairPending,
+    repairHistory: setRepairHistory,
+    returnableDetails: setReturnableDetails,
+  }), []);
+
+  // ── loadDataset: fetch a single dataset with dedup ──────────────────────
+  const loadDataset = useCallback(async (key: LazyDatasetKey): Promise<any[]> => {
+    // Already loaded — return cached
+    if (loadedRef.current.has(key)) {
+      return datasetsRef.current[key];
+    }
+    // Already in-flight — return same promise
+    const pending = pendingLoadsRef.current.get(key);
+    if (pending) return pending;
+
+    const promise = (async () => {
+      const response = await DATASET_FETCHERS[key]();
+      const rows = extractArray(response);
+      // Update refs + state
+      datasetsRef.current[key] = rows;
+      loadedRef.current.add(key);
+      if (mountedRef.current) {
+        datasetSetters[key](rows);
+        setLoadedDatasets((prev) => ({ ...prev, [key]: true }));
+      }
+      return rows;
+    })();
+
+    pendingLoadsRef.current.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      pendingLoadsRef.current.delete(key);
+    }
+  }, [datasetSetters]);
+
+  // ── Initial fetch: all APIs in parallel ─────────────────────────────────
+  useEffect(() => {
+    mountedRef.current = true;
+    let cancelled = false;
+
+    const fetchAll = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fire ALL requests simultaneously
+        const [
+          summaryRes, repairCountsRes, returnableStatsRes,
+          ...datasetResults
+        ] = await Promise.allSettled([
+          storeApi.getStoreIndentDashboard(),
+          storeApi.getRepairGatePassCounts(),
+          storeApi.getReturnableStats(),
+          // 7 datasets
+          loadDataset('pendingIndents'),
+          loadDataset('historyIndents'),
+          loadDataset('poPending'),
+          loadDataset('poHistory'),
+          loadDataset('repairPending'),
+          loadDataset('repairHistory'),
+          loadDataset('returnableDetails'),
+        ]);
+
+        if (cancelled) return;
+
+        // Vendors + Products (also parallel, but after datasets to not block cards)
+        const [vendorsRes, productsRes] = await Promise.allSettled([
+          storeApi.getAllVendors(),
+          storeApi.getAllProducts(),
+        ]);
+
+        if (cancelled) return;
+
+        const get = (r: PromiseSettledResult<any>) =>
+          r.status === 'fulfilled' ? r.value : null;
+
+        setDashboardSummary(get(summaryRes)?.data ?? get(summaryRes) ?? null);
+        setBackendRepairGatePassCounts(get(repairCountsRes)?.data ?? get(repairCountsRes) ?? null);
+        setBackendReturnableStats(get(returnableStatsRes)?.data ?? get(returnableStatsRes) ?? null);
+
+        const vendorRows = normalizeVendorList(Object.values(extractArray(get(vendorsRes))));
+        setAllVendors(vendorRows);
+
+        const productRows = normalizeProductList(Object.values(extractArray(get(productsRes))));
+        if (productRows.length) setAllProducts(productRows);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message ?? 'Failed to load dashboard data');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void fetchAll();
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, [loadDataset]);
 
   // Permission Check
   const hasAccess = useMemo(() => {
@@ -88,17 +227,10 @@ export default function StoreDashboard() {
     return storeAccess.includes("DASHBOARD");
   }, [user]);
 
-  const [error, setError] = useState<string | null>(null);
-
   // Redirect if no access
   if (!loading && !hasAccess) {
     return <Navigate to="/store/erp-indent" replace />;
   }
-
-  // Sync context error to local error if needed
-  useEffect(() => {
-    if (apiError) setError(apiError);
-  }, [apiError]);
 
   // Modal State
   const MODAL_PAGE_SIZE = 50;

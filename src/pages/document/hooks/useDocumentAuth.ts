@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 
 export interface DocumentUser {
   id: string;

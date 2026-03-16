@@ -16,7 +16,7 @@ import {
 } from "../../components/ui/dialog";
 import { storeApi } from "@/api/store/storeSystemApi";
 import { Button } from "../../components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "../../../../context/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 type IndentRow = {

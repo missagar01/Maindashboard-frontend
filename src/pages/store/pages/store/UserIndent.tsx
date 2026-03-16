@@ -5,7 +5,7 @@ import { useLocation } from "react-router";
 
 import { storeApi } from "@/api/store/storeSystemApi";
 // import { decodeToken } from "../../config/api";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "../../../../context/AuthContext";
 import { toast } from "sonner";
 import Heading from "../../components/element/Heading";
 import { Button } from "../../components/ui/button";

@@ -2,8 +2,6 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode } from "react";
 import api from "../config/api.js";
-import { lookupStoreAccessForUser } from "../api/store/storeSettingsApi";
-import { storeApi } from "../api/store/storeSystemApi";
 import { getStoredToken } from "../api/apiClient";
 
 interface User {
@@ -144,50 +142,7 @@ export interface ShareItem {
   contactInfo: string;
 }
 
-type LazyDatasetKey =
-  | 'pendingIndents'
-  | 'historyIndents'
-  | 'poPending'
-  | 'poHistory'
-  | 'repairPending'
-  | 'repairHistory'
-  | 'returnableDetails';
 
-type RepairGatePassCounts = {
-  pending?: number;
-  history?: number;
-} | null;
-
-type ReturnableStats = {
-  TOTAL_COUNT?: number;
-  RETURNABLE_COUNT?: number;
-  NON_RETURNABLE_COUNT?: number;
-  RETURNABLE_COMPLETED_COUNT?: number;
-  RETURNABLE_PENDING_COUNT?: number;
-} | null;
-
-interface StoreDashboardData {
-  pendingIndents: any[];
-  historyIndents: any[];
-  poPending: any[];
-  poHistory: any[];
-  repairPending: any[];
-  repairHistory: any[];
-  returnableDetails: any[];
-  dashboardSummary: any | null;
-  repairGatePassCounts: RepairGatePassCounts;
-  returnableStats: ReturnableStats;
-  allVendors: { vendorName: string }[];
-  allProducts: { itemName: string }[];
-}
-
-interface StoreDashboardContextShape extends StoreDashboardData {
-  isLoading: boolean;
-  error: string | null;
-  refreshData: () => Promise<void>;
-  loadDataset: (dataset: LazyDatasetKey) => Promise<any[]>;
-  loadedDatasets: Record<LazyDatasetKey, boolean>;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -246,13 +201,7 @@ interface AuthContextType {
   deleteDocument: (id: string) => void;
   deleteSubscription: (id: string) => void;
   deleteLoan: (id: string) => void;
-  storeDashboardData: StoreDashboardData;
-  storeDashboardLoading: boolean;
-  storeDashboardError: string | null;
-  storeDashboardLoadedDatasets: Record<LazyDatasetKey, boolean>;
-  storeDashboardInitialized: boolean;
-  refreshStoreDashboard: () => Promise<void>;
-  loadStoreDashboardDataset: (dataset: LazyDatasetKey) => Promise<any[]>;
+
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -434,96 +383,13 @@ const DEFAULT_DOCUMENTS: DocumentItem[] = [];
 const DEFAULT_LOANS: LoanItem[] = [];
 const DEFAULT_MASTER_DATA: MasterItem[] = [];
 const DEFAULT_RENEWAL_HISTORY: RenewalItem[] = [];
-const INITIAL_STORE_DASHBOARD_DATA: StoreDashboardData = {
-  pendingIndents: [],
-  historyIndents: [],
-  poPending: [],
-  poHistory: [],
-  repairPending: [],
-  repairHistory: [],
-  returnableDetails: [],
-  dashboardSummary: null,
-  repairGatePassCounts: null,
-  returnableStats: null,
-  allVendors: [],
-  allProducts: [],
-};
-const INITIAL_STORE_LOADED_DATASETS: Record<LazyDatasetKey, boolean> = {
-  pendingIndents: false,
-  historyIndents: false,
-  poPending: false,
-  poHistory: false,
-  repairPending: false,
-  repairHistory: false,
-  returnableDetails: false,
-};
-const STORE_DATASET_CONFIG: Record<LazyDatasetKey, () => Promise<any>> = {
-  pendingIndents: () => storeApi.getPendingIndents(),
-  historyIndents: () => storeApi.getHistoryIndents(),
-  poPending: () => storeApi.getPoPending(),
-  poHistory: () => storeApi.getPoHistory(),
-  repairPending: () => storeApi.getRepairGatePassPending(),
-  repairHistory: () => storeApi.getRepairGatePassReceived(),
-  returnableDetails: () => storeApi.getReturnableDetails(),
-};
 
-const extractArray = (res: any): any[] => {
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (res.data && Array.isArray(res.data)) return res.data;
-  return [];
-};
-
-const normalizeVendorList = (rows: any[]): { vendorName: string }[] => {
-  const seen = new Set<string>();
-  const list: { vendorName: string }[] = [];
-
-  rows.forEach((row) => {
-    const raw = row?.vendorName || row?.VENDOR_NAME || row?.vendor_name || row?.ACC_NAME || row?.acc_name || '';
-    const name = String(raw).trim();
-    if (!name) return;
-
-    const key = name.toUpperCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    list.push({ vendorName: name });
-  });
-
-  return list.sort((a, b) => a.vendorName.localeCompare(b.vendorName));
-};
-
-const normalizeProductList = (rows: any[]): { itemName: string }[] => {
-  const seen = new Set<string>();
-  const list: { itemName: string }[] = [];
-
-  rows.forEach((row) => {
-    const raw = row?.itemName || row?.PRODUCT_NAME || row?.product_name || row?.ITEM_NAME || row?.item_name || '';
-    const name = String(raw).trim();
-    if (!name) return;
-
-    const key = name.toUpperCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    list.push({ itemName: name });
-  });
-
-  return list.sort((a, b) => a.itemName.localeCompare(b.itemName));
-};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [storeDashboardData, setStoreDashboardData] = useState<StoreDashboardData>(INITIAL_STORE_DASHBOARD_DATA);
-  const [storeDashboardLoading, setStoreDashboardLoading] = useState(false);
-  const [storeDashboardError, setStoreDashboardError] = useState<string | null>(null);
-  const [storeDashboardLoadedDatasets, setStoreDashboardLoadedDatasets] =
-    useState<Record<LazyDatasetKey, boolean>>(INITIAL_STORE_LOADED_DATASETS);
-  const [storeDashboardInitialized, setStoreDashboardInitialized] = useState(false);
   const sessionUnauthorizedCountRef = useRef(0);
-  const storeDashboardDataRef = useRef<StoreDashboardData>(INITIAL_STORE_DASHBOARD_DATA);
-  const storeDashboardLoadedDatasetsRef = useRef<Set<LazyDatasetKey>>(new Set());
-  const pendingStoreDatasetLoadsRef = useRef<Map<LazyDatasetKey, Promise<any[]>>>(new Map());
   const sessionRevocationPollingEnabled =
     String(import.meta.env.VITE_ENABLE_SESSION_REVOCATION_POLLING || '').toLowerCase() === 'true';
 
@@ -593,113 +459,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [documents, subscriptions, loans, masterData, renewalHistory, subscriptionRenewalHistory, shareHistory, loading]);
 
-  useEffect(() => {
-    storeDashboardDataRef.current = storeDashboardData;
-  }, [storeDashboardData]);
 
-  const resetStoreDashboardState = useCallback(() => {
-    storeDashboardLoadedDatasetsRef.current.clear();
-    pendingStoreDatasetLoadsRef.current.clear();
-    setStoreDashboardData(INITIAL_STORE_DASHBOARD_DATA);
-    setStoreDashboardLoading(false);
-    setStoreDashboardError(null);
-    setStoreDashboardLoadedDatasets(INITIAL_STORE_LOADED_DATASETS);
-    setStoreDashboardInitialized(false);
-  }, []);
-
-  const loadStoreDashboardDataset = useCallback(async (dataset: LazyDatasetKey) => {
-    if (storeDashboardLoadedDatasetsRef.current.has(dataset)) {
-      return storeDashboardDataRef.current[dataset];
-    }
-
-    const pendingLoad = pendingStoreDatasetLoadsRef.current.get(dataset);
-    if (pendingLoad) {
-      return pendingLoad;
-    }
-
-    const loadPromise = (async () => {
-      const response = await STORE_DATASET_CONFIG[dataset]();
-      const rows = extractArray(response);
-
-      storeDashboardLoadedDatasetsRef.current.add(dataset);
-      setStoreDashboardLoadedDatasets((prev) => ({
-        ...prev,
-        [dataset]: true,
-      }));
-      setStoreDashboardData((prev) => ({
-        ...prev,
-        [dataset]: rows,
-      }));
-
-      return rows;
-    })();
-
-    pendingStoreDatasetLoadsRef.current.set(dataset, loadPromise);
-
-    try {
-      return await loadPromise;
-    } finally {
-      pendingStoreDatasetLoadsRef.current.delete(dataset);
-    }
-  }, []);
-
-  const refreshStoreDashboard = useCallback(async () => {
-    setStoreDashboardLoading(true);
-    setStoreDashboardError(null);
-    setStoreDashboardInitialized(true);
-    storeDashboardLoadedDatasetsRef.current.clear();
-    pendingStoreDatasetLoadsRef.current.clear();
-    setStoreDashboardLoadedDatasets(INITIAL_STORE_LOADED_DATASETS);
-
-    try {
-      // 1. Fetch only summary stats immediately to unblock the UI
-      const summaryResults = await Promise.allSettled([
-        storeApi.getStoreIndentDashboard(),
-        storeApi.getRepairGatePassCounts(),
-        storeApi.getReturnableStats(),
-      ]);
-
-      const get = (result: PromiseSettledResult<any>) =>
-        result.status === 'fulfilled' ? result.value : null;
-
-      setStoreDashboardData((prev) => ({
-        ...prev,
-        dashboardSummary: get(summaryResults[0])?.data ?? get(summaryResults[0]) ?? null,
-        repairGatePassCounts: get(summaryResults[1])?.data ?? get(summaryResults[1]) ?? null,
-        returnableStats: get(summaryResults[2])?.data ?? get(summaryResults[2]) ?? null,
-      }));
-
-      // Non-blocking background load for the purchaser chart which needs history
-      loadStoreDashboardDataset('historyIndents').catch(console.error);
-
-      // 2. Fetch potentially large product and vendor lists in the background
-      Promise.allSettled([
-        storeApi.getAllVendors(),
-        storeApi.getAllProducts(),
-      ]).then((results) => {
-        const vendorsRaw = get(results[0]);
-        const vendorsArray = vendorsRaw ? Object.values(extractArray(vendorsRaw)) : [];
-        const vendors = vendorsArray.length ? normalizeVendorList(vendorsArray) : [];
-
-        const productsRaw = get(results[1]);
-        const productsArray = productsRaw ? Object.values(extractArray(productsRaw)) : [];
-        const products = productsArray.length ? normalizeProductList(productsArray) : [];
-
-        if (vendors.length > 0 || products.length > 0) {
-          setStoreDashboardData((prev) => ({
-            ...prev,
-            allVendors: vendors.length ? vendors : prev.allVendors,
-            allProducts: products.length ? products : prev.allProducts,
-          }));
-        }
-      }).catch(console.error);
-    } catch (err: any) {
-      setStoreDashboardError(err?.message ?? 'Failed to load dashboard data');
-      setStoreDashboardData(INITIAL_STORE_DASHBOARD_DATA);
-    } finally {
-      setStoreDashboardLoading(false);
-    }
-  }, [loadStoreDashboardDataset]);
 
   const addDocument = (item: DocumentItem) => setDocuments(prev => [...prev, item]);
   const addDocuments = (items: DocumentItem[]) => setDocuments(prev => [...prev, ...items]);
@@ -732,37 +492,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    const enrichUserWithStoreAccess = async (
-      baseUser: User,
-      authToken: string | null
-    ): Promise<User> => {
-      if (baseUser.store_access) {
-        return baseUser;
-      }
-
-      try {
-        const storeAccess = await lookupStoreAccessForUser(baseUser, authToken || undefined);
-        if (!storeAccess) {
-          return baseUser;
-        }
-
-        const enrichedUser = {
-          ...baseUser,
-          store_access: storeAccess,
-        };
-
-        setUser(enrichedUser);
-        if (authToken) {
-          persistAuthState(authToken, enrichedUser);
-        }
-
-        return enrichedUser;
-      } catch (error) {
-        console.warn('Unable to load store access', error);
-        return baseUser;
-      }
-    };
-
     const initializeAuth = async () => {
       try {
         const storedToken = getStoredToken();
@@ -771,7 +500,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setToken(null);
             setUser(null);
             clearAuthStorage();
-            resetStoreDashboardState();
+
             delete api.defaults.headers.common['Authorization'];
             setLoading(false);
             return;
@@ -788,7 +517,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               setUser(parsedUser);
               persistLegacyAuthState(parsedUser);
               api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-              void enrichUserWithStoreAccess(parsedUser, storedToken);
               setLoading(false);
               return;
             } catch (e) { }
@@ -823,12 +551,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(parsedUser);
             persistLegacyAuthState(parsedUser);
             api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-            void enrichUserWithStoreAccess(parsedUser, storedToken);
           } else {
             setToken(null);
             setUser(null);
             clearAuthStorage();
-            resetStoreDashboardState();
+
             delete api.defaults.headers.common['Authorization'];
             // Don't redirect here - let ProtectedRoute handle it
           }
@@ -867,7 +594,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearAuthStorage();
       setToken(null);
       setUser(null);
-      resetStoreDashboardState();
+
       delete api.defaults.headers.common['Authorization'];
       if (window.location.pathname !== '/login') {
         window.location.href = `/login?reason=${reason}`;
@@ -1003,19 +730,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('Invalid user payload');
       }
 
-      if (!userData.store_access) {
-        try {
-          const resolvedStoreAccess = await lookupStoreAccessForUser(userData, authToken);
-          if (resolvedStoreAccess) {
-            userData = normalizeAuthUser({
-              ...userData,
-              store_access: resolvedStoreAccess,
-            });
-          }
-        } catch (error) {
-          console.warn('Unable to enrich login with store access', error);
-        }
-      }
+
 
       if (!userData) {
         throw new Error('Unable to normalize user access');
@@ -1068,7 +783,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(null);
     setUser(null);
     clearAuthStorage();
-    resetStoreDashboardState();
+
     delete api.defaults.headers.common['Authorization'];
     redirectToLogin();
   };
@@ -1134,13 +849,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         deleteDocument,
         deleteSubscription,
         deleteLoan,
-        storeDashboardData,
-        storeDashboardLoading,
-        storeDashboardError,
-        storeDashboardLoadedDatasets,
-        storeDashboardInitialized,
-        refreshStoreDashboard,
-        loadStoreDashboardDataset,
+
         pendingRenewals,
         pendingSubscriptionRenewals,
         pendingApprovals,
@@ -1160,34 +869,6 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
-
-export const useStoreDashboard = (): StoreDashboardContextShape => {
-  const auth = useAuth();
-
-  useEffect(() => {
-    if (
-      auth.isAuthenticated &&
-      !auth.storeDashboardInitialized &&
-      !auth.storeDashboardLoading
-    ) {
-      void auth.refreshStoreDashboard();
-    }
-  }, [
-    auth.isAuthenticated,
-    auth.storeDashboardInitialized,
-    auth.storeDashboardLoading,
-    auth.refreshStoreDashboard,
-  ]);
-
-  return {
-    ...auth.storeDashboardData,
-    isLoading: auth.storeDashboardLoading || !auth.storeDashboardInitialized,
-    error: auth.storeDashboardError,
-    refreshData: auth.refreshStoreDashboard,
-    loadDataset: auth.loadStoreDashboardDataset,
-    loadedDatasets: auth.storeDashboardLoadedDatasets,
-  };
 };
 
 export default AuthContext;

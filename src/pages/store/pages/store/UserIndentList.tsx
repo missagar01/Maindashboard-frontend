@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "../../../../context/AuthContext";
 import Heading from "../../components/element/Heading";
 import DataTable from "../../components/element/DataTable";
 import { Button } from "../../components/ui/button";
