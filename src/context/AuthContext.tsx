@@ -652,39 +652,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setStoreDashboardLoadedDatasets(INITIAL_STORE_LOADED_DATASETS);
 
     try {
-      const results = await Promise.allSettled([
+      // 1. Fetch only summary stats immediately to unblock the UI
+      const summaryResults = await Promise.allSettled([
         storeApi.getStoreIndentDashboard(),
         storeApi.getRepairGatePassCounts(),
         storeApi.getReturnableStats(),
-      ]);
-
-      for (const dataset of [
-        'historyIndents',
-        'pendingIndents',
-        'poHistory',
-        'poPending',
-        'repairPending',
-        'repairHistory',
-        'returnableDetails',
-      ] as const) {
-        await loadStoreDashboardDataset(dataset);
-      }
-
-      await Promise.allSettled([
-        (async () => {
-          const vendors = normalizeVendorList(Object.values(extractArray(await storeApi.getAllVendors())));
-          setStoreDashboardData((prev) => ({
-            ...prev,
-            allVendors: vendors,
-          }));
-        })(),
-        (async () => {
-          const products = normalizeProductList(Object.values(extractArray(await storeApi.getAllProducts())));
-          setStoreDashboardData((prev) => ({
-            ...prev,
-            allProducts: products.length ? products : prev.allProducts,
-          }));
-        })()
       ]);
 
       const get = (result: PromiseSettledResult<any>) =>
@@ -692,10 +664,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setStoreDashboardData((prev) => ({
         ...prev,
-        dashboardSummary: get(results[0])?.data ?? get(results[0]) ?? null,
-        repairGatePassCounts: get(results[1])?.data ?? get(results[1]) ?? null,
-        returnableStats: get(results[2])?.data ?? get(results[2]) ?? null,
+        dashboardSummary: get(summaryResults[0])?.data ?? get(summaryResults[0]) ?? null,
+        repairGatePassCounts: get(summaryResults[1])?.data ?? get(summaryResults[1]) ?? null,
+        returnableStats: get(summaryResults[2])?.data ?? get(summaryResults[2]) ?? null,
       }));
+
+      // Non-blocking background load for the purchaser chart which needs history
+      loadStoreDashboardDataset('historyIndents').catch(console.error);
+
+      // 2. Fetch potentially large product and vendor lists in the background
+      Promise.allSettled([
+        storeApi.getAllVendors(),
+        storeApi.getAllProducts(),
+      ]).then((results) => {
+        const vendorsRaw = get(results[0]);
+        const vendorsArray = vendorsRaw ? Object.values(extractArray(vendorsRaw)) : [];
+        const vendors = vendorsArray.length ? normalizeVendorList(vendorsArray) : [];
+
+        const productsRaw = get(results[1]);
+        const productsArray = productsRaw ? Object.values(extractArray(productsRaw)) : [];
+        const products = productsArray.length ? normalizeProductList(productsArray) : [];
+
+        if (vendors.length > 0 || products.length > 0) {
+          setStoreDashboardData((prev) => ({
+            ...prev,
+            allVendors: vendors.length ? vendors : prev.allVendors,
+            allProducts: products.length ? products : prev.allProducts,
+          }));
+        }
+      }).catch(console.error);
     } catch (err: any) {
       setStoreDashboardError(err?.message ?? 'Failed to load dashboard data');
       setStoreDashboardData(INITIAL_STORE_DASHBOARD_DATA);
@@ -1194,4 +1191,3 @@ export const useStoreDashboard = (): StoreDashboardContextShape => {
 };
 
 export default AuthContext;
-
