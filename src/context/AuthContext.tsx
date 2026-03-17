@@ -563,7 +563,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setToken(null);
           setUser(null);
           clearAuthStorage();
-          resetStoreDashboardState();
           delete api.defaults.headers.common['Authorization'];
           // Don't redirect here - let ProtectedRoute handle it
         }
@@ -572,7 +571,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(null);
         setUser(null);
         clearAuthStorage();
-        resetStoreDashboardState();
         delete api.defaults.headers.common['Authorization'];
         // Don't redirect here - let ProtectedRoute handle it
       } finally {

@@ -16,32 +16,7 @@ import Loading from "./Loading";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
-// ── Helpers (moved out of component for stable references) ───────────────────
-type LazyDatasetKey =
-  | 'pendingIndents'
-  | 'historyIndents'
-  | 'poPending'
-  | 'poHistory'
-  | 'repairPending'
-  | 'repairHistory'
-  | 'returnableDetails';
 
-const DATASET_FETCHERS: Record<LazyDatasetKey, () => Promise<any>> = {
-  pendingIndents: () => storeApi.getPendingIndents(),
-  historyIndents: () => storeApi.getHistoryIndents(),
-  poPending: () => storeApi.getPoPending(),
-  poHistory: () => storeApi.getPoHistory(),
-  repairPending: () => storeApi.getRepairGatePassPending(),
-  repairHistory: () => storeApi.getRepairGatePassReceived(),
-  returnableDetails: () => storeApi.getReturnableDetails(),
-};
-
-const extractArray = (res: any): any[] => {
-  if (!res) return [];
-  if (Array.isArray(res)) return res;
-  if (res.data && Array.isArray(res.data)) return res.data;
-  return [];
-};
 
 const normalizeVendorList = (rows: any[]): { vendorName: string }[] => {
   const seen = new Set<string>();
@@ -73,12 +48,6 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
   return list.sort((a, b) => a.itemName.localeCompare(b.itemName));
 };
 
-const INITIAL_LOADED: Record<LazyDatasetKey, boolean> = {
-  pendingIndents: false, historyIndents: false,
-  poPending: false, poHistory: false,
-  repairPending: false, repairHistory: false,
-  returnableDetails: false,
-};
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function StoreDashboard() {
@@ -93,117 +62,54 @@ export default function StoreDashboard() {
   const [repairHistory, setRepairHistory] = useState<any[]>([]);
   const [returnableDetails, setReturnableDetails] = useState<any[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
-  const [backendRepairGatePassCounts, setBackendRepairGatePassCounts] = useState<any>(null);
-  const [backendReturnableStats, setBackendReturnableStats] = useState<any>(null);
   const [allVendors, setAllVendors] = useState<{ vendorName: string }[]>([]);
   const [allProducts, setAllProducts] = useState<{ itemName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadedDatasets, setLoadedDatasets] = useState<Record<LazyDatasetKey, boolean>>(INITIAL_LOADED);
 
-  // Refs for dedup + stable access inside callbacks
-  const datasetsRef = useRef<Record<LazyDatasetKey, any[]>>({
-    pendingIndents: [], historyIndents: [],
-    poPending: [], poHistory: [],
-    repairPending: [], repairHistory: [],
-    returnableDetails: [],
-  });
-  const loadedRef = useRef<Set<LazyDatasetKey>>(new Set());
-  const pendingLoadsRef = useRef<Map<LazyDatasetKey, Promise<any[]>>>(new Map());
   const mountedRef = useRef(true);
 
-  // State setters map for dynamic dataset updates
-  const datasetSetters = useMemo<Record<LazyDatasetKey, (rows: any[]) => void>>(() => ({
-    pendingIndents: setPendingIndents,
-    historyIndents: setHistoryIndents,
-    poPending: setPoPending,
-    poHistory: setPoHistory,
-    repairPending: setRepairPending,
-    repairHistory: setRepairHistory,
-    returnableDetails: setReturnableDetails,
-  }), []);
-
-  // ── loadDataset: fetch a single dataset with dedup ──────────────────────
-  const loadDataset = useCallback(async (key: LazyDatasetKey): Promise<any[]> => {
-    // Already loaded — return cached
-    if (loadedRef.current.has(key)) {
-      return datasetsRef.current[key];
-    }
-    // Already in-flight — return same promise
-    const pending = pendingLoadsRef.current.get(key);
-    if (pending) return pending;
-
-    const promise = (async () => {
-      const response = await DATASET_FETCHERS[key]();
-      const rows = extractArray(response);
-      // Update refs + state
-      datasetsRef.current[key] = rows;
-      loadedRef.current.add(key);
-      if (mountedRef.current) {
-        datasetSetters[key](rows);
-        setLoadedDatasets((prev) => ({ ...prev, [key]: true }));
-      }
-      return rows;
-    })();
-
-    pendingLoadsRef.current.set(key, promise);
-    try {
-      return await promise;
-    } finally {
-      pendingLoadsRef.current.delete(key);
-    }
-  }, [datasetSetters]);
-
-  // ── Initial fetch: all APIs in parallel ─────────────────────────────────
+  // ── Initial fetch: Consolidated Dashboard API ───────────────────────────
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
 
-    const fetchAll = async () => {
+    const fetchDashboardData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        // Fire ALL requests simultaneously
-        const [
-          summaryRes, repairCountsRes, returnableStatsRes,
-          ...datasetResults
-        ] = await Promise.allSettled([
-          storeApi.getStoreIndentDashboard(),
-          storeApi.getRepairGatePassCounts(),
-          storeApi.getReturnableStats(),
-          // 7 datasets
-          loadDataset('pendingIndents'),
-          loadDataset('historyIndents'),
-          loadDataset('poPending'),
-          loadDataset('poHistory'),
-          loadDataset('repairPending'),
-          loadDataset('repairHistory'),
-          loadDataset('returnableDetails'),
-        ]);
+        const response = await storeApi.getDashboard();
+        const data = response?.data || response;
 
         if (cancelled) return;
 
-        // Vendors + Products (also parallel, but after datasets to not block cards)
-        const [vendorsRes, productsRes] = await Promise.allSettled([
-          storeApi.getAllVendors(),
-          storeApi.getAllProducts(),
-        ]);
+        if (data) {
+          // Update all datasets from single response
+          setPendingIndents(data.pendingIndents || []);
+          setHistoryIndents(data.historyIndents || []);
+          setPoPending(data.poPending || []);
+          setPoHistory(data.poHistory || []);
+          setRepairPending(data.repairPending || []);
+          setRepairHistory(data.repairHistory || []);
+          setReturnableDetails(data.returnableDetails || []);
+          setDashboardSummary(data.summary || null);
 
-        if (cancelled) return;
 
-        const get = (r: PromiseSettledResult<any>) =>
-          r.status === 'fulfilled' ? r.value : null;
+          // Extract unique vendors and products from datasets
+          const allItems = [
+            ...(data.pendingIndents || []),
+            ...(data.historyIndents || []),
+            ...(data.poPending || []),
+            ...(data.poHistory || []),
+            ...(data.repairPending || []),
+            ...(data.repairHistory || []),
+          ];
 
-        setDashboardSummary(get(summaryRes)?.data ?? get(summaryRes) ?? null);
-        setBackendRepairGatePassCounts(get(repairCountsRes)?.data ?? get(repairCountsRes) ?? null);
-        setBackendReturnableStats(get(returnableStatsRes)?.data ?? get(returnableStatsRes) ?? null);
+          setAllVendors(normalizeVendorList(allItems));
+          setAllProducts(normalizeProductList(allItems));
+        }
 
-        const vendorRows = normalizeVendorList(Object.values(extractArray(get(vendorsRes))));
-        setAllVendors(vendorRows);
-
-        const productRows = normalizeProductList(Object.values(extractArray(get(productsRes))));
-        if (productRows.length) setAllProducts(productRows);
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message ?? 'Failed to load dashboard data');
@@ -213,9 +119,9 @@ export default function StoreDashboard() {
       }
     };
 
-    void fetchAll();
+    void fetchDashboardData();
     return () => { cancelled = true; mountedRef.current = false; };
-  }, [loadDataset]);
+  }, []);
 
   // Permission Check
   const hasAccess = useMemo(() => {
@@ -546,47 +452,26 @@ export default function StoreDashboard() {
         return dateVal && new Date(dateVal) >= monthStart;
       });
 
-    const hasIndentMetrics = loadedDatasets.pendingIndents && loadedDatasets.historyIndents;
-    const hasPoMetrics = loadedDatasets.poPending && loadedDatasets.poHistory;
-    const hasRepairMetrics = loadedDatasets.repairPending && loadedDatasets.repairHistory;
-    const hasReturnableMetrics = loadedDatasets.returnableDetails;
+    const curMonthPendingIndents = filterMonth(pendingIndents);
+    const curMonthHistoryIndents = filterMonth(historyIndents);
+    const curMonthPoPending = filterMonth(poPending);
+    const curMonthPoHistory = filterMonth(poHistory);
+    const curMonthRepairPending = filterMonth(repairPending);
+    const curMonthRepairHistory = filterMonth(repairHistory);
+    const curMonthReturnable = (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart);
 
-    const curMonthPendingIndents = hasIndentMetrics ? filterMonth(pendingIndents) : [];
-    const curMonthHistoryIndents = hasIndentMetrics ? filterMonth(historyIndents) : [];
-    const curMonthPoPending = hasPoMetrics ? filterMonth(poPending) : [];
-    const curMonthPoHistory = hasPoMetrics ? filterMonth(poHistory) : [];
-    const curMonthRepairPending = hasRepairMetrics ? filterMonth(repairPending) : [];
-    const curMonthRepairHistory = hasRepairMetrics ? filterMonth(repairHistory) : [];
-    const curMonthReturnable = hasReturnableMetrics
-      ? (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart)
-      : [];
+    const curMonthOverdue = curMonthPendingIndents.filter((item) => {
+      const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
+      return ts && new Date(ts) < new Date();
+    }).length;
 
-    const curMonthOverdue = hasIndentMetrics
-      ? curMonthPendingIndents.filter((item) => {
-        const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
-        return ts && new Date(ts) < new Date();
-      }).length
-      : Number(summary.overdueIndents || 0);
+    const completed = curMonthHistoryIndents.length;
+    const pending = curMonthPendingIndents.length;
+    const total = completed + pending;
 
-    const completed = hasIndentMetrics
-      ? curMonthHistoryIndents.length
-      : Number(summary.completedIndents || 0);
-    const pending = hasIndentMetrics
-      ? curMonthPendingIndents.length
-      : Number(summary.pendingIndents || 0);
-    const total = hasIndentMetrics
-      ? completed + pending
-      : Number(summary.totalIndents || 0);
-
-    const completedPercent = hasIndentMetrics
-      ? (total > 0 ? (completed / total) * 100 : 0)
-      : Number(summary.completedPercent || 0);
-    const pendingPercent = hasIndentMetrics
-      ? (total > 0 ? (pending / total) * 100 : 0)
-      : Number(summary.pendingPercent || 0);
-    const overduePercent = hasIndentMetrics
-      ? (total > 0 ? (curMonthOverdue / total) * 100 : 0)
-      : Number(summary.overduePercent || 0);
+    const completedPercent = (total > 0 ? (completed / total) * 100 : 0);
+    const pendingPercent = (total > 0 ? (pending / total) * 100 : 0);
+    const overduePercent = (total > 0 ? (curMonthOverdue / total) * 100 : 0);
 
     return {
       dashboardData: {
@@ -597,52 +482,31 @@ export default function StoreDashboard() {
         upcomingIndents: Number(summary.upcomingIndents || 0),
         overdueIndents: curMonthOverdue,
         totalIndentedQuantity: Number(summary.totalIndentedQuantity || 0),
-        totalPurchaseOrders: hasPoMetrics
-          ? curMonthPoHistory.length
-          : Number(summary.totalPurchaseOrders || 0),
+        totalPurchaseOrders: curMonthPoHistory.length,
         totalPurchasedQuantity: Number(summary.totalPurchasedQuantity || 0),
         totalIssuedQuantity: Number(summary.totalIssuedQuantity || 0),
         outOfStockCount: Number(summary.outOfStockCount || 0),
-        overallProgress: hasIndentMetrics ? completedPercent : Number(summary.overallProgress || 0),
+        overallProgress: completedPercent,
         completedPercent,
         pendingPercent,
         upcomingPercent: Number(summary.upcomingPercent || 0),
         overduePercent,
-        pendingPurchaseOrders: hasPoMetrics
-          ? curMonthPoPending.length
-          : Number(summary.pendingPurchaseOrders || 0),
+        pendingPurchaseOrders: curMonthPoPending.length,
       },
       repairGatePassCounts: {
-        pending: hasRepairMetrics
-          ? curMonthRepairPending.length
-          : Number(backendRepairGatePassCounts?.pending || 0),
-        history: hasRepairMetrics
-          ? curMonthRepairHistory.length
-          : Number(backendRepairGatePassCounts?.history || 0),
+        pending: curMonthRepairPending.length,
+        history: curMonthRepairHistory.length,
       },
       returnableStats: {
-        TOTAL_COUNT: hasReturnableMetrics
-          ? curMonthReturnable.length
-          : Number(backendReturnableStats?.TOTAL_COUNT || 0),
-        RETURNABLE_COUNT: hasReturnableMetrics
-          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE').length
-          : Number(backendReturnableStats?.RETURNABLE_COUNT || 0),
-        NON_RETURNABLE_COUNT: hasReturnableMetrics
-          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE').length
-          : Number(backendReturnableStats?.NON_RETURNABLE_COUNT || 0),
-        RETURNABLE_COMPLETED_COUNT: hasReturnableMetrics
-          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED').length
-          : Number(backendReturnableStats?.RETURNABLE_COMPLETED_COUNT || 0),
-        RETURNABLE_PENDING_COUNT: hasReturnableMetrics
-          ? curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING').length
-          : Number(backendReturnableStats?.RETURNABLE_PENDING_COUNT || 0),
+        TOTAL_COUNT: curMonthReturnable.length,
+        RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE').length,
+        NON_RETURNABLE_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE').length,
+        RETURNABLE_COMPLETED_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED').length,
+        RETURNABLE_PENDING_COUNT: curMonthReturnable.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING').length,
       },
     };
   }, [
     dashboardSummary,
-    backendRepairGatePassCounts,
-    backendReturnableStats,
-    loadedDatasets,
     pendingIndents,
     historyIndents,
     poPending,
@@ -808,41 +672,37 @@ export default function StoreDashboard() {
       let rows: any[] = [];
       switch (type) {
         case 'totalIndents':
-          rows = await loadDataset('historyIndents');
+          rows = [...pendingIndents, ...historyIndents];
           break;
         case 'pendingIndents':
-          rows = await loadDataset('pendingIndents');
+          rows = pendingIndents;
           break;
         case 'totalPurchases':
-          rows = await loadDataset('poHistory');
+          rows = poHistory;
           break;
         case 'pendingPOs':
-          rows = await loadDataset('poPending');
+          rows = poPending;
           break;
         case 'repairPending':
-          rows = await loadDataset('repairPending');
+          rows = repairPending;
           break;
         case 'repairHistory':
-          rows = await loadDataset('repairHistory');
+          rows = repairHistory;
           break;
         case 'returnableTotal': {
-          const details = await loadDataset('returnableDetails');
-          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
           break;
         }
         case 'returnablePending': {
-          const details = await loadDataset('returnableDetails');
-          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
           break;
         }
         case 'returnableCompleted': {
-          const details = await loadDataset('returnableDetails');
-          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
           break;
         }
         case 'nonReturnable': {
-          const details = await loadDataset('returnableDetails');
-          rows = details.filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
+          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
           break;
         }
       }
