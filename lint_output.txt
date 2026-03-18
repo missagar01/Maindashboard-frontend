@@ -1,0 +1,620 @@
+﻿
+> tailadmin-react@2.0.2 lint
+> eslint .
+
+
+F:\Master Backend All Merge\frontend\src\App.tsx
+  70:8  error  'StoreAdministration' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\api\apiClient.ts
+  104:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\batchcodeAPI.ts
+  34:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\document\subscriptionApi.ts
+   48:81   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:111  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:37   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   79:35   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:36   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:73   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  200:71   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  259:71   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\leadToOrderAPI.ts
+  11:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  67:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\o2dAPI.ts
+  13:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  57:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  73:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  79:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  93:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\store\storeApiRequest.ts
+  89:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\api\store\storeSystemApi.ts
+  13:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\config\portalNavigation.ts
+  116:3  error  '_link' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\context\AuthContext.tsx
+    3:73  error    'useCallback' is defined but never used                                                                                         @typescript-eslint/no-unused-vars
+  170:32  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  171:21  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  172:20  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  173:20  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  174:19  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  177:43  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  178:32  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  179:31  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  180:31  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  181:30  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  406:82  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  407:60  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  408:58  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  409:58  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  410:56  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  522:22  error    'e' is defined but never used                                                                                                   @typescript-eslint/no-unused-vars
+  522:25  error    Empty block statement                                                                                                           no-empty
+  690:63  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  725:11  error    'userData' is never reassigned. Use 'const' instead                                                                             prefer-const
+  864:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\context\SidebarContext.tsx
+  18:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\context\ThemeContext.tsx
+  52:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\layout\AppHeader.tsx
+  346:6  warning  React Hook useEffect has a missing dependency: 'getPrimaryNavItemsForCount'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  350:5  warning  React Hook useMemo has a missing dependency: 'getPrimaryNavItemsForCount'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\layout\AppSidebar.tsx
+  314:6  warning  React Hook useMemo has a missing dependency: 'canAccessLink'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  346:6  warning  React Hook useMemo has a missing dependency: 'filterNode'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\BatchCode\HotCoil.tsx
+    4:67  error    'Camera' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+   28:56  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+   30:10  error    'successMessage' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+   30:26  error    'setSuccessMessage' is assigned a value but never used                                                                 @typescript-eslint/no-unused-vars
+   33:10  error    'error' is assigned a value but never used                                                                             @typescript-eslint/no-unused-vars
+   33:17  error    'setError' is assigned a value but never used                                                                          @typescript-eslint/no-unused-vars
+   34:50  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+   36:10  error    'userRole' is assigned a value but never used                                                                          @typescript-eslint/no-unused-vars
+   47:10  error    'selectedRow' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+   47:50  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  116:20  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  117:28  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  138:20  error    This branch can never execute. Its condition is a duplicate or covered by previous conditions in the if-else-if chain  no-dupe-else-if
+  141:16  error    'smsError' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+  164:20  error    This branch can never execute. Its condition is a duplicate or covered by previous conditions in the if-else-if chain  no-dupe-else-if
+  167:16  error    'hotCoilError' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  175:31  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  176:26  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  180:54  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  222:17  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  229:18  error    This branch can never execute. Its condition is a duplicate or covered by previous conditions in the if-else-if chain  no-dupe-else-if
+  254:54  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  292:14  error    'field' is never reassigned. Use 'const' instead                                                                       prefer-const
+  353:21  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  362:6   warning  React Hook useCallback has a missing dependency: 'validateForm'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  439:42  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\Calendar.tsx
+  1:10  error  'useState' is defined but never used   @typescript-eslint/no-unused-vars
+  1:20  error  'useRef' is defined but never used     @typescript-eslint/no-unused-vars
+  1:28  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\CustomerModal.tsx
+   9:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:21  error  Empty block statement                     no-empty
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\CustomersPage.tsx
+   2:64  error  'Building' is defined but never used       @typescript-eslint/no-unused-vars
+  27:13  error  'user' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  46:81  error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\FollowUpModal.tsx
+   10:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   11:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:18  error  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  133:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  170:93  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\FollowUpsPage.tsx
+    2:68  error  'CheckCircle' is defined but never used   @typescript-eslint/no-unused-vars
+   34:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   35:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  347:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\analytics-view.tsx
+  40:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\dashboard-view.tsx
+     4:78   error    'Percent' is defined but never used                                                                                                                                                                       @typescript-eslint/no-unused-vars
+     4:87   error    'Truck' is defined but never used                                                                                                                                                                         @typescript-eslint/no-unused-vars
+     4:94   error    'Target' is defined but never used                                                                                                                                                                        @typescript-eslint/no-unused-vars
+     4:102  error    'TrendingUp' is defined but never used                                                                                                                                                                    @typescript-eslint/no-unused-vars
+     4:114  error    'ArrowUpRight' is defined but never used                                                                                                                                                                  @typescript-eslint/no-unused-vars
+     4:128  error    'Activity' is defined but never used                                                                                                                                                                      @typescript-eslint/no-unused-vars
+     4:138  error    'Quote' is defined but never used                                                                                                                                                                         @typescript-eslint/no-unused-vars
+     9:29   error    'CardDescription' is defined but never used                                                                                                                                                               @typescript-eslint/no-unused-vars
+    10:10   error    'ChartContainer' is defined but never used                                                                                                                                                                @typescript-eslint/no-unused-vars
+    10:26   error    'ChartTooltip' is defined but never used                                                                                                                                                                  @typescript-eslint/no-unused-vars
+    16:10   error    'Input' is defined but never used                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   165:11   error    'user' is assigned a value but never used                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   186:54   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   189:60   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   191:10   error    'feedbackStats' is assigned a value but never used                                                                                                                                                        @typescript-eslint/no-unused-vars
+   191:54   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   198:60   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   199:70   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   204:65   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   204:77   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   205:91   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   234:41   error    Unnecessary escape character: \/                                                                                                                                                                          no-useless-escape
+   234:43   error    Unnecessary escape character: \-                                                                                                                                                                          no-useless-escape
+   234:56   error    Unnecessary escape character: \/                                                                                                                                                                          no-useless-escape
+   234:58   error    Unnecessary escape character: \-                                                                                                                                                                          no-useless-escape
+   288:44   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   358:19   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   381:21   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   388:26   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   439:6    warning  React Hook useEffect has a missing dependency: 'fetchAdditionalStats'. Either include it or remove the dependency array                                                                                   react-hooks/exhaustive-deps
+   446:21   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   488:6    warning  React Hook useCallback has missing dependencies: 'fetchCustomerFeedback', 'fetchEnquiryReport', 'selectedItem', 'selectedParty', and 'selectedState'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   512:13   error    'partyName' is assigned a value but never used                                                                                                                                                            @typescript-eslint/no-unused-vars
+   513:13   error    'itemName' is assigned a value but never used                                                                                                                                                             @typescript-eslint/no-unused-vars
+   515:13   error    'stateName' is assigned a value but never used                                                                                                                                                            @typescript-eslint/no-unused-vars
+   536:9    error    'targetItem' is never reassigned. Use 'const' instead                                                                                                                                                     prefer-const
+   549:33   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   560:77   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   566:33   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   570:84   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   576:28   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   584:33   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   656:9    error    'stateOptions' is assigned a value but never used                                                                                                                                                         @typescript-eslint/no-unused-vars
+   681:9    error    'chartData' is assigned a value but never used                                                                                                                                                            @typescript-eslint/no-unused-vars
+   745:37   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   829:65   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   834:61   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   840:31   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   898:9    error    'downloadPDF' is assigned a value but never used                                                                                                                                                          @typescript-eslint/no-unused-vars
+  1355:53   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  1370:53   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  1529:44   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  1703:79   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  1815:83   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  2005:79   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  2102:81   error    Unexpected any. Specify a different type                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  2396:40   error    'e' is defined but never used                                                                                                                                                                             @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\enq-list.tsx
+    3:34   error    'User' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+    3:40   error    'Package' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   32:54   warning  React Hook useEffect has a missing dependency: 'fetchEnquiries'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   49:23   error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  157:110  error    Empty block statement                                                                                              no-empty
+  174:110  error    Empty block statement                                                                                              no-empty
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\enq-view.tsx
+   45:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   88:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:22  error  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  166:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\order-view.tsx
+   47:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   98:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\pendding-vehicle.tsx
+  42:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\theme-provider.tsx
+  6:46  error  'props' is defined but never used         @typescript-eslint/no-unused-vars
+  6:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\badge.tsx
+  46:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\button.tsx
+  59:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\calendar.tsx
+   27:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:4   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\chart.tsx
+  124:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  263:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  282:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\form.tsx
+  159:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\navigation-menu.tsx
+  167:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\resizable.tsx
+  12:4   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:4   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:4   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\sidebar.tsx
+  727:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\sonner.tsx
+  3:13  error  'React' is defined but never used         @typescript-eslint/no-unused-vars
+  6:23  error  'props' is defined but never used         @typescript-eslint/no-unused-vars
+  6:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\toggle.tsx
+  47:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\O2D\ui\use-toast.ts
+  21:7  error  'actionTypes' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\Dashboard.tsx
+   25:5   error    'LineChart' is defined but never used                                                                                                                                  @typescript-eslint/no-unused-vars
+   26:5   error    'Line' is defined but never used                                                                                                                                       @typescript-eslint/no-unused-vars
+   40:11  error    'DashboardSubscription' is defined but never used                                                                                                                      @typescript-eslint/no-unused-vars
+   56:11  error    'DashboardDocument' is defined but never used                                                                                                                          @typescript-eslint/no-unused-vars
+   67:11  error    'DashboardLoan' is defined but never used                                                                                                                              @typescript-eslint/no-unused-vars
+  219:12  error    'loadingSubscriptions' is assigned a value but never used                                                                                                              @typescript-eslint/no-unused-vars
+  233:58  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  265:20  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  271:8   warning  React Hook useCallback has missing dependencies: 'currentUser?.name', 'currentUser?.role', and 'setSubscriptions'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  295:20  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  299:8   warning  React Hook useCallback has missing dependencies: 'currentUser?.name', 'currentUser?.role', and 'setDocuments'. Either include them or remove the dependency array      react-hooks/exhaustive-deps
+  323:20  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  327:8   warning  React Hook useCallback has a missing dependency: 'setLoans'. Either include it or remove the dependency array                                                          react-hooks/exhaustive-deps
+  332:50  error    'paymentPending' is assigned a value but never used                                                                                                                    @typescript-eslint/no-unused-vars
+  404:41  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  405:52  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  406:36  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  408:55  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  419:23  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  428:27  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  437:19  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  446:23  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  455:27  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  464:19  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  491:35  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  492:36  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  493:37  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  494:37  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  511:19  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  541:15  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  804:51  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  815:55  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+  826:47  error    Unexpected any. Specify a different type                                                                                                                               @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\account\Audit.tsx
+   40:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:83  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\account\Rectify.tsx
+   2:56  error  'Check' is defined but never used         @typescript-eslint/no-unused-vars
+   2:63  error  'AlertCircle' is defined but never used   @typescript-eslint/no-unused-vars
+  35:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  98:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  99:83  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\account\TallyData.tsx
+   68:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  128:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\document\AddDocument.tsx
+  53:8   warning  React Hook useEffect has a missing dependency: 'defaultCategories'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  71:74  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\document\AllDocuments.tsx
+   2:65  error    'RefreshCw' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  29:12  error    'loading' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+  46:8   warning  React Hook useCallback has a missing dependency: 'setDocuments'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\document\Renewal.tsx
+  37:97  error    Unexpected any. Specify a different type                                                                                 @typescript-eslint/no-explicit-any
+  42:8   warning  React Hook useCallback has a missing dependency: 'setPendingRenewals'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\document\ShareModal.tsx
+  65:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\loan\AddLoan.tsx
+  13:10  error  'isSubmitting' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\loan\AllLoans.tsx
+   9:11  error    'LoanItem' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+  26:12  error    'loading' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  47:20  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  54:8   warning  React Hook useCallback has a missing dependency: 'setLoans'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\loan\Foreclosure.tsx
+  33:12  error  'loading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\loan\NOC.tsx
+  30:12  error  'loading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\master\AddMaster.tsx
+  14:12  error  'isSubmitting' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\master\MasterPage.tsx
+   6:59  error    'MasterItem' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  10:12  error    'loading' is assigned a value but never used                                                                        @typescript-eslint/no-unused-vars
+  19:88  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  26:8   warning  React Hook useCallback has a missing dependency: 'setMasterData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\payment\MakePayment.tsx
+  66:8  warning  React Hook useEffect has a missing dependency: 'fetchAll'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\payment\PaymentApproval.tsx
+  70:8  warning  React Hook useEffect has a missing dependency: 'fetchAll'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\payment\RequestForm.tsx
+  47:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  49:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\payment\TallyEntry.tsx
+  63:8  warning  React Hook useEffect has a missing dependency: 'fetchAll'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\subscription\AllSubscriptions.tsx
+    2:36  error    'FileText' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+   94:20  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  109:53  error    Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  116:6   warning  React Hook useCallback has a missing dependency: 'setSubscriptions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\subscription\Approval.tsx
+   94:18  error    Unexpected any. Specify a different type                                                                                                             @typescript-eslint/no-explicit-any
+  136:42  error    Unexpected any. Specify a different type                                                                                                             @typescript-eslint/no-explicit-any
+  145:8   warning  React Hook useCallback has missing dependencies: 'setApprovalHistory' and 'setPendingApprovals'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\subscription\Payment.tsx
+   95:18  error    Unexpected any. Specify a different type                                                                                                           @typescript-eslint/no-explicit-any
+  136:42  error    Unexpected any. Specify a different type                                                                                                           @typescript-eslint/no-explicit-any
+  145:8   warning  React Hook useCallback has missing dependencies: 'setPaymentHistory' and 'setPendingPayments'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  197:49  error    Unexpected any. Specify a different type                                                                                                           @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\pages\subscription\Renewal.tsx
+   89:18  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  122:32  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  150:42  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  151:20  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  159:8   warning  React Hook useCallback has missing dependencies: 'setPendingSubscriptionRenewals' and 'setSubscriptionRenewalHistory'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  182:50  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  186:49  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  396:58  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+  398:66  error    Unexpected any. Specify a different type                                                                                                                                   @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\document\utils\dateFormatter.ts
+  7:16  error  '_' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\element\DataTable.tsx
+  41:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\element\Heading.tsx
+  11:1  warning  Fast refresh can't handle anonymous components. Add a name to your export  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\element\Logo.tsx
+  4:1  warning  Fast refresh can't handle anonymous components. Add a name to your export  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\ui\button.tsx
+  41:29  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  51:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\ui\form.tsx
+  157:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\store\components\ui\sidebar.tsx
+  695:5  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ApproveIndent.tsx
+  207:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  208:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  323:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  350:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ApproveIndentGM.tsx
+   94:28  error    'setDetailsLoading' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  115:51  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  116:31  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  118:35  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  164:32  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  168:38  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  177:39  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  225:11  error    'fetchRequestItems' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  227:33  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  332:9   warning  React Hook useMemo has a missing dependency: 'commonColumns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  351:9   warning  React Hook useMemo has a missing dependency: 'commonColumns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ApprowIndentData.tsx
+   95:26  error    'setDetailsLoading' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  116:43  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  117:21  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  119:23  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  165:24  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  169:28  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  178:31  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  244:9   error    'fetchRequestItems' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  246:29  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  339:5   warning  React Hook useMemo has a missing dependency: 'commonColumns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  344:5   warning  React Hook useMemo has a missing dependency: 'commonColumns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\CompletedItems.tsx
+   99:27  error    Unexpected any. Specify a different type                                                                                                                                                  @typescript-eslint/no-explicit-any
+  102:27  error    Unexpected any. Specify a different type                                                                                                                                                  @typescript-eslint/no-explicit-any
+  153:9   warning  The 'commonColumns' array makes the dependencies of useMemo Hook (at line 243) change on every render. To fix this, wrap the initialization of 'commonColumns' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  153:9   warning  The 'commonColumns' array makes the dependencies of useMemo Hook (at line 251) change on every render. To fix this, wrap the initialization of 'commonColumns' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  278:19  error    Unexpected any. Specify a different type                                                                                                                                                  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\CreatePO.tsx
+  8:10  error  'storeApi' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ErpIndent.tsx
+   1:21  error  'useMemo' is defined but never used       @typescript-eslint/no-unused-vars
+  56:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\IndentAll.tsx
+  295:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\PendingIndents.tsx
+  154:26  error  'key' is defined but never used                @typescript-eslint/no-unused-vars
+  280:15  error  'firstRow' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ReceiveItems.tsx
+  4:10  error  'storeApi' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\RepairFollowup.tsx
+    8:10  error    'set' is defined but never used                                                                                                      @typescript-eslint/no-unused-vars
+   47:12  error    'processingId' is assigned a value but never used                                                                                    @typescript-eslint/no-unused-vars
+   47:26  error    'setProcessingId' is assigned a value but never used                                                                                 @typescript-eslint/no-unused-vars
+   78:22  error    'err' is defined but never used                                                                                                      @typescript-eslint/no-unused-vars
+   94:8   warning  React Hook useEffect has missing dependencies: 'selectedRow' and 'stage2Status'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  112:11  error    'totalPages' is assigned a value but never used                                                                                      @typescript-eslint/no-unused-vars
+  119:24  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+  348:80  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\ReturnablePage.tsx
+  6:32  error  'Scale' is defined but never used           @typescript-eslint/no-unused-vars
+  7:5   error  'MoreHorizontal' is defined but never used  @typescript-eslint/no-unused-vars
+  7:21  error  'Smartphone' is defined but never used      @typescript-eslint/no-unused-vars
+  7:33  error  'Laptop' is defined but never used          @typescript-eslint/no-unused-vars
+  7:41  error  'LayoutGrid' is defined but never used      @typescript-eslint/no-unused-vars
+  7:53  error  'List' is defined but never used            @typescript-eslint/no-unused-vars
+  9:29  error  'CardHeader' is defined but never used      @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\StoreDashboard.tsx
+    6:10   error  'Navigate' is defined but never used           @typescript-eslint/no-unused-vars
+    9:3    error  'Warehouse' is defined but never used          @typescript-eslint/no-unused-vars
+    9:24   error  'TrendingUp' is defined but never used         @typescript-eslint/no-unused-vars
+    9:36   error  'BarChart3' is defined but never used          @typescript-eslint/no-unused-vars
+   10:17   error  'ArrowDownRight' is defined but never used     @typescript-eslint/no-unused-vars
+   10:42   error  'Users' is defined but never used              @typescript-eslint/no-unused-vars
+   10:49   error  'Calendar' is defined but never used           @typescript-eslint/no-unused-vars
+   11:3    error  'ArrowRight' is defined but never used         @typescript-eslint/no-unused-vars
+   11:64   error  'ChevronRight' is defined but never used       @typescript-eslint/no-unused-vars
+   11:78   error  'Rows3' is defined but never used              @typescript-eslint/no-unused-vars
+   11:85   error  'Sparkles' is defined but never used           @typescript-eslint/no-unused-vars
+   14:60   error  'DialogDescription' is defined but never used  @typescript-eslint/no-unused-vars
+   17:10   error  'ApexOptions' is defined but never used        @typescript-eslint/no-unused-vars
+   21:36   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   36:37   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   51:27   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   57:12   error  'e' is defined but never used                  @typescript-eslint/no-unused-vars
+   69:37   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   83:36   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  107:32   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  126:102  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  156:29   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  174:56   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  183:31   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  234:36   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  254:11   error  'user' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  289:21   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  315:27   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  385:46   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  396:15   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  425:49   error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  556:110  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\StoreIssue.tsx
+  78:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\UserIndent.tsx
+  128:9   error  'groupOptions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  175:22  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  223:20  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  241:52  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  248:41  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  292:20  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  293:24  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  299:31  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  326:30  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  371:18  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  393:25  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  435:26  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  436:55  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  457:20  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  561:19  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\UserIndentList.tsx
+  56:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\UserIndentListIndent.tsx
+  72:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\UserIndentListRequisition.tsx
+  63:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\pages\store\indentHelpers.ts
+   1:21  error  'useState' is defined but never used      @typescript-eslint/no-unused-vars
+   2:10  error  'storeApi' is defined but never used      @typescript-eslint/no-unused-vars
+  25:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\pages\store\types\sheets.ts
+  102:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Master Backend All Merge\frontend\src\svg.d.ts
+  2:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+F:\Master Backend All Merge\frontend\src\utils\accessControl.ts
+  370:7  error  'isStorePathAllowed' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  641:7  error  'hasAnyConfiguredAccess' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+F:\Master Backend All Merge\frontend\src\utils\reactHotToastShim.tsx
+  76:16  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+Γ£û 434 problems (389 errors, 45 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

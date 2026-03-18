@@ -50,6 +50,8 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
 
 
 // ── Component ────────────────────────────────────────────────────────────────
+
+
 export default function StoreDashboard() {
   const { user } = useAuth();
 
@@ -66,6 +68,9 @@ export default function StoreDashboard() {
   const [allProducts, setAllProducts] = useState<{ itemName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(true);
 
   const mountedRef = useRef(true);
 
@@ -94,6 +99,8 @@ export default function StoreDashboard() {
           setRepairHistory(data.repairHistory || []);
           setReturnableDetails(data.returnableDetails || []);
           setDashboardSummary(data.summary || null);
+          setFeedbacks(data.feedbacks || []);
+          setFeedbacksLoading(false);
 
 
           // Extract unique vendors and products from datasets
@@ -120,6 +127,7 @@ export default function StoreDashboard() {
     };
 
     void fetchDashboardData();
+
     return () => { cancelled = true; mountedRef.current = false; };
   }, []);
 
@@ -909,8 +917,26 @@ export default function StoreDashboard() {
     return (
       <Loading
         heading="Store Dashboard"
-        subtext="Loading dashboard insights"
+        subtext="Compiling real-time store analytics..."
         icon={<LayoutDashboard size={48} className="text-red-600" />}
+        showSpinner={false}
+        description={
+          <div className="flex items-center justify-center py-40">
+            <div className="relative flex items-center justify-center">
+              {/* Tumbling wrapper */}
+              <div className="w-20 h-20 rounded-[1.25rem] bg-gradient-to-br from-red-500 via-red-600 to-orange-600 shadow-[0_0_30px_rgba(220,38,38,0.4)] flex items-center justify-center animate-spin">
+                {/* Inner detail */}
+                <div className="w-[68px] h-[68px] rounded-xl border-2 border-white/20 flex items-center justify-center bg-white/5 backdrop-blur-sm">
+                  <LayoutDashboard size={36} className="text-white drop-shadow-lg" />
+                </div>
+              </div>
+
+              {/* Magical sparkles around */}
+              <div className="absolute top-0 right-0 -mr-8 -mt-8 w-3 h-3 bg-orange-400 rounded-full animate-ping"></div>
+              <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-3 h-3 bg-red-400 rounded-full animate-ping" style={{ animationDelay: '500ms' }}></div>
+            </div>
+          </div>
+        }
       />
     );
   }
@@ -939,7 +965,7 @@ export default function StoreDashboard() {
               Store Dashboard
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium">
-              Live overview of Store &amp; Purchase
+              Real-time monitoring and analytics for Store &amp; Purchase operations
             </p>
           </div>
         </div>
@@ -1083,6 +1109,11 @@ export default function StoreDashboard() {
 
         <TopListCard title="All Products" data={allProducts} type="product" />
         <TopListCard title="All Vendors" data={allVendors} type="vendor" />
+
+        {/* Vendor Feedback Section */}
+        <div className="lg:col-span-2">
+          <FeedbackSection feedbacks={feedbacks} loading={feedbacksLoading} />
+        </div>
       </div>
 
       {/* Modal Dialog */}
@@ -1120,9 +1151,32 @@ export default function StoreDashboard() {
 
           <div className="flex-1 overflow-auto p-0 bg-white dark:bg-slate-900">
             {modalLoading ? (
-              <div className="flex flex-col items-center justify-center p-32 space-y-4">
-                <RefreshCcw className="animate-spin text-indigo-600" size={48} />
-                <p className="text-slate-500 font-medium animate-pulse">Fetching detailed data...</p>
+              <div className="flex flex-col items-center justify-center p-24 md:p-40 space-y-6">
+                <div className="relative flex items-center justify-center scale-125">
+                  {/* Outer spin track */}
+                  <div className="absolute inset-0 rounded-full border-[3px] border-indigo-100 dark:border-indigo-900/30"></div>
+                  {/* Spinning gradient border */}
+                  <div className="absolute inset-0 rounded-full border-[3px] border-indigo-600 border-t-transparent border-r-transparent animate-spin"></div>
+                  {/* Inner pulsing circle */}
+                  <div className="w-14 h-14 rounded-full bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shadow-inner relative z-10">
+                    <LayoutDashboard size={24} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                  </div>
+                  {/* Sparkle effects */}
+                  <div className="absolute -top-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></div>
+                  <div className="absolute -bottom-1 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" style={{ animationDelay: '400ms' }}></div>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-1.5">
+                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-200 tracking-tight">Syncing {modalTitle} Records</h3>
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    <span className="animate-pulse">Retrieving comprehensive data structures</span>
+                    <span className="flex gap-[3px]">
+                      <span className="w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce"></span>
+                      <span className="w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : filteredModalRows.length > 0 ? (
               <div className="flex h-full flex-col">
@@ -1366,6 +1420,156 @@ function TopListCard({ title, data, type }: any) {
           <div className="flex flex-col items-center justify-center h-full text-slate-200 dark:text-slate-800 p-6 text-center">
             <Package size={32} className="mb-1 opacity-10" />
             <p className="text-[9px] font-medium">{searchTerm ? "No match found" : "No data available"}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Feedback Section ────────────────────────────────────────────────────────
+
+function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: boolean }) {
+  if (loading) {
+    return <div className="animate-pulse bg-slate-200 dark:bg-slate-800 rounded-3xl h-64 w-full"></div>;
+  }
+
+  const validFeedbacks = (feedbacks || []).filter((fb: any) => fb && fb.Timestamp && String(fb.Timestamp).trim() !== "");
+
+  return (
+    <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden relative">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-white/20 text-white backdrop-blur-sm">
+              <Users size={20} />
+            </div>
+            <CardTitle className="text-lg font-bold text-white">Vendor Satisfaction Feedback</CardTitle>
+          </div>
+          <span className="text-[11px] font-bold text-white/90 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
+            {validFeedbacks.length} Responses
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        {/* Mobile View: Cards */}
+        <div className="md:hidden flex flex-col gap-3 p-3 max-h-[500px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
+          {validFeedbacks.map((fb: any, idx: number) => {
+            const cardColors = [
+              "bg-blue-50 text-blue-900 border-blue-100 shadow-blue-100/50 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-100",
+              "bg-emerald-50 text-emerald-900 border-emerald-100 shadow-emerald-100/50 dark:bg-emerald-900/20 dark:border-emerald-800/30 dark:text-emerald-100",
+              "bg-purple-50 text-purple-900 border-purple-100 shadow-purple-100/50 dark:bg-purple-900/20 dark:border-purple-800/30 dark:text-purple-100",
+              "bg-amber-50 text-amber-900 border-amber-100 shadow-amber-100/50 dark:bg-amber-900/20 dark:border-amber-800/30 dark:text-amber-100",
+              "bg-rose-50 text-rose-900 border-rose-100 shadow-rose-100/50 dark:bg-rose-900/20 dark:border-rose-800/30 dark:text-rose-100",
+              "bg-cyan-50 text-cyan-900 border-cyan-100 shadow-cyan-100/50 dark:bg-cyan-900/20 dark:border-cyan-800/30 dark:text-cyan-100"
+            ];
+            const colorClass = cardColors[idx % cardColors.length];
+            
+            return (
+            <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{fb["Vendor Name"] || "Unknown"}</h4>
+                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{fb["Company Name"] || "—"}</p>
+                </div>
+                <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
+                  {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Payment in time?</p>
+                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
+                    ? "bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
+                      ? "bg-rose-100/50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                      : "bg-amber-100/50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    }`}>
+                    {fb["Did you receive payments on time?"] || "N/A"}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Satisfaction</p>
+                  <div className="flex items-center gap-1 font-black text-slate-700 dark:text-slate-300">
+                    <span className="text-indigo-600 dark:text-indigo-400 text-sm leading-none">{fb["How satisfied are you with our overall business relationship?"] || 0}</span>
+                    <span className="text-slate-400 text-[10px] leading-none mt-0.5">/ 5</span>
+                  </div>
+                </div>
+              </div>
+
+              {fb["Any suggestions for us?"] && fb["Any suggestions for us?"].trim() !== "" && (
+                <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 italic font-medium leading-relaxed">
+                  "{fb["Any suggestions for us?"]}"
+                </div>
+              )}
+            </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div className="hidden md:block max-h-[400px] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-md shadow-sm z-10">
+              <tr className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
+                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Date</th>
+                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Vendor & Company</th>
+                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 text-center">Score</th>
+                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Payment on time?</th>
+                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Feedback & Suggestions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {validFeedbacks.map((fb: any, idx: number) => (
+                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors group">
+                  <td className="px-6 py-4 font-mono font-bold text-slate-500 dark:text-slate-500 text-[11px] whitespace-nowrap">
+                    {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
+                  </td>
+                  <td className="px-6 py-4 max-w-[200px]">
+                    <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug truncate uppercase tracking-widest">{fb["Vendor Name"]}</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{fb["Company Name"]}</p>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] shadow-inner border border-indigo-100 dark:border-indigo-800/50">
+                      {fb["How satisfied are you with our overall business relationship?"] || "-"}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}>
+                      {fb["Did you receive payments on time?"] || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[400px]">
+                      {fb["Feedback"] && parseInt(fb["Feedback"]) > 0 && (
+                        <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-300">
+                          Communication: <span className="font-black text-indigo-600 dark:text-indigo-400">{fb["How was our communication?"]} / 5</span>
+                        </p>
+                      )}
+                      {fb["Any suggestions for us?"] && fb["Any suggestions for us?"].trim() !== "" && (
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 italic line-clamp-3 leading-relaxed">
+                          "{fb["Any suggestions for us?"]}"
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {validFeedbacks.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center p-16 text-slate-400">
+            <Users size={48} className="opacity-20 mb-4" />
+            <p className="font-bold text-sm text-slate-500">No feedback available right now.</p>
           </div>
         )}
       </CardContent>
