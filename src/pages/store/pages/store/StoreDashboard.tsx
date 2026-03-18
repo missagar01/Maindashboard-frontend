@@ -953,18 +953,18 @@ export default function StoreDashboard() {
   }
 
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8 space-y-8 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen font-sans">
+    <div className="w-full px-1.5 py-4 sm:px-4 md:p-6 lg:p-8 space-y-5 md:space-y-8 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen font-sans">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 rounded-2xl bg-red-600 shadow-xl shadow-red-200 dark:shadow-red-900/20 transform hover:scale-105 transition-transform duration-300">
-            <LayoutDashboard size={32} className="text-white" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1 sm:px-0">
+        <div className="flex items-center gap-3.5 md:gap-4">
+          <div className="p-2.5 md:p-3.5 rounded-2xl bg-red-600 shadow-xl shadow-red-200 dark:shadow-red-900/20 transform hover:scale-105 transition-transform duration-300 shrink-0">
+            <LayoutDashboard className="text-white w-6 h-6 md:w-8 md:h-8" />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               Store Dashboard
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-[11px] md:text-sm text-slate-500 dark:text-slate-400 font-medium leading-snug">
               Real-time monitoring and analytics for Store &amp; Purchase operations
             </p>
           </div>
@@ -972,12 +972,12 @@ export default function StoreDashboard() {
       </div>
 
       {/* Hero Metrics Cards - Updated Grid to 5 columns on large screens */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
         {cards.map((card) => (
           <button
             key={card.title}
             onClick={() => openModal(card.type, card.title)}
-            className={`group text-left relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} p-4 sm:p-6 shadow-lg ${card.shadowColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block w-full border-0 outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800`}
+            className={`group text-left relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} p-3.5 sm:p-5 md:p-6 shadow-lg ${card.shadowColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block w-full border-0 outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800`}
           >
             {/* Background Pattern */}
             <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-1/4 -translate-y-1/4 scale-150 pointer-events-none">
@@ -1010,7 +1010,7 @@ export default function StoreDashboard() {
       </div>
 
       {/* Bottom Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden h-full">
           <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="flex items-center gap-3">
@@ -1454,7 +1454,7 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
 
       <CardContent className="p-0">
         {/* Mobile View: Cards */}
-        <div className="md:hidden flex flex-col gap-3 p-3 max-h-[500px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="md:hidden flex flex-col gap-2.5 p-2 max-h-[500px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
           {validFeedbacks.map((fb: any, idx: number) => {
             const cardColors = [
               "bg-blue-50 text-blue-900 border-blue-100 shadow-blue-100/50 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-100",
@@ -1465,46 +1465,46 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
               "bg-cyan-50 text-cyan-900 border-cyan-100 shadow-cyan-100/50 dark:bg-cyan-900/20 dark:border-cyan-800/30 dark:text-cyan-100"
             ];
             const colorClass = cardColors[idx % cardColors.length];
-            
-            return (
-            <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
-              <div className="flex justify-between items-start gap-4">
-                <div className="min-w-0">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{fb["Vendor Name"] || "Unknown"}</h4>
-                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{fb["Company Name"] || "—"}</p>
-                </div>
-                <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
-                  {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
-                </span>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Payment in time?</p>
-                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
-                    ? "bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
-                      ? "bg-rose-100/50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-                      : "bg-amber-100/50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    }`}>
-                    {fb["Did you receive payments on time?"] || "N/A"}
+            return (
+              <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
+                <div className="flex justify-between items-start gap-4">
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{fb["Vendor Name"] || "Unknown"}</h4>
+                    <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{fb["Company Name"] || "—"}</p>
+                  </div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
+                    {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
                   </span>
                 </div>
-                <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Satisfaction</p>
-                  <div className="flex items-center gap-1 font-black text-slate-700 dark:text-slate-300">
-                    <span className="text-indigo-600 dark:text-indigo-400 text-sm leading-none">{fb["How satisfied are you with our overall business relationship?"] || 0}</span>
-                    <span className="text-slate-400 text-[10px] leading-none mt-0.5">/ 5</span>
+
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Payment in time?</p>
+                    <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
+                      ? "bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
+                        ? "bg-rose-100/50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                        : "bg-amber-100/50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}>
+                      {fb["Did you receive payments on time?"] || "N/A"}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Satisfaction</p>
+                    <div className="flex items-center gap-1 font-black text-slate-700 dark:text-slate-300">
+                      <span className="text-indigo-600 dark:text-indigo-400 text-sm leading-none">{fb["How satisfied are you with our overall business relationship?"] || 0}</span>
+                      <span className="text-slate-400 text-[10px] leading-none mt-0.5">/ 5</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {fb["Any suggestions for us?"] && fb["Any suggestions for us?"].trim() !== "" && (
-                <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 italic font-medium leading-relaxed">
-                  "{fb["Any suggestions for us?"]}"
-                </div>
-              )}
-            </div>
+                {fb["Any suggestions for us?"] && fb["Any suggestions for us?"].trim() !== "" && (
+                  <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 italic font-medium leading-relaxed">
+                    "{fb["Any suggestions for us?"]}"
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
