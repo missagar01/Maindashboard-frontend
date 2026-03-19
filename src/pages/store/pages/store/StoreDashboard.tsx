@@ -78,9 +78,10 @@ export default function StoreDashboard() {
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
+    let pollTimeout: ReturnType<typeof setTimeout>;
 
-    const fetchDashboardData = async () => {
-      setLoading(true);
+    const fetchDashboardData = async (isRetry = false) => {
+      if (!isRetry) setLoading(true);
       setError(null);
 
       try {
@@ -90,7 +91,23 @@ export default function StoreDashboard() {
         if (cancelled) return;
 
         if (data) {
-          // Update all datasets from single response
+          // Check if payload is "empty" (indicating background cache is still refreshing)
+          const isEmptyPayload = (!data.summary || Object.keys(data.summary).length === 0) &&
+            (!data.pendingIndents || data.pendingIndents.length === 0) &&
+            (!data.tasks || data.tasks.length === 0);
+
+          if (isEmptyPayload) {
+            // Data is not yet ready, so we wait and retry in 3 seconds.
+            // DO NOT set loading to false so the UI doesn't render zeroes!
+            pollTimeout = setTimeout(() => {
+              if (mountedRef.current && !cancelled) {
+                void fetchDashboardData(true);
+              }
+            }, 3000);
+            return;
+          }
+
+          // Data arrived successfully, update records
           setPendingIndents(data.pendingIndents || []);
           setHistoryIndents(data.historyIndents || []);
           setPoPending(data.poPending || []);
@@ -115,20 +132,25 @@ export default function StoreDashboard() {
 
           setAllVendors(normalizeVendorList(allItems));
           setAllProducts(normalizeProductList(allItems));
+
+          setLoading(false);
         }
 
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message ?? 'Failed to load dashboard data');
+          setLoading(false);
         }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     };
 
     void fetchDashboardData();
 
-    return () => { cancelled = true; mountedRef.current = false; };
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+      if (pollTimeout) clearTimeout(pollTimeout);
+    };
   }, []);
 
   // Permission Check
