@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
+import { fetchUniqueDivisionDataApi } from "@/api/checklist/assignTaskApi.js";
 
 const frequencies = ["one-time", "daily", "weekly", "monthly"];
 
@@ -52,6 +53,22 @@ export default function AssignTask() {
   const [locationError, setLocationError] = useState("");
   const [locationSuccess, setLocationSuccess] = useState("");
 
+  const normalizeDivisionOptions = (payload) => {
+    const divisions = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+    return Array.from(
+      new Set(
+        divisions
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter((value) => value && value !== "null" && value !== "NULL")
+      )
+    ).sort();
+  };
+
   // Fetch initial data
   useEffect(() => {
     fetchHousekeepingLocationsTask();
@@ -60,19 +77,14 @@ export default function AssignTask() {
     // Fetch unique divisions from backend
     const fetchDivisions = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/checklist/assign-task/divisions`);
-        const result = await res.json();
-        if (Array.isArray(result)) {
-          // Filter out null/empty divisions
-          const validDivisions = result.filter(d => d && d !== "null" && d !== "NULL");
-          setDivisionOptions(validDivisions);
-        }
+        const result = await fetchUniqueDivisionDataApi();
+        setDivisionOptions(normalizeDivisionOptions(result));
       } catch (err) {
         console.error("Division fetch error:", err);
       }
     };
     fetchDivisions();
-  }, [BACKEND_URL]);
+  }, [fetchHousekeepingLocationsTask, fetchHousekeepingUserDepartmentsTask]);
 
   // Process locations
   useEffect(() => {
@@ -89,6 +101,7 @@ export default function AssignTask() {
   useEffect(() => {
     const role = localStorage.getItem("role") || "";
     const userAccess = localStorage.getItem("user_access") || localStorage.getItem("userAccess") || "";
+    const storedDivision = (localStorage.getItem("division") || "").trim();
 
     const departments = typeof userAccess === 'string'
       ? userAccess.split(',').map(d => d.trim()).filter(Boolean)
@@ -99,6 +112,10 @@ export default function AssignTask() {
     setUserRole(role);
     setUserDepartment(departments[0] || "");
     setUserDepartments(departments);
+
+    if (storedDivision && storedDivision.toLowerCase() !== "null") {
+      setSelectedDivision(storedDivision);
+    }
 
     if (role.toLowerCase() === "user" && departments.length > 0) {
       const firstDept = departments[0];

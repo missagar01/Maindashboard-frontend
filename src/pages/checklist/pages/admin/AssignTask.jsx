@@ -6,6 +6,7 @@ import {
   fetchUniqueDepartmentDataApi, 
   fetchUniqueDoerNameDataApi, 
   fetchUniqueGivenByDataApi, 
+  fetchWorkingDaysApi,
   pushAssignTaskApi 
 } from "@/api/checklist/assignTaskApi.js";
 // import supabase from "../../SupabaseClient";
@@ -226,13 +227,15 @@ export default function AssignTask() {
 
   // Fetch working days from Supabase on component mount
   useEffect(() => {
-    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-    const BASE_URL = `${API_BASE_URL}/api/checklist/assign-task`;
     const fetchWorkingDays = async () => {
       try {
-        // const res = await fetch("http://localhost:5050/api/assign-task/working-days");
-        const res = await fetch(`${BASE_URL}/working-days`);
-        const data = await res.json();
+        const payload = await fetchWorkingDaysApi();
+
+        const data = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
 
         const formattedDays = data.map((day) => {
           const date = new Date(day.working_date);
@@ -241,7 +244,10 @@ export default function AssignTask() {
 
         setWorkingDays(formattedDays);
       } catch (error) {
-        console.error("Error fetching working days:", error);
+        console.error(
+          "Error fetching working days:",
+          error?.response?.data?.error || error?.response?.data?.message || error?.message || error
+        );
       }
     };
 
@@ -890,13 +896,14 @@ export default function AssignTask() {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-md gradient-bg py-2 px-4 text-white hover:gradient-bg:hover focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Assigning..." : "Assign Task"}
-              </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex min-w-[140px] items-center justify-center rounded-md border border-blue-700 !bg-blue-600 py-2 px-4 font-medium !text-white shadow-sm hover:!bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"
+              style={{ backgroundColor: isSubmitting ? "#60a5fa" : "#2563eb", color: "#ffffff" }}
+            >
+              {isSubmitting ? "Assigning..." : "Assign Task"}
+            </button>
             </div>
           </form>
         </div>

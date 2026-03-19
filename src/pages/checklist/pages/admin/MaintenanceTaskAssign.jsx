@@ -1,10 +1,9 @@
-import { set } from "date-fns";
 import { Loader2Icon, LoaderIcon } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 function AssignTask() {
-  const [time, setTime] = useState("09:00");
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [sheetData, setSheetData] = useState([]);
   const [doerName, setDoerName] = useState([]);
@@ -29,6 +28,7 @@ function AssignTask() {
   const [selectedGivenBy, setSelectedGivenBy] = useState("");
   const [selectedDoerName, setSelectedDoerName] = useState("");
   const [selectedTaskType, setSelectedTaskType] = useState("Maintenance");
+  const [selectedTaskStatus, setSelectedTaskStatus] = useState("");
   const [needSoundTask, setNeedSoundTask] = useState("");
   const [temperature, setTemperature] = useState("");
   const [selectedPriority, setSelectedPriority] = useState("");
@@ -53,6 +53,8 @@ function AssignTask() {
   const [doerDepartment, setDoerDepartment] = useState("");
   const [divisionOptions, setDivisionOptions] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState("");
+  const startDateInputRef = useRef(null);
+  const startTimeInputRef = useRef(null);
 
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
   const CHECKLIST_API_BASE = `${BACKEND_URL}/api/checklist`;
@@ -61,32 +63,51 @@ function AssignTask() {
 
   const SHEET_Id = import.meta.env.VITE_SHEET_ID || "";
 
+  const getApiErrorMessage = (error, fallback) =>
+    error?.response?.data?.error ||
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback;
+
+  const openNativePicker = (inputRef) => {
+    const input = inputRef?.current;
+    if (input && typeof input.showPicker === "function") {
+      try {
+        input.showPicker();
+      } catch (error) {
+        console.debug("Native picker open skipped:", error);
+      }
+    }
+  };
+
+  const getArrayPayload = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
   // Fetch departments from FormResponses sheet column J
   const fetchDepartments = async () => {
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/departments`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/departments`);
 
       if (result.success && result.data) {
         setDepartmentOptions(result.data);
       }
     } catch (err) {
       console.error("Department fetch error:", err);
-      toast.error("❌ Failed to fetch departments");
+      toast.error(getApiErrorMessage(err, "Failed to fetch departments"));
     }
   };
 
   // Fetch unique divisions from backend
   const fetchDivisions = async () => {
     try {
-      const res = await fetch(`${CHECKLIST_API_BASE}/assign-task/divisions`);
-      const result = await res.json();
-      if (Array.isArray(result)) {
-        setDivisionOptions(result);
-      }
+      const { data: result } = await axiosInstance.get(`${CHECKLIST_API_BASE}/assign-task/divisions`);
+      setDivisionOptions(getArrayPayload(result));
     } catch (err) {
       console.error("Division fetch error:", err);
-      toast.error("❌ Failed to fetch divisions");
+      toast.error(getApiErrorMessage(err, "Failed to fetch divisions"));
     }
   };
 
@@ -94,21 +115,21 @@ function AssignTask() {
   // ✅ Fetch machines dynamically from backend (Postgres)
   const fetchMachinesByDepartment = async (department) => {
     try {
-      // const res = await fetch(
-      //   `http://18.60.212.185:5050/api/form-responses?department=${department}`
-      const res = await fetch(`${MAINTENANCE_API_BASE}/form-responses?department=${department}`
-      );
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/form-responses`, {
+        params: { department },
+      });
 
-      if (result.success && result.data) {
-        const machineNames = [
-          ...new Set(result.data.map((m) => m.machine_name).filter(Boolean)),
-        ];
+      const rows = getArrayPayload(result);
+
+      if (rows.length > 0) {
+        const machineNames = [...new Set(rows.map((m) => m.machine_name).filter(Boolean))];
         setFilteredMachines(machineNames);
+      } else {
+        setFilteredMachines([]);
       }
     } catch (error) {
       console.error("Machine fetch error:", error);
-      toast.error("❌ Failed to fetch machines");
+      toast.error(getApiErrorMessage(error, "Failed to fetch machines"));
     }
   };
 
@@ -119,12 +140,12 @@ function AssignTask() {
     if (selectedDepartment && sheetData.length > 0) {
       const machines = [...new Set(
         sheetData
-          .filter(item => item["Department"] === selectedDepartment)
-          .map(item => item["Machine Name"])
+          .filter((item) => item.department === selectedDepartment)
+          .map((item) => item.machine_name)
       )].filter(Boolean).sort();
       setFilteredMachines(machines);
     } else {
-      const allMachines = [...new Set(sheetData.map(item => item["Machine Name"]))].filter(Boolean).sort();
+      const allMachines = [...new Set(sheetData.map((item) => item.machine_name))].filter(Boolean).sort();
       setFilteredMachines(allMachines);
     }
   };
@@ -135,8 +156,9 @@ function AssignTask() {
     setSelectedDepartment(department);
 
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/dropdown?department=${department}`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`, {
+        params: { department },
+      });
 
       if (result.success) {
         setGivenByData(result.data.givenBy);
@@ -146,7 +168,7 @@ function AssignTask() {
       }
     } catch (err) {
       console.error("Department fetch error:", err);
-      toast.error("❌ Failed to fetch dropdown data");
+      toast.error(getApiErrorMessage(err, "Failed to fetch dropdown data"));
     }
 
     // Fetch machines for this department
@@ -190,8 +212,7 @@ function AssignTask() {
     if (!machineName) return;
 
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/machine-details`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/machine-details`);
 
       if (result.success && Array.isArray(result.data) && result.data.length > 0) {
         const matches = result.data.filter(
@@ -226,7 +247,7 @@ function AssignTask() {
       }
     } catch (error) {
       console.error("Tag fetch error:", error);
-      toast.error("❌ Failed to fetch tag number");
+      toast.error(getApiErrorMessage(error, "Failed to fetch tag number"));
     }
   };
 
@@ -236,45 +257,65 @@ function AssignTask() {
   // Machine department change for Maintenance
   const handleMachineDepartmentChange = async (department) => {
     setMachineDepartment(department);
+    setSelectedMachine("");
+    setSelectedSerialNo("");
+    setFilteredSerials([]);
+    setSelectedDepartment(department);
+
+    if (!department) {
+      setFilteredMachines([]);
+      return;
+    }
+
     fetchMachinesByDepartment(department);
   };
 
   // Doer department change for Maintenance
   const handleDoerDepartmentChange = async (department) => {
     setDoerDepartment(department);
+    setSelectedDoerName("");
+
+    if (!department) {
+      setDoerName([]);
+      return;
+    }
 
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/dropdown?department=${department}`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`, {
+        params: { department },
+      });
 
       if (result.success) {
-        setDoerName(result.data.doerName);
+        setDoerName(result.data?.doerName || []);
       }
     } catch (err) {
       console.error("Doer department fetch error:", err);
-      toast.error("❌ Failed to fetch doer data");
+      toast.error(getApiErrorMessage(err, "Failed to fetch doer data"));
     }
   };
 
   // Update fetchDropdownData to not pre-fill doer data
   const fetchDropdownData = async () => {
+    setLoaderMasterSheetData(true);
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/dropdown`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`);
+      const dropdownData = result?.data || {};
 
       if (result.success && result.data) {
-        setDepartmentOptions(result.data.departments || []);
+        setDepartmentOptions(dropdownData.departments || []);
         // These should come from machine department selection
-        setGivenByData(result.data.givenBy || []);
-        setTaskStatusData(result.data.taskStatus || []);
-        setPriorityData(result.data.priority || []);
+        setGivenByData(dropdownData.givenBy || []);
+        setTaskStatusData(dropdownData.taskStatus || []);
+        setPriorityData(dropdownData.priority || []);
         // Don't set doerName here - it should come from doer department
       } else {
         toast.error("Failed to load dropdown data");
       }
     } catch (err) {
       console.error("Dropdown fetch error:", err);
-      toast.error("❌ Failed to fetch dropdowns");
+      toast.error(getApiErrorMessage(err, "Failed to fetch dropdowns"));
+    } finally {
+      setLoaderMasterSheetData(false);
     }
   };
 
@@ -342,38 +383,37 @@ function AssignTask() {
 
   // Machine list and department data now come from backend
   const fetchSheetData = async () => {
+    setLoaderSheetData(true);
     try {
-      // const res = await fetch("http://18.60.212.185:5050/api/form-responses");
-      const res = await fetch(`${MAINTENANCE_API_BASE}/form-responses`);
-
-      const result = await res.json();
-      if (result.success && result.data) {
-        setSheetData(result.data);
-      }
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/form-responses`);
+      setSheetData(getArrayPayload(result));
     } catch (err) {
       console.error("❌ Fetch error:", err);
+    } finally {
+      setLoaderSheetData(false);
     }
   };
 
   const fetchWorkingDaysCalendar = async () => {
     try {
-      // const res = await fetch("http://18.60.212.185:5050/api/working-days");
-      const res = await fetch(`${MAINTENANCE_API_BASE}/working-days`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/working-days`);
       if (result.success && result.data) {
         setWorkingDaysData(result.data);
         const lastDate = result.data[result.data.length - 1].working_date;
         setEndDate(lastDate);
+        return result.data;
       }
+      return [];
     } catch (err) {
       console.error("❌ Error fetching working day calendar:", err);
+      toast.error(getApiErrorMessage(err, "Failed to fetch working day calendar"));
+      return [];
     }
   };
 
 
   useEffect(() => {
     fetchSheetData();          // still loads machine list etc.
-    fetchDropdownData();       // ✅ now loads all dropdowns from backend
   }, []);
 
 
@@ -494,8 +534,13 @@ function AssignTask() {
     setLoaderWorkingDayData(true);
 
     try {
-      await fetchWorkingDaysCalendar();
-      const workingDays = workingDaysData.map(
+      const latestWorkingDays = await fetchWorkingDaysCalendar();
+      const workingDaysSource =
+        Array.isArray(latestWorkingDays) && latestWorkingDays.length > 0
+          ? latestWorkingDays
+          : workingDaysData;
+
+      const workingDays = workingDaysSource.map(
         (d) =>
           new Date(d.working_date).toLocaleDateString("en-GB", {
             day: "2-digit",
@@ -518,7 +563,10 @@ function AssignTask() {
           description,
           givenBy: selectedGivenBy,
           doer: selectedDoerName,
-          dueDate: formatDateTimeForStorage(new Date(taskDate.split("/").reverse().join("-")), time),
+          dueDate: formatDateTimeForStorage(
+            new Date(taskDate.split("/").reverse().join("-")),
+            startTime
+          ),
           status: "pending",
           frequency,
         });
@@ -535,7 +583,7 @@ function AssignTask() {
               description,
               givenBy: selectedGivenBy,
               doer: selectedDoerName,
-              dueDate: formatDateTimeForStorage(currentDate, time),
+              dueDate: formatDateTimeForStorage(currentDate, startTime),
               status: "pending",
               frequency,
             });
@@ -640,8 +688,6 @@ function AssignTask() {
     try {
       setLoaderSubmit(true);
 
-      const API_URL = `${MAINTENANCE_API_BASE}/maintenance-tasks`;
-
       if (selectedTaskType === "Maintenance") {
         // ✅ OPTIMIZED: Send all tasks in a single bulk request instead of one-by-one
         if (generatedTasks.length === 0) {
@@ -663,24 +709,21 @@ function AssignTask() {
           temperature: temperature,
           enable_reminders: enableReminder ? "Yes" : "No",
           require_attachment: requireAttachment ? "Yes" : "No",
-          task_start_date: `${task.dueDate.split(" ")[0]} ${startTime}:00`,
+          task_start_date: task.dueDate,
           frequency: frequency,
           description: description,
           priority: selectedPriority,
+          task_status: selectedTaskStatus,
           machine_department: machineDepartment,
           doer_department: doerDepartment,
           division: selectedDivision,
         }));
 
         // ✅ Single bulk API call - much faster than individual calls
-        const BULK_API_URL = `${MAINTENANCE_API_BASE}/maintenance-tasks/bulk`;
-        const res = await fetch(BULK_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: tasksPayload }),
-        });
-
-        const result = await res.json();
+        const { data: result } = await axiosInstance.post(
+          `${MAINTENANCE_API_BASE}/maintenance-tasks/bulk`,
+          { tasks: tasksPayload }
+        );
         if (!result.success) {
           throw new Error(result.error || "Bulk insert failed");
         }
@@ -697,6 +740,7 @@ function AssignTask() {
       setSelectedMachine("");
       setSelectedGivenBy("");
       setSelectedDoerName("");
+      setSelectedTaskStatus("");
       // Don't reset selectedTaskType - let user continue with the same task type
       // setSelectedTaskType("Select Task Type");
       setStartDate("");
@@ -727,7 +771,7 @@ function AssignTask() {
       // setDoerDepartment("");
     } catch (error) {
       console.error("❌ Submission failed:", error);
-      toast.error(`❌ Failed to assign task: ${error.message}`);
+      toast.error(`❌ Failed to assign task: ${getApiErrorMessage(error, "Unknown error")}`);
     } finally {
       setLoaderSubmit(false);
     }
@@ -872,13 +916,13 @@ function AssignTask() {
                   {/* Given By */}
                   <div>
                     <label
-                      htmlFor="taskType"
+                      htmlFor="givenBy"
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Given By
                     </label>
                     <select
-                      id="taskType"
+                      id="givenBy"
                       value={selectedGivenBy}
                       onChange={(e) => setSelectedGivenBy(e.target.value)}
                       className="py-2 w-full rounded-md border border-gray-300 shadow-sm px-4 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -964,13 +1008,15 @@ function AssignTask() {
                   {/* Task Status */}
                   <div>
                     <label
-                      htmlFor="taskType"
+                      htmlFor="taskStatus"
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Task Status
                     </label>
                     <select
-                      id="taskType"
+                      id="taskStatus"
+                      value={selectedTaskStatus}
+                      onChange={(e) => setSelectedTaskStatus(e.target.value)}
                       className="py-2 w-full rounded-md border border-gray-300 shadow-sm px-4 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Task Status</option>
@@ -1111,10 +1157,13 @@ function AssignTask() {
                     Task Start Date
                   </label>
                   <input
+                    ref={startDateInputRef}
                     type="date"
                     id="startDate"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    onClick={() => openNativePicker(startDateInputRef)}
+                    onFocus={() => openNativePicker(startDateInputRef)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
@@ -1122,16 +1171,19 @@ function AssignTask() {
                 {/* Task Time */}
                 <div className="w-full md:w-1/3">
                   <label
-                    htmlFor="startDate"
+                    htmlFor="startTime"
                     className="block text-sm font-medium text-gray-700"
                   >
                     Task Time
                   </label>
                   <input
+                    ref={startTimeInputRef}
                     type="time"
                     id="startTime"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    onClick={() => openNativePicker(startTimeInputRef)}
+                    onFocus={() => openNativePicker(startTimeInputRef)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
@@ -1191,7 +1243,7 @@ function AssignTask() {
                         </div>
                         <div className="text-sm">{task.description}</div>
                         <div className="text-xs text-gray-600">
-                          Due: {task.due} | Department: {task.department}
+                          Due: {task.dueDate} | Doer: {task.doer || "N/A"}
                         </div>
                       </div>
                     ))}

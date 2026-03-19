@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getStoredToken } from "../apiClient";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, "");
 
@@ -9,7 +10,7 @@ const axiosInstance = axios.create({
 // Request interceptor to add the JWT token to headers
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

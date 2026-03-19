@@ -23,6 +23,11 @@ export const fetchUniqueDoerNameDataApi = async (department) => {
   return res.data;
 };
 
+export const fetchWorkingDaysApi = async () => {
+  const res = await axiosInstance.get(`${BASE_URL}/working-days`);
+  return res.data;
+};
+
 export const pushAssignTaskApi = async (tasks) => {
   const res = await axiosInstance.post(`${BASE_URL}/assign`, tasks);
   return res.data;
