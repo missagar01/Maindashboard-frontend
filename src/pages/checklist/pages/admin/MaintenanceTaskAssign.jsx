@@ -1,4 +1,4 @@
-import { Loader2Icon, LoaderIcon } from "lucide-react";
+import { LoaderIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axiosInstance from "@/api/checklist/axiosInstance.js";
@@ -875,9 +875,8 @@ function AssignTask() {
                     >
                       <option value="">Select Machine</option>
                       {loaderMasterSheetData ? (
-                        <option className="flex gap-5 items-center justify-center">
-                          <Loader2Icon className="animate-spin text-red-500" />
-                          <h1>Wait Please...</h1>
+                        <option value="" disabled>
+                          Loading machines...
                         </option>
                       ) : (
                         filteredMachines.map((machineName, index) => (
@@ -929,12 +928,9 @@ function AssignTask() {
                     >
                       <option value="">Select Given By</option>
                       {loaderMasterSheetData ? (
-                        <>
-                          <option className="flex gap-5 items-center justify-center">
-                            <Loader2Icon className="animate-spin text-red-500" />
-                            <h1>Wait Please...</h1>
-                          </option>
-                        </>
+                        <option value="" disabled>
+                          Loading given by...
+                        </option>
                       ) : (
                         giveByData.map(
                           (item, index) =>
@@ -965,9 +961,8 @@ function AssignTask() {
                     >
                       <option value="">Select Doer Name</option>
                       {loaderMasterSheetData ? (
-                        <option className="flex gap-5 items-center justify-center">
-                          <Loader2Icon className="animate-spin text-red-500" />
-                          <h1>Wait Please...</h1>
+                        <option value="" disabled>
+                          Loading doer names...
                         </option>
                       ) : (
                         doerName.map(
@@ -1021,9 +1016,8 @@ function AssignTask() {
                     >
                       <option value="">Select Task Status</option>
                       {loaderMasterSheetData ? (
-                        <option className="flex gap-5 items-center justify-center">
-                          <Loader2Icon className="animate-spin text-red-500" />
-                          <h1>Wait Please...</h1>
+                        <option value="" disabled>
+                          Loading task status...
                         </option>
                       ) : (
                         taskStatusData.map(
@@ -1110,9 +1104,8 @@ function AssignTask() {
                     >
                       <option value="">Select Priority</option>
                       {loaderMasterSheetData ? (
-                        <option className="flex gap-5 items-center justify-center">
-                          <Loader2Icon className="animate-spin text-red-500" />
-                          <h1>Wait Please...</h1>
+                        <option value="" disabled>
+                          Loading priorities...
                         </option>
                       ) : (
                         priorityData.map(
