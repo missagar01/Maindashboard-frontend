@@ -18,10 +18,15 @@ type ToastState = {
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login, loading, isAuthenticated, user } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(
+    () => localStorage.getItem("user-name") || localStorage.getItem("username") || ""
+  );
+  const [password, setPassword] = useState(
+    () => localStorage.getItem("user-pass") || localStorage.getItem("user_pass") || ""
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     show: false,
     message: "",
@@ -41,6 +46,28 @@ const Login: React.FC = () => {
       navigate("/", { replace: true });
     }
   }, [isAuthenticated, loading, navigate, user]);
+
+  useEffect(() => {
+    if (loading || isAuthenticated || autoLoginAttempted) {
+      return;
+    }
+
+    const storedUsername = localStorage.getItem("user-name") || localStorage.getItem("username") || "";
+    const storedPassword = localStorage.getItem("user-pass") || localStorage.getItem("user_pass") || "";
+
+    if (!storedUsername || !storedPassword) {
+      setAutoLoginAttempted(true);
+      return;
+    }
+
+    setAutoLoginAttempted(true);
+    void (async () => {
+      const result = await login(storedUsername, storedPassword);
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
+    })();
+  }, [autoLoginAttempted, isAuthenticated, loading, login]);
 
   const showToast = (message: string, type: ToastState["type"]) => {
     setToast({ show: true, message, type });

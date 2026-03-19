@@ -41,14 +41,40 @@ const HRFMS_LEGACY_ROUTE_MAP: Record<string, string> = {
 };
 
 const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
+  dashboard: "/checklist",
   assigntask: "/checklist/assign-task",
   misreport: "/checklist/mis-report",
-  hrmanager: "/checklist/hr-manager",
-  machines: "/maintenance/machines",
+  hrmanager: "/checklist/hrmanager",
+  taskverification: "/checklist/hrmanager",
+  machines: "/checklist/machines",
   alltask: "/checklist/all-task",
   quicktask: "/checklist/quick-task",
   delegation: "/checklist/delegation",
+  housekeepingverify: "/checklist/housekeeping-verify",
   setting: "/checklist/settings",
+};
+
+const CHECKLIST_LEGACY_PATH_ROUTE_MAP: Record<string, string> = {
+  "/dashboard/admin": "/checklist",
+  "/dashboard/assign-task": "/checklist/assign-task",
+  "/dashboard/delegation-task": "/checklist/delegation-task",
+  "/dashboard/delegation": "/checklist/delegation",
+  "/dashboard/all-task": "/checklist/all-task",
+  "/dashboard/hrmanager": "/checklist/hrmanager",
+  "/dashboard/quick-task": "/checklist/quick-task",
+  "/dashboard/machines": "/checklist/machines",
+  "/dashboard/machines/new": "/checklist/machines/new",
+  "/dashboard/housekeeping-verify": "/checklist/housekeeping-verify",
+  "/dashboard/mis-report": "/checklist/mis-report",
+  "/dashboard/setting": "/checklist/settings",
+  "/assign-task": "/checklist/assign-task",
+  "/admin/dashboard": "/checklist",
+  "/admin/assign-task": "/checklist/assign-task",
+  "/admin/delegation-task": "/checklist/delegation-task",
+  "/admin/all-task": "/checklist/all-task",
+  "/admin/mis-report": "/checklist/mis-report",
+  "/admin/machines": "/checklist/machines",
+  "/admin/quick": "/checklist/quick-task",
 };
 
 export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
@@ -99,6 +125,9 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Selected Candidate": "/hrfms/condidate-select",
   "Checklist Combined": "/checklist",
   Checklist: "/checklist",
+  "Task Verification": "/checklist/hrmanager",
+  "Housekeeping Verify": "/checklist/housekeeping-verify",
+  "MIS Report": "/checklist/mis-report",
   "Visitor Gate Pass": "/gatepass/approvals",
   Approvals: "/gatepass/approvals",
   "Gate Pass Approvals": "/gatepass/approvals",
@@ -577,6 +606,9 @@ const normalizePageEntryToRoute = (
     if (normalized === "/gatepass") return "/gatepass/approvals";
     if (normalized === "/gatepass/visitor") return "/gatepass/approvals";
     if (normalized === "/gatepass/close") return "/gatepass/close-pass";
+    if (hasChecklist && CHECKLIST_LEGACY_PATH_ROUTE_MAP[normalized]) {
+      return CHECKLIST_LEGACY_PATH_ROUTE_MAP[normalized];
+    }
 
     if (HRFMS_LEGACY_ROUTE_MAP[normalized] && hasSystemAccess(availableSystems, "hrfms")) {
       return HRFMS_LEGACY_ROUTE_MAP[normalized];

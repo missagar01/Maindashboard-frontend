@@ -2,9 +2,10 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode } from "react";
 import api from "../config/api.js";
-import { getStoredToken } from "../api/apiClient";
+import { API_BASE_URL, getStoredToken } from "../api/apiClient";
+import { useChecklistCompatibility } from "./useChecklistCompatibility";
 
-interface User {
+export interface User {
   id: string | number;
   username: string;
   user_name?: string;
@@ -16,9 +17,15 @@ interface User {
   userType?: string;
   access?: string[];
   user_access?: string | null;
+  user_access1?: string | null;
   page_access?: string | null;
   system_access?: string | null;
   store_access?: string | null;
+  designation?: string | null;
+  division?: string | null;
+  department_id?: string | null;
+  verify_access?: string | null;
+  verify_access_dept?: string | null;
   [key: string]: unknown;
 }
 
@@ -146,13 +153,20 @@ export interface ShareItem {
 
 interface AuthContextType {
   user: User | null;
+  userData: User | null;
   token: string | null;
   loading: boolean;
   isInitializing: boolean;
   isAuthenticated: boolean;
+  isLoggedIn: boolean;
+  authLoading: boolean;
+  authError: string | null;
   pageAccess: string | null;
   systemAccess: string | null;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  login: (
+    credentials: string | { username?: string; password?: string; user_name?: string; employee_id?: string },
+    password?: string
+  ) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   getAuthHeaders: () => { Authorization: string; 'Content-Type': string };
 
@@ -201,7 +215,7 @@ interface AuthContextType {
   deleteDocument: (id: string) => void;
   deleteSubscription: (id: string) => void;
   deleteLoan: (id: string) => void;
-
+  [key: string]: any;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -211,18 +225,36 @@ const clearAuthStorage = () => {
   localStorage.removeItem('token');
   sessionStorage.removeItem('user');
   localStorage.removeItem('user');
+  sessionStorage.removeItem('userData');
+  localStorage.removeItem('userData');
   const compatKeys = [
+    'id',
     'user-name',
+    'user-pass',
+    'user_pass',
     'username',
     'user_name',
     'user_id',
     'role',
+    'email_id',
     'employee_id',
     'department',
+    'department_id',
+    'designation',
+    'division',
     'user_access',
+    'userAccess',
+    'user_access1',
+    'userAccess1',
     'page_access',
+    'pageAccess',
     'system_access',
+    'systemAccess',
     'store_access',
+    'verify_access',
+    'verifyAccess',
+    'verify_access_dept',
+    'verifyAccessDept',
   ];
   compatKeys.forEach((key) => {
     sessionStorage.removeItem(key);
@@ -269,6 +301,11 @@ const mergeWithLegacyStorage = (candidate: Partial<User> | null | undefined): Pa
 
   return {
     ...source,
+    id:
+      source.id ||
+      getLegacyStorageValue("id") ||
+      getLegacyStorageValue("user_id") ||
+      "",
     username:
       source.username ||
       source.user_name ||
@@ -283,12 +320,31 @@ const mergeWithLegacyStorage = (candidate: Partial<User> | null | undefined): Pa
       "",
     role: source.role || getLegacyStorageValue("role") || undefined,
     userType: source.userType || source.role || getLegacyStorageValue("role") || undefined,
+    email_id: source.email_id || getLegacyStorageValue("email_id") || undefined,
     employee_id: source.employee_id || getLegacyStorageValue("employee_id") || undefined,
     department: source.department || getLegacyStorageValue("department") || undefined,
+    department_id: source.department_id || getLegacyStorageValue("department_id") || undefined,
+    designation: source.designation || getLegacyStorageValue("designation") || undefined,
+    division: source.division || getLegacyStorageValue("division") || undefined,
     user_access: source.user_access || getLegacyStorageValue("user_access") || undefined,
+    user_access1:
+      source.user_access1 ||
+      getLegacyStorageValue("user_access1") ||
+      getLegacyStorageValue("userAccess1") ||
+      undefined,
     page_access: source.page_access || getLegacyStorageValue("page_access") || undefined,
     system_access: source.system_access || getLegacyStorageValue("system_access") || undefined,
     store_access: source.store_access || getLegacyStorageValue("store_access") || undefined,
+    verify_access:
+      source.verify_access ||
+      getLegacyStorageValue("verify_access") ||
+      getLegacyStorageValue("verifyAccess") ||
+      undefined,
+    verify_access_dept:
+      source.verify_access_dept ||
+      getLegacyStorageValue("verify_access_dept") ||
+      getLegacyStorageValue("verifyAccessDept") ||
+      undefined,
   };
 };
 
@@ -300,11 +356,12 @@ const normalizeAuthUser = (candidate: Partial<User> | null | undefined): User | 
   const pageAccess = normalizeCsvValue(hydrated.page_access);
   const systemAccess = normalizeCsvValue(hydrated.system_access);
   const storeAccess = normalizeCsvValue(hydrated.store_access);
+  const userAccess1 = normalizeCsvValue(hydrated.user_access1);
   const normalizedRole = normalizeValue(hydrated.role) || normalizeValue(hydrated.userType) || 'user';
 
   return {
     ...hydrated,
-    id: (hydrated.id as string | number | undefined) ?? '',
+    id: (hydrated.id as string | number | undefined) ?? normalizeValue((hydrated as Record<string, unknown>).user_id) ?? '',
     username,
     user_name: normalizeValue(hydrated.user_name || hydrated.username) || username,
     employee_id: normalizeValue(hydrated.employee_id),
@@ -313,33 +370,56 @@ const normalizeAuthUser = (candidate: Partial<User> | null | undefined): User | 
     email_id: normalizeValue(hydrated.email_id),
     number: normalizeValue(hydrated.number),
     department: normalizeValue(hydrated.department),
+    department_id: normalizeValue(hydrated.department_id),
+    designation: normalizeValue(hydrated.designation),
+    division: normalizeValue(hydrated.division),
     user_access: userAccess,
+    user_access1: userAccess1,
     page_access: pageAccess,
     system_access: systemAccess,
     store_access: storeAccess,
+    verify_access: normalizeCsvValue(hydrated.verify_access),
+    verify_access_dept: normalizeCsvValue(hydrated.verify_access_dept),
     access: normalizeAccessArray(hydrated.access || userAccess),
   };
 };
 
 const persistLegacyAuthState = (authUser: User) => {
   const compatEntries: Array<[string, string]> = [
+    ['id', String(authUser.id ?? '')],
     ['user-name', authUser.user_name || authUser.username || ''],
     ['username', authUser.username || authUser.user_name || ''],
     ['user_name', authUser.user_name || authUser.username || ''],
     ['user_id', String(authUser.id ?? '')],
     ['role', authUser.role || authUser.userType || 'user'],
+    ['email_id', String(authUser.email_id ?? '')],
     ['employee_id', String(authUser.employee_id ?? '')],
     ['department', String(authUser.department ?? '')],
+    ['department_id', String(authUser.department_id ?? '')],
+    ['designation', String(authUser.designation ?? '')],
+    ['division', String(authUser.division ?? '')],
     ['user_access', String(authUser.user_access ?? '')],
+    ['userAccess', String(authUser.user_access ?? '')],
+    ['user_access1', String(authUser.user_access1 ?? '')],
+    ['userAccess1', String(authUser.user_access1 ?? '')],
     ['page_access', String(authUser.page_access ?? '')],
+    ['pageAccess', String(authUser.page_access ?? '')],
     ['system_access', String(authUser.system_access ?? '')],
+    ['systemAccess', String(authUser.system_access ?? '')],
     ['store_access', String(authUser.store_access ?? '')],
+    ['verify_access', String(authUser.verify_access ?? '')],
+    ['verifyAccess', String(authUser.verify_access ?? '')],
+    ['verify_access_dept', String(authUser.verify_access_dept ?? '')],
+    ['verifyAccessDept', String(authUser.verify_access_dept ?? '')],
   ];
 
   compatEntries.forEach(([key, value]) => {
     sessionStorage.setItem(key, value);
     localStorage.setItem(key, value);
   });
+
+  sessionStorage.setItem('userData', JSON.stringify(authUser));
+  localStorage.setItem('userData', JSON.stringify(authUser));
 };
 
 const persistAuthState = (authToken: string, authUser: User) => {
@@ -350,10 +430,40 @@ const persistAuthState = (authToken: string, authUser: User) => {
   persistLegacyAuthState(authUser);
 };
 
-const redirectToLogin = () => {
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login';
+const buildAuthApiUrl = (path: string) => {
+  const normalizedBase = String(API_BASE_URL || '').trim().replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  if (!normalizedBase) {
+    return normalizedPath;
   }
+
+  if (normalizedBase.endsWith('/api') && normalizedPath.startsWith('/api/')) {
+    return `${normalizedBase}${normalizedPath.slice(4)}`;
+  }
+
+  return `${normalizedBase}${normalizedPath}`;
+};
+
+const notifyBackendLogout = (authToken: string | null) => {
+  if (!authToken || typeof window === 'undefined') {
+    return;
+  }
+
+  const requestUrl = buildAuthApiUrl('/api/auth/logout');
+  const headers = {
+    Authorization: `Bearer ${authToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  void fetch(requestUrl, {
+    method: 'POST',
+    headers,
+    keepalive: true,
+    credentials: 'include',
+  }).catch(() => {
+    void api.post('/api/auth/logout', undefined, { headers }).catch(() => undefined);
+  });
 };
 
 const decodeToken = (token: string) => {
@@ -389,9 +499,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const sessionUnauthorizedCountRef = useRef(0);
   const sessionRevocationPollingEnabled =
     String(import.meta.env.VITE_ENABLE_SESSION_REVOCATION_POLLING || '').toLowerCase() === 'true';
+  const checklistCompatibility = useChecklistCompatibility();
 
   // Document Management State
   const [title, setTitle] = useState('');
@@ -506,7 +618,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
           }
 
-          const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
+          const storedUser =
+            sessionStorage.getItem('user') ||
+            localStorage.getItem('user') ||
+            sessionStorage.getItem('userData') ||
+            localStorage.getItem('userData');
           if (storedUser) {
             try {
               const parsedUser = normalizeAuthUser(JSON.parse(storedUser));
@@ -568,6 +684,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        setAuthError('Authentication initialization failed');
         setToken(null);
         setUser(null);
         clearAuthStorage();
@@ -639,17 +756,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(timer);
   }, [sessionRevocationPollingEnabled, token]);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const login = async (
+    credentials: string | { username?: string; password?: string; user_name?: string; employee_id?: string },
+    passwordArg?: string
+  ): Promise<{ success: boolean; error?: string; user?: User }> => {
     try {
       setLoading(true);
+      setAuthError(null);
 
-      const normalizedUsername = username.trim();
+      const usernameInput =
+        typeof credentials === 'string'
+          ? credentials
+          : credentials?.username || credentials?.user_name || credentials?.employee_id || '';
+      const passwordInput =
+        typeof credentials === 'string' ? passwordArg || '' : credentials?.password || '';
+
+      const normalizedUsername = usernameInput.trim();
       const legacyLoginBaseUrl = (import.meta.env.VITE_API_BASE_USER_URL || "").trim().replace(/\/+$/, "");
       const loginPayload = {
         username: normalizedUsername,
         user_name: normalizedUsername,
         employee_id: normalizedUsername,
-        password,
+        password: passwordInput,
       };
       const loginEndpoints = Array.from(
         new Set(
@@ -703,23 +831,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const pageAccess = normalizeCsvValue(apiUser.page_access || payload.data?.page_access || decoded?.page_access);
       const systemAccess = normalizeCsvValue(apiUser.system_access || payload.data?.system_access || decoded?.system_access);
       const storeAccess = normalizeCsvValue(apiUser.store_access || payload.data?.store_access || decoded?.store_access);
+      const userAccess1 = normalizeCsvValue(apiUser.user_access1 || payload.data?.user_access1 || decoded?.user_access1);
+      const verifyAccess = normalizeCsvValue(apiUser.verify_access || payload.data?.verify_access || decoded?.verify_access);
+      const verifyAccessDept = normalizeCsvValue(
+        apiUser.verify_access_dept || payload.data?.verify_access_dept || decoded?.verify_access_dept
+      );
 
       const accessArray = userAccess ? userAccess.split(',').map((a: string) => a.trim()) : [];
 
       const rawUserData: User = {
         id: apiUser.id || decoded?.id,
         employee_id: normalizeValue(apiUser.employee_id || decoded?.employee_id) || '',
-        username: apiUser.username || apiUser.user_name || decoded?.username || username,
-        user_name: apiUser.user_name || apiUser.username || decoded?.user_name || username,
+        username: apiUser.username || apiUser.user_name || decoded?.username || normalizedUsername,
+        user_name: apiUser.user_name || apiUser.username || decoded?.user_name || normalizedUsername,
         role: apiUser.role || decoded?.role || 'user',
         userType: apiUser.userType || apiUser.role || decoded?.role || 'user',
         email_id: normalizeValue(apiUser.email_id || decoded?.email_id) || '',
         number: normalizeValue(apiUser.number || decoded?.number) || '',
         department: normalizeValue(apiUser.department || decoded?.department) || '',
+        department_id: normalizeValue(apiUser.department_id || decoded?.department_id) || '',
+        designation: normalizeValue(apiUser.designation || decoded?.designation) || '',
+        division: normalizeValue(apiUser.division || decoded?.division) || '',
         user_access: userAccess,
+        user_access1: userAccess1,
         page_access: pageAccess,
         system_access: systemAccess,
         store_access: storeAccess,
+        verify_access: verifyAccess,
+        verify_access_dept: verifyAccessDept,
         access: accessArray,
       };
       let userData = normalizeAuthUser(rawUserData);
@@ -737,6 +876,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setToken(authToken);
       setUser(userData);
       persistAuthState(authToken, userData);
+      localStorage.setItem('user-pass', passwordInput);
       api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
 
       return {
@@ -762,6 +902,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         errorMessage = error.message || 'Login failed';
       }
 
+      setAuthError(errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -771,19 +912,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = async () => {
-    // Notify backend so session_token is cleared (single-session enforcement)
-    try {
-      if (token) {
-        await api.post('/api/auth/logout');
-      }
-    } catch { /* best effort */ }
+  const logout = () => {
+    const authToken = token || getStoredToken();
+    notifyBackendLogout(authToken);
     setToken(null);
     setUser(null);
+    setLoading(false);
+    setAuthError(null);
     clearAuthStorage();
 
     delete api.defaults.headers.common['Authorization'];
-    redirectToLogin();
   };
 
   const getAuthHeaders = () => ({
@@ -798,15 +936,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        isInitializing,
-        isAuthenticated,
-        pageAccess,
-        systemAccess,
-        login,
+        value={{
+          user,
+          userData: user,
+          token,
+          loading,
+          isInitializing,
+          isAuthenticated,
+          isLoggedIn: isAuthenticated,
+          authLoading: loading,
+          authError,
+          pageAccess,
+          systemAccess,
+          login,
         logout,
         getAuthHeaders,
         title,
@@ -849,13 +991,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         deleteLoan,
 
         pendingRenewals,
-        pendingSubscriptionRenewals,
-        pendingApprovals,
-        approvalHistory,
-        pendingPayments,
-        paymentHistory
-      }}
-    >
+          pendingSubscriptionRenewals,
+          pendingApprovals,
+          approvalHistory,
+          pendingPayments,
+          paymentHistory,
+          ...checklistCompatibility,
+        }}
+      >
       {children}
     </AuthContext.Provider>
   );

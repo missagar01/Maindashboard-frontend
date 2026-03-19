@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams } from "react-router";
 import { Toaster } from "react-hot-toast";
 import AppLayout from "./layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -67,7 +67,6 @@ import GatePassRequestVisit from "./pages/gatepass/pages/RequestVisit";
 import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
 import StoreIssue from "./pages/store/pages/store/StoreIssue";
 import StoreIndentAll from "./pages/store/pages/store/IndentAll";
-import StoreAdministration from "./pages/store/pages/store/Administration";
 import StoreOutApproval from "./pages/store/pages/store/StoreOutApproval";
 import StorePendingPOs from "./pages/store/pages/store/PendingPOs";
 import StoreCreatePO from "./pages/store/pages/store/CreatePO";
@@ -117,6 +116,25 @@ import DocumentAccountTallyData from "./pages/document/pages/account/TallyData";
 import DocumentAccountAudit from "./pages/document/pages/account/Audit";
 import DocumentAccountRectify from "./pages/document/pages/account/Rectify";
 import DocumentAccountBillFiled from "./pages/document/pages/account/BillFiled";
+import ChecklistDashboard from "./pages/checklist/pages/admin/Dashboard.jsx";
+import ChecklistAssignTaskMain from "./pages/checklist/pages/admin/AssignTaskMain.jsx";
+import ChecklistAssignTaskForm from "./pages/checklist/pages/admin/AssignTaskForm.jsx";
+import ChecklistDelegation from "./pages/checklist/pages/delegation.jsx";
+import ChecklistDelegationTask from "./pages/checklist/pages/delegation-data.jsx";
+import ChecklistQuickTask from "./pages/checklist/pages/QuickTask.jsx";
+import ChecklistUnifiedTaskPage from "./pages/checklist/pages/admin/UnifiedTaskPage.jsx";
+import ChecklistHrManager from "./pages/checklist/pages/admin/HrManager.jsx";
+import ChecklistSetting from "./pages/checklist/pages/Setting.jsx";
+import ChecklistMisReport from "./pages/checklist/pages/MisReport.jsx";
+import ChecklistHousekeepingVerify from "./pages/checklist/pages/HousekeepingVerify.jsx";
+import ChecklistMachines from "./pages/checklist/pages/admin/maintenance/machines.jsx";
+import ChecklistNewMachine from "./pages/checklist/pages/admin/maintenance/newMachine.jsx";
+
+const ChecklistLegacyParamRedirect = ({ basePath }: { basePath: string }) => {
+  const params = useParams();
+  const taskType = params.taskType ? `/${params.taskType}` : "";
+  return <Navigate to={`${basePath}${taskType}`} replace />;
+};
 
 export default function App() {
   return (
@@ -247,6 +265,52 @@ export default function App() {
             <Route path="/document/renewal" element={<RouteGuard><DocumentRenewal /></RouteGuard>} />
             <Route path="/document/shared" element={<RouteGuard><DocumentShared /></RouteGuard>} />
             <Route path="/resource-manager" element={<RouteGuard><DocumentResourceManager /></RouteGuard>} />
+
+            {/* Checklist Routes */}
+            <Route path="/checklist" element={<RouteGuard><ChecklistDashboard /></RouteGuard>} />
+            <Route path="/checklist/dashboard" element={<RouteGuard><Navigate to="/checklist" replace /></RouteGuard>} />
+            <Route path="/checklist/assign-task" element={<RouteGuard><ChecklistAssignTaskMain /></RouteGuard>} />
+            <Route path="/checklist/assign-task/:taskType" element={<RouteGuard><ChecklistAssignTaskForm /></RouteGuard>} />
+            <Route path="/checklist/delegation" element={<RouteGuard><ChecklistDelegation /></RouteGuard>} />
+            <Route path="/checklist/delegation-task" element={<RouteGuard><ChecklistDelegationTask /></RouteGuard>} />
+            <Route path="/checklist/all-task" element={<RouteGuard><ChecklistUnifiedTaskPage /></RouteGuard>} />
+            <Route path="/checklist/hrmanager" element={<RouteGuard><ChecklistHrManager /></RouteGuard>} />
+            <Route path="/checklist/quick-task" element={<RouteGuard><ChecklistQuickTask /></RouteGuard>} />
+            <Route path="/checklist/machines" element={<RouteGuard><ChecklistMachines /></RouteGuard>} />
+            <Route path="/checklist/machines/new" element={<RouteGuard><ChecklistNewMachine /></RouteGuard>} />
+            <Route path="/checklist/settings" element={<RouteGuard><ChecklistSetting /></RouteGuard>} />
+            <Route path="/checklist/mis-report" element={<RouteGuard><ChecklistMisReport /></RouteGuard>} />
+            <Route path="/checklist/housekeeping-verify" element={<RouteGuard><ChecklistHousekeepingVerify /></RouteGuard>} />
+
+            {/* Checklist Legacy Redirects */}
+            <Route path="/dashboard/admin" element={<Navigate to="/checklist" replace />} />
+            <Route path="/dashboard/assign-task" element={<Navigate to="/checklist/assign-task" replace />} />
+            <Route path="/dashboard/assign-task/:taskType" element={<ChecklistLegacyParamRedirect basePath="/checklist/assign-task" />} />
+            <Route path="/dashboard/delegation" element={<Navigate to="/checklist/delegation" replace />} />
+            <Route path="/dashboard/delegation-task" element={<Navigate to="/checklist/delegation-task" replace />} />
+            <Route path="/dashboard/all-task" element={<Navigate to="/checklist/all-task" replace />} />
+            <Route path="/dashboard/hrmanager" element={<Navigate to="/checklist/hrmanager" replace />} />
+            <Route path="/dashboard/quick-task" element={<Navigate to="/checklist/quick-task" replace />} />
+            <Route path="/dashboard/machines" element={<Navigate to="/checklist/machines" replace />} />
+            <Route path="/dashboard/machines/new" element={<Navigate to="/checklist/machines/new" replace />} />
+            <Route path="/dashboard/setting" element={<Navigate to="/checklist/settings" replace />} />
+            <Route path="/dashboard/mis-report" element={<Navigate to="/checklist/mis-report" replace />} />
+            <Route path="/dashboard/housekeeping-verify" element={<Navigate to="/checklist/housekeeping-verify" replace />} />
+            <Route path="/admin" element={<Navigate to="/checklist" replace />} />
+            <Route path="/assign-task" element={<Navigate to="/checklist/assign-task" replace />} />
+            <Route path="/quick-task" element={<Navigate to="/checklist/quick-task" replace />} />
+            <Route path="/delegation-task" element={<Navigate to="/checklist/delegation-task" replace />} />
+            <Route path="/admin/dashboard" element={<Navigate to="/checklist" replace />} />
+            <Route path="/admin/quick" element={<Navigate to="/checklist/quick-task" replace />} />
+            <Route path="/admin/machines" element={<Navigate to="/checklist/machines" replace />} />
+            <Route path="/admin/assign-task" element={<Navigate to="/checklist/assign-task" replace />} />
+            <Route path="/admin/delegation-task" element={<Navigate to="/checklist/delegation-task" replace />} />
+            <Route path="/admin/tasks" element={<Navigate to="/checklist/all-task" replace />} />
+            <Route path="/admin/all-task" element={<Navigate to="/checklist/all-task" replace />} />
+            <Route path="/admin/mis-report" element={<Navigate to="/checklist/mis-report" replace />} />
+            <Route path="/user" element={<Navigate to="/checklist" replace />} />
+            <Route path="/user/dashboard" element={<Navigate to="/checklist" replace />} />
+            <Route path="/user/tasks" element={<Navigate to="/checklist/all-task" replace />} />
 
             <Route path="/subscription" element={<RouteGuard><Navigate to="/subscription/all" replace /></RouteGuard>} />
             <Route path="/subscription/all" element={<RouteGuard><DocumentAllSubscriptions /></RouteGuard>} />

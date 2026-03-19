@@ -188,12 +188,27 @@ const subscriptionSection: SidebarSection = {
 };
 
 const checklistSection: SidebarSection = {
-  key: "checklist", title: "Checklist Combined", caption: "Task Navigation", icon: ClipboardList,
+  key: "checklist",
+  title: "Checklist Combined",
+  caption: "Task Navigation",
+  icon: ClipboardList,
+  homeItem: {
+    kind: "link",
+    key: "checklist-dashboard",
+    name: "Dashboard",
+    path: "/checklist",
+    icon: LayoutDashboard,
+  },
   nodes: [
-    { kind: "link", key: "checklist-overview", name: "Overview", path: "/checklist", icon: LayoutDashboard },
-    { kind: "link", key: "checklist-pending", name: "Pending Tasks", path: "/checklist/pending", icon: ClipboardList },
-    { kind: "link", key: "checklist-history", name: "Task History", path: "/checklist/history", icon: FileText },
-    { kind: "link", key: "checklist-settings", name: "Settings", path: "/checklist/settings", icon: Settings2 },
+    { kind: "link", key: "checklist-assign-task", name: "Assign Task", path: "/checklist/assign-task", icon: ClipboardList },
+    { kind: "link", key: "checklist-delegation", name: "Delegation", path: "/checklist/delegation", icon: RefreshCw },
+    { kind: "link", key: "checklist-all-task", name: "All Task", path: "/checklist/all-task", icon: FileText },
+    { kind: "link", key: "checklist-housekeeping-verify", name: "Housekeeping Verify", path: "/checklist/housekeeping-verify", icon: BadgeCheck },
+    { kind: "link", key: "checklist-task-verification", name: "Task Verification", path: "/checklist/hrmanager", icon: Users },
+    { kind: "link", key: "checklist-mis-report", name: "MIS Report", path: "/checklist/mis-report", icon: FileText },
+    { kind: "link", key: "checklist-quick-task", name: "Quick Task", path: "/checklist/quick-task", icon: ClipboardList, requiresAdmin: true },
+    { kind: "link", key: "checklist-machines", name: "Machine", path: "/checklist/machines", icon: Settings2, requiresAdmin: true },
+    { kind: "link", key: "checklist-settings", name: "Settings", path: "/checklist/settings", icon: Settings2, requiresAdmin: true },
   ],
 };
 
@@ -284,11 +299,14 @@ const AppSidebar: FC = () => {
     if (isAdmin) return new Set<string>();
     return new Set(getAllowedPageRoutes(user).map((path) => normalizePath(path)));
   }, [isAdmin, user]);
+  const sectionHomePath = section?.homeItem ? normalizePath(section.homeItem.path) : null;
 
   const isLinkActive = (path: string) => {
     const currentPath = normalizePath(location.pathname);
     const targetPath = normalizePath(path);
-    return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
+    if (currentPath === targetPath) return true;
+    if (sectionHomePath && targetPath === sectionHomePath) return false;
+    return currentPath.startsWith(`${targetPath}/`);
   };
 
   const canAccessLink = (item: SidebarLinkItem) => {

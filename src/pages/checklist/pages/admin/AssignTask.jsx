@@ -1,0 +1,906 @@
+import { useState, useEffect } from "react";
+import { BellRing, FileCheck, Calendar, Clock } from "lucide-react";
+import AdminLayout from "../../components/layout/AdminLayout";
+import { useAuth } from "../../context/AuthContext";
+import { 
+  fetchUniqueDepartmentDataApi, 
+  fetchUniqueDoerNameDataApi, 
+  fetchUniqueGivenByDataApi, 
+  pushAssignTaskApi 
+} from "@/api/checklist/assignTaskApi.js";
+// import supabase from "../../SupabaseClient";
+
+// Calendar Component (defined outside)
+const CalendarComponent = ({ date, onChange, onClose }) => {
+
+
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const getDaysInMonth = (year, month) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year, month) => {
+    return new Date(year, month, 1).getDay();
+  };
+  // console.log(fetchUniqueDepartmentDataApi())
+  // console.log(fetchUniqueGivenByDataApi())
+  // console.log(fetchUniqueDoerNameDataApi())
+
+
+  const handleDateClick = (day) => {
+    const selectedDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    );
+    onChange(selectedDate);
+    onClose();
+  };
+
+  const renderDays = () => {
+    const days = [];
+    const daysInMonth = getDaysInMonth(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth()
+    );
+    const firstDayOfMonth = getFirstDayOfMonth(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth()
+    );
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
+    }
+
+    // Add cells for each day of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isSelected =
+        date &&
+        date.getDate() === day &&
+        date.getMonth() === currentMonth.getMonth() &&
+        date.getFullYear() === currentMonth.getFullYear();
+
+      days.push(
+        <button
+          key={day}
+          type="button"
+          onClick={() => handleDateClick(day)}
+          className={`h-8 w-8 rounded-full flex items-center justify-center text-sm ${isSelected
+            ? "bg-purple-600 text-white"
+            : "hover:bg-purple-100 text-gray-700"
+            }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return days;
+  };
+
+  const prevMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+    );
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    );
+  };
+
+  return (
+    <div className="p-2 bg-white border border-gray-200 rounded-md shadow-md">
+      <div className="flex justify-between items-center mb-2">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="p-1 hover:bg-gray-100 rounded-full"
+        >
+          &lt;
+        </button>
+        <div className="text-sm font-medium">
+          {currentMonth.toLocaleString("default", { month: "long" })}{" "}
+          {currentMonth.getFullYear()}
+        </div>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="p-1 hover:bg-gray-100 rounded-full"
+        >
+          &gt;
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+          <div
+            key={day}
+            className="h-8 w-8 flex items-center justify-center text-xs text-gray-500"
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">{renderDays()}</div>
+    </div>
+  );
+};
+
+// Helper functions for date manipulation
+const formatDate = (date) => {
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const addDays = (date, days) => {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + days);
+  return newDate;
+};
+
+const addMonths = (date, months) => {
+  const newDate = new Date(date);
+  newDate.setMonth(newDate.getMonth() + months);
+  return newDate;
+};
+
+const addYears = (date, years) => {
+  const newDate = new Date(date);
+  newDate.setFullYear(newDate.getFullYear() + years);
+  return newDate;
+};
+
+const formatDateToDDMMYYYY = (date) => {
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+export default function AssignTask() {
+  const { 
+    assignTaskState, 
+    fetchAssignTaskDepartments, 
+    fetchAssignTaskGivenBy, 
+    fetchAssignTaskDoerNames 
+  } = useAuth();
+  
+  const { department, doerName, givenBy } = assignTaskState;
+
+  // Add this near the top of your AssignTask component, after getting the state
+  const userRole = localStorage.getItem('role');
+  const username = localStorage.getItem('user-name');
+
+  // Filter doer names based on role
+  const filteredDoerNames = userRole === 'admin'
+    ? doerName
+    : doerName.filter(doer => doer?.toLowerCase() === username?.toLowerCase());
+
+  useEffect(() => {
+    fetchAssignTaskDepartments(username);
+    fetchAssignTaskGivenBy();
+  }, []);
+
+
+  const [date, setSelectedDate] = useState(null);
+  const [time, setTime] = useState("09:00");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generatedTasks, setGeneratedTasks] = useState([]);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [accordionOpen, setAccordionOpen] = useState(false);
+  const [workingDays, setWorkingDays] = useState([]);
+
+  const frequencies = [
+    { value: "one-time", label: "One Time (No Recurrence)" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "fortnightly", label: "Fortnightly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "quarterly", label: "Quarterly" },
+    { value: "yearly", label: "Yearly" },
+    { value: "end-of-1st-week", label: "End of 1st Week" },
+    { value: "end-of-2nd-week", label: "End of 2nd Week" },
+    { value: "end-of-3rd-week", label: "End of 3rd Week" },
+    { value: "end-of-4th-week", label: "End of 4th Week" },
+    { value: "end-of-last-week", label: "End of Last Week" },
+  ];
+
+
+  const [formData, setFormData] = useState({
+    department: "",
+    givenBy: "",
+    doer: "",
+    description: "",
+    frequency: "daily",
+    enableReminders: true,
+    requireAttachment: false,
+  });
+
+
+  // Fetch working days from Supabase on component mount
+  useEffect(() => {
+    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+    const BASE_URL = `${API_BASE_URL}/api/checklist/assign-task`;
+    const fetchWorkingDays = async () => {
+      try {
+        // const res = await fetch("http://localhost:5050/api/assign-task/working-days");
+        const res = await fetch(`${BASE_URL}/working-days`);
+        const data = await res.json();
+
+        const formattedDays = data.map((day) => {
+          const date = new Date(day.working_date);
+          return formatDateToDDMMYYYY(date);
+        });
+
+        setWorkingDays(formattedDays);
+      } catch (error) {
+        console.error("Error fetching working days:", error);
+      }
+    };
+
+    fetchWorkingDays();
+  }, []);
+
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSwitchChange = (name, e) => {
+    setFormData((prev) => ({ ...prev, [name]: e.target.checked }));
+  };
+
+  const getFormattedDate = (date) => {
+    if (!date) return "Select a date";
+    return formatDate(date);
+  };
+
+  const formatDateTimeForStorage = (date, time) => {
+    if (!date || !time) return "";
+    const dateString = date.toISOString().split("T")[0];
+    return `${dateString}T${time}:00`;
+  };
+
+  const findNextWorkingDay = (targetDate) => {
+    const targetDateStr = formatDateToDDMMYYYY(targetDate);
+
+    // If target date is a working day, return it
+    if (workingDays.includes(targetDateStr)) {
+      return targetDateStr;
+    }
+
+    // Find the next working day after target date
+    const targetDateObj = new Date(
+      targetDateStr.split("/").reverse().join("-")
+    );
+    const nextWorkingDay = workingDays.find((day) => {
+      const dayObj = new Date(day.split("/").reverse().join("-"));
+      return dayObj > targetDateObj;
+    });
+
+    return nextWorkingDay || targetDateStr;
+  };
+
+  const findEndOfWeekDate = (date, weekNumber) => {
+    const [targetDay, targetMonth, targetYear] = formatDateToDDMMYYYY(date)
+      .split("/")
+      .map(Number);
+
+    // Filter working days for the target month
+    const monthDays = workingDays.filter((day) => {
+      const [dayDay, dayMonth, dayYear] = day.split("/").map(Number);
+      return dayYear === targetYear && dayMonth === targetMonth;
+    });
+
+    if (weekNumber === -1) {
+      // Last week of month
+      return monthDays[monthDays.length - 1];
+    }
+
+    // Group by weeks (assuming week_num from Supabase is correct)
+    const weeks = {};
+    monthDays.forEach((day) => {
+      const [dayDay, dayMonth, dayYear] = day.split("/").map(Number);
+      const dayObj = new Date(dayYear, dayMonth - 1, dayDay);
+      const weekNum = Math.ceil(dayDay / 7);
+      if (!weeks[weekNum]) weeks[weekNum] = [];
+      weeks[weekNum].push(day);
+    });
+
+    // Get the last day of the requested week
+    const weekDays = weeks[weekNumber];
+    return weekDays ? weekDays[weekDays.length - 1] : monthDays[monthDays.length - 1];
+  };
+
+  const generateTasks = async () => {
+    if (
+      !date ||
+      !time ||
+      !formData.doer ||
+      !formData.description ||
+      !formData.frequency
+    ) {
+      alert("Please fill in all required fields including date and time.");
+      return;
+    }
+
+    if (workingDays.length === 0) {
+      alert("Working days data not loaded yet. Please try again.");
+      return;
+    }
+
+    const selectedDate = new Date(date);
+    const tasks = [];
+
+    // For one-time tasks
+    if (formData.frequency === "one-time") {
+      const taskDateStr = findNextWorkingDay(selectedDate);
+      const taskDateTimeStr = formatDateTimeForStorage(
+        new Date(taskDateStr.split("/").reverse().join("-")),
+        time
+      );
+
+      tasks.push({
+        description: formData.description,
+        department: formData.department,
+        givenBy: formData.givenBy,
+        doer: formData.doer,
+        dueDate: taskDateTimeStr,
+        status: "pending",
+        frequency: formData.frequency,
+        enableReminders: formData.enableReminders,
+        requireAttachment: formData.requireAttachment,
+      });
+    } else {
+      // For recurring tasks
+      let currentDate = new Date(selectedDate);
+      const endDate = addYears(currentDate, 2); // Generate up to 2 years ahead
+      let taskCount = 0;
+      const maxTasks = 365; // Safety limit
+
+      while (currentDate <= endDate && taskCount < maxTasks) {
+        let taskDate;
+
+        switch (formData.frequency) {
+          case "daily":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 1);
+            break;
+
+          case "weekly":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 7);
+            break;
+
+          case "fortnightly":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 14);
+            break;
+
+          case "monthly":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            break;
+
+          case "quarterly":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 3);
+            break;
+
+          case "yearly":
+            taskDate = findNextWorkingDay(currentDate);
+            currentDate = addYears(new Date(taskDate.split("/").reverse().join("-")), 1);
+            break;
+
+          case "end-of-1st-week":
+          case "end-of-2nd-week":
+          case "end-of-3rd-week":
+          case "end-of-4th-week":
+            const weekNum = parseInt(formData.frequency.split("-")[2]);
+            taskDate = findEndOfWeekDate(currentDate, weekNum);
+            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            break;
+
+          case "end-of-last-week":
+            taskDate = findEndOfWeekDate(currentDate, -1);
+            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            break;
+
+          default:
+            currentDate = endDate; // Exit loop for unknown frequencies
+            break;
+        }
+
+        if (taskDate) {
+          const taskDateTimeStr = formatDateTimeForStorage(
+            new Date(taskDate.split("/").reverse().join("-")),
+            time
+          );
+
+          tasks.push({
+            description: formData.description,
+            department: formData.department,
+            givenBy: formData.givenBy,
+            doer: formData.doer,
+            dueDate: taskDateTimeStr,
+            status: "pending",
+            frequency: formData.frequency,
+            enableReminders: formData.enableReminders,
+            requireAttachment: formData.requireAttachment,
+          });
+
+          taskCount++;
+        }
+      }
+    }
+
+    setGeneratedTasks(tasks);
+    setAccordionOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      if (generatedTasks.length === 0) {
+        alert("Please generate tasks first by clicking Preview Generated Tasks");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // dispatch(assignTaskInTable(generatedTasks));
+      // alert(`Successfully submitted ${generatedTasks.length} tasks!`);
+
+      await pushAssignTaskApi(generatedTasks);   // FIXED ✔
+      alert(`Successfully submitted ${generatedTasks.length} tasks!`);
+
+
+      // Reset form
+      setFormData({
+        department: "",
+        givenBy: "",
+        doer: "",
+        description: "",
+        frequency: "daily",
+        enableReminders: true,
+        requireAttachment: false,
+      });
+      setSelectedDate(null);
+      setTime("09:00");
+      setGeneratedTasks([]);
+      setAccordionOpen(false);
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("Failed to assign tasks. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatDateForDisplay = (dateTimeStr) => {
+    return dateTimeStr;
+  };
+
+  const getFormattedDateTime = () => {
+    if (!date) return "Select date and time";
+    const dateStr = formatDate(date);
+    const timeStr = time || "09:00";
+    return `${dateStr} at ${timeStr}`;
+  };
+
+
+
+
+
+  // UPDATED: Date formatting function to return DD/MM/YYYY format (for working days comparison)
+  const formatDateToDDMMYYYY = (date) => {
+    const d = new Date(date);
+    const day = d.getDate().toString().padStart(2, "0");
+    const month = (d.getMonth() + 1).toString().padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+
+  useEffect(() => {
+    if (formData.department) {
+      fetchAssignTaskDoerNames(formData.department);
+    }
+  }, [formData.department]);
+  return (
+    <AdminLayout>
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold tracking-tight mb-6 text-purple-500">
+          Assign New Task
+        </h1>
+        <div className="rounded-lg border border-purple-200 bg-white shadow-md overflow-hidden">
+          <form onSubmit={handleSubmit}>
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-purple-100">
+              <h2 className="text-xl font-semibold text-purple-700">
+                Task Details
+              </h2>
+              <p className="text-purple-600">
+                Fill in the details to assign a new task to a staff member  deplaoy.
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Department Name Dropdown */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="department"
+                  className="block text-sm font-medium text-purple-700"
+                >
+                  Department Name
+                </label>
+                <select
+                  id="department"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  <option value="">Select Department</option>
+                  {department.map((deptObj, index) => {
+                    const deptName = typeof deptObj === 'string' ? deptObj : deptObj.department;
+                    return (
+                      <option key={index} value={deptName}>
+                        {deptName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Given By Dropdown */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="givenBy"
+                  className="block text-sm font-medium text-purple-700"
+                >
+                  Given By
+                </label>
+                <select
+                  id="givenBy"
+                  name="givenBy"
+                  value={formData.givenBy}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  <option value="">Select Given By</option>
+                  {givenBy.map((person, index) => (
+                    <option key={index} value={person}>
+                      {person}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+
+              {/* Doer's Name Dropdown */}
+              {/* Doer's Name Dropdown */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="doer"
+                  className="block text-sm font-medium text-purple-700"
+                >
+                  Doer's Name
+                </label>
+                <select
+                  id="doer"
+                  name="doer"
+                  value={formData.doer}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  <option value="">Select Doer</option>
+                  {filteredDoerNames.map((doer, index) => (
+                    <option key={index} value={doer}>
+                      {doer}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-medium text-purple-700"
+                >
+                  Task Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Enter task description"
+                  rows={4}
+                  required
+                  className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Date, Time and Frequency */}
+              <div className="grid gap-4 md:grid-cols-3">
+                {/* Date Picker */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-purple-700">
+                    Task Start Date
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowCalendar(!showCalendar)}
+                      className="w-full flex justify-start items-center rounded-md border border-purple-200 p-2 text-left focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    >
+                      <Calendar className="mr-2 h-4 w-4 text-purple-500" />
+                      {date ? getFormattedDate(date) : "Select a date"}
+                    </button>
+                    {showCalendar && (
+                      <div className="absolute z-10 mt-1">
+                        <CalendarComponent
+                          date={date}
+                          onChange={setSelectedDate}
+                          onClose={() => setShowCalendar(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NEW: Time Picker */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="time"
+                    className="block text-sm font-medium text-purple-700"
+                  >
+                    Time
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      id="time"
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      required
+                      className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 pl-8"
+                    />
+                    <Clock className="absolute left-2 top-2.5 h-4 w-4 text-purple-500" />
+                  </div>
+                </div>
+
+                {/* Frequency */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="frequency"
+                    className="block text-sm font-medium text-purple-700"
+                  >
+                    Frequency
+                  </label>
+                  <select
+                    id="frequency"
+                    name="frequency"
+                    value={formData.frequency}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    {frequencies.map((freq) => (
+                      <option key={freq.value} value={freq.value}>
+                        {freq.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* NEW: DateTime Display */}
+              {date && time && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <p className="text-sm text-purple-700">
+                    <strong>Selected Date & Time:</strong> {getFormattedDateTime()}
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    Will be stored as: {formatDateTimeForStorage(date, time)}
+                  </p>
+                </div>
+              )}
+
+              {/* Additional Options */}
+              <div className="space-y-4 pt-2 border-t border-purple-100">
+                <h3 className="text-lg font-medium text-purple-700 pt-2">
+                  Additional Options
+                </h3>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label
+                      htmlFor="enable-reminders"
+                      className="text-purple-700 font-medium"
+                    >
+                      Enable Reminders
+                    </label>
+                    <p className="text-sm text-purple-600">
+                      Send reminders before task due date
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <BellRing className="h-4 w-4 text-purple-500" />
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="enable-reminders"
+                        checked={formData.enableReminders}
+                        onChange={(e) =>
+                          handleSwitchChange("enableReminders", e)
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label
+                      htmlFor="require-attachment"
+                      className="text-purple-700 font-medium"
+                    >
+                      Require Attachment
+                    </label>
+                    <p className="text-sm text-purple-600">
+                      User must upload a file when completing task
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <FileCheck className="h-4 w-4 text-purple-500" />
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="require-attachment"
+                        checked={formData.requireAttachment}
+                        onChange={(e) =>
+                          handleSwitchChange("requireAttachment", e)
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                </div> */}
+              </div>
+
+              {/* Preview and Submit Buttons */}
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={generateTasks}
+                  className="w-full rounded-md border border-purple-200 bg-purple-50 py-2 px-4 text-purple-700 hover:bg-purple-100 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                >
+                  Preview Generated Tasks
+                </button>
+
+                {generatedTasks.length > 0 && (
+                  <div className="w-full">
+                    <div className="border border-purple-200 rounded-md">
+                      <button
+                        type="button"
+                        onClick={() => setAccordionOpen(!accordionOpen)}
+                        className="w-full flex justify-between items-center p-4 text-purple-700 hover:bg-purple-50 focus:outline-none"
+                      >
+                        <span className="font-medium">
+                          {generatedTasks.length} Tasks Generated
+                          {formData.frequency === "one-time"
+                            ? " (Will be stored in DELEGATION sheet)"
+                            : " (Will be stored in Checklist sheet)"
+                          }
+                        </span>
+                        <svg
+                          className={`w-5 h-5 transition-transform ${accordionOpen ? "rotate-180" : ""
+                            }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+
+                      {accordionOpen && (
+                        <div className="p-4 border-t border-purple-200">
+                          <div className="max-h-60 overflow-y-auto space-y-2">
+                            {generatedTasks.slice(0, 20).map((task, index) => (
+                              <div
+                                key={index}
+                                className="text-sm p-2 border rounded-md border-purple-200 bg-purple-50"
+                              >
+                                <div className="font-medium text-purple-700">
+                                  {task.description}
+                                </div>
+                                <div className="text-xs text-purple-600">
+                                  Due: {formatDateForDisplay(task.dueDate)} | Department: {task.department}
+                                </div>
+                                <div className="flex space-x-2 mt-1">
+                                  {task.enableReminders && (
+                                    <span className="inline-flex items-center text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                      <BellRing className="h-3 w-3 mr-1" />{" "}
+                                      Reminders
+                                    </span>
+                                  )}
+                                  {task.requireAttachment && (
+                                    <span className="inline-flex items-center text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                      <FileCheck className="h-3 w-3 mr-1" />{" "}
+                                      Attachment Required
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {generatedTasks.length > 20 && (
+                              <div className="text-sm text-center text-purple-600 py-2">
+                                ...and {generatedTasks.length - 20} more tasks
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-between bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-t border-purple-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({
+                    department: "",
+                    givenBy: "",
+                    doer: "",
+                    description: "",
+                    frequency: "daily",
+                    enableReminders: true,
+                    requireAttachment: false,
+                  });
+                  setSelectedDate(null);
+                  setTime("09:00");
+                  setGeneratedTasks([]);
+                  setAccordionOpen(false);
+                }}
+                className="rounded-md border border-purple-200 py-2 px-4 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-md gradient-bg py-2 px-4 text-white hover:gradient-bg:hover focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? "Assigning..." : "Assign Task"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
