@@ -59,9 +59,48 @@ const getCountValue = (value: any) => {
   return 0;
 };
 
+type DashboardBreakdown = Record<string, number>;
+
+type DashboardStatValue =
+  | number
+  | {
+      count?: number | string;
+      breakdown?: DashboardBreakdown;
+      [key: string]: any;
+    };
+
+type DashboardStatsState = {
+  totalTask: DashboardStatValue;
+  completeTask: DashboardStatValue;
+  upcomingTask: DashboardStatValue;
+  notDoneTask: DashboardStatValue;
+  pendingTask: DashboardStatValue;
+  overdueTask: DashboardStatValue;
+};
+
+const normalizeDashboardStat = (value: any): DashboardStatValue => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const normalizedBreakdown =
+      value.breakdown && typeof value.breakdown === "object"
+        ? Object.entries(value.breakdown).reduce<DashboardBreakdown>((acc, [key, count]) => {
+            acc[key] = getCountValue(count);
+            return acc;
+          }, {})
+        : undefined;
+
+    return {
+      ...value,
+      count: getCountValue(value),
+      ...(normalizedBreakdown ? { breakdown: normalizedBreakdown } : {}),
+    };
+  }
+
+  return getCountValue(value);
+};
+
 export const useChecklistCompatibility = () => {
   const [dashboard, setDashboard] = useState<any[]>([]);
-  const [dashboardStats, setDashboardStats] = useState({
+  const [dashboardStats, setDashboardStats] = useState<DashboardStatsState>({
     totalTask: 0,
     completeTask: 0,
     upcomingTask: 0,
@@ -215,12 +254,12 @@ export const useChecklistCompatibility = () => {
       ]);
 
       setDashboardStats({
-        totalTask: getCountValue(total),
-        upcomingTask: getCountValue(upcoming),
-        completeTask: getCountValue(complete),
-        pendingTask: getCountValue(pending),
-        overdueTask: getCountValue(overdue),
-        notDoneTask: getCountValue(notDone),
+        totalTask: normalizeDashboardStat(total),
+        upcomingTask: normalizeDashboardStat(upcoming),
+        completeTask: normalizeDashboardStat(complete),
+        pendingTask: normalizeDashboardStat(pending),
+        overdueTask: normalizeDashboardStat(overdue),
+        notDoneTask: normalizeDashboardStat(notDone),
       });
     } catch (error) {
       console.error("Checklist dashboard stats error:", error);

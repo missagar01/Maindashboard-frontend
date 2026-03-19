@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  CheckCircle2,
   Search,
   RefreshCcw,
   AlertCircle,
   Loader2,
-  Calendar,
   User,
   FileText,
   Clock,
@@ -16,36 +14,117 @@ import {
   Tag
 } from 'lucide-react';
 import AdminLayout from '../components/layout/AdminLayout';
-import { getHousekeepingHistoryTasksAPI, confirmHousekeepingTaskAPI } from '@/api/checklist/housekeepingApi.js';
+import {
+  getHousekeepingHistoryTasksAPI,
+  getHousekeepingPendingTasksAPI,
+  confirmHousekeepingTaskAPI,
+} from '@/api/checklist/housekeepingApi.js';
 import { toast } from 'react-hot-toast';
-import { formatDate } from '../utils/taskNormalizer';
+import { formatDate, normalizeHousekeepingTask } from '../utils/taskNormalizer';
+
+const limit = 50;
+
+const extractItems = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data?.rows)) return payload.data.rows;
+  return [];
+};
+
+const extractTotal = (payload, fallbackLength = 0) => {
+  const totalValue =
+    payload?.total ??
+    payload?.totalCount ??
+    payload?.count ??
+    payload?.data?.total ??
+    payload?.data?.totalCount ??
+    payload?.meta?.total ??
+    payload?.pagination?.total ??
+    fallbackLength;
+
+  const parsed = Number(totalValue);
+  return Number.isFinite(parsed) ? parsed : fallbackLength;
+};
+
+const normalizeVerifyTask = (task) => {
+  const normalizedTask = normalizeHousekeepingTask(task, Boolean(task?.submission_date));
+  const taskId = task?.task_id ?? task?.id ?? task?.taskId ?? normalizedTask?.id ?? '';
+
+  return {
+    ...task,
+    originalData: task,
+    task_id: taskId,
+    department: task?.department ?? task?.dept ?? task?.doer_department ?? normalizedTask?.department ?? '',
+    name: task?.name ?? task?.doer_name ?? task?.assigned_to ?? normalizedTask?.assignedTo ?? '',
+    task_description:
+      task?.task_description ?? task?.description ?? task?.task ?? task?.title ?? normalizedTask?.title ?? '',
+    task_start_date:
+      task?.task_start_date ??
+      task?.task_date ??
+      task?.date ??
+      task?.scheduled_date ??
+      normalizedTask?.dueDate ??
+      '',
+    frequency: task?.frequency ?? task?.task_frequency ?? normalizedTask?.frequency ?? '',
+    remark: task?.remark ?? task?.remarks ?? normalizedTask?.remarks ?? '',
+    hod: task?.hod ?? normalizedTask?.hod ?? '',
+    doer_name2: task?.doer_name2 ?? task?.assigned_to_secondary ?? normalizedTask?.assignedToSecondary ?? '',
+    attachment:
+      task?.attachment ??
+      task?.confirmedByHOD ??
+      normalizedTask?.originalData?.attachment ??
+      normalizedTask?.confirmedByHOD ??
+      '',
+  };
+};
 
 const HousekeepingVerify = () => {
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  const limit = 50;
 
   const fetchTasks = async (pageNum) => {
     setLoading(true);
     try {
-      const response = await getHousekeepingHistoryTasksAPI(pageNum, {
+      const historyResponse = await getHousekeepingHistoryTasksAPI(pageNum, {
         unconfirmed: 'true',
-        limit: limit
+        limit,
       });
 
-      const data = response.data;
-      const items = Array.isArray(data) ? data : data?.items || [];
-      const totalCount = parseInt(data?.total || items.length, 10);
+      const historyPayload = historyResponse?.data;
+      const historyItems = extractItems(historyPayload)
+        .map(normalizeVerifyTask)
+        .filter((task) => task.task_id);
+      const historyTotal = extractTotal(historyPayload, historyItems.length);
 
-      setTasks(items);
-      setTotal(totalCount);
-      setHasMore(pageNum * limit < totalCount);
+      let nextTasks = historyItems;
+      let nextTotal = historyTotal;
+
+      if (historyItems.length === 0) {
+        const pendingResponse = await getHousekeepingPendingTasksAPI(pageNum, { limit });
+        const pendingPayload = pendingResponse?.data;
+        const pendingItems = extractItems(pendingPayload)
+          .map(normalizeVerifyTask)
+          .filter((task) => task.task_id);
+
+        if (pendingItems.length > 0) {
+          nextTasks = pendingItems;
+          nextTotal = extractTotal(pendingPayload, pendingItems.length);
+        }
+      }
+
+      setTasks(nextTasks);
+      setTotal(nextTotal);
+      setHasMore(pageNum * limit < nextTotal);
     } catch (error) {
       console.error('Error fetching verification tasks:', error);
       toast.error('Failed to load tasks');
@@ -70,7 +149,7 @@ const HousekeepingVerify = () => {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      const allIds = tasks.map(t => t.task_id);
+      const allIds = filteredTasks.map((task) => task.task_id);
       setSelectedIds(new Set(allIds));
     } else {
       setSelectedIds(new Set());
@@ -112,7 +191,8 @@ const HousekeepingVerify = () => {
       toast.success(`Successfully verified ${successCount} tasks`, { id: toastId });
 
       // Update local state by removing verified tasks
-      setTasks(prev => prev.filter(t => !selectedIds.has(t.task_id)));
+      setTasks((prev) => prev.filter((task) => !selectedIds.has(task.task_id)));
+      setTotal((prev) => Math.max(0, prev - successCount));
       setSelectedIds(new Set());
     } catch (error) {
       console.error('Bulk verification error:', error);
@@ -125,7 +205,7 @@ const HousekeepingVerify = () => {
   const filteredTasks = useMemo(() => {
     if (!searchTerm) return tasks;
     const lowerSearch = searchTerm.toLowerCase();
-    return tasks.filter(task =>
+    return tasks.filter((task) =>
       task.task_id?.toString().includes(lowerSearch) ||
       (task.department || '').toLowerCase().includes(lowerSearch) ||
       (task.task_description || '').toLowerCase().includes(lowerSearch) ||
@@ -133,6 +213,10 @@ const HousekeepingVerify = () => {
       (task.doer_name2 || '').toLowerCase().includes(lowerSearch)
     );
   }, [tasks, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const rangeStart = total === 0 ? 0 : (page - 1) * limit + 1;
+  const rangeEnd = total === 0 ? 0 : Math.min(page * limit, total);
 
   return (
     <AdminLayout>
@@ -354,7 +438,7 @@ const HousekeepingVerify = () => {
           {/* Pagination Controls */}
           <div className="px-4 py-3 bg-white border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-              Showing {Math.min((page - 1) * limit + 1, total)} to {Math.min(page * limit, total)} of {total} records
+              Showing {rangeStart} to {rangeEnd} of {total} records
             </div>
 
             <div className="flex items-center gap-2">
@@ -368,7 +452,6 @@ const HousekeepingVerify = () => {
 
               <div className="flex items-center gap-1">
                 {(() => {
-                  const totalPages = Math.ceil(total / limit);
                   const pages = [];
                   for (let p = 1; p <= totalPages; p++) {
                     if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
@@ -393,8 +476,8 @@ const HousekeepingVerify = () => {
               </div>
 
               <button
-                onClick={() => setPage(prev => Math.min(Math.ceil(total / limit), prev + 1))}
-                disabled={page >= Math.ceil(total / limit) || loading}
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages || loading}
                 className="px-3 py-1.5 rounded-lg border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 disabled:opacity-40 transition-all"
               >
                 Next
@@ -418,7 +501,7 @@ const HousekeepingVerify = () => {
                 Selected: {selectedIds.size}
               </span>
               <span className="text-[10px] font-black text-[#c41e3a] uppercase tracking-widest bg-red-50 px-2.5 py-1 rounded-md border border-red-100">
-                PAGE {page} OF {Math.ceil(total / limit)}
+                PAGE {page} OF {totalPages}
               </span>
             </div>
           </div>
