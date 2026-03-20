@@ -640,6 +640,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const decoded = decodeToken(storedToken);
           if (decoded) {
             const userAccess = normalizeCsvValue(decoded?.user_access);
+            const userAccess1 = normalizeCsvValue(decoded?.user_access1);
             const accessArray = userAccess ? userAccess.split(',').map((a: string) => a.trim()) : [];
 
             const parsedUser = normalizeAuthUser({
@@ -652,11 +653,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email_id: normalizeValue(decoded?.email_id),
               number: normalizeValue(decoded?.number),
               department: normalizeValue(decoded?.department),
+              designation: normalizeValue(decoded?.designation),
+              division: normalizeValue(decoded?.division),
               access: accessArray.length > 0 ? accessArray : decoded?.access || [],
               user_access: userAccess,
+              user_access1: userAccess1,
               page_access: normalizeCsvValue(decoded?.page_access),
               system_access: normalizeCsvValue(decoded?.system_access),
               store_access: normalizeCsvValue(decoded?.store_access),
+              verify_access: normalizeCsvValue(decoded?.verify_access),
+              verify_access_dept: normalizeCsvValue(decoded?.verify_access_dept),
             });
 
             if (!parsedUser) {
