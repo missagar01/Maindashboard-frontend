@@ -12,9 +12,6 @@ import {
 import AllUserScore from "../pages/AllUserScore";
 import { storage } from "../runtime";
 
-
-
-
 // Under Construction Component
 function UnderConstruction() {
   return (

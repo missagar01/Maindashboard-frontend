@@ -94,6 +94,13 @@ const Setting = () => {
         setUsernameDropdownOpen(!usernameDropdownOpen);
     };
 
+    const togglePasswordVisibility = (userId) => {
+        setShowPasswords((prev) => ({
+            ...prev,
+            [userId]: !prev[userId],
+        }));
+    };
+
     const handleAddButtonClick = () => {
         if (activeTab === "users") {
             resetUserForm();
