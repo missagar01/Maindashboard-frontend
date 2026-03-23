@@ -1,14 +1,27 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 
 const envBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
-const isS3Deployment = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('s3-website') ||
-    window.location.hostname.includes('s3.amazonaws.com'));
+const resolveApiBaseUrl = () => {
+  const normalizedEnvBase = normalizeBaseUrl(envBaseUrl);
 
-export const API_BASE_URL = isS3Deployment
-  ? envBaseUrl
-  : (import.meta.env.PROD ? '' : (envBaseUrl || ''));
+  if (!normalizedEnvBase) {
+    return '';
+  }
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.protocol === 'https:' &&
+    normalizedEnvBase.startsWith('http://')
+  ) {
+    return normalizedEnvBase.replace(/^http:\/\//, 'https://');
+  }
+
+  return normalizedEnvBase;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
