@@ -60,65 +60,154 @@ const normalizePriority = (priority) => {
 // =============================================================================
 const parseDate = (dateString) => {
     if (!dateString) return null;
+    if (dateString instanceof Date) return dateString;
 
-    // Handle DD/MM/YYYY or DD-MM-YYYY format FIRST
-    // Matches 14/01/2026 or 14-01-2026, optionally with time 05:30:00
-    const parts = dateString.toString().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    const dateStr = dateString.toString().trim();
 
-    if (parts) {
-        // parts[1] is day, parts[2] is month, parts[3] is year
-        // parts[4] is hour, parts[5] is minute, parts[6] is second
+    // 1. Handle DMY format: DD/MM/YYYY or DD-MM-YYYY (with optional time)
+    const dmyMatch = dateStr.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:[\sT]+(\d{1,2})[\:\.](\d{1,2})(?:[\:\.](\d{1,2}))?(?:\.\d+)?)?/);
+    if (dmyMatch) {
         return new Date(
-            parseInt(parts[3]),
-            parseInt(parts[2]) - 1, // Month is 0-indexed
-            parseInt(parts[1]),
-            parts[4] ? parseInt(parts[4]) : 0,
-            parts[5] ? parseInt(parts[5]) : 0,
-            parts[6] ? parseInt(parts[6]) : 0
+            parseInt(dmyMatch[3]),
+            parseInt(dmyMatch[2]) - 1,
+            parseInt(dmyMatch[1]),
+            dmyMatch[4] ? parseInt(dmyMatch[4]) : 0,
+            dmyMatch[5] ? parseInt(dmyMatch[5]) : 0,
+            dmyMatch[6] ? parseInt(dmyMatch[6]) : 0
         );
     }
 
-    // Try standard parsing
+    // 2. Handle YMD format: YYYY-MM-DD or YYYY/MM/DD (with optional time)
+    const ymdMatch = dateStr.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[\sT]+(\d{1,2})[\:\.](\d{1,2})(?:[\:\.](\d{1,2}))?(?:\.\d+)?)?/);
+    if (ymdMatch) {
+        return new Date(
+            parseInt(ymdMatch[1]),
+            parseInt(ymdMatch[2]) - 1,
+            parseInt(ymdMatch[3]),
+            ymdMatch[4] ? parseInt(ymdMatch[4]) : 0,
+            ymdMatch[5] ? parseInt(ymdMatch[5]) : 0,
+            ymdMatch[6] ? parseInt(ymdMatch[6]) : 0
+        );
+    }
+
+    // 3. Fallback for standard parsing (ISO strings with Z or offsets)
     let date = new Date(dateString);
     if (!isNaN(date.getTime())) return date;
 
     return null;
 };
 
+/**
+ * Formats a date string to DD-MM-YYYY format
+ * @param {string|Date} dateString 
+ * @returns {string}
+ */
 export const formatDate = (dateString) => {
-    if (!dateString) return '—';
+    if (!dateString || dateString === '—') return '—';
+
+    // Manual parsing for standard YYYY-MM-DD or DD-MM-YYYY strings to avoid timezone shifts
+    const dateStr = dateString.toString().trim();
+    const ymdMatch = dateStr.match(/^(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/);
+    if (ymdMatch) {
+        return `${ymdMatch[3].padStart(2, '0')}-${ymdMatch[2].padStart(2, '0')}-${ymdMatch[1]}`;
+    }
+    const dmyMatch = dateStr.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})/);
+    if (dmyMatch) {
+        return `${dmyMatch[1].padStart(2, '0')}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[3]}`;
+    }
+
     try {
         const date = parseDate(dateString);
         if (!date || isNaN(date.getTime())) return '—';
-        return date.toLocaleDateString('en-GB', {
+
+        return new Intl.DateTimeFormat('en-IN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
-        });
-    } catch {
+            timeZone: 'Asia/Kolkata'
+        }).format(date).replace(/\//g, '-');
+    } catch (e) {
         return '—';
     }
 };
 
+/**
+ * Formats a date string to DD-MM-YYYY, HH:MM:SS AM/PM format
+ * @param {string|Date} dateString 
+ * @param {boolean} includeSeconds 
+ * @returns {string}
+ */
 export const formatDateTime = (dateString, includeSeconds = false) => {
-    if (!dateString) return '—';
+    if (!dateString || dateString === '—') return '—';
+
+    const dateStr = dateString.toString().trim();
+
+    // 0. If it's an ISO string with timezone indicator (Z), skip manual parsing 
+    // and use Intl.DateTimeFormat to correctly handle the UTC -> Local (IST) conversion.
+    const isISO = dateStr.includes('Z') || (dateStr.includes('T') && !dateStr.match(/[\sT]\d{2}:\d{2}:\d{2}$/));
+    
+    // 1. Manual parsing for standard YYYY-MM-DD HH:mm:ss strings to ensure exact DB time
+    const ymdMatch = !isISO ? dateStr.match(/^(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})(?:[\sT]+(\d{1,2})[\:\.](\d{1,2})(?:[\:\.](\d{1,2}))?(?:\.\d+)?)?/) : null;
+    if (ymdMatch && ymdMatch[4]) { // Must have time part for this manual format
+        const y = ymdMatch[1];
+        const m = ymdMatch[2].padStart(2, '0');
+        const d = ymdMatch[3].padStart(2, '0');
+        const h = parseInt(ymdMatch[4]);
+        const min = ymdMatch[5].padStart(2, '0');
+        const s = ymdMatch[6] ? ymdMatch[6].padStart(2, '0') : '00';
+
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const h12 = (h % 12 || 12).toString().padStart(2, '0');
+
+        let result = `${d}-${m}-${y}, ${h12}:${min}`;
+        if (includeSeconds) result += `:${s}`;
+        result += ` ${ampm}`;
+        return result;
+    }
+
+    // 2. Manual parsing for standard DD-MM-YYYY HH:mm:ss strings
+    const dmyMatch = !isISO ? dateStr.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})(?:[\sT]+(\d{1,2})[\:\.](\d{1,2})(?:[\:\.](\d{1,2}))?(?:\.\d+)?)?/) : null;
+    if (dmyMatch && dmyMatch[4]) {
+        const d = dmyMatch[1].padStart(2, '0');
+        const m = dmyMatch[2].padStart(2, '0');
+        const y = dmyMatch[3];
+        const h = parseInt(dmyMatch[4]);
+        const min = dmyMatch[5].padStart(2, '0');
+        const s = dmyMatch[6] ? dmyMatch[6].padStart(2, '0') : '00';
+
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const h12 = (h % 12 || 12).toString().padStart(2, '0');
+
+        let result = `${d}-${m}-${y}, ${h12}:${min}`;
+        if (includeSeconds) result += `:${s}`;
+        result += ` ${ampm}`;
+        return result;
+    }
+
     try {
         const date = parseDate(dateString);
-        if (!date || isNaN(date.getTime())) return '—';
+        if (!date || isNaN(date.getTime())) {
+            // Last resort: just strip T and Z from the string
+            return dateStr.replace('T', ' ').replace('Z', '').replace(/\.\d+/, '');
+        }
 
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const options = {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Kolkata'
+        };
 
         if (includeSeconds) {
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+            options.second = '2-digit';
         }
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch {
-        return '—';
+
+        return new Intl.DateTimeFormat('en-IN', options).format(date).replace(/\//g, '-');
+    } catch (e) {
+        return dateStr.replace('T', ' ').replace('Z', '').replace(/\.\d+/, '');
     }
 };
 
@@ -166,7 +255,7 @@ export const normalizeChecklistTask = (task, isHistory = false) => {
         assignedTo: task.name || task.assigned_to || '—',
         assignedToSecondary: task.doer_name2 || '—',
         dueDate: task.task_start_date,
-        dueDateFormatted: formatDate(task.task_start_date),
+        dueDateFormatted: formatDateTime(task.task_start_date, true),
         status: unifiedStatus,
         originalStatus: rawStatus,
         priority: normalizePriority(task.priority),

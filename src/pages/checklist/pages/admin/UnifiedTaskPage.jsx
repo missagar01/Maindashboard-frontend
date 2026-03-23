@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import AdminLayout from "../../components/layout/AdminLayout"
 import UnifiedTaskTable from "../../components/unified/UnifiedTaskTable"
 import { useAuth } from "../../context/AuthContext";
@@ -17,8 +17,10 @@ export default function UnifiedTaskPage() {
     // State
     const [userRole, setUserRole] = useState("")
     const [username, setUsername] = useState("")
-    const [systemAccess, setSystemAccess] = useState([]) // New state for system access
+    const [systemAccess, setSystemAccess] = useState(null) // Initialize to null to detect "not yet loaded"
     const [activeStatus, setActiveStatus] = useState("Pending") // NEW: Track status in parent
+
+    const systemsLoaded = useRef({ checklist: false, maintenance: false, housekeeping: false })
 
     const {
         checklistState, maintenanceState, housekeepingState,
@@ -91,7 +93,7 @@ export default function UnifiedTaskPage() {
 
     // Function to check if user has access to a system
     const hasSystemAccess = useCallback((system) => {
-        if (systemAccess.length === 0) return true; // If no restriction, allow all
+        if (!systemAccess || systemAccess.length === 0) return true; // If no restriction, allow all
         return systemAccess.includes(system.toLowerCase());
     }, [systemAccess])
 
@@ -99,6 +101,7 @@ export default function UnifiedTaskPage() {
     // Backend now uses query params for department filtering (no token required)
     const loadHousekeepingData = useCallback(async () => {
         // Check if user has housekeeping access
+        if (systemAccess === null) return;
         if (!hasSystemAccess('housekeeping') && systemAccess.length > 0) {
             return
         }
@@ -147,13 +150,15 @@ export default function UnifiedTaskPage() {
 
     // Load all data sources (pending + history) based on system_access
     useEffect(() => {
+        if (systemAccess === null) return; // Wait for systemAccess to be loaded from localStorage
+
         const role = localStorage.getItem("role")
         const user = localStorage.getItem("user-name")
 
-        // Load checklist data only if user has access
+        // Load checklist metadata only if user has access
         if (hasSystemAccess('checklist') || systemAccess.length === 0) {
-            fetchChecklistDataAction(1)
-            fetchChecklistHistoryDataAction(1)
+            // Note: Checklist data fetching (fetchChecklistDataAction) is triggered by 
+            // UnifiedTaskTable's onRefresh on mount, so we skip it here to avoid double calls.
             fetchChecklistDepartmentsAction()
             fetchChecklistDoersAction()
         }
@@ -169,6 +174,7 @@ export default function UnifiedTaskPage() {
             fetchUniqueAssignedPersonnelAction()
             fetchMaintenanceDepartmentsAction()
             fetchMaintenanceDoersAction()
+            systemsLoaded.current.maintenance = true
         }
 
         // Load housekeeping data only if user has access
@@ -176,8 +182,9 @@ export default function UnifiedTaskPage() {
             loadHousekeepingData()
             loadHousekeepingHistoryData()
             fetchHousekeepingDepartmentsAction()
+            systemsLoaded.current.housekeeping = true
         }
-    }, [hasSystemAccess, systemAccess, loadHousekeepingData, loadHousekeepingHistoryData, fetchChecklistDataAction, fetchChecklistHistoryDataAction, fetchChecklistDepartmentsAction, fetchChecklistDoersAction, fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchUniqueMachineNamesAction, fetchUniqueAssignedPersonnelAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction, fetchHousekeepingDepartmentsAction])
+    }, [systemAccess, loadHousekeepingData, loadHousekeepingHistoryData, fetchChecklistDepartmentsAction, fetchChecklistDoersAction, fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchUniqueMachineNamesAction, fetchUniqueAssignedPersonnelAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction, fetchHousekeepingDepartmentsAction])
 
     // Callback to load more checklist data (called on scroll)
     const loadMoreChecklistData = useCallback(() => {
@@ -215,29 +222,32 @@ export default function UnifiedTaskPage() {
 
     // Normalize and merge all tasks - filter based on system_access
     const allTasks = useMemo(() => {
+        const hasAccessChecklist = !systemAccess || systemAccess.length === 0 || hasSystemAccess('checklist');
+        const hasAccessMaintenance = !systemAccess || systemAccess.length === 0 || hasSystemAccess('maintenance');
+        const hasAccessHousekeeping = !systemAccess || systemAccess.length === 0 || hasSystemAccess('housekeeping');
+
         // Filter checklist tasks based on access
-        const checklistFiltered = hasSystemAccess('checklist') || systemAccess.length === 0
+        const checklistFiltered = hasAccessChecklist
             ? (Array.isArray(checklist) ? checklist : [])
             : []
 
-        const checklistHistoryFiltered = hasSystemAccess('checklist') || systemAccess.length === 0
+        const checklistHistoryFiltered = hasAccessChecklist
             ? (Array.isArray(checklistHistory) ? checklistHistory : [])
             : []
 
         // Filter maintenance tasks based on access
-        // Also filter out tasks that already have an actual_date (as per user request for pending screen)
-        const maintenanceFiltered = hasSystemAccess('maintenance') || systemAccess.length === 0
+        const maintenanceFiltered = hasAccessMaintenance
             ? (Array.isArray(maintenanceTasks) ? maintenanceTasks : [])
             : []
 
-        const maintenanceHistoryFiltered = hasSystemAccess('maintenance') || systemAccess.length === 0
+        const maintenanceHistoryFiltered = hasAccessMaintenance
             ? (Array.isArray(maintenanceHistory) ? maintenanceHistory : [])
             : []
 
         let housekeepingFiltered = [];
         let housekeepingHistoryFiltered = [];
 
-        if (hasSystemAccess('housekeeping') || systemAccess.length === 0) {
+        if (hasAccessHousekeeping) {
             housekeepingFiltered = Array.isArray(housekeepingTasks) ? housekeepingTasks : [];
             housekeepingHistoryFiltered = Array.isArray(housekeepingHistory) ? housekeepingHistory : [];
         }
@@ -558,6 +568,9 @@ export default function UnifiedTaskPage() {
 
     // Handle refresh based on system
     const handleRefresh = useCallback((system) => {
+        // If system is already loaded, skip refetch on tab switch (as per user request)
+        if (systemsLoaded.current[system]) return;
+
         const role = localStorage.getItem("role")
         const user = localStorage.getItem("user-name")
 
@@ -568,6 +581,7 @@ export default function UnifiedTaskPage() {
                     fetchChecklistHistoryDataAction({ page: 1, replace: true })
                     fetchChecklistDepartmentsAction()
                     fetchChecklistDoersAction()
+                    systemsLoaded.current.checklist = true
                 }
                 break;
             case 'maintenance':
@@ -585,6 +599,7 @@ export default function UnifiedTaskPage() {
                     })
                     fetchMaintenanceDepartmentsAction()
                     fetchMaintenanceDoersAction()
+                    systemsLoaded.current.maintenance = true
                 }
                 break;
             case 'housekeeping':
@@ -592,12 +607,13 @@ export default function UnifiedTaskPage() {
                     loadHousekeepingData()
                     loadHousekeepingHistoryData()
                     fetchHousekeepingDepartmentsAction()
+                    systemsLoaded.current.housekeeping = true
                 }
                 break;
             default:
                 break;
         }
-    }, [hasSystemAccess, systemAccess, username])
+    }, [hasSystemAccess, systemAccess, fetchChecklistDataAction, fetchChecklistHistoryDataAction, fetchChecklistDepartmentsAction, fetchChecklistDoersAction, fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction, loadHousekeepingData, loadHousekeepingHistoryData, fetchHousekeepingDepartmentsAction])
 
     return (
         <AdminLayout>

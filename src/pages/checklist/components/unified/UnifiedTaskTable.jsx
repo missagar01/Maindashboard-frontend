@@ -766,6 +766,7 @@ export default function UnifiedTaskTable({
                                         isHousekeepingOnly={isHousekeepingOnly}
                                         isMaintenanceOnly={isMaintenanceOnly}
                                         userRole={userRole}
+                                        activeSystem={filters.sourceSystem || "unified"}
                                     />
                                     <tbody className="bg-white divide-y divide-gray-100">
                                         {displayTasks.length > 0 ? (

@@ -64,10 +64,10 @@ type DashboardBreakdown = Record<string, number>;
 type DashboardStatValue =
   | number
   | {
-      count?: number | string;
-      breakdown?: DashboardBreakdown;
-      [key: string]: any;
-    };
+    count?: number | string;
+    breakdown?: DashboardBreakdown;
+    [key: string]: any;
+  };
 
 type DashboardStatsState = {
   totalTask: DashboardStatValue;
@@ -83,9 +83,9 @@ const normalizeDashboardStat = (value: any): DashboardStatValue => {
     const normalizedBreakdown =
       value.breakdown && typeof value.breakdown === "object"
         ? Object.entries(value.breakdown).reduce<DashboardBreakdown>((acc, [key, count]) => {
-            acc[key] = getCountValue(count);
-            return acc;
-          }, {})
+          acc[key] = getCountValue(count);
+          return acc;
+        }, {})
         : undefined;
 
     return {

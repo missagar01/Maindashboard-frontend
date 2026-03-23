@@ -418,7 +418,7 @@ const TaskRow = memo(function TaskRow({
         {getPriorityBadge(task.priority)}
       </td>
 
-      {/* Due Date */}
+      {/* Date Column */}
       <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
         <div className="text-xs sm:text-sm text-gray-900">
           {task.dueDateFormatted}
@@ -951,14 +951,15 @@ export default TaskRow;
  * TaskTableHeader - Table header component matching maintenance page
  * Now conditionally hides checkbox column header for history mode
  */
-export function TaskTableHeader({
+export const TaskTableHeader = memo(function TaskTableHeader({
   onSelectAll,
   isAllSelected,
   isIndeterminate,
   isHistoryMode = false,
   isHousekeepingOnly = false,
   isMaintenanceOnly = false,
-  userRole = "admin", // User role to conditionally hide columns
+  userRole = "admin",
+  activeSystem = "unified",
 }) {
   const normalizedRole = userRole?.toLowerCase();
   const isUserRole = normalizedRole === "user";
@@ -1013,7 +1014,6 @@ export function TaskTableHeader({
           <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
             Confirmed By HOD
           </th>
-          {/* Status - Show status header if not in history mode */}
           {!isHistoryMode && (
             <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
@@ -1065,7 +1065,7 @@ export function TaskTableHeader({
           Priority
         </th>
         <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Due Date
+          {activeSystem === 'checklist' ? 'Task Start Date' : 'Due Date'}
         </th>
         {isHistoryMode && (
           <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1103,7 +1103,7 @@ export function TaskTableHeader({
       </tr>
     </thead>
   );
-}
+});
 
 /**
  * TaskTableEmpty - Empty state component
