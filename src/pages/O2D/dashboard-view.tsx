@@ -1428,7 +1428,7 @@ export function DashboardView() {
             </div>
           </CardHeader>
           <CardContent className="p-0 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1 sm:gap-2">
+            <div className="hidden sm:grid sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
               {stateDistributionData.map((item, index) => {
                 const totalVolume = stateDistributionData.reduce((acc, curr) => acc + curr.count, 0);
                 const percentage = totalVolume > 0 ? ((item.count / totalVolume) * 100).toFixed(1) : "0";
@@ -1446,35 +1446,8 @@ export function DashboardView() {
                   "from-orange-500 via-orange-600 to-orange-700 shadow-orange-200/50", // Orange
                 ];
                 const gradient = gradients[index % gradients.length];
-                const mobileStyles = [
-                  { row: "border-[#C7D2FE] bg-[#F5F7FF]", labelBg: "bg-[#E9EDFF]", labelText: "text-[#1E2A78]", unitsBg: "bg-[#EEF9F4]", unitsText: "text-[#0F7A4A]", shareBg: "bg-[#FFF4E8]", shareText: "text-[#B45309]" },
-                  { row: "border-[#BAE6FD] bg-[#F2FAFF]", labelBg: "bg-[#E6F6FF]", labelText: "text-[#075985]", unitsBg: "bg-[#ECFDF3]", unitsText: "text-[#047857]", shareBg: "bg-[#FFF1F2]", shareText: "text-[#BE123C]" },
-                  { row: "border-[#A7F3D0] bg-[#F1FCF6]", labelBg: "bg-[#E6FCEF]", labelText: "text-[#065F46]", unitsBg: "bg-[#EEF4FF]", unitsText: "text-[#1D4ED8]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
-                  { row: "border-[#FDE68A] bg-[#FFFBEB]", labelBg: "bg-[#FFF7D6]", labelText: "text-[#92400E]", unitsBg: "bg-[#EEF2FF]", unitsText: "text-[#4338CA]", shareBg: "bg-[#ECFDF5]", shareText: "text-[#047857]" },
-                  { row: "border-[#FBCFE8] bg-[#FFF5FA]", labelBg: "bg-[#FFEAF4]", labelText: "text-[#9D174D]", unitsBg: "bg-[#EEF9FF]", unitsText: "text-[#0E7490]", shareBg: "bg-[#F5F3FF]", shareText: "text-[#6D28D9]" },
-                  { row: "border-[#DDD6FE] bg-[#F7F5FF]", labelBg: "bg-[#EEE9FF]", labelText: "text-[#5B21B6]", unitsBg: "bg-[#F0FDFA]", unitsText: "text-[#0F766E]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
-                  { row: "border-[#A5F3FC] bg-[#F0FDFF]", labelBg: "bg-[#E6FBFF]", labelText: "text-[#155E75]", unitsBg: "bg-[#F0F9FF]", unitsText: "text-[#1D4ED8]", shareBg: "bg-[#FFF1F2]", shareText: "text-[#BE123C]" },
-                  { row: "border-[#F5D0FE] bg-[#FFF5FF]", labelBg: "bg-[#FCEBFF]", labelText: "text-[#86198F]", unitsBg: "bg-[#EEFDF5]", unitsText: "text-[#047857]", shareBg: "bg-[#EEF2FF]", shareText: "text-[#4338CA]" },
-                  { row: "border-[#99F6E4] bg-[#F0FDFA]", labelBg: "bg-[#E7FCF6]", labelText: "text-[#115E59]", unitsBg: "bg-[#F8FAFC]", unitsText: "text-[#0F172A]", shareBg: "bg-[#FFF7ED]", shareText: "text-[#C2410C]" },
-                  { row: "border-[#FED7AA] bg-[#FFF7ED]", labelBg: "bg-[#FFEFD8]", labelText: "text-[#9A3412]", unitsBg: "bg-[#EEF2FF]", unitsText: "text-[#3730A3]", shareBg: "bg-[#ECFDF5]", shareText: "text-[#047857]" },
-                ];
-                const mobileStyle = mobileStyles[index % mobileStyles.length];
-
                 return (
                   <div key={item.state} className="w-full">
-                    {/* Mobile Row View */}
-                    <div className={cn("sm:hidden h-11 w-full rounded-md border px-2 py-1 grid grid-cols-[1.15fr_0.9fr_0.9fr] items-center gap-1.5 shadow-[0_1px_2px_rgba(15,23,42,0.08)]", mobileStyle.row)}>
-                      <p className={cn("min-w-0 truncate rounded-md px-2 py-1 text-[13px] font-semibold uppercase leading-none", mobileStyle.labelBg, mobileStyle.labelText)}>
-                        {item.state}
-                      </p>
-                      <p className={cn("rounded-md px-2 py-1 text-center text-[13px] font-semibold leading-none", mobileStyle.unitsBg, mobileStyle.unitsText)}>
-                        {item.count.toLocaleString()}
-                      </p>
-                      <p className={cn("rounded-md px-2 py-1 text-center text-[13px] font-semibold leading-none", mobileStyle.shareBg, mobileStyle.shareText)}>
-                        {percentage}%
-                      </p>
-                    </div>
-
                     <Card
                       className={cn(
                         "hidden sm:block group relative border-none transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-0.5 overflow-hidden min-h-[136px] lg:min-h-[152px] rounded-xl bg-gradient-to-br",
