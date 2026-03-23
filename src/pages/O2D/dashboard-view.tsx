@@ -32,6 +32,7 @@ type DashboardRow = {
   stateName?: string | null
 }
 
+
 type DashboardSummary = {
   monthlyStats?: Array<{ SALES_PERSON: string; MONTHLY_WORKING_PARTY: number; MONTHLY_PARTY_AVERAGE: string }>
   monthlyWorkingParty?: number // Keep optional for safety
