@@ -167,6 +167,7 @@ export function DashboardView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [showMobileStatePieChart, setShowMobileStatePieChart] = useState(false)
 
   const [selectedParty, setSelectedParty] = useState("All Parties")
   const [selectedItem, setSelectedItem] = useState("All Items")
@@ -207,6 +208,25 @@ export function DashboardView() {
     () => getPerformanceSummary(dailySalesPerformance),
     [dailySalesPerformance]
   )
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 639px)")
+    const syncViewport = () => setShowMobileStatePieChart(mediaQuery.matches)
+
+    syncViewport()
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncViewport)
+      return () => mediaQuery.removeEventListener("change", syncViewport)
+    }
+
+    mediaQuery.addListener(syncViewport)
+    return () => mediaQuery.removeListener(syncViewport)
+  }, [])
 
   const getFeedbackTimestampMs = useCallback((value: unknown): number => {
     if (value == null) return 0;
@@ -272,7 +292,6 @@ export function DashboardView() {
       }
 
       const rows = payload.data.slice(1); // Skip headers row
-      console.log("Sync success. Records loaded:", rows.length);
 
       if (rows.length === 0) {
         setFeedbackStats([]);
@@ -1502,7 +1521,8 @@ export function DashboardView() {
             </div>
 
             {/* Mobile Only: State Share Pie Chart Card */}
-            <div className="sm:hidden mt-2 w-full">
+            {showMobileStatePieChart ? (
+              <div className="sm:hidden mt-2 w-full">
               <div className="rounded-lg bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 px-2 py-1.5 text-center">
                 <p className="text-[11px] font-black uppercase tracking-wider text-white">State Share Pie</p>
                 <p className="text-[9px] font-bold uppercase tracking-wide text-white/85">State, Score & Market Share %</p>
@@ -1513,7 +1533,7 @@ export function DashboardView() {
               ) : (
                 <>
                   <div className="mt-2 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-2">
-                    <div className="relative h-56">
+                    <div className="relative h-[260px] min-h-[260px]">
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
                         <PieChart>
                           <Pie
@@ -1592,7 +1612,8 @@ export function DashboardView() {
                   </div>
                 </>
               )}
-            </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

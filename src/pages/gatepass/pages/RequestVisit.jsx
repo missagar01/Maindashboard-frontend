@@ -63,13 +63,36 @@ const AssignTask = () => {
     return () => closeCamera();
   }, []);
 
+  const stopStream = (activeStream) => {
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => track.stop());
+    }
+  };
+
+  const getCameraErrorMessage = (error) => {
+    const errorName = error?.name || "";
+
+    if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
+      return "Camera permission denied";
+    }
+
+    if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
+      return "No camera device found";
+    }
+
+    if (errorName === "NotReadableError" || errorName === "TrackStartError") {
+      return "Camera is already in use";
+    }
+
+    return "Camera access failed";
+  };
+
   const fetchPersonToMeetOptions = async () => {
     setIsLoadingOptions(true);
     try {
       const data = await fetchPersonsApi();
       setPersonToMeetOptions(data.data || []);
-    } catch (err) {
-      console.error(err);
+    } catch {
       showToast("Failed to load persons", "error");
     } finally {
       setIsLoadingOptions(false);
@@ -77,21 +100,38 @@ const AssignTask = () => {
   };
 
   const openCamera = async (facingMode) => {
-    try {
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+    let nextStream = null;
 
-      const newStream = await navigator.mediaDevices.getUserMedia({
+    try {
+      stopStream(stream);
+
+      nextStream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode },
       });
 
       if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-        setStream(newStream);
-        setCurrentFacingMode(facingMode);
+        videoRef.current.srcObject = nextStream;
       }
-    } catch (err) {
-      console.error(err);
-      showToast("Camera access failed", "error");
+      setStream(nextStream);
+      setCurrentFacingMode(facingMode);
+      return;
+    } catch (primaryError) {
+      try {
+        nextStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 },
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = nextStream;
+        }
+        setStream(nextStream);
+        setCurrentFacingMode(facingMode);
+        return;
+      } catch (fallbackError) {
+        stopStream(nextStream);
+        setStream(null);
+        showToast(getCameraErrorMessage(fallbackError || primaryError), "error");
+      }
     }
   };
 
@@ -101,7 +141,7 @@ const AssignTask = () => {
   };
 
   const closeCamera = () => {
-    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stopStream(stream);
     setStream(null);
   };
 
@@ -156,8 +196,8 @@ const AssignTask = () => {
 
           showToast("Visitor details auto-filled", "success");
         }
-      } catch (err) {
-        console.log("New visitor, no previous data");
+      } catch {
+        // No previous visitor data found.
       }
     }
   };
@@ -203,8 +243,7 @@ const AssignTask = () => {
 
       showToast("Visitor registered successfully!", "success");
       setTimeout(() => navigate("/gatepass/approvals"), 1000);
-    } catch (err) {
-      console.error(err);
+    } catch {
       showToast("Submission failed", "error");
     } finally {
       setIsSubmitting(false);

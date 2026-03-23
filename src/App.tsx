@@ -58,6 +58,9 @@ import HRFMSCandidateStatus from "./pages/hrfms/pages/CandidateStatusPage";
 import HRFMSSelectedCandidate from "./pages/hrfms/pages/SelectedCondidate";
 import HRFMSPlantVisitor from "./pages/hrfms/pages/PlantVisitor";
 import HRFMSPlantVisitorList from "./pages/hrfms/pages/PlantVisitorList";
+import HRFMSGatePassApply from "./pages/hrfms/pages/GatePassApply";
+import HRFMSGatePassList from "./pages/hrfms/pages/GatePassList";
+import HRFMSGatePassApprovedList from "./pages/hrfms/pages/GatePassApprovedList";
 import GatePassApprovals from "./pages/gatepass/pages/ApprovelPage";
 import GatePassAllData from "./pages/gatepass/pages/AllData";
 import GatePassClosePass from "./pages/gatepass/pages/ClosePass";
@@ -215,6 +218,9 @@ export default function App() {
             <Route path="/hrfms/condidate-select" element={<RouteGuard><HRFMSSelectedCandidate /></RouteGuard>} />
             <Route path="/hrfms/plant-visitor" element={<RouteGuard><HRFMSPlantVisitor /></RouteGuard>} />
             <Route path="/hrfms/plant-visitorlist" element={<RouteGuard><HRFMSPlantVisitorList /></RouteGuard>} />
+            <Route path="/hrfms/gatepass-apply" element={<RouteGuard><HRFMSGatePassApply /></RouteGuard>} />
+            <Route path="/hrfms/gatepass-list" element={<RouteGuard><HRFMSGatePassList /></RouteGuard>} />
+            <Route path="/hrfms/gatepass-approved-list" element={<RouteGuard><HRFMSGatePassApprovedList /></RouteGuard>} />
             <Route path="/gatepass" element={<RouteGuard><Navigate to="/gatepass/visitor" replace /></RouteGuard>} />
             <Route path="/gatepass/visitor" element={<RouteGuard><Navigate to="/gatepass/approvals" replace /></RouteGuard>} />
             <Route path="/gatepass/approvals" element={<RouteGuard><GatePassApprovals /></RouteGuard>} />

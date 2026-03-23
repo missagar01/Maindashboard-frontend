@@ -47,6 +47,8 @@ const availableRoutes = [
   { path: '/leave-request', label: 'Leave Request' },
   { path: '/plant-visitor', label: 'Plant Visitor' },
   { path: '/plant-visitorlist', label: 'Plant Visitor List' },
+  { path: '/gatepass-apply', label: 'Gate Pass Apply' },
+  { path: '/gatepass-list', label: 'Gate Pass List' },
   { path: '/leave-approvals', label: 'Leave Approvals' },
   { path: '/commercial-head-approval', label: 'Hod Approval' },
   { path: '/leave-hr-approvals', label: 'HR Approvals' },
