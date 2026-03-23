@@ -24,13 +24,17 @@ const AssignTask = () => {
   const navigate = useNavigate();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpeningCamera, setIsOpeningCamera] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const [personToMeetOptions, setPersonToMeetOptions] = useState([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [cameraError, setCameraError] = useState("");
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const streamRef = useRef(null);
 
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
@@ -49,8 +53,10 @@ const AssignTask = () => {
   });
 
   useEffect(() => {
-    openCamera("environment");
+    streamRef.current = stream;
+  }, [stream]);
 
+  useEffect(() => {
     const now = new Date();
     setFormData((prev) => ({
       ...prev,
@@ -60,7 +66,53 @@ const AssignTask = () => {
 
     fetchPersonToMeetOptions();
 
-    return () => closeCamera();
+    return () => {
+      stopStream(streamRef.current);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeCamera = async () => {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia
+      ) {
+        if (isMounted) {
+          setCameraError("Camera is not supported on this device/browser");
+        }
+        return;
+      }
+
+      try {
+        if (!navigator.permissions?.query) {
+          return;
+        }
+
+        const permissionStatus = await navigator.permissions.query({ name: "camera" });
+        if (!isMounted) {
+          return;
+        }
+
+        if (permissionStatus.state === "granted") {
+          openCamera("environment");
+        } else if (permissionStatus.state === "denied") {
+          setCameraError("Camera blocked. Allow camera permission or use Upload Photo.");
+        }
+      } catch {
+        // Permission API is not available on all mobile browsers.
+      }
+    };
+
+    initializeCamera();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const stopStream = (activeStream) => {
@@ -73,7 +125,7 @@ const AssignTask = () => {
     const errorName = error?.name || "";
 
     if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
-      return "Camera permission denied";
+      return "Camera permission denied. Allow permission or use Upload Photo.";
     }
 
     if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
@@ -100,56 +152,103 @@ const AssignTask = () => {
   };
 
   const openCamera = async (facingMode) => {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      const message = "Camera is not supported on this device/browser";
+      setCameraError(message);
+      showToast(message, "error");
+      return;
+    }
+
     let nextStream = null;
+    setIsOpeningCamera(true);
+    setCameraError("");
 
     try {
       stopStream(stream);
 
       nextStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode },
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: { ideal: facingMode },
+        },
       });
 
       if (videoRef.current) {
         videoRef.current.srcObject = nextStream;
+        videoRef.current.setAttribute("playsinline", "true");
+        await videoRef.current.play().catch(() => {});
       }
       setStream(nextStream);
       setCurrentFacingMode(facingMode);
+      setIsOpeningCamera(false);
       return;
     } catch (primaryError) {
       try {
         nextStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
         });
 
         if (videoRef.current) {
           videoRef.current.srcObject = nextStream;
+          videoRef.current.setAttribute("playsinline", "true");
+          await videoRef.current.play().catch(() => {});
         }
         setStream(nextStream);
         setCurrentFacingMode(facingMode);
+        setIsOpeningCamera(false);
         return;
       } catch (fallbackError) {
         stopStream(nextStream);
         setStream(null);
-        showToast(getCameraErrorMessage(fallbackError || primaryError), "error");
+        const message = getCameraErrorMessage(fallbackError || primaryError);
+        setCameraError(message);
+        showToast(message, "error");
+      } finally {
+        setIsOpeningCamera(false);
       }
     }
+
+    setIsOpeningCamera(false);
   };
 
   const switchCamera = async () => {
+    if (!stream) {
+      openCamera(currentFacingMode);
+      return;
+    }
+
     const next = currentFacingMode === "user" ? "environment" : "user";
     await openCamera(next);
   };
 
   const closeCamera = () => {
     stopStream(stream);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setStream(null);
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !stream) {
+      showToast("Start camera first or use Upload Photo", "error");
+      return;
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+
+    if (!videoRef.current.videoWidth || !videoRef.current.videoHeight || !ctx) {
+      showToast("Camera preview not ready", "error");
+      return;
+    }
 
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
@@ -157,11 +256,22 @@ const AssignTask = () => {
 
     canvas.toBlob(
       (blob) => {
+        if (!blob) {
+          showToast("Photo capture failed", "error");
+          return;
+        }
+
+        if (capturedPhoto) {
+          URL.revokeObjectURL(capturedPhoto);
+        }
+
         const file = new File([blob], `visitor_${Date.now()}.jpg`, {
           type: "image/jpeg",
         });
         setPhotoFile(file);
         setCapturedPhoto(URL.createObjectURL(file));
+        setCameraError("");
+        closeCamera();
         showToast("Photo captured!", "success");
       },
       "image/jpeg",
@@ -169,11 +279,41 @@ const AssignTask = () => {
     );
   };
 
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (capturedPhoto) {
+      URL.revokeObjectURL(capturedPhoto);
+    }
+
+    closeCamera();
+    setPhotoFile(file);
+    setCapturedPhoto(URL.createObjectURL(file));
+    setCameraError("");
+    showToast("Photo selected!", "success");
+    event.target.value = "";
+  };
+
   const retakePhoto = () => {
+    if (capturedPhoto) {
+      URL.revokeObjectURL(capturedPhoto);
+    }
     setCapturedPhoto(null);
     setPhotoFile(null);
+    setCameraError("");
     openCamera(currentFacingMode);
   };
+
+  useEffect(() => {
+    return () => {
+      if (capturedPhoto) {
+        URL.revokeObjectURL(capturedPhoto);
+      }
+    };
+  }, [capturedPhoto]);
 
   const handleChange = async (e) => {
     const { name, value } = e.target;
@@ -429,24 +569,64 @@ const AssignTask = () => {
                   {!capturedPhoto ? (
                     <div className="flex flex-col items-center">
                       <div className="relative w-full max-w-sm rounded-2xl overflow-hidden bg-black shadow-2xl border-4 border-white mb-6 aspect-video">
-                        <video ref={videoRef} autoPlay className="w-full h-full object-cover" />
+                        {stream ? (
+                          <video
+                            ref={videoRef}
+                            autoPlay
+                            muted
+                            playsInline
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center text-white">
+                            <Camera className="h-10 w-10 text-white/70" />
+                            <p className="text-sm font-semibold">
+                              {cameraError || "Tap Start Camera to enable live photo capture"}
+                            </p>
+                          </div>
+                        )}
                         <canvas ref={canvasRef} className="hidden" />
+                        {stream ? (
+                          <button
+                            type="button"
+                            onClick={switchCamera}
+                            className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md hover:bg-white/40 text-white p-3 rounded-full transition-all"
+                          >
+                            <SwitchCamera className="h-5 w-5" />
+                          </button>
+                        ) : null}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture={currentFacingMode}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <div className="flex flex-col gap-3 sm:flex-row">
                         <button
                           type="button"
-                          onClick={switchCamera}
-                          className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md hover:bg-white/40 text-white p-3 rounded-full transition-all"
+                          onClick={stream ? capturePhoto : () => openCamera(currentFacingMode)}
+                          disabled={isOpeningCamera}
+                          className="bg-orange-500 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-all transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <SwitchCamera className="h-5 w-5" />
+                          <Camera className="h-5 w-5" />
+                          {isOpeningCamera
+                            ? "Starting..."
+                            : stream
+                              ? "Take Photo"
+                              : "Start Camera"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border border-slate-300 bg-white text-slate-700 px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-slate-50"
+                        >
+                          <FileText className="h-5 w-5" />
+                          Upload Photo
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={capturePhoto}
-                        className="bg-orange-500 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-orange-200 transition-all transform active:scale-95"
-                      >
-                        <Camera className="h-5 w-5" />
-                        Take Photo
-                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
