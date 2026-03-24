@@ -95,34 +95,75 @@ const HousekeepingVerify = () => {
   const fetchTasks = async (pageNum) => {
     setLoading(true);
     try {
-      const historyResponse = await getHousekeepingHistoryTasksAPI(pageNum, {
-        unconfirmed: 'true',
-        limit,
-      });
+      // 1. Calculate today's date formats for robust matching
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
 
-      const historyPayload = historyResponse?.data;
-      const historyItems = extractItems(historyPayload)
+      const todayYMD = `${year}-${month}-${day}`;      // 2026-03-24
+      const todayDMY = `${day}-${month}-${year}`;      // 24-03-2026
+      const todayDMY2 = `${day}/${month}/${year}`;     // 24/03/2026
+      const todayYMD2 = `${year}/${month}/${day}`;     // 2026/03/24
+
+      // 2. Fetch from BOTH History and Pending to be absolutely sure we don't miss records
+      // History: Usually contains submitted tasks
+      // Pending: Usually contains unsubmitted tasks (but sometimes status varies)
+      const [historyResponse, pendingResponse] = await Promise.all([
+        getHousekeepingHistoryTasksAPI(pageNum, { unconfirmed: 'true', limit }),
+        getHousekeepingPendingTasksAPI(pageNum, { limit })
+      ]);
+
+      const allRawItems = [
+        ...extractItems(historyResponse?.data),
+        ...extractItems(pendingResponse?.data)
+      ];
+
+      // 3. Normalize and filter
+      const filteredItems = allRawItems
         .map(normalizeVerifyTask)
-        .filter((task) => task.task_id);
-      const historyTotal = extractTotal(historyPayload, historyItems.length);
+        .filter((task, index, self) => {
+          // De-duplicate by task_id if it exists in both responses
+          return task.task_id && self.findIndex(t => t.task_id === task.task_id) === index;
+        })
+        .filter((task) => {
+          // --- USER CONDITIONS ---
+          // 1. task_start_date should be today's date
+          // 2. submission_date should be not null
+          // 3. attachment column should be null
 
-      let nextTasks = historyItems;
-      let nextTotal = historyTotal;
+          // Robust Date Matching
+          const rawDateStr = String(task.task_start_date || '').trim();
+          const isToday = rawDateStr.includes(todayYMD) ||
+            rawDateStr.includes(todayDMY) ||
+            rawDateStr.includes(todayDMY2) ||
+            rawDateStr.includes(todayYMD2);
 
-      if (historyItems.length === 0) {
-        const pendingResponse = await getHousekeepingPendingTasksAPI(pageNum, { limit });
-        const pendingPayload = pendingResponse?.data;
-        const pendingItems = extractItems(pendingPayload)
-          .map(normalizeVerifyTask)
-          .filter((task) => task.task_id);
+          // Robust Submission Check (Not Null)
+          const subDate = task.submission_date;
+          const hasSubmission = subDate !== null &&
+            subDate !== undefined &&
+            subDate !== '' &&
+            subDate !== 'null' &&
+            subDate !== 'NULL' &&
+            subDate !== '—';
 
-        if (pendingItems.length > 0) {
-          nextTasks = pendingItems;
-          nextTotal = extractTotal(pendingPayload, pendingItems.length);
-        }
-      }
+          // Robust Attachment Check (Null/Unconfirmed)
+          const attach = task.attachment;
+          const isAttachmentNull = attach === null ||
+            attach === undefined ||
+            attach === '' ||
+            attach === 'null' ||
+            attach === 'NULL' ||
+            attach === '—' ||
+            String(attach).toLowerCase() === 'none';
 
-      setTasks(nextTasks);
+          return isToday && hasSubmission && isAttachmentNull;
+        });
+
+      const nextTotal = filteredItems.length;
+
+      setTasks(filteredItems);
       setTotal(nextTotal);
       setHasMore(pageNum * limit < nextTotal);
     } catch (error) {

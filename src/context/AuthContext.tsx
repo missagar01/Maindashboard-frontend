@@ -942,19 +942,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <AuthContext.Provider
-        value={{
-          user,
-          userData: user,
-          token,
-          loading,
-          isInitializing,
-          isAuthenticated,
-          isLoggedIn: isAuthenticated,
-          authLoading: loading,
-          authError,
-          pageAccess,
-          systemAccess,
-          login,
+      value={{
+        user,
+        userData: user,
+        token,
+        loading,
+        isInitializing,
+        isAuthenticated,
+        isLoggedIn: isAuthenticated,
+        authLoading: loading,
+        authError,
+        pageAccess,
+        systemAccess,
+        login,
         logout,
         getAuthHeaders,
         title,
@@ -997,14 +997,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         deleteLoan,
 
         pendingRenewals,
-          pendingSubscriptionRenewals,
-          pendingApprovals,
-          approvalHistory,
-          pendingPayments,
-          paymentHistory,
-          ...checklistCompatibility,
-        }}
-      >
+        pendingSubscriptionRenewals,
+        pendingApprovals,
+        approvalHistory,
+        pendingPayments,
+        paymentHistory,
+        ...checklistCompatibility,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
