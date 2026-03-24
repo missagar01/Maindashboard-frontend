@@ -38,10 +38,10 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
 
   // Select all checkboxes
   const handleSelectAll = () => {
-    if (selectedTasks.length === filteredTasks.length) {
+    if (selectedTasks.length === filteredTasks.length && filteredTasks.length > 0) {
       setSelectedTasks([])
     } else {
-      setSelectedTasks(filteredTasks.map(task => task_id))
+      setSelectedTasks(filteredTasks.map(task => task.task_id))
     }
   }
 
@@ -196,130 +196,122 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
 
       {/* Main Content */}
       {!error && isInitialized && !loading && (
-         <div className="mt-4 rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4 flex justify-between items-center">
+         <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
+          <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
             <div>
-              <h2 className="text-purple-700 font-medium">Delegation Tasks</h2>
-              <p className="text-purple-600 text-sm">
-                ({filteredTasks.length} tasks)
+              <h2 className="text-gray-700 font-bold text-sm flex items-center gap-2">
+                <div className="w-1 h-4 bg-red-600 rounded-full" />
+                Delegation Tasks
+              </h2>
+              <p className="text-gray-500 text-[10px] sm:text-xs">
+                ({filteredTasks.length} tasks matching your view)
               </p>
             </div>
             
-            {/* Delete selected button */}
             {selectedTasks.length > 0 && (
               <button
                 onClick={handleDeleteSelected}
                 disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:bg-gray-200 disabled:cursor-not-allowed transition-all shadow-md text-xs font-bold"
               >
-                <Trash2 size={16} />
-                {isDeleting ? 'Deleting...' : `Delete (${selectedTasks.length})`}
+                <Trash2 size={14} />
+                {isDeleting ? 'Deleting...' : `Delete ${selectedTasks.length} selected`}
               </button>
             )}
           </div>
 
 
-          <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-20">
+          <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50/80 sticky top-0 z-20 backdrop-blur-sm">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
                       onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    TIMESTAMP
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    TASK ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    DEPARTMENT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    GIVEN BY
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    NAME
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[300px]">
-                    TASK DESCRIPTION
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-yellow-50">
-                    TASK START DATE
-                  </th>
-                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-yellow-50">
-                    TASK END DATE
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    FREQ
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ENABLE REMINDERS
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    REQUIRE ATTACHMENT
-                  </th>
+                  {[
+                    "TIMESTAMP", "TASK ID", "DEPARTMENT", "GIVEN BY",
+                    "NAME", "TASK DESCRIPTION", "TASK START DATE",
+                    "TASK END DATE", "FREQ", "REMINDERS", "ATTACHMENT"
+                  ].map((head) => (
+                    <th
+                      key={head}
+                      className={`px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest ${
+                        (head === "TASK START DATE" || head === "TASK END DATE") ? "bg-red-50/30" : ""
+                      }`}
+                    >
+                      {head}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTasks.length > 0 ? (
+                 {filteredTasks.length > 0 ? (
                   filteredTasks.map((task,index) => (
-                     <tr key={index} className="hover:bg-gray-50">
+                     <tr
+                       key={index}
+                       className={`group hover:bg-gray-50/80 transition-colors ${
+                         selectedTasks.includes(task.task_id) ? "bg-red-50/20" : ""
+                       }`}
+                     >
                       <td className="px-4 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedTasks.includes(task.task_id)}
                           onChange={() => handleCheckboxChange(task.task_id)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600">
                         {formatDateTime(task.created_at) || "—"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.task_id || "—"}
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-400">
+                        #{task.task_id || "—"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-medium">
                         {task.department || "—"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
                         {task.given_by || "—"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-bold">
                         {task.name || "—"}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 min-w-[300px] max-w-[400px]">
-                        <div className="whitespace-normal break-words">
+                      <td className="px-6 py-4 text-xs text-gray-500 min-w-[300px] max-w-[400px]">
+                        <div className="whitespace-normal break-words leading-relaxed">
                           {task.task_description || "—"}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 bg-yellow-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
                         {formatDateTime(task.task_start_date) || "—"}
                       </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 bg-yellow-50">
+                       <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
                         {formatDateTime(task.submission_date) || "—"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          task.frequency === 'Daily' ? 'bg-blue-100 text-blue-800' :
-                          task.frequency === 'Weekly' ? 'bg-green-100 text-green-800' :
-                          task.frequency === 'Monthly' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-bold">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          task.frequency === 'Daily' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                          task.frequency === 'Weekly' ? 'bg-green-50 text-green-600 border border-green-100' :
+                          task.frequency === 'Monthly' ? 'bg-red-50 text-red-600 border border-red-100' :
+                          'bg-gray-50 text-gray-600 border border-gray-100'
                         }`}>
                           {task.frequency || "—"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.enable_reminder || "—"}
+                      <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
+                        <span className={task.enable_reminder === "Yes" ? "text-green-600" : "text-gray-400"}>
+                          {task.enable_reminder || "—"}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.require_attachment|| "—"}
+                      <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
+                        <span className={task.require_attachment === "Yes" ? "text-blue-600" : "text-gray-400"}>
+                          {task.require_attachment|| "—"}
+                        </span>
                       </td>
                     </tr>
                   ))

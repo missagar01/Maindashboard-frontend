@@ -1,7 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
 import { fetchUniqueDivisionDataApi } from "@/api/checklist/assignTaskApi.js";
+import { Loader2 } from "lucide-react";
+
+// Reusable dropdown with loading state
+const DropdownField = ({ label, id, name, value, onChange, required, disabled, loading, placeholder, children, hint }) => (
+  <div className="space-y-1.5">
+    <label htmlFor={id} className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    <div className="relative">
+      <select
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        disabled={disabled || loading}
+        className={`w-full rounded-xl border px-3 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 transition-all ${
+          loading || disabled
+            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+            : "border-gray-300 bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500"
+        }`}
+      >
+        <option value="">{loading ? "Loading..." : placeholder}</option>
+        {!loading && children}
+      </select>
+      {loading && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+        </div>
+      )}
+    </div>
+    {hint && !loading && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
+  </div>
+);
 
 const frequencies = ["one-time", "daily", "weekly", "monthly"];
 
@@ -52,6 +86,7 @@ export default function AssignTask() {
   const [newLocation, setNewLocation] = useState("");
   const [locationError, setLocationError] = useState("");
   const [locationSuccess, setLocationSuccess] = useState("");
+  const [loadingInitial, setLoadingInitial] = useState(true);
 
   const normalizeDivisionOptions = (payload) => {
     const divisions = Array.isArray(payload)
@@ -71,20 +106,24 @@ export default function AssignTask() {
 
   // Fetch initial data
   useEffect(() => {
-    fetchHousekeepingLocationsTask();
-    fetchHousekeepingUserDepartmentsTask();
-
-    // Fetch unique divisions from backend
-    const fetchDivisions = async () => {
+    const loadAll = async () => {
+      setLoadingInitial(true);
       try {
+        await Promise.all([
+          fetchHousekeepingLocationsTask(),
+          fetchHousekeepingUserDepartmentsTask(),
+        ]);
+        // Fetch unique divisions from backend
         const result = await fetchUniqueDivisionDataApi();
         setDivisionOptions(normalizeDivisionOptions(result));
       } catch (err) {
-        console.error("Division fetch error:", err);
+        console.error("Initial data fetch error:", err);
+      } finally {
+        setLoadingInitial(false);
       }
     };
-    fetchDivisions();
-  }, [fetchHousekeepingLocationsTask, fetchHousekeepingUserDepartmentsTask]);
+    loadAll();
+  }, []);
 
   // Process locations
   useEffect(() => {
@@ -354,98 +393,69 @@ export default function AssignTask() {
             ) : null}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Division <span className="text-red-500">*</span></label>
-                <select
-                  value={selectedDivision}
-                  onChange={(e) => {
-                    setSelectedDivision(e.target.value);
-                    // Reset department and location when division changes
-                    setFormData(prev => ({ ...prev, department: "", location: "" }));
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  required
-                >
-                  <option value="">Select Division</option>
-                  {divisionOptions.map((div, i) => (
-                    <option key={i} value={div}>
-                      {div}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="division-hk" label="Division"
+                value={selectedDivision}
+                onChange={(e) => {
+                  setSelectedDivision(e.target.value);
+                  setFormData(prev => ({ ...prev, department: "", location: "" }));
+                }}
+                required loading={loadingInitial}
+                placeholder="Select Division"
+              >
+                {divisionOptions.map((div, i) => (
+                  <option key={i} value={div}>{div}</option>
+                ))}
+              </DropdownField>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Location</label>
-                <select
-                  name="location"
-                  value={formData.location}
-                  onChange={(e) => handleLocationChange(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  autoComplete="off"
-                >
-                  <option value="">Select location</option>
-                  {locationOptions.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="location-hk" name="location" label="Location"
+                value={formData.location}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                loading={loadingInitial}
+                placeholder="Select location"
+              >
+                {locationOptions.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </DropdownField>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Department</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={(e) => handleDepartmentSelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-1 bg-white"
-                  disabled={userRole.toLowerCase() === "user" && !!userDepartment}
-                >
-                  <option value="">Select department</option>
-                  {filteredDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="department-hk" name="department" label="Department"
+                value={formData.department}
+                onChange={(e) => handleDepartmentSelect(e.target.value)}
+                loading={loadingInitial}
+                disabled={userRole.toLowerCase() === "user" && !!userDepartment}
+                placeholder="Select department"
+              >
+                {filteredDepartments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </DropdownField>
 
+              <DropdownField
+                id="given_by-hk" name="given_by" label="Given By"
+                value={formData.given_by}
+                onChange={handleChange}
+                loading={false}
+                placeholder="Select"
+              >
+                {givenByOptionsList.map((person, index) => (
+                  <option key={`given-by-${index}-${person}`} value={person}>{person}</option>
+                ))}
+              </DropdownField>
 
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Given By</label>
-                <select
-                  name="given_by"
-                  value={formData.given_by}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select</option>
-                  {givenByOptionsList.map((person, index) => (
-                    <option key={`given-by-${index}-${person}`} value={person}>
-                      {person}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Doer Name</label>
-                <select
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select</option>
-                  {doerNamesList.map((doer, index) => (
-                    <option key={`doer-${index}-${doer}`} value={doer}>
-                      {doer}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="name-hk" name="name" label="Doer Name"
+                value={formData.name}
+                onChange={handleChange}
+                loading={loadingInitial}
+                placeholder="Select"
+              >
+                {doerNamesList.map((doer, index) => (
+                  <option key={`doer-${index}-${doer}`} value={doer}>{doer}</option>
+                ))}
+              </DropdownField>
             </div>
 
             <div className="space-y-1">

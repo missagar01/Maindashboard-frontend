@@ -20,6 +20,7 @@ import {
 import AdminLayout from "../components/layout/AdminLayout";
 import { useAuth } from "../context/AuthContext";
 import { patchVerifyAccessApi, patchVerifyAccessDeptApi } from "@/api/checklist/settingApi.js";
+import axiosInstance from "@/api/checklist/axiosInstance.js";
 import {
     SYSTEM_OPTIONS,
     getPageOptionGroupsForSystems,
@@ -40,12 +41,6 @@ const Setting = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [activeDeptSubTab, setActiveDeptSubTab] = useState("departments");
-    // Leave Management State
-    const [selectedUsers, setSelectedUsers] = useState([]);
-    const [leaveStartDate, setLeaveStartDate] = useState("");
-    const [leaveEndDate, setLeaveEndDate] = useState("");
-    const [remark, setRemark] = useState("");
-    const [leaveUsernameFilter, setLeaveUsernameFilter] = useState("");
     const [showPasswords, setShowPasswords] = useState({}); // Track which passwords are visibl
     const [showModalPassword, setShowModalPassword] = useState(false);
     const [showDeptDropdown, setShowDeptDropdown] = useState(false);
@@ -72,14 +67,6 @@ const Setting = () => {
     };
 
     // Your existing functions remain the same...
-    const handleLeaveUsernameFilter = (username) => {
-        setLeaveUsernameFilter(username);
-    };
-
-    const clearLeaveUsernameFilter = () => {
-        setLeaveUsernameFilter("");
-    };
-
     const handleUsernameFilterSelect = (username) => {
         setUsernameFilter(username);
         setUsernameDropdownOpen(false);
@@ -111,7 +98,6 @@ const Setting = () => {
             resetDeptForm();
             setShowDeptModal(true);
         }
-        // No action for leave tab
     };
 
     const handleUserSelection = (userId, isSelected) => {
@@ -132,97 +118,6 @@ const Setting = () => {
         }
     };
 
-    const handleSubmitLeave = async () => {
-        if (selectedUsers.length === 0 || !leaveStartDate || !leaveEndDate) {
-            alert(
-                "Please select at least one user and provide both start and end dates"
-            );
-            return;
-        }
-
-        // Validate date range
-        const startDate = new Date(leaveStartDate);
-        const endDate = new Date(leaveEndDate);
-
-        if (startDate > endDate) {
-            alert("End date cannot be before start date");
-            return;
-        }
-
-        try {
-            // Update each selected user with leave information
-            const updatePromises = selectedUsers.map((userId) =>
-                updateSettingUser({
-                    id: userId,
-                    updatedUser: {
-                        leave_date: leaveStartDate, // You can store start date or both dates
-                        leave_end_date: leaveEndDate, // Add this field to your user table if needed
-                        remark: remark,
-                    },
-                })
-            );
-
-            await Promise.all(updatePromises);
-
-            // Delete matching checklist tasks for the date range
-            const deleteChecklistPromises = selectedUsers.map(async (userId) => {
-                const user = Array.isArray(userData)
-                    ? userData.find((u) => u && u.id === userId)
-                    : null;
-                if (user && user.user_name) {
-                    try {
-                        // Format dates for Supabase query
-                        const formattedStartDate = `${leaveStartDate}T00:00:00`;
-                        const formattedEndDate = `${leaveEndDate}T23:59:59`;
-
-                        // console.log(`Deleting tasks for ${user.user_name} from ${leaveStartDate} to ${leaveEndDate}`);
-
-                        // Delete checklist tasks where name matches and date falls within the range
-                        const { error } = await fetch(
-                            `https://YOUR_SERVER/api/checklist/delete-range`,
-                            {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    username: user.user_name,
-                                    startDate: formattedStartDate,
-                                    endDate: formattedEndDate,
-                                }),
-                            }
-                        );
-                        if (error) {
-                            console.error("Error deleting checklist tasks:", error);
-                        } else {
-                            console.log(
-                                `Deleted checklist tasks for ${user.user_name} from ${leaveStartDate} to ${leaveEndDate}`
-                            );
-                        }
-                    } catch (error) {
-                        console.error("Error in checklist deletion:", error);
-                    }
-                }
-            });
-
-            await Promise.all(deleteChecklistPromises);
-
-            // Reset form
-            setSelectedUsers([]);
-            setLeaveStartDate("");
-            setLeaveEndDate("");
-            setRemark("");
-
-            // Refresh data
-            setTimeout(() => window.location.reload(), 1000);
-            alert(
-                "Leave information submitted successfully and matching tasks deleted"
-            );
-        } catch (error) {
-            console.error("Error submitting leave information:", error);
-            alert("Error submitting leave information");
-        }
-    };
-
-    // Add to your existing handleTabChange function
     // Handle tab change
     const handleTabChange = (tab) => {
         setActiveTab(tab);
@@ -231,8 +126,6 @@ const Setting = () => {
             fetchSettingDepartmentDetails(); // Ensure departments are fetched
         } else if (tab === "departments") {
             fetchSettingDepartmentDetails();
-        } else if (tab === "leave") {
-            loadUserList();
         }
     };
 
@@ -292,8 +185,7 @@ const Setting = () => {
     const fetchDivisions = async () => {
         try {
             const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-            const res = await fetch(`${BACKEND_URL}/api/checklist/assign-task/divisions`);
-            const result = await res.json();
+            const { data: result } = await axiosInstance.get(`${BACKEND_URL}/api/checklist/assign-task/divisions`);
             if (Array.isArray(result)) {
                 setDivisionOptions(result);
             }
@@ -898,19 +790,6 @@ const Setting = () => {
         }
     };
 
-    // Add this filtered users calculation for leave tab
-    const filteredLeaveUsers = Array.isArray(userData)
-        ? userData.filter(
-            (user) =>
-                user?.user_name !== "admin" &&
-                (!leaveUsernameFilter ||
-                    (user?.user_name &&
-                        user.user_name
-                            .toLowerCase()
-                            .includes(leaveUsernameFilter.toLowerCase())))
-        )
-        : [];
-
     const filteredUsers = useMemo(() => {
         if (!Array.isArray(userData)) {
             return [];
@@ -1000,18 +879,6 @@ const Setting = () => {
                                     <Building size={16} className="sm:w-[18px] sm:h-[18px]" />
                                     <span className="hidden xs:inline">Departments</span>
                                 </button>
-                                <button
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "leave"
-                                        ? "bg-purple-600 text-white"
-                                        : "bg-white text-purple-600 hover:bg-purple-50"
-                                        }`}
-                                    onClick={() => {
-                                        handleTabChange("leave");
-                                    }}
-                                >
-                                    <Calendar size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                    <span className="hidden xs:inline">Leave</span>
-                                </button>
                             </div>
 
                             {/* <button
@@ -1031,213 +898,21 @@ const Setting = () => {
                                 </div>
                             </button> */}
 
-                            {/* Add button - hide for leave tab */}
-                            {activeTab !== "leave" && (
-                                <button
-                                    onClick={handleAddButtonClick}
-                                    className="w-full sm:w-auto rounded-md gradient-bg py-2 px-3 sm:px-4 text-white hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-xs sm:text-sm"
-                                >
-                                    <div className="flex items-center justify-center">
-                                        <Plus size={16} className="mr-2" />
-                                        <span>
-                                            {activeTab === "users" ? "Add User" : "Add Department"}
-                                        </span>
-                                    </div>
-                                </button>
-                            )}
+                            {/* Add button */}
+                            <button
+                                onClick={handleAddButtonClick}
+                                className="w-full sm:w-auto rounded-md bg-red-600 py-2 px-3 sm:px-4 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-xs sm:text-sm"
+                            >
+                                <div className="flex items-center justify-center">
+                                    <Plus size={16} className="mr-2" />
+                                    <span>
+                                        {activeTab === "users" ? "Add User" : "Add Department"}
+                                    </span>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
-
-                {/* Leave Management Tab */}
-                {activeTab === "leave" && (
-                    <div className="bg-white shadow rounded-lg overflow-hidden border border-purple-200">
-                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple px-3 sm:px-6 py-3 sm:py-4 border-gray-200">
-                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
-                                <h2 className="text-base sm:text-lg font-medium text-purple-700">
-                                    Leave Management
-                                </h2>
-
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-                                    {/* Username Search Filter for Leave Tab */}
-                                    <div className="relative w-full sm:w-auto">
-                                        <div className="relative">
-                                            <Search
-                                                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                                                size={16}
-                                            />
-                                            <input
-                                                type="text"
-                                                list="leaveUsernameOptions"
-                                                placeholder="Filter by username..."
-                                                value={leaveUsernameFilter}
-                                                onChange={(e) => setLeaveUsernameFilter(e.target.value)}
-                                                className="w-full sm:w-48 pl-10 pr-8 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                                            />
-                                            <datalist id="leaveUsernameOptions">
-                                                {Array.isArray(userData) &&
-                                                    userData
-                                                        .filter((user) => user && user.id && user.user_name && user.user_name !== "admin")
-                                                        .map((user) => (
-                                                            <option
-                                                                key={user.id}
-                                                                value={`${user.user_name} (${user.employee_id || "N/A"})`}
-                                                            />
-                                                        ))}
-                                            </datalist>
-
-                                            {/* Clear button for input */}
-                                            {leaveUsernameFilter && (
-                                                <button
-                                                    onClick={clearLeaveUsernameFilter}
-                                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <button
-                                        onClick={handleSubmitLeave}
-                                        className="w-full sm:w-auto rounded-md bg-green-600 py-2 px-4 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-sm"
-                                    >
-                                        Submit Leave
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Leave Form */}
-                        <div className="p-3 sm:p-6 border-b border-gray-200">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Leave Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={leaveStartDate}
-                                        onChange={(e) => setLeaveStartDate(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Leave End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={leaveEndDate}
-                                        onChange={(e) => setLeaveEndDate(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    />
-                                </div>
-                                <div className="sm:col-span-2 lg:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Remarks
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={remark}
-                                        onChange={(e) => setRemark(e.target.value)}
-                                        placeholder="Enter remarks"
-                                        className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Users List for Leave Selection */}
-                        <div className="h-[calc(100vh-400px)] sm:h-[calc(100vh-350px)] overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th
-                                            scope="col"
-                                            className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                onChange={handleSelectAll}
-                                                checked={
-                                                    selectedUsers.length === filteredLeaveUsers?.length &&
-                                                    filteredLeaveUsers?.length > 0
-                                                }
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                            />
-                                        </th>
-                                        <th
-                                            scope="col"
-                                            className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            Username
-                                        </th>
-                                        <th
-                                            scope="col"
-                                            className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            Start Date
-                                        </th>
-                                        <th
-                                            scope="col"
-                                            className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            End Date
-                                        </th>
-                                        <th
-                                            scope="col"
-                                            className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            Remarks
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredLeaveUsers?.map((user) => (
-                                        <tr key={user.id} className="hover:bg-gray-50">
-                                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedUsers.includes(user.id)}
-                                                    onChange={(e) =>
-                                                        handleUserSelection(user.id, e.target.checked)
-                                                    }
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                <div className="text-xs sm:text-sm font-medium text-gray-900">
-                                                    {user.user_name}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                <div className="text-xs sm:text-sm text-gray-900">
-                                                    {user.leave_date
-                                                        ? new Date(user.leave_date).toLocaleDateString()
-                                                        : "No leave set"}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                <div className="text-xs sm:text-sm text-gray-900">
-                                                    {user.leave_end_date
-                                                        ? new Date(user.leave_end_date).toLocaleDateString()
-                                                        : "No end date set"}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                <div className="text-xs sm:text-sm text-gray-900">
-                                                    {user.remark || "No remarks"}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
 
                 {/* Users Tab */}
                 {activeTab === "users" && (
@@ -1421,123 +1096,123 @@ const Setting = () => {
                                         </tr>
                                     ) : filteredUsers.length > 0 ? (
                                         filteredUsers.map((user, index) => (
-                                                <tr
-                                                    key={user?.id || index}
-                                                    className="hover:bg-gray-50"
-                                                >
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <div className="flex space-x-1 sm:space-x-2 justify-end">
-                                                            <button
-                                                                onClick={() => handleEditUser(user?.id)}
-                                                                className="text-blue-600 hover:text-blue-900"
-                                                                title="Edit User"
-                                                            >
-                                                                <Edit
-                                                                    size={16}
-                                                                    className="sm:w-[18px] sm:h-[18px]"
-                                                                />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteUser(user?.id)}
-                                                                className="text-red-600 hover:text-red-900"
-                                                                title="Delete User"
-                                                            >
-                                                                <Trash2
-                                                                    size={16}
-                                                                    className="sm:w-[18px] sm:h-[18px]"
-                                                                />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-xs sm:text-sm text-gray-900">
-                                                            {user?.employee_id || "N/A"}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-xs sm:text-sm font-medium text-gray-900">
-                                                            {user?.user_name}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-xs sm:text-sm text-gray-900">
-                                                            <div className="flex items-center space-x-1 sm:space-x-2">
-                                                                <span className="font-mono text-xs">
-                                                                    {showPasswords[user.id]
-                                                                        ? user?.password
-                                                                        : "••••••••"}
-                                                                </span>
-                                                                <button
-                                                                    onClick={() =>
-                                                                        togglePasswordVisibility(user.id)
-                                                                    }
-                                                                    className="text-gray-500 hover:text-blue-600 text-xs"
-                                                                    title={
-                                                                        showPasswords[user.id]
-                                                                            ? "Hide Password"
-                                                                            : "Show Password"
-                                                                    }
-                                                                >
-                                                                    {showPasswords[user.id] ? "👁️‍🗨️" : "👁️"}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        navigator.clipboard.writeText(
-                                                                            user?.password || ""
-                                                                        );
-                                                                        alert("Password copied to clipboard!");
-                                                                    }}
-                                                                    className="text-blue-600 hover:text-blue-800 text-xs bg-blue-50 px-1 sm:px-2 py-1 rounded"
-                                                                    title="Copy Password"
-                                                                >
-                                                                    Copy
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-normal">
-                                                        <div className="text-xs sm:text-sm text-gray-900">
-                                                            {user?.email_id}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-xs sm:text-sm text-gray-900">
-                                                            {user?.number}
-                                                        </div>
-                                                    </td>
-
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-normal">
-                                                        <div className="text-xs sm:text-sm text-gray-900 break-words">
-                                                            {user?.department || "N/A"}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <span
-                                                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                                                                    user?.status
-                                                                )}`}
-                                                            >
-                                                                {user?.status}
+                                            <tr
+                                                key={user?.id || index}
+                                                className="hover:bg-gray-50"
+                                            >
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex space-x-1 sm:space-x-2 justify-end">
+                                                        <button
+                                                            onClick={() => handleEditUser(user?.id)}
+                                                            className="text-blue-600 hover:text-blue-900"
+                                                            title="Edit User"
+                                                        >
+                                                            <Edit
+                                                                size={16}
+                                                                className="sm:w-[18px] sm:h-[18px]"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user?.id)}
+                                                            className="text-red-600 hover:text-red-900"
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2
+                                                                size={16}
+                                                                className="sm:w-[18px] sm:h-[18px]"
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-xs sm:text-sm text-gray-900">
+                                                        {user?.employee_id || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-xs sm:text-sm font-medium text-gray-900">
+                                                        {user?.user_name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-xs sm:text-sm text-gray-900">
+                                                        <div className="flex items-center space-x-1 sm:space-x-2">
+                                                            <span className="font-mono text-xs">
+                                                                {showPasswords[user.id]
+                                                                    ? user?.password
+                                                                    : "••••••••"}
                                                             </span>
-                                                            {user?.status === "active" && (
-                                                                <span
-                                                                    className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"
-                                                                    title="Live Status"
-                                                                ></span>
-                                                            )}
+                                                            <button
+                                                                onClick={() =>
+                                                                    togglePasswordVisibility(user.id)
+                                                                }
+                                                                className="text-gray-500 hover:text-blue-600 text-xs"
+                                                                title={
+                                                                    showPasswords[user.id]
+                                                                        ? "Hide Password"
+                                                                        : "Show Password"
+                                                                }
+                                                            >
+                                                                {showPasswords[user.id] ? "👁️‍🗨️" : "👁️"}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(
+                                                                        user?.password || ""
+                                                                    );
+                                                                    alert("Password copied to clipboard!");
+                                                                }}
+                                                                className="text-blue-600 hover:text-blue-800 text-xs bg-blue-50 px-1 sm:px-2 py-1 rounded"
+                                                                title="Copy Password"
+                                                            >
+                                                                Copy
+                                                            </button>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-normal">
+                                                    <div className="text-xs sm:text-sm text-gray-900">
+                                                        {user?.email_id}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-xs sm:text-sm text-gray-900">
+                                                        {user?.number}
+                                                    </div>
+                                                </td>
+
+                                                <td className="px-3 sm:px-6 py-4 whitespace-normal">
+                                                    <div className="text-xs sm:text-sm text-gray-900 break-words">
+                                                        {user?.department || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
                                                         <span
-                                                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
-                                                                user?.role
+                                                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                                                user?.status
                                                             )}`}
                                                         >
-                                                            {user?.role}
+                                                            {user?.status}
                                                         </span>
-                                                    </td>
-                                                    {/* <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                        {user?.status === "active" && (
+                                                            <span
+                                                                className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"
+                                                                title="Live Status"
+                                                            ></span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                                    <span
+                                                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
+                                                            user?.role
+                                                        )}`}
+                                                    >
+                                                        {user?.role}
+                                                    </span>
+                                                </td>
+                                                {/* <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                                                         <span
                                                             className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
                                                                 user?.role
@@ -1547,8 +1222,8 @@ const Setting = () => {
                                                         </span>
                                                     </td> */}
 
-                                                </tr>
-                                            ))
+                                            </tr>
+                                        ))
                                     ) : (
                                         <tr>
                                             <td
@@ -1785,10 +1460,10 @@ const Setting = () => {
                 {/* User Modal */}
                 {showUserModal && (
                     <div
-                        className="fixed z-50 inset-0 overflow-y-auto"
+                        className="fixed z-50 inset-y-0 right-0 left-0 xl:left-[240px] overflow-y-auto"
                         onClick={(e) => {
                             if (e.target === e.currentTarget) {
-                                setIsUpdating(false); // Reset updating state when closing modal by clicking outside
+                                setIsUpdating(false);
                                 setShowUserModal(false);
                                 resetUserForm();
                             }
@@ -2447,7 +2122,7 @@ const Setting = () => {
                 {/* Department Modal */}
                 {showDeptModal && (
                     <div
-                        className="fixed z-50 inset-0 overflow-y-auto"
+                        className="fixed z-50 inset-y-0 right-0 left-0 xl:left-[240px] overflow-y-auto"
                         onClick={(e) => {
                             if (e.target === e.currentTarget) {
                                 setShowDeptModal(false);

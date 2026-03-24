@@ -37,6 +37,8 @@ export const storeApi: any = {
   getRepairGatePassReceived: () => storeApiRequest("/api/store/repair-gate-pass/received"),
   getRepairGatePassHistory: () => storeApiRequest("/api/store/repair-gate-pass/history"),
   getRepairGatePassCounts: () => storeApiRequest("/api/store/repair-gate-pass/counts"),
+  downloadRepairGatePassPending: () =>
+    downloadBlob("/api/store/repair-gate-pass/pending/download"),
 
   downloadHistoryIndents: () =>
     downloadBlob("/api/store/store-indent/history/download"),

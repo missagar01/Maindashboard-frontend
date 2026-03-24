@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Loader } from "lucide-react";
+import { FileText, Loader, Download } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import Heading from "../../components/element/Heading";
 import { storeApi } from "@/api/store/storeSystemApi";
@@ -52,6 +52,7 @@ export default function RepairGatePass() {
   const [selectedRow, setSelectedRow] = useState<GatePassRow | null>(null);
   const [leadTime, setLeadTime] = useState("");
   const [processedKeys, setProcessedKeys] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
 
 
   useEffect(() => {
@@ -298,6 +299,26 @@ export default function RepairGatePass() {
     }
   };
 
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const blob = await storeApi.downloadRepairGatePassPending();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `repair-gate-pass-pending-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download Excel:", error);
+      toast.error("Unable to download the file right now.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
 
   return (
     <div className="w-full p-4 md:p-6 lg:p-8">
@@ -329,8 +350,8 @@ export default function RepairGatePass() {
         </Link>
       </div>
 
-      {/* Search Input */}
-      <div className="mb-4 flex justify-end">
+      {/* Search & Download */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="w-full sm:w-[400px] md:w-[500px]">
           <Input
             placeholder={isHistory ? "Search: Repair Gate Pass / Receive Gate Pass / Department / Party / Item" : "Search: Gate Pass No / Department / Party / Item"}
@@ -341,6 +362,26 @@ export default function RepairGatePass() {
             }}
           />
         </div>
+
+        {!isHistory && (
+          <Button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
+          >
+            {downloading ? (
+              <div className="flex items-center gap-2">
+                <Loader className="animate-spin" size={14} />
+                Downloading...
+              </div>
+            ) : (
+              <>
+                <Download size={16} className="mr-2" />
+                Download Pending Excel
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Custom Table */}
@@ -583,3 +624,4 @@ export default function RepairGatePass() {
     </div>
   );
 }
+

@@ -15,7 +15,8 @@ import {
 import MachineDetails from "./machineDetails.jsx";
 import NewMachine from "./newMachine.jsx";
 import AssignTask from "../MaintenanceTaskAssign.jsx";
-import AdminLayout from "../../../components/layout/AdminLayout.jsx"
+import AdminLayout from "../../../components/layout/AdminLayout.jsx";
+import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 
 const Machines = () => {
@@ -51,8 +52,7 @@ const Machines = () => {
       if (pageNumber === 1) setLoaderSheetData(true);
       else setLoadingMore(true);
 
-      const res = await fetch(`${API_URL}?page=${pageNumber}`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${API_URL}?page=${pageNumber}`);
 
       if (result.success) {
         const formatted = result.data.map((item) => ({
@@ -72,10 +72,9 @@ const Machines = () => {
         }
 
         setHasMore(result.nextPage !== null);
-
       }
     } catch (err) {
-      // Fetch error
+      console.error("Failed to fetch machines:", err?.response?.data?.message || err?.message);
     } finally {
       setLoaderSheetData(false);
       setLoadingMore(false);
@@ -91,9 +90,7 @@ const Machines = () => {
   const fetchMasterSheetData = async () => {
     try {
       setLoaderMasterSheetData(true);
-      // const res = await fetch("http://18.60.212.185:5050/api/master"); // 👈 new backend route
-      const res = await fetch(`${BACKEND_URL}/api/mainatce/master`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${BACKEND_URL}/api/mainatce/master`);
 
       if (result.success && result.table) {
         const headers = result.table.cols.map((col) => col.label);
@@ -122,7 +119,7 @@ const Machines = () => {
         setDepartmentOptions(departments);
       }
     } catch (err) {
-      // Master data fetch error
+      console.error("Failed to fetch master data:", err?.response?.data?.message || err?.message);
       setDepartmentOptions([]);
     } finally {
       setLoaderMasterSheetData(false);

@@ -238,7 +238,7 @@ export const useChecklistCompatibility = () => {
     }
   };
 
-  const fetchDashboardStats = async (
+  const fetchDashboardStats = useCallback(async (
     dashboardType: string,
     staffFilter = "all",
     departmentFilter = "all"
@@ -264,7 +264,7 @@ export const useChecklistCompatibility = () => {
     } catch (error) {
       console.error("Checklist dashboard stats error:", error);
     }
-  };
+  }, []);
 
   const fetchAssignTaskMeta = async (userName: string, department?: string) => {
     try {
@@ -306,7 +306,7 @@ export const useChecklistCompatibility = () => {
 
   const assignTasks = async (tasks: any[]) => assignTaskApi.pushAssignTaskApi(tasks);
 
-  const fetchUniqueDepartmentDataAction = async (userName: string) => {
+  const fetchUniqueDepartmentDataAction = useCallback(async (userName: string) => {
     try {
       const department = await assignTaskApi.fetchUniqueDepartmentDataApi(userName);
       setAssignTaskState((previous) => ({
@@ -318,9 +318,9 @@ export const useChecklistCompatibility = () => {
       console.error("Checklist departments error:", error);
       return [];
     }
-  };
+  }, []);
 
-  const fetchUniqueGivenByDataAction = async () => {
+  const fetchUniqueGivenByDataAction = useCallback(async () => {
     try {
       const givenBy = await assignTaskApi.fetchUniqueGivenByDataApi();
       setAssignTaskState((previous) => ({
@@ -332,7 +332,7 @@ export const useChecklistCompatibility = () => {
       console.error("Checklist given-by error:", error);
       return [];
     }
-  };
+  }, []);
 
   const fetchUniqueDivisionDataAction = async () => {
     try {
@@ -368,7 +368,7 @@ export const useChecklistCompatibility = () => {
   const fetchAssignTaskGivenBy = fetchUniqueGivenByDataAction;
   const fetchAssignTaskDoerNames = fetchUniqueDoerNameDataAction;
 
-  const fetchQuickTaskUsers = async () => {
+  const fetchQuickTaskUsers = useCallback(async () => {
     try {
       const users = await quickTaskApi.fetchUsersData();
       setQuickTaskState((previous) => ({
@@ -380,7 +380,7 @@ export const useChecklistCompatibility = () => {
       console.error("Checklist quick-task users error:", error);
       return [];
     }
-  };
+  }, []);
 
   const resetQuickTaskChecklistPagination = () => {
     setQuickTaskState((previous) => ({
@@ -400,7 +400,7 @@ export const useChecklistCompatibility = () => {
     }));
   };
 
-  const fetchUniqueChecklistTaskData = async ({
+  const fetchUniqueChecklistTaskData = useCallback(async ({
     page = 0,
     pageSize = 50,
     nameFilter = "",
@@ -430,9 +430,9 @@ export const useChecklistCompatibility = () => {
       console.error("Checklist quick-task data error:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const fetchUniqueDelegationTaskData = async ({
+  const fetchUniqueDelegationTaskData = useCallback(async ({
     page = 0,
     pageSize = 50,
     nameFilter = "",
@@ -462,7 +462,7 @@ export const useChecklistCompatibility = () => {
       console.error("Checklist delegation task data error:", error);
       throw error;
     }
-  };
+  }, []);
 
   const updateQuickTaskChecklistTask = async (updatedTask: any, originalTask: any) =>
     quickTaskApi.updateChecklistTaskApi(updatedTask, originalTask);
@@ -473,7 +473,7 @@ export const useChecklistCompatibility = () => {
   const deleteQuickTaskDelegationTask = async (taskIds: any[]) =>
     quickTaskApi.deleteDelegationTasksApi(taskIds);
 
-  const fetchChecklist = async (args?: number | { page?: number; replace?: boolean }) => {
+  const fetchChecklist = useCallback(async (args?: number | { page?: number; replace?: boolean }) => {
     const page = typeof args === "object" ? args.page || 1 : args || 1;
     const replace = typeof args === "object" ? Boolean(args.replace) : page === 1;
 
@@ -500,7 +500,7 @@ export const useChecklistCompatibility = () => {
       setChecklistState((previous) => ({ ...previous, loading: false }));
       throw error;
     }
-  };
+  }, []);
 
   const fetchChecklistDataAction = useCallback(async (args?: number | { page?: number; replace?: boolean }) => {
     return fetchChecklist(args);
@@ -943,7 +943,7 @@ export const useChecklistCompatibility = () => {
     }
   }, []);
 
-  const fetchDelegationDataAction = async () => {
+  const fetchDelegationDataAction = useCallback(async () => {
     setDelegationState((previous) => ({ ...previous, loading: true, error: null }));
     try {
       const delegation = await delegationApi.fetchDelegationDataSortByDate();
@@ -961,9 +961,9 @@ export const useChecklistCompatibility = () => {
       }));
       throw error;
     }
-  };
+  }, []);
 
-  const fetchDelegationDoneDataAction = async () => {
+  const fetchDelegationDoneDataAction = useCallback(async () => {
     setDelegationState((previous) => ({ ...previous, loading: true, error: null }));
     try {
       const delegationDone = await delegationApi.fetchDelegation_DoneDataSortByDate();
@@ -981,12 +981,12 @@ export const useChecklistCompatibility = () => {
       }));
       throw error;
     }
-  };
+  }, []);
 
   const submitDelegationDoneAction = async (selectedDataArray: any[]) =>
     delegationApi.insertDelegationDoneAndUpdate({ selectedDataArray });
 
-  const fetchSettingsData = async () => {
+  const fetchSettingsData = useCallback(async () => {
     setSettingState((previous) => ({
       ...previous,
       settingLoading: true,
@@ -1017,18 +1017,18 @@ export const useChecklistCompatibility = () => {
       }));
       throw error;
     }
-  };
+  }, []);
 
-  const fetchSettingUserDetails = async () => {
+  const fetchSettingUserDetails = useCallback(async () => {
     const users = await settingApi.fetchUserDetailsApi();
     setSettingState((previous) => ({
       ...previous,
       settingUserData: Array.isArray(users) ? users : [],
     }));
     return users;
-  };
+  }, []);
 
-  const fetchSettingDepartmentDetails = async () => {
+  const fetchSettingDepartmentDetails = useCallback(async () => {
     const [departments, departmentsOnly, givenBy] = await Promise.all([
       settingApi.fetchDepartmentDataApi(),
       settingApi.fetchDepartmentsOnlyApi(),
@@ -1041,7 +1041,7 @@ export const useChecklistCompatibility = () => {
       settingDepartmentsOnly: Array.isArray(departmentsOnly) ? departmentsOnly : [],
       settingGivenBy: Array.isArray(givenBy) ? givenBy : [],
     }));
-  };
+  }, []);
 
   const createSettingUser = async (user: any) => {
     const data = await settingApi.createUserApi(user);
@@ -1114,7 +1114,7 @@ export const useChecklistCompatibility = () => {
     return data;
   };
 
-  const fetchHousekeepingLocationsTask = async () => {
+  const fetchHousekeepingLocationsTask = useCallback(async () => {
     const response = await housekeepingApi.getHousekeepingLocationsAPI();
     const locations = getResponseItems(response?.data);
     setHousekeepingAssignState((previous) => ({
@@ -1122,9 +1122,9 @@ export const useChecklistCompatibility = () => {
       locations,
     }));
     return response;
-  };
+  }, []);
 
-  const fetchHousekeepingUserDepartmentsTask = async () => {
+  const fetchHousekeepingUserDepartmentsTask = useCallback(async () => {
     const response = await housekeepingApi.getHousekeepingUserDepartmentsAPI();
     const userDepartments = getResponseItems(response?.data);
     setHousekeepingAssignState((previous) => ({
@@ -1132,7 +1132,7 @@ export const useChecklistCompatibility = () => {
       userDepartments,
     }));
     return response;
-  };
+  }, []);
 
   const createHousekeepingLocationTask = async (payload: Record<string, any>) => {
     setHousekeepingAssignState((previous) => ({

@@ -1,9 +1,42 @@
 import { useState, useEffect } from "react";
-import { BellRing, FileCheck, Calendar, Clock } from "lucide-react";
+import { BellRing, FileCheck, Calendar, Clock, Loader2 } from "lucide-react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
 import { fetchWorkingDaysApi } from "@/api/checklist/assignTaskApi.js";
 // import supabase from "../../SupabaseClient";
+
+// Reusable dropdown with loading state
+const DropdownField = ({ label, id, name, value, onChange, required, disabled, loading, placeholder, children, hint }) => (
+  <div className="space-y-1.5">
+    <label htmlFor={id} className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    <div className="relative">
+      <select
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        disabled={disabled || loading}
+        className={`w-full rounded-xl border px-3 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 transition-all ${
+          loading || disabled
+            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+            : "border-gray-300 bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500"
+        }`}
+      >
+        <option value="">{loading ? "Loading..." : placeholder}</option>
+        {!loading && children}
+      </select>
+      {loading && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+        </div>
+      )}
+    </div>
+    {hint && !loading && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
+  </div>
+);
 
 // Calendar Component (defined outside)
 const CalendarComponent = ({ date, onChange, onClose }) => {
@@ -171,7 +204,6 @@ export default function AssignTask() {
 
   const { department, doerName, givenBy, division } = assignTaskState || {};
 
-  // Add this near the top of your AssignTask component, after getting the Redux state
   const userRole = localStorage.getItem('role');
   const username = localStorage.getItem('user-name');
 
@@ -180,10 +212,24 @@ export default function AssignTask() {
     ? (doerName || [])
     : (doerName || []).filter(doer => doer?.toLowerCase() === username?.toLowerCase());
 
+  // Loading states for each dropdown group
+  const [loadingMeta, setLoadingMeta] = useState(true); // division, department, givenBy
+  const [loadingDoers, setLoadingDoers] = useState(false); // doer names
+
   useEffect(() => {
-    fetchUniqueDepartmentDataAction(username);
-    fetchUniqueGivenByDataAction();
-    fetchUniqueDivisionDataAction();
+    const loadMeta = async () => {
+      setLoadingMeta(true);
+      try {
+        await Promise.all([
+          fetchUniqueDepartmentDataAction(username),
+          fetchUniqueGivenByDataAction(),
+          fetchUniqueDivisionDataAction(),
+        ]);
+      } finally {
+        setLoadingMeta(false);
+      }
+    };
+    loadMeta();
   }, []);
 
 
@@ -458,7 +504,15 @@ export default function AssignTask() {
 
   useEffect(() => {
     if (formData.department) {
-      fetchUniqueDoerNameDataAction(formData.department);
+      const loadDoers = async () => {
+        setLoadingDoers(true);
+        try {
+          await fetchUniqueDoerNameDataAction(formData.department);
+        } finally {
+          setLoadingDoers(false);
+        }
+      };
+      loadDoers();
     }
   }, [formData.department]);
 
@@ -519,125 +573,69 @@ export default function AssignTask() {
   };
   return (
     // <AdminLayout>
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight mb-6 text-purple-500">
-        Assign New Task
-      </h1>
-      <div className="rounded-lg border border-purple-200 bg-white shadow-md overflow-hidden">
+    <div className="w-full">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <form onSubmit={handleSubmit}>
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-purple-100">
-            <h2 className="text-xl font-semibold text-purple-700">
-              Task Details
-            </h2>
-            <p className="text-purple-600">
-              Fill in the details to assign a new task to a staff member  deplaoy.
-            </p>
+          <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-5 py-4 border-b border-gray-100">
+            <h2 className="text-base font-semibold text-gray-800">Task Details</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Fill in the details to assign a new checklist task to a staff member.</p>
           </div>
-          <div className="p-6 space-y-4">
-            {/* Division Dropdown */}
-            <div className="space-y-2">
-              <label
-                htmlFor="division"
-                className="block text-sm font-medium text-purple-700"
-              >
-                Division Name
-              </label>
-              <select
-                id="division"
-                name="division"
-                value={formData.division}
-                onChange={handleChange}
-                required
-                className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-              >
-                <option value="">Select Division</option>
-                {division
-                  .filter(divName => divName && divName !== "null" && divName !== "NULL")
-                  .map((divName, index) => (
-                    <option key={index} value={divName}>
-                      {divName}
-                    </option>
-                  ))}
-              </select>
-            </div>
+          <div className="p-5 space-y-5">
 
-            {/* Department Name Dropdown */}
-            <div className="space-y-2">
-              <label
-                htmlFor="department"
-                className="block text-sm font-medium text-purple-700"
+            {/* Row 1 – Division + Department */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DropdownField
+                id="division" name="division" label="Division"
+                value={formData.division} onChange={handleChange}
+                required loading={loadingMeta}
+                placeholder="Select Division"
               >
-                Department Name
-              </label>
-              <select
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                required
-                className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-              >
-                <option value="">Select Department</option>
-                {department
-                  .filter(d => d && d.division === formData.division)
-                  .map((deptObj, index) => (
-                    <option key={index} value={deptObj.department}>
-                      {deptObj.department}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            {/* Given By Dropdown */}
-            <div className="space-y-2">
-              <label
-                htmlFor="givenBy"
-                className="block text-sm font-medium text-purple-700"
-              >
-                Given By
-              </label>
-              <select
-                id="givenBy"
-                name="givenBy"
-                value={formData.givenBy}
-                onChange={handleChange}
-                required
-                className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-              >
-                <option value="">Select Given By</option>
-                {givenBy.map((person, index) => (
-                  <option key={index} value={person}>
-                    {person}
-                  </option>
+                {(division || []).filter(d => d && d !== "null" && d !== "NULL").map((divName, i) => (
+                  <option key={i} value={divName}>{divName}</option>
                 ))}
-              </select>
+              </DropdownField>
+
+              <DropdownField
+                id="department" name="department" label="Department"
+                value={formData.department} onChange={handleChange}
+                required
+                loading={loadingMeta}
+                disabled={!formData.division}
+                placeholder="Select Department"
+                hint={!formData.division ? "Select a division first" : undefined}
+              >
+                {(department || []).filter(d => d && d.division === formData.division).map((deptObj, i) => (
+                  <option key={i} value={deptObj.department}>{deptObj.department}</option>
+                ))}
+              </DropdownField>
             </div>
 
-
-            {/* Doer's Name Dropdown */}
-            {/* Doer's Name Dropdown */}
-            <div className="space-y-2">
-              <label
-                htmlFor="doer"
-                className="block text-sm font-medium text-purple-700"
+            {/* Row 2 – Given By + Doer */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DropdownField
+                id="givenBy" name="givenBy" label="Given By"
+                value={formData.givenBy} onChange={handleChange}
+                required loading={loadingMeta}
+                placeholder="Select Given By"
               >
-                Doer's Name
-              </label>
-              <select
-                id="doer"
-                name="doer"
-                value={formData.doer}
-                onChange={handleChange}
-                required
-                className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-              >
-                <option value="">Select Doer</option>
-                {filteredDoerNames.map((doer, index) => (
-                  <option key={index} value={doer}>
-                    {doer}
-                  </option>
+                {(givenBy || []).map((person, i) => (
+                  <option key={i} value={person}>{person}</option>
                 ))}
-              </select>
+              </DropdownField>
+
+              <DropdownField
+                id="doer" name="doer" label="Doer's Name"
+                value={formData.doer} onChange={handleChange}
+                required
+                loading={loadingDoers}
+                disabled={!formData.department}
+                placeholder="Select Doer"
+                hint={!formData.department ? "Select a department first" : undefined}
+              >
+                {filteredDoerNames.map((doer, i) => (
+                  <option key={i} value={doer}>{doer}</option>
+                ))}
+              </DropdownField>
             </div>
 
             {/* Description */}

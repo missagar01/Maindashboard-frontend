@@ -1,7 +1,40 @@
-import { LoaderIcon } from "lucide-react";
+import { LoaderIcon, Loader2 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axiosInstance from "@/api/checklist/axiosInstance.js";
+
+// Reusable dropdown with loading state
+const DropdownField = ({ label, id, name, value, onChange, required, disabled, loading, placeholder, children, hint }) => (
+  <div className="space-y-1.5">
+    <label htmlFor={id} className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    <div className="relative">
+      <select
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        disabled={disabled || loading}
+        className={`w-full rounded-xl border px-3 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 transition-all ${
+          loading || disabled
+            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+            : "border-gray-300 bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500"
+        }`}
+      >
+        <option value="">{loading ? "Loading..." : placeholder}</option>
+        {!loading && children}
+      </select>
+      {loading && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+        </div>
+      )}
+    </div>
+    {hint && !loading && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
+  </div>
+);
 
 function AssignTask() {
   const [accordionOpen, setAccordionOpen] = useState(false);
@@ -786,73 +819,45 @@ function AssignTask() {
           <form className="space-y-4" onSubmit={handleSubmitForm}>
             <div className="space-y-4">
               {/* Division Dropdown */}
-              <div>
-                <label
-                  htmlFor="division"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Division Name
-                </label>
-                <select
-                  id="division"
-                  value={selectedDivision}
-                  onChange={(e) => setSelectedDivision(e.target.value)}
-                  required
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Division</option>
-                  {divisionOptions.map((divName, index) => (
-                    <option key={index} value={divName}>
-                      {divName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="division" label="Division Name"
+                value={selectedDivision}
+                onChange={(e) => setSelectedDivision(e.target.value)}
+                required
+                loading={loaderMasterSheetData}
+                placeholder="Select Division"
+              >
+                {divisionOptions.map((divName, index) => (
+                  <option key={index} value={divName}>{divName}</option>
+                ))}
+              </DropdownField>
 
               {/* Machine Department Dropdown */}
-              <div>
-                <label
-                  htmlFor="machineDepartment"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Machine Department
-                </label>
-                <select
-                  id="machineDepartment"
-                  value={machineDepartment}
-                  onChange={(e) => handleMachineDepartmentChange(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Machine Department</option>
-                  {departmentOptions.map((dept, index) => (
-                    <option key={index} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownField
+                id="machineDepartment" label="Machine Department"
+                value={machineDepartment}
+                onChange={(e) => handleMachineDepartmentChange(e.target.value)}
+                loading={loaderMasterSheetData}
+                placeholder="Select Machine Department"
+              >
+                {departmentOptions.map((dept, index) => (
+                  <option key={index} value={dept}>{dept}</option>
+                ))}
+              </DropdownField>
 
               {/* Doer Department Dropdown */}
               <div className="mt-4">
-                <label
-                  htmlFor="doerDepartment"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Doer Department
-                </label>
-                <select
-                  id="doerDepartment"
+                <DropdownField
+                  id="doerDepartment" label="Doer Department"
                   value={doerDepartment}
                   onChange={(e) => handleDoerDepartmentChange(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  loading={loaderMasterSheetData}
+                  placeholder="Select Doer Department"
                 >
-                  <option value="">Select Doer Department</option>
                   {departmentOptions.map((dept, index) => (
-                    <option key={index} value={dept}>
-                      {dept}
-                    </option>
+                    <option key={index} value={dept}>{dept}</option>
                   ))}
-                </select>
+                </DropdownField>
               </div>
 
               <div className="block md:flex md:justify-between md:space-x-4">

@@ -434,207 +434,187 @@ export default function QuickTask() {
 
   return (
     <AdminLayout>
-      <div className="sticky top-0 z-30 bg-white pb-4 border-b border-gray-200">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-red-700 ">
-            Quick Task
-          </h1>
-          <p className="text-purple-600 text-sm mb-2">
-            {activeTab === "checklist"
-              ? `Showing ${quickTask.length} task`
-              : `Showing delegation tasks`}
-          </p>
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md pb-4 pt-2 border-b border-gray-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-red-600">
+              Quick Task
+            </h1>
+            <p className="text-gray-500 text-xs md:text-sm mt-0.5">
+              {activeTab === "checklist"
+                ? `Managing ${quickTask.length} checklist items`
+                : `Managing delegation tasks`}
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="mt-4 flex flex-col lg:flex-row justify-between gap-4 items-start lg:items-center">
+          {/* View Toggle Tabs */}
+          <div className="flex p-1 bg-gray-100/50 rounded-xl border border-gray-200/50 w-full sm:w-auto">
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "checklist"
+                ? "bg-white text-red-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                }`}
+              onClick={() => {
+                setActiveTab("checklist");
+                resetQuickTaskChecklistPagination();
+                fetchUniqueChecklistTaskData({
+                  page: 0,
+                  pageSize: 50,
+                  nameFilter,
+                });
+              }}
+            >
+              Checklist
+            </button>
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "delegation"
+                ? "bg-white text-red-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                }`}
+              onClick={() => {
+                setActiveTab("delegation");
+                resetQuickTaskDelegationPagination();
+                fetchUniqueDelegationTaskData({
+                  page: 0,
+                  pageSize: 50,
+                  nameFilter,
+                });
+              }}
+            >
+              Delegation
+            </button>
+          </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="flex border border-purple-200 rounded-md overflow-hidden self-start">
-              <button
-                className={`px-4 py-2 text-sm font-medium ${activeTab === "checklist"
-                  ? "bg-purple-600 text-white"
-                  : "bg-white text-purple-600 hover:bg-purple-50"
-                  }`}
-                onClick={() => {
-                  setActiveTab("checklist");
-                  resetQuickTaskChecklistPagination();
-                  fetchUniqueChecklistTaskData({
-                    page: 0,
-                    pageSize: 50,
-                    nameFilter,
-                  });
-                }}
-              >
-                Checklist
-              </button>
-              <button
-                className={`px-4 py-2 text-sm font-medium ${activeTab === "delegation"
-                  ? "bg-purple-600 text-white"
-                  : "bg-white text-purple-600 hover:bg-purple-50"
-                  }`}
-                onClick={() => {
-                  setActiveTab("delegation");
-                  resetQuickTaskDelegationPagination();
-                  fetchUniqueDelegationTaskData({
-                    page: 0,
-                    pageSize: 50,
-                    nameFilter,
-                  });
-                }}
-              >
-                Delegation
-              </button>
-            </div>
-
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-stretch sm:items-center">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:min-w-[280px]">
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                size={18}
+                size={16}
               />
               <input
                 type="text"
-                placeholder="Search tasks..."
+                placeholder="Search tasks, departments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-600 transition-all bg-white"
                 disabled={loading || delegationLoading}
               />
             </div>
 
-            <div className="flex gap-2">
-              <div className="relative">
+            {/* Filters Group */}
+            <div className="flex flex-col-2 sm:flex-row gap-2">
+              <div className="relative w-full sm:w-auto">
                 <div className="flex items-center gap-2">
-                  {/* Input with datalist for autocomplete */}
-                  <div className="relative">
+                  <div className="relative w-full">
                     <Search
                       className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                      size={16}
+                      size={14}
                     />
                     <input
                       type="text"
-                      list="nameOptions"
-                      placeholder="Type or select name..."
+                      autoComplete="off"
+                      placeholder="Name filter..."
                       value={nameFilter}
                       onChange={(e) => {
                         const typedName = e.target.value;
-                        setNameFilter(typedName); // Always update the input value
+                        setNameFilter(typedName);
 
-                        // Only trigger DB fetch if the value is empty or matches a name in the list
                         if (typedName === "") {
                           clearNameFilter();
                         } else if (allNames.includes(typedName)) {
                           handleNameFilterSelect(typedName);
                         }
                       }}
-                      onBlur={(e) => {
-                        // When input loses focus, if the typed value doesn't match any name, clear it
-                        const typedName = e.target.value;
-                        if (typedName && !allNames.includes(typedName)) {
-                          // Optional: You can either clear it or keep it for manual filtering
-                          // setNameFilter('');
-                          // clearNameFilter();
-                        }
-                      }}
+                      onFocus={() => setDropdownOpen(prev => ({ ...prev, name: true }))}
                       onKeyDown={(e) => {
-                        // Allow pressing Enter to apply the filter even if not exact match
                         if (e.key === "Enter") {
                           if (nameFilter === "") {
                             clearNameFilter();
                           } else {
-                            // Apply the filter with whatever is typed
                             handleNameFilterSelect(nameFilter);
                           }
                         }
                       }}
-                      className="w-48 pl-10 pr-4 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      className={`w-full sm:w-44 pl-9 pr-8 py-2 border rounded-xl text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-100 ${nameFilter ? 'border-red-200 bg-red-50/30 text-red-600' : 'border-gray-200 bg-white text-gray-600'}`}
                     />
-                    <datalist id="nameOptions">
-                      {allNames.map((name) => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
 
-                    {/* Clear button for input */}
                     {nameFilter && (
                       <button
                         onClick={() => {
                           setNameFilter("");
                           clearNameFilter();
                         }}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
                       >
-                        <X size={16} />
+                        <X size={14} />
                       </button>
                     )}
                   </div>
-
-                  {/* Dropdown button */}
-                  <button
-                    onClick={() => toggleDropdown("name")}
-                    className="flex items-center gap-1 px-3 py-2 border border-purple-200 rounded-md bg-white text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <ChevronDown
-                      size={16}
-                      className={`transition-transform ${dropdownOpen.name ? "rotate-180" : ""
-                        }`}
-                    />
-                  </button>
                 </div>
 
-                {/* Dropdown menu */}
                 {dropdownOpen.name && (
-                  <div className="absolute z-50 mt-1 w-56 rounded-md bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto top-full right-0">
-                    <div className="py-1">
+                  <>
+                    <div className="fixed inset-0 z-[40]" onClick={() => toggleDropdown("name")} />
+                    <div className="absolute z-[50] mt-2 w-full sm:w-64 rounded-xl bg-white shadow-2xl border border-gray-100 max-h-60 overflow-auto top-full right-0 p-1 animate-in fade-in slide-in-from-top-2 duration-200">
                       <button
                         onClick={clearNameFilter}
-                        className={`block w-full text-left px-4 py-2 text-sm ${!nameFilter
-                          ? "bg-purple-100 text-purple-900"
-                          : "text-gray-700 hover:bg-gray-100"
-                          }`}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold mb-1 transition-all ${!nameFilter ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                       >
-                        All Names
+                        All Staff Members
                       </button>
-                      {allNames.map((name) => (
-                        <button
-                          key={name}
-                          onClick={() => {
-                            handleNameFilterSelect(name);
-                            setDropdownOpen({ ...dropdownOpen, name: false });
-                          }}
-                          className={`block w-full text-left px-4 py-2 text-sm ${nameFilter === name
-                            ? "bg-purple-100 text-purple-900"
-                            : "text-gray-700 hover:bg-gray-100"
-                            }`}
-                        >
-                          {name}
-                        </button>
-                      ))}
+                      {allNames
+                        .filter(name =>
+                          !nameFilter ||
+                          name.toLowerCase().includes(nameFilter.toLowerCase())
+                        )
+                        .map((name) => (
+                          <button
+                            key={name}
+                            onClick={() => {
+                              handleNameFilterSelect(name);
+                              setDropdownOpen({ ...dropdownOpen, name: false });
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${nameFilter === name ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
+                          >
+                            {name}
+                            {nameFilter === name && <div className="w-1.5 h-1.5 rounded-full bg-red-600" />}
+                          </button>
+                        ))}
+                      {allNames.filter(name =>
+                        name.toLowerCase().includes(nameFilter.toLowerCase())
+                      ).length === 0 && (
+                          <div className="px-3 py-4 text-center text-gray-400 text-[10px] italic">
+                            No members found
+                          </div>
+                        )}
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
 
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => toggleDropdown("frequency")}
-                  className="flex items-center gap-2 px-3 py-2 border border-purple-200 rounded-md bg-white text-sm text-gray-700 hover:bg-gray-50"
+                  className={`flex items-center justify-between gap-2 w-full sm:w-auto px-4 py-2 border rounded-xl text-xs font-bold transition-all shadow-sm ${freqFilter ? 'border-red-200 bg-red-50/30 text-red-600' : 'border-gray-200 bg-white text-gray-600 hover:border-red-600/30'}`}
                 >
-                  <Filter className="h-4 w-4" />
-                  {freqFilter || "Filter by Frequency"}
+                  <div className="flex items-center gap-2 truncate">
+                    <Filter size={14} className="shrink-0 opacity-60" />
+                    <span className="truncate">{freqFilter || "Frequency"}</span>
+                  </div>
                   <ChevronDown
-                    size={16}
-                    className={`transition-transform ${dropdownOpen.frequency ? "rotate-180" : ""
-                      }`}
+                    size={14}
+                    className={`transition-transform shrink-0 opacity-40 ${dropdownOpen.frequency ? "rotate-180" : ""}`}
                   />
                 </button>
                 {dropdownOpen.frequency && (
-                  <div className="absolute z-50 mt-1 w-56 rounded-md bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto">
-                    <div className="py-1">
+                  <>
+                    <div className="fixed inset-0 z-[40]" onClick={() => toggleDropdown("frequency")} />
+                    <div className="absolute z-[50] mt-2 w-full sm:w-64 rounded-xl bg-white shadow-2xl border border-gray-100 max-h-60 overflow-auto top-full right-0 p-1 animate-in fade-in slide-in-from-top-2 duration-200">
                       <button
                         onClick={clearFrequencyFilter}
-                        className={`block w-full text-left px-4 py-2 text-sm ${!freqFilter
-                          ? "bg-purple-100 text-purple-900"
-                          : "text-gray-700 hover:bg-gray-100"
-                          }`}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold mb-1 transition-all ${!freqFilter ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                       >
                         All Frequencies
                       </button>
@@ -642,16 +622,14 @@ export default function QuickTask() {
                         <button
                           key={freq}
                           onClick={() => handleFrequencyFilterSelect(freq)}
-                          className={`block w-full text-left px-4 py-2 text-sm ${freqFilter === freq
-                            ? "bg-purple-100 text-purple-900"
-                            : "text-gray-700 hover:bg-gray-100"
-                            }`}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${freqFilter === freq ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                         >
                           {freq}
+                          {freqFilter === freq && <div className="w-1.5 h-1.5 rounded-full bg-red-600" />}
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -659,12 +637,12 @@ export default function QuickTask() {
               <button
                 onClick={handleDeleteSelected}
                 disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:bg-gray-200 disabled:cursor-not-allowed transition-all shadow-md text-xs font-bold"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
                 {isDeleting
                   ? "Deleting..."
-                  : `Delete (${selectedTasks.length})`}
+                  : `Delete ${selectedTasks.length} selected`}
               </button>
             )}
           </div>
@@ -695,19 +673,20 @@ export default function QuickTask() {
       {!error && (
         <>
           {activeTab === "checklist" ? (
-            <div className="mt-4 rounded-lg border border-purple-200 shadow-md bg-white overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100 p-4 flex justify-between items-center">
+            <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
+              <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
                 <div>
-                  <h2 className="text-purple-700 font-medium">
+                  <h2 className="text-gray-700 font-bold text-sm flex items-center gap-2">
+                    <div className="w-1 h-4 bg-red-600 rounded-full" />
                     Checklist Tasks
                   </h2>
-                  <p className="text-purple-600 text-sm">
-                    Showing all unique tasks
+                  <p className="text-gray-500 text-[10px] sm:text-xs">
+                    Showing all unique items from your checklist
                   </p>
                 </div>
                 {selectedTasks.length > 0 && (
-                  <span className="text-sm text-purple-600">
-                    {selectedTasks.length} task(s) selected
+                  <span className="text-[10px] sm:text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                    {selectedTasks.length} selected
                   </span>
                 )}
               </div>
@@ -720,7 +699,7 @@ export default function QuickTask() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                      <th className="px-4 py-3 text-left">
                         <input
                           type="checkbox"
                           checked={
@@ -730,7 +709,7 @@ export default function QuickTask() {
                             )
                           }
                           onChange={handleSelectAll}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                         />
                       </th>
                       {[
@@ -759,9 +738,9 @@ export default function QuickTask() {
                       ].map((column) => (
                         <th
                           key={column.label}
-                          className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.bg || ""
+                          className={`px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest transition-colors ${column.bg ? "bg-red-50/30" : ""
                             } ${column.minWidth || ""} ${column.key && column.key !== "actions"
-                              ? "cursor-pointer hover:bg-gray-100"
+                              ? "cursor-pointer hover:bg-gray-100/50 hover:text-red-600"
                               : ""
                             }`}
                           onClick={() =>
@@ -770,10 +749,10 @@ export default function QuickTask() {
                             requestSort(column.key)
                           }
                         >
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-1">
                             {column.label}
                             {sortConfig.key === column.key && (
-                              <span className="ml-1">
+                              <span className="text-red-600 font-bold">
                                 {sortConfig.direction === "asc" ? "↑" : "↓"}
                               </span>
                             )}
@@ -792,7 +771,7 @@ export default function QuickTask() {
                               type="checkbox"
                               checked={selectedTasks.some(t => t.task_id === task.task_id)}
                               onChange={() => handleCheckboxChange(task)}
-                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                             />
                           </td>
 
@@ -816,7 +795,7 @@ export default function QuickTask() {
                           </td>
 
                           {/* Given By */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
                             {editingTaskId === task.task_id ? (
                               <input
                                 type="text"
@@ -824,7 +803,7 @@ export default function QuickTask() {
                                 onChange={(e) =>
                                   handleInputChange("given_by", e.target.value)
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               />
                             ) : (
                               task.given_by
@@ -832,7 +811,7 @@ export default function QuickTask() {
                           </td>
 
                           {/* Name */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-bold">
                             {editingTaskId === task.task_id ? (
                               <input
                                 type="text"
@@ -840,7 +819,7 @@ export default function QuickTask() {
                                 onChange={(e) =>
                                   handleInputChange("name", e.target.value)
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               />
                             ) : (
                               task.name
@@ -848,7 +827,7 @@ export default function QuickTask() {
                           </td>
 
                           {/* Task Description */}
-                          <td className="px-6 py-4 text-sm text-gray-500 min-w-[300px] max-w-[400px]">
+                          <td className="px-6 py-4 text-xs text-gray-500 min-w-[300px] max-w-[400px]">
                             {editingTaskId === task.task_id ? (
                               <textarea
                                 value={editFormData.task_description}
@@ -858,18 +837,18 @@ export default function QuickTask() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                                 rows="3"
                               />
                             ) : (
-                              <div className="whitespace-normal break-words">
+                              <div className="whitespace-normal break-words leading-relaxed">
                                 {task.task_description}
                               </div>
                             )}
                           </td>
 
                           {/* Task Start Date */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 bg-yellow-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
                             {editingTaskId === task.task_id ? (
                               <input
                                 type="datetime-local"
@@ -886,7 +865,7 @@ export default function QuickTask() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               />
                             ) : (
                               formatTimestampToDDMMYYYY(task.task_start_date)
@@ -894,19 +873,19 @@ export default function QuickTask() {
                           </td>
 
                           {/* Submission Date (End Date) */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 bg-yellow-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
                             {formatTimestampToDDMMYYYY(task.submission_date)}
                           </td>
 
                           {/* Frequency */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold">
                             {editingTaskId === task.task_id ? (
                               <select
                                 value={editFormData.frequency}
                                 onChange={(e) =>
                                   handleInputChange("frequency", e.target.value)
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               >
                                 <option value="">Select Frequency</option>
                                 <option value="Daily">Daily</option>
@@ -916,13 +895,13 @@ export default function QuickTask() {
                               </select>
                             ) : (
                               <span
-                                className={`px-2 py-1 rounded-full text-xs ${task.frequency === "Daily"
-                                  ? "bg-blue-100 text-blue-800"
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${task.frequency === "Daily"
+                                  ? "bg-blue-50 text-blue-600 border border-blue-100"
                                   : task.frequency === "Weekly"
-                                    ? "bg-green-100 text-green-800"
+                                    ? "bg-green-50 text-green-600 border border-green-100"
                                     : task.frequency === "Monthly"
-                                      ? "bg-purple-100 text-purple-800"
-                                      : "bg-gray-100 text-gray-800"
+                                      ? "bg-red-50 text-red-600 border border-red-100"
+                                      : "bg-gray-50 text-gray-600 border border-gray-100"
                                   }`}
                               >
                                 {task.frequency}
@@ -931,7 +910,7 @@ export default function QuickTask() {
                           </td>
 
                           {/* Enable Reminders */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
                             {editingTaskId === task.task_id ? (
                               <select
                                 value={editFormData.enable_reminder}
@@ -941,19 +920,21 @@ export default function QuickTask() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               >
                                 <option value="">Select</option>
                                 <option value="Yes">Yes</option>
                                 <option value="No">No</option>
                               </select>
                             ) : (
-                              task.enable_reminder || "—"
+                              <span className={task.enable_reminder === "Yes" ? "text-green-600" : "text-gray-400"}>
+                                {task.enable_reminder || "—"}
+                              </span>
                             )}
                           </td>
 
                           {/* Require Attachment */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
                             {editingTaskId === task.task_id ? (
                               <select
                                 value={editFormData.require_attachment}
@@ -963,18 +944,19 @@ export default function QuickTask() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
                               >
                                 <option value="">Select</option>
                                 <option value="Yes">Yes</option>
                                 <option value="No">No</option>
                               </select>
                             ) : (
-                              task.require_attachment || "—"
+                              <span className={task.require_attachment === "Yes" ? "text-blue-600" : "text-gray-400"}>
+                                {task.require_attachment || "—"}
+                              </span>
                             )}
                           </td>
 
-                          {/* Actions */}
                           {/* Actions */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {editingTaskId === task.task_id ? (
@@ -982,27 +964,26 @@ export default function QuickTask() {
                                 <button
                                   onClick={handleSaveEdit}
                                   disabled={isSaving}
-                                  className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                  className="flex items-center justify-center w-8 h-8 bg-green-50 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all shadow-sm border border-green-100"
+                                  title="Save"
                                 >
                                   <Save size={14} />
-                                  {isSaving ? "Saving..." : "Save"}
                                 </button>
                                 <button
                                   onClick={handleCancelEdit}
-                                  className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                  className="flex items-center justify-center w-8 h-8 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-600 hover:text-white transition-all shadow-sm border border-gray-100"
+                                  title="Cancel"
                                 >
                                   <X size={14} />
-                                  Cancel
                                 </button>
                               </div>
                             ) : (
-                              // REMOVED THE submission_date CHECK - ALWAYS SHOW EDIT BUTTON
                               <button
                                 onClick={() => handleEditClick(task)}
-                                className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                className="flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
+                                title="Edit Task"
                               >
                                 <Edit size={14} />
-                                Edit
                               </button>
                             )}
                           </td>
@@ -1011,24 +992,29 @@ export default function QuickTask() {
                     ) : (
                       <tr>
                         <td
-                          colSpan={11}
-                          className="px-6 py-4 text-center text-gray-500 font-medium"
+                          colSpan={12}
+                          className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic"
                         >
-                          {!nameFilter
-                            ? "Please select a doer"
-                            : searchTerm || freqFilter
-                              ? "No tasks matching your filters"
-                              : "No tasks available"
-                          }
+                          <div className="flex flex-col items-center gap-2">
+                            <Filter size={24} className="opacity-20" />
+                            <span>
+                              {!nameFilter
+                                ? "Please select a doer from the filter above"
+                                : searchTerm || freqFilter
+                                  ? "No tasks matching your search filters"
+                                  : "No tasks found for this doer"
+                              }
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
                 {loading && checklistHasMore && (
-                  <div className="text-center py-4">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
-                    <p className="text-purple-600 text-sm mt-2">
+                  <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />
+                    <p className="text-red-600 text-[10px] font-bold uppercase tracking-widest mt-3 animate-pulse">
                       Loading more tasks...
                     </p>
                   </div>
@@ -1050,237 +1036,182 @@ export default function QuickTask() {
       {/* Edit Task Modal */}
       {editingTaskId && (
         <div
-          className="fixed z-50 inset-0 overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              handleCancelEdit();
-            }
-          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
         >
-          <div className="flex items-center justify-center min-h-screen px-4 py-4">
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white z-10 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Edit Task
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded p-1"
-                  aria-label="Close"
-                >
-                  <X size={24} />
-                </button>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={handleCancelEdit} />
+
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                  <Edit size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Edit Task
+                  </h3>
+                  <p className="text-xs text-gray-500">ID: #{editingTaskId}</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              <div className="px-6 py-4">
-                {error && (
-                  <div className="mb-4 bg-red-50 p-3 rounded-md text-red-800 text-sm flex items-center justify-between">
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-100 p-3 rounded-xl text-red-700 text-xs font-bold flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <X size={14} />
                     <span>{error}</span>
-                    <button
-                      onClick={() => setError(null)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <X size={16} />
-                    </button>
                   </div>
-                )}
-                {successMessage && (
-                  <div className="mb-4 bg-green-50 p-3 rounded-md text-green-800 text-sm flex items-center justify-between">
+                  <button onClick={() => setError(null)} className="opacity-50 hover:opacity-100">
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+              {successMessage && (
+                <div className="mb-4 bg-green-50 border border-green-100 p-3 rounded-xl text-green-700 text-xs font-bold flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} />
                     <span>{successMessage}</span>
-                    <button
-                      onClick={() => setSuccessMessage("")}
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <X size={16} />
-                    </button>
                   </div>
-                )}
+                  <button onClick={() => setSuccessMessage("")} className="opacity-50 hover:opacity-100">
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSaveEdit();
-                  }}
-                  className="space-y-4"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Department */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Department
-                      </label>
-                      <input
-                        type="text"
-                        value={editFormData.department || ""}
-                        onChange={(e) =>
-                          handleInputChange("department", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="Enter department"
-                      />
-                    </div>
+              <form id="editTaskForm" onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Department</label>
+                    <input
+                      type="text"
+                      value={editFormData.department || ""}
+                      onChange={(e) => handleInputChange("department", e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                    />
+                  </div>
 
-                    {/* Given By */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Given By
-                      </label>
-                      <input
-                        type="text"
-                        value={editFormData.given_by || ""}
-                        onChange={(e) =>
-                          handleInputChange("given_by", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="Enter given by"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Given By</label>
+                    <input
+                      type="text"
+                      value={editFormData.given_by || ""}
+                      onChange={(e) => handleInputChange("given_by", e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                    />
+                  </div>
 
-                    {/* Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={editFormData.name || ""}
-                        onChange={(e) =>
-                          handleInputChange("name", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="Enter name"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Doer Name</label>
+                    <input
+                      type="text"
+                      value={editFormData.name || ""}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-red-600 focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                    />
+                  </div>
 
-                    {/* Task Start Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Task Start Date
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={editFormData.task_start_date || ""}
-                        onChange={(e) =>
-                          handleInputChange("task_start_date", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-yellow-50"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Start Date</label>
+                    <input
+                      type="datetime-local"
+                      value={editFormData.task_start_date || ""}
+                      onChange={(e) => handleInputChange("task_start_date", e.target.value)}
+                      className="w-full px-4 py-2.5 bg-red-50/30 border border-red-50 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none font-bold text-red-600"
+                    />
+                  </div>
 
-                    {/* Frequency */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Frequency
-                      </label>
-                      <select
-                        value={editFormData.frequency || ""}
-                        onChange={(e) =>
-                          handleInputChange("frequency", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="">Select Frequency</option>
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                        <option value="Yearly">Yearly</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Frequency</label>
+                    <select
+                      value={editFormData.frequency || ""}
+                      onChange={(e) => handleInputChange("frequency", e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                    >
+                      <option value="Daily">Daily</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
+                  </div>
 
-                    {/* Enable Reminder */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Enable Reminder
-                      </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Remainders</label>
                       <select
                         value={editFormData.enable_reminder || ""}
-                        onChange={(e) =>
-                          handleInputChange("enable_reminder", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        onChange={(e) => handleInputChange("enable_reminder", e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
                       >
-                        <option value="">Select</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                       </select>
                     </div>
-
-                    {/* Require Attachment */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Require Attachment
-                      </label>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Attachment</label>
                       <select
                         value={editFormData.require_attachment || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "require_attachment",
-                            e.target.value
-                          )
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        onChange={(e) => handleInputChange("require_attachment", e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
                       >
-                        <option value="">Select</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                       </select>
                     </div>
                   </div>
+                </div>
 
-                  {/* Task Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Task Description
-                    </label>
-                    <textarea
-                      value={editFormData.task_description || ""}
-                      onChange={(e) =>
-                        handleInputChange("task_description", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      rows="4"
-                      placeholder="Enter task description"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Task Description</label>
+                  <textarea
+                    value={editFormData.task_description || ""}
+                    onChange={(e) => handleInputChange("task_description", e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none min-h-[100px]"
+                    placeholder="Describe the task details..."
+                  />
+                </div>
 
-                  {/* Remark */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Remark
-                    </label>
-                    <textarea
-                      value={editFormData.remark || ""}
-                      onChange={(e) =>
-                        handleInputChange("remark", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      rows="3"
-                      placeholder="Enter remark"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Remark</label>
+                  <textarea
+                    value={editFormData.remark || ""}
+                    onChange={(e) => handleInputChange("remark", e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none min-h-[80px]"
+                    placeholder="Add any additional notes..."
+                  />
+                </div>
+              </form>
+            </div>
 
-
-                  {/* Action Buttons */}
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      <Save size={18} />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </button>
-                  </div>
-                </form>
-              </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-6 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-white hover:text-gray-700 transition-all border border-transparent hover:border-gray-200"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="submit"
+                form="editTaskForm"
+                disabled={isSaving}
+                className="px-8 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:bg-gray-200 disabled:cursor-not-allowed transition-all shadow-md flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+                {isSaving ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           </div>
         </div>

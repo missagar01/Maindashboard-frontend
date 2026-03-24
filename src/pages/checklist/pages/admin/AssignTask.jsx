@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { BellRing, FileCheck, Calendar, Clock } from "lucide-react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
-import { 
-  fetchUniqueDepartmentDataApi, 
-  fetchUniqueDoerNameDataApi, 
-  fetchUniqueGivenByDataApi, 
+import {
+  fetchUniqueDepartmentDataApi,
+  fetchUniqueDoerNameDataApi,
+  fetchUniqueGivenByDataApi,
   fetchWorkingDaysApi,
-  pushAssignTaskApi 
+  pushAssignTaskApi
 } from "@/api/checklist/assignTaskApi.js";
 // import supabase from "../../SupabaseClient";
 
@@ -24,10 +24,6 @@ const CalendarComponent = ({ date, onChange, onClose }) => {
   const getFirstDayOfMonth = (year, month) => {
     return new Date(year, month, 1).getDay();
   };
-  // console.log(fetchUniqueDepartmentDataApi())
-  // console.log(fetchUniqueGivenByDataApi())
-  // console.log(fetchUniqueDoerNameDataApi())
-
 
   const handleDateClick = (day) => {
     const selectedDate = new Date(
@@ -166,13 +162,13 @@ const formatDateToDDMMYYYY = (date) => {
 };
 
 export default function AssignTask() {
-  const { 
-    assignTaskState, 
-    fetchAssignTaskDepartments, 
-    fetchAssignTaskGivenBy, 
-    fetchAssignTaskDoerNames 
+  const {
+    assignTaskState,
+    fetchAssignTaskDepartments,
+    fetchAssignTaskGivenBy,
+    fetchAssignTaskDoerNames
   } = useAuth();
-  
+
   const { department, doerName, givenBy } = assignTaskState;
 
   // Add this near the top of your AssignTask component, after getting the state
@@ -896,14 +892,14 @@ export default function AssignTask() {
               >
                 Cancel
               </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex min-w-[140px] items-center justify-center rounded-md border border-blue-700 !bg-blue-600 py-2 px-4 font-medium !text-white shadow-sm hover:!bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"
-              style={{ backgroundColor: isSubmitting ? "#60a5fa" : "#2563eb", color: "#ffffff" }}
-            >
-              {isSubmitting ? "Assigning..." : "Assign Task"}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex min-w-[140px] items-center justify-center rounded-md border border-blue-700 !bg-blue-600 py-2 px-4 font-medium !text-white shadow-sm hover:!bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"
+                style={{ backgroundColor: isSubmitting ? "#60a5fa" : "#2563eb", color: "#ffffff" }}
+              >
+                {isSubmitting ? "Assigning..." : "Assign Task"}
+              </button>
             </div>
           </form>
         </div>
