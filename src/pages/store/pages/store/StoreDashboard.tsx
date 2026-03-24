@@ -163,11 +163,6 @@ export default function StoreDashboard() {
     return storeAccess.includes("DASHBOARD");
   }, [user]);
 
-  // Redirect if no access
-  if (!loading && !hasAccess) {
-    return <Navigate to="/store/erp-indent" replace />;
-  }
-
   // Modal State
   const MODAL_PAGE_SIZE = 50;
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -973,6 +968,11 @@ export default function StoreDashboard() {
       </div>
     );
   }
+
+  // Permisison redirect disabled as requested
+  // if (!loading && !hasAccess) {
+  //   return <Navigate to="/store/erp-indent" replace />;
+  // }
 
   return (
     <div className="w-full px-1.5 py-4 sm:px-4 md:p-6 lg:p-8 space-y-5 md:space-y-8 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen font-sans">
