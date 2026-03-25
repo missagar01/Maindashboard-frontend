@@ -133,9 +133,9 @@ const valStr = (v: unknown): string => (typeof v === "string" ? v : v != null ? 
 const mapData = (data: Record<string, unknown>[]): IndentRow[] =>
   data.map((item) => ({
     PLANNEDTIMESTAMP: valStr(item.PLANNEDTIMESTAMP ?? item.plannedtimestamp) || null,
-    INDENT_NUMBER: valStr(item.INDENT_NUMBER ?? item.indent_number),
+    INDENT_NUMBER: valStr(item.INDENT_NUMBER ?? item.indent_number ?? item.INDENT_NO ?? item.indent_no),
     INDENT_DATE: valStr(item.INDENT_DATE ?? item.indent_date),
-    INDENTER_NAME: valStr(item.INDENTER_NAME ?? item.indenter_name),
+    INDENTER_NAME: valStr(item.INDENTER_NAME ?? item.indenter_name ?? item.INDENTER ?? item.indenter),
     DIVISION: valStr(item.DIVISION ?? item.division),
     DEPARTMENT: valStr(item.DEPARTMENT ?? item.department),
     ITEM_NAME: valStr(item.ITEM_NAME ?? item.item_name),
@@ -143,15 +143,15 @@ const mapData = (data: Record<string, unknown>[]): IndentRow[] =>
     REQUIRED_QTY:
       typeof item.REQUIRED_QTY === "number"
         ? item.REQUIRED_QTY
-        : Number(item.REQUIRED_QTY ?? item.required_qty ?? 0),
-    REMARK: valStr(item.REMARK ?? item.remark),
+        : Number(item.REQUIRED_QTY ?? item.required_qty ?? item.QTYINDENT ?? item.qtyindent ?? 0),
+    REMARK: valStr(item.REMARK ?? item.remark ?? item.PURPOSE_REMARK ?? item.purpose_remark),
     SPECIFICATION: valStr(item.SPECIFICATION ?? item.specification),
     COST_PROJECT: valStr(item.COST_PROJECT ?? item.cost_project),
-    CANCELLEDDATE: valStr(item.CANCELLEDDATE ?? item.cancelleddate) || null,
-    CANCELLED_REMARK: valStr(item.CANCELLED_REMARK ?? item.cancelled_remark) || null,
-    PO_NO: valStr(item.PO_NO ?? item.po_no) || null,
+    CANCELLEDDATE: valStr(item.CANCELLEDDATE ?? item.cancelleddate ?? item.CANCEL_DATE ?? item.cancel_date) || null,
+    CANCELLED_REMARK: valStr(item.CANCELLED_REMARK ?? item.cancelled_remark ?? item.CANCEL_REMARK ?? item.cancel_remark) || null,
+    PO_NO: valStr(item.PO_NO ?? item.po_no ?? item.PO_NUMBER ?? item.po_number) || null,
     PO_QTY:
-      typeof item.PO_QTY === "number" ? item.PO_QTY : Number(item.PO_QTY ?? item.po_qty ?? 0),
+      typeof item.PO_QTY === "number" ? item.PO_QTY : Number(item.PO_QTY ?? item.po_qty ?? item.POQTY ?? item.poqty ?? 0),
     VENDOR_TYPE: valStr(item.VENDOR_TYPE ?? item.vendor_type) || null,
   }));
 

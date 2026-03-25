@@ -155,6 +155,35 @@ export const storeApi: any = {
   getHealth: () => storeApiRequest("/api/store/health"),
   getUser: (employeeId: string) => storeApiRequest(`/api/store/user/${employeeId}`),
   getMe: () => storeApiRequest("/api/store/user/me"),
+
+  getDivisionWiseIssue: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/division/issue${query ? `?${query}` : ""}`);
+  },
+  getDivisionWiseIndent: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/division/indent${query ? `?${query}` : ""}`);
+  },
+  getDivisionWisePO: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/division/po${query ? `?${query}` : ""}`);
+  },
+  getDivisionWiseGRN: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/division/grn${query ? `?${query}` : ""}`);
+  },
 };
 
 export { API_BASE_URL };

@@ -66,8 +66,13 @@ export default function StoreDashboard() {
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
   const [allVendors, setAllVendors] = useState<{ vendorName: string }[]>([]);
   const [allProducts, setAllProducts] = useState<{ itemName: string }[]>([]);
+  const [divisionListIssue, setDivisionListIssue] = useState<any[]>([]);
+  const [divisionListIndent, setDivisionListIndent] = useState<any[]>([]);
+  const [divisionListPO, setDivisionListPO] = useState<any[]>([]);
+  const [divisionListGRN, setDivisionListGRN] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [feedbacksLoading, setFeedbacksLoading] = useState(true);
@@ -118,6 +123,19 @@ export default function StoreDashboard() {
           setDashboardSummary(data.summary || null);
           setFeedbacks(data.feedbacks || []);
           setFeedbacksLoading(false);
+
+          try {
+            const [issRes, indRes, poRes, grnRes] = await Promise.all([
+              storeApi.getDivisionWiseIssue(),
+              storeApi.getDivisionWiseIndent(),
+              storeApi.getDivisionWisePO(),
+              storeApi.getDivisionWiseGRN()
+            ]);
+            setDivisionListIssue(issRes?.data || []);
+            setDivisionListIndent(indRes?.data || []);
+            setDivisionListPO(poRes?.data || []);
+            setDivisionListGRN(grnRes?.data || []);
+          } catch (e) { console.error("Division data err:", e) }
 
 
           // Extract unique vendors and products from datasets
@@ -213,6 +231,52 @@ export default function StoreDashboard() {
 
     return { series, labels, totalCount: filteredIndents.length };
   }, [historyIndents]);
+
+  const mergedDivisionData = useMemo(() => {
+    const map: Record<string, any> = {};
+
+    const getDivName = (d: any) => (d.DIVISION || d.division || "Unknown").toUpperCase().trim();
+
+    divisionListIndent.forEach(d => {
+      const name = getDivName(d);
+      if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
+      map[name].indent += Number(d.TOTAL || d.total || d.TOTAL_INDENT || d.total_indent || 0);
+    });
+
+    divisionListPO.forEach(d => {
+      const name = getDivName(d);
+      if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
+      map[name].po += Number(d.TOTAL || d.total || 0);
+    });
+
+    divisionListGRN.forEach(d => {
+      const name = getDivName(d);
+      if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
+      map[name].grn += Number(d.TOTAL || d.total || 0);
+    });
+
+    divisionListIssue.forEach(d => {
+      const name = getDivName(d);
+      if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
+      map[name].issue += Number(d.TOTAL || d.total || d.AMOUNT || d.amount || 0);
+    });
+
+    return Object.values(map)
+      .filter((d: any) => d.division !== "TMT ROLLING MILL")
+      .sort((a, b) => b.indent - a.indent);
+  }, [divisionListIndent, divisionListPO, divisionListGRN, divisionListIssue]);
+
+  const overallDivisionData = useMemo(() => {
+    return mergedDivisionData.reduce(
+      (acc, curr) => ({
+        indent: acc.indent + curr.indent,
+        po: acc.po + curr.po,
+        grn: acc.grn + curr.grn,
+        issue: acc.issue + curr.issue,
+      }),
+      { indent: 0, po: 0, grn: 0, issue: 0 }
+    );
+  }, [mergedDivisionData]);
 
   const donorChartOptions: ApexOptions = {
     labels: purchaserChartData.labels,
@@ -344,8 +408,8 @@ export default function StoreDashboard() {
       case "totalIndents":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.indent_no, item.INDENT_NO, item.INDENT_NUMBER),
-          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
+          title: getDisplayValue(item.item_name, item.ITEM_NAME),
+          subtitle: `No: ${getDisplayValue(item.indent_no, item.INDENT_NO, item.INDENT_NUMBER)}`,
           meta: `Indenter: ${getDisplayValue(item.indenter, item.INDENTER, item.INDENTER_NAME)}`,
           fields: [
             { label: "Date", value: getDisplayDate(item.indent_date, item.INDENT_DATE) },
@@ -363,8 +427,8 @@ export default function StoreDashboard() {
       case "pendingIndents":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.INDENT_NUMBER, item.indent_number),
-          subtitle: getDisplayValue(item.ITEM_NAME),
+          title: getDisplayValue(item.ITEM_NAME, item.item_name),
+          subtitle: `No: ${getDisplayValue(item.INDENT_NUMBER, item.indent_number)}`,
           meta: `Indenter: ${getDisplayValue(item.INDENTER_NAME)}`,
           fields: [
             { label: "Planned Date", value: getDisplayDate(item.PLANNEDTIMESTAMP) },
@@ -382,8 +446,8 @@ export default function StoreDashboard() {
       case "pendingPOs":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.VRNO, item.vrno),
-          subtitle: getDisplayValue(item.ITEM_NAME),
+          title: getDisplayValue(item.ITEM_NAME, item.item_name),
+          subtitle: `PO No: ${getDisplayValue(item.VRNO, item.vrno)}`,
           meta: `Vendor: ${getDisplayValue(item.VENDOR_NAME)}`,
           fields: [
             { label: "Indent No", value: getDisplayValue(item.INDENT_NO) },
@@ -399,8 +463,8 @@ export default function StoreDashboard() {
       case "repairPending":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.vrno, item.VRNO),
-          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
+          title: getDisplayValue(item.item_name, item.ITEM_NAME),
+          subtitle: `VR No: ${getDisplayValue(item.vrno, item.VRNO)}`,
           meta: `Party: ${getDisplayValue(item.partyname, item.PARTYNAME)}`,
           fields: [
             { label: "Date", value: getDisplayDate(item.vrdate, item.VRDATE) },
@@ -414,9 +478,9 @@ export default function StoreDashboard() {
       case "repairHistory":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.receive_gate_pass, item.RECEIVE_GATE_PASS),
-          subtitle: getDisplayValue(item.item_name, item.ITEM_NAME),
-          meta: `Repair Gate Pass: ${getDisplayValue(item.repair_gate_pass, item.REPAIR_GATE_PASS)}`,
+          title: getDisplayValue(item.item_name, item.ITEM_NAME),
+          subtitle: `Receive GP: ${getDisplayValue(item.receive_gate_pass, item.RECEIVE_GATE_PASS)}`,
+          meta: `Repair GP: ${getDisplayValue(item.repair_gate_pass, item.REPAIR_GATE_PASS)}`,
           fields: [
             { label: "Received Date", value: getDisplayDate(item.received_date, item.RECEIVED_DATE) },
             { label: "Party Name", value: getDisplayValue(item.partyname, item.PARTYNAME) },
@@ -430,8 +494,8 @@ export default function StoreDashboard() {
       case "nonReturnable":
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.VRNO, item.vrno),
-          subtitle: getDisplayValue(item.ITEM_NAME, item.item_name),
+          title: getDisplayValue(item.ITEM_NAME, item.item_name),
+          subtitle: `VR No: ${getDisplayValue(item.VRNO, item.vrno)}`,
           meta: `Party: ${getDisplayValue(item.PARTY_NAME, item.party_name)}`,
           fields: [
             { label: "Date", value: getDisplayDate(item.VRDATE, item.vrdate) },
@@ -442,11 +506,29 @@ export default function StoreDashboard() {
             { label: "Remarks", value: getDisplayValue(item.REMARK, item.remark, "No remarks"), fullWidth: true },
           ],
         };
+      case "divIssue":
+      case "divIndent":
+      case "divPO":
+      case "divGRN": {
+        const isCount = type === 'divIndent';
+        const label = type === 'divIssue' ? 'Issue' : type === 'divPO' ? 'PO' : type === 'divGRN' ? 'GRN' : 'Indent';
+        return {
+          gradient: getModalCardGradient(isCount ? 'totalIndents' : 'totalPurchases'),
+          title: getDisplayValue(item.DIVISION, item.division, "Unknown Division"),
+          subtitle: `${label} Comparison Details`,
+          meta: `Cost Center: ${getDisplayValue(item.COSTCENTER, item.costcenter)}`,
+          fields: [
+            { label: "Emp Code", value: getDisplayValue(item.EMPCODE, item.empcode), tone: "primary" },
+            { label: isCount ? "Total Count" : "Total Amount", value: isCount ? (item.TOTAL || item.total || 0) : Math.round(item.TOTAL || item.total || item.AMOUNT || item.amount || 0), tone: "success" },
+            { label: "Cost Center", value: getDisplayValue(item.COSTCENTER, item.costcenter), fullWidth: true },
+          ],
+        };
+      }
       default:
         return {
           gradient: getModalCardGradient(type),
-          title: getDisplayValue(item.VRNO, item.vrno),
-          subtitle: getDisplayValue(item.ITEM_NAME, item.item_name),
+          title: getDisplayValue(item.ITEM_NAME, item.item_name),
+          subtitle: `VR No: ${getDisplayValue(item.VRNO, item.vrno)}`,
           meta: `Party: ${getDisplayValue(item.PARTY_NAME, item.party_name)}`,
           fields: [
             { label: "Date", value: getDisplayDate(item.VRDATE, item.vrdate) },
@@ -681,12 +763,32 @@ export default function StoreDashboard() {
             </>
           )
         };
+      case 'divIssue':
+      case 'divIndent':
+      case 'divPO':
+      case 'divGRN': {
+        const isCount = type === 'divIndent';
+        return {
+          headers: ["Division", "Cost Center", "Emp Code", isCount ? "Total Count" : "Total Amount"],
+          renderRow: (item: any) => (
+            <>
+              <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{item.DIVISION || item.division || "—"}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-700">{item.COSTCENTER || item.costcenter || "—"}</td>
+              <td className="px-6 py-4 text-sm font-mono font-black text-indigo-700">{item.EMPCODE || item.empcode || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-slate-900">
+                {isCount ? (item.TOTAL || item.total || 0) : Math.round(Number(item.TOTAL || item.total || item.AMOUNT || item.amount || 0))}
+              </td>
+            </>
+          )
+        };
+      }
     }
   };
 
-  const openModal = async (type: string, title: string) => {
+  const openModal = async (type: string, title: string, divisionFilter?: string) => {
     setModalTitle(title);
     setModalType(type);
+    setSelectedDivision(divisionFilter || null);
     setIsModalOpen(true);
     setModalLoading(true);
     setModalData([]);
@@ -695,48 +797,36 @@ export default function StoreDashboard() {
 
     try {
       let rows: any[] = [];
-      switch (type) {
-        case 'totalIndents':
-          rows = [...pendingIndents, ...historyIndents];
-          break;
-        case 'pendingIndents':
-          rows = pendingIndents;
-          break;
-        case 'totalPurchases':
-          rows = poHistory;
-          break;
-        case 'pendingPOs':
-          rows = poPending;
-          break;
-        case 'repairPending':
-          rows = repairPending;
-          break;
-        case 'repairHistory':
-          rows = repairHistory;
-          break;
-        case 'returnableTotal': {
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
-          break;
-        }
-        case 'returnablePending': {
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
-          break;
-        }
-        case 'returnableCompleted': {
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
-          break;
-        }
-        case 'nonReturnable': {
-          rows = (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
-          break;
-        }
-      }
+      const filterByDiv = (data: any[], filter?: string) => filter
+        ? data.filter(d => (d.DIVISION || d.division || "").toUpperCase().trim() === filter.toUpperCase().trim())
+        : data;
 
-      // Filter by current month start
+      const getRowsForType = (t: string, filter?: string) => {
+        switch (t) {
+          case 'totalIndents': return [...pendingIndents, ...historyIndents];
+          case 'pendingIndents': return pendingIndents;
+          case 'totalPurchases': return poHistory;
+          case 'pendingPOs': return poPending;
+          case 'repairPending': return repairPending;
+          case 'repairHistory': return repairHistory;
+          case 'returnableTotal': return (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE');
+          case 'returnablePending': return (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'PENDING');
+          case 'returnableCompleted': return (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'RETURNABLE' && i.GATEPASS_STATUS === 'COMPLETED');
+          case 'nonReturnable': return (returnableDetails || []).filter((i: any) => i.GATEPASS_TYPE === 'NON RETURANABLE');
+          case 'divIssue': return filterByDiv(divisionListIssue, filter);
+          case 'divIndent': return filterByDiv(divisionListIndent, filter);
+          case 'divPO': return filterByDiv(divisionListPO, filter);
+          case 'divGRN': return filterByDiv(divisionListGRN, filter);
+          default: return [];
+        }
+      };
+
+      rows = getRowsForType(type, divisionFilter);
+
       const monthStart = getCurrentMonthStart();
       const filteredByMonth = rows.filter((item: any) => {
         const dateVal = item.VRDATE || item.vrdate || item.INDENT_DATE || item.indent_date || item.RECEIVED_DATE || item.received_date || item.date || item.PLANNEDTIMESTAMP;
-        if (!dateVal) return true; // Keep if no date found
+        if (!dateVal) return true;
         return new Date(dateVal) >= monthStart;
       });
 
@@ -748,10 +838,37 @@ export default function StoreDashboard() {
     }
   };
 
+  const handleTabChange = (type: string) => {
+    setModalType(type);
+    setModalLoading(true);
+
+    const filterByDiv = (data: any[], filter?: string) => filter
+      ? data.filter(d => (d.DIVISION || d.division || "").toUpperCase().trim() === filter.toUpperCase().trim())
+      : data;
+
+    let rows: any[] = [];
+    switch (type) {
+      case 'divIndent': rows = filterByDiv(divisionListIndent, selectedDivision || undefined); break;
+      case 'divPO': rows = filterByDiv(divisionListPO, selectedDivision || undefined); break;
+      case 'divGRN': rows = filterByDiv(divisionListGRN, selectedDivision || undefined); break;
+      case 'divIssue': rows = filterByDiv(divisionListIssue, selectedDivision || undefined); break;
+    }
+
+    const monthStart = getCurrentMonthStart();
+    const filteredByMonth = rows.filter((item: any) => {
+      const dateVal = item.VRDATE || item.vrdate || item.INDENT_DATE || item.indent_date || item.RECEIVED_DATE || item.received_date || item.date || item.PLANNEDTIMESTAMP;
+      if (!dateVal) return true;
+      return new Date(dateVal) >= monthStart;
+    });
+
+    setModalData(filteredByMonth);
+    setModalLoading(false);
+  };
+
   const cards = [
     {
       title: 'Total Indents',
-      icon: <ClipboardList size={20} />,
+      icon: <ClipboardList size={16} />,
       value: dashboardData?.totalIndents ?? '—',
       // sublabel: 'Indented Quantity',
       // subvalue: dashboardData?.totalIndentedQuantity?.toLocaleString() ?? '—',
@@ -762,7 +879,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Pending Indents',
-      icon: <PackageCheck size={20} />,
+      icon: <PackageCheck size={16} />,
       value: dashboardData?.pendingIndents ?? '—',
       // sublabel: 'Indents Waiting',
       // subvalue: dashboardData?.pendingIndents?.toLocaleString() ?? '—',
@@ -773,7 +890,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Total Purchases',
-      icon: <Truck size={20} />,
+      icon: <Truck size={16} />,
       value: dashboardData?.totalPurchaseOrders ?? '—',
       // sublabel: 'Purchased Quantity',
       // subvalue: dashboardData?.totalPurchasedQuantity?.toLocaleString() ?? '—',
@@ -784,7 +901,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Pending PO',
-      icon: <FileText size={20} />,
+      icon: <FileText size={16} />,
       value: dashboardData?.pendingPurchaseOrders ?? '—',
       // sublabel: 'POs Waiting',
       // subvalue: dashboardData?.pendingPurchaseOrders?.toLocaleString() ?? '—',
@@ -795,7 +912,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Repair Pending',
-      icon: <Activity size={20} />,
+      icon: <Activity size={16} />,
       value: repairGatePassCounts.pending ?? '—',
       // sublabel: 'Gate Pass Pending',
       // subvalue: repairGatePassCounts.pending?.toLocaleString() ?? '—',
@@ -806,7 +923,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Repair History',
-      icon: <FileText size={20} />,
+      icon: <FileText size={16} />,
       value: repairGatePassCounts.history ?? '—',
       // sublabel: 'Gate Pass Received',
       // subvalue: repairGatePassCounts.history?.toLocaleString() ?? '—',
@@ -817,7 +934,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Total Returnable',
-      icon: <RefreshCcw size={20} />,
+      icon: <RefreshCcw size={16} />,
       value: returnableStats.RETURNABLE_COUNT ?? '—',
       // sublabel: 'Total GP R3',
       // subvalue: returnableStats.RETURNABLE_COUNT?.toLocaleString() ?? '—',
@@ -828,7 +945,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Non Returnable',
-      icon: <Box size={20} />,
+      icon: <Box size={16} />,
       value: returnableStats.NON_RETURNABLE_COUNT ?? '—',
       // sublabel: 'Gate Pass N3',
       // subvalue: returnableStats.NON_RETURNABLE_COUNT?.toLocaleString() ?? '—',
@@ -839,7 +956,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Returnable Pending',
-      icon: <Clock size={20} />,
+      icon: <Clock size={16} />,
       value: returnableStats.RETURNABLE_PENDING_COUNT ?? '—',
       // sublabel: 'GP Pending R3',
       // subvalue: returnableStats.RETURNABLE_PENDING_COUNT?.toLocaleString() ?? '—',
@@ -850,7 +967,7 @@ export default function StoreDashboard() {
     },
     {
       title: 'Returnable Completed',
-      icon: <CheckCircle2 size={20} />,
+      icon: <CheckCircle2 size={16} />,
       value: returnableStats.RETURNABLE_COMPLETED_COUNT ?? '—',
       // sublabel: 'GP Completed R3',
       // subvalue: returnableStats.RETURNABLE_COMPLETED_COUNT?.toLocaleString() ?? '—',
@@ -987,14 +1104,14 @@ export default function StoreDashboard() {
               Store Dashboard
             </h1>
             <p className="text-[11px] md:text-sm text-slate-500 dark:text-slate-400 font-medium leading-snug">
-              Real-time monitoring and analytics for Store &amp; Purchase operations
+              Real-time monitoring and analytics for Store &amp; Purchase
             </p>
           </div>
         </div>
       </div>
 
       {/* Hero Metrics Cards - Updated Grid to 5 columns on large screens */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
         {cards.map((card) => (
           <button
             key={card.title}
@@ -1012,14 +1129,14 @@ export default function StoreDashboard() {
                   {card.icon}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-white/90">
-                  <ArrowUpRight size={14} />
+                  {/* <ArrowUpRight size={14} /> */}
                   <span>View</span>
                 </div>
               </div>
 
               <div>
-                <p className="text-white/80 font-medium text-[14px] sm:text-xs tracking-wide uppercase truncate">{card.title}</p>
-                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-1 mb-3 truncate">{card.value}</h3>
+                <p className="text-white/80 font-medium text-[14px] sm:text-xs tracking-wide uppercase whitespace-normal leading-tight">{card.title}</p>
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-1 mb-3 break-all">{card.value}</h3>
 
                 {/* <div className="flex items-center justify-between border-t border-white/20 pt-3 mt-1">
                   <p className="text-white/70 text-[9px] font-medium truncate uppercase">{card.sublabel}</p>
@@ -1033,58 +1150,6 @@ export default function StoreDashboard() {
 
       {/* Bottom Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden h-full">
-          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                <TrendingUp size={20} />
-              </div>
-              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Overall Progress</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-8">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-12">
-              <div className="relative w-48 h-48 flex-shrink-0">
-                <svg className="transform -rotate-90 w-full h-full drop-shadow-lg">
-                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none" className="text-slate-100 dark:text-slate-800" />
-                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
-                    strokeDasharray={`${(dashboardData?.upcomingPercent || 0) * 5.02} 502`}
-                    strokeDashoffset={`-${((dashboardData?.completedPercent || 0) + (dashboardData?.pendingPercent || 0)) * 5.02}`}
-                    className="text-slate-300 dark:text-slate-600" />
-                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
-                    strokeDasharray={`${(dashboardData?.pendingPercent || 0) * 5.02} 502`}
-                    strokeDashoffset={`-${(dashboardData?.completedPercent || 0) * 5.02}`}
-                    className="text-amber-400" />
-                  <circle cx="50%" cy="50%" r="80" stroke="currentColor" strokeWidth="28" fill="none"
-                    strokeDasharray={`${(dashboardData?.completedPercent || 0) * 5.02} 502`}
-                    className="text-emerald-500" />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                    {dashboardData?.overallProgress?.toFixed(0) ?? 0}%
-                  </span>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Completed</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 w-full">
-                {[
-                  { label: "Completed", color: "bg-emerald-500", value: dashboardData?.completedIndents },
-                  { label: "Pending", color: "bg-amber-400", value: dashboardData?.pendingIndents },
-                  { label: "Overdue", color: "bg-rose-500", value: dashboardData?.overdueIndents },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{item.label}</span>
-                    </div>
-                    <span className="text-base font-bold text-slate-900 dark:text-white">{item.value?.toLocaleString() ?? 0}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full">
           <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="flex items-center gap-3">
@@ -1094,16 +1159,31 @@ export default function StoreDashboard() {
               <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Performance Indicators</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-8">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-12">
-              <div className="relative w-48 h-48 flex-shrink-0">
+          <CardContent className="p-4 sm:p-5 md:p-8">
+            <div className="flex flex-row items-center justify-between gap-1 sm:gap-4 md:gap-12">
+              <div className="relative w-[150px] h-[150px] sm:w-[170px] sm:h-[170px] md:w-56 md:h-56 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
                 {purchaserChartData.series.length > 0 ? (
-                  <Chart
-                    options={donorChartOptions}
-                    series={purchaserChartData.series}
-                    type="donut"
-                    height={220}
-                  />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Chart
+                      options={{
+                        ...donorChartOptions,
+                        dataLabels: {
+                          enabled: true,
+                          formatter: (val: number) => Math.round(val) + "%",
+                          style: { fontSize: '10px', fontWeight: 600, colors: ['#fff'] },
+                          dropShadow: { enabled: false }
+                        },
+                        legend: { show: false },
+                        plotOptions: {
+                          pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Purchasers', fontSize: '9px' }, value: { fontSize: '16px', fontWeight: 900, offsetY: 0 } } } }
+                        }
+                      }}
+                      series={purchaserChartData.series}
+                      type="donut"
+                      height="100%"
+                      width="100%"
+                    />
+                  </div>
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
                     <BarChart3 size={48} className="mb-2" />
@@ -1111,23 +1191,151 @@ export default function StoreDashboard() {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-2 w-full max-h-48 overflow-y-auto custom-scrollbar pr-2">
+              <div className="grid grid-cols-1 gap-2 w-full max-w-[220px] sm:max-w-[260px] md:max-w-xs xl:max-w-sm max-h-[140px] md:max-h-48 overflow-y-auto custom-scrollbar pr-1">
                 {purchaserChartData.labels.map((label: string, index: number) => (
-                  <div key={label} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: donorChartOptions.colors?.[index % (donorChartOptions.colors?.length || 1)] as string }}
-                      />
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{label}</span>
+                  <div key={label} className="flex flex-row md:flex-col items-center md:items-start justify-between md:justify-center gap-0 md:gap-1.5 px-3 py-1.5 md:p-3 md:px-4 rounded-full md:rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-colors">
+                    <div className="flex items-center gap-2 md:gap-2.5 flex-1 min-w-0 w-full pr-1 sm:pr-2 overflow-hidden">
+                      <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style={{ backgroundColor: donorChartOptions.colors?.[index % (donorChartOptions.colors?.length || 1)] as string }} />
+                      <span className="text-[9px] md:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight leading-snug break-words whitespace-normal">{label}</span>
                     </div>
-                    <span className="text-sm font-black text-slate-900 dark:text-white">{purchaserChartData.series[index]}</span>
+                    <span className="text-[11px] sm:text-xs md:text-sm font-black text-slate-900 dark:text-white shrink-0 md:pl-5">{purchaserChartData.series[index]}</span>
                   </div>
                 ))}
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden h-full">
+          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                  <TrendingUp size={20} />
+                </div>
+                <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase">Overall Divisions Progress</CardTitle>
+              </div>
+              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                onClick={() => openModal('divIndent', 'Overall Divisions Details')}>
+                View Overall
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5 md:p-8">
+            <div className="flex flex-row items-center justify-between gap-1 sm:gap-4 md:gap-8 lg:gap-12">
+              <div className="relative w-[150px] h-[150px] sm:w-[170px] sm:h-[170px] md:w-56 md:h-56 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
+                <Chart
+                  options={{
+                    ...donorChartOptions,
+                    colors: ['#10b981', '#f59e0b', '#3b82f6', '#4f46e5'], // Indent, PO, GRN, Issue
+                    labels: ['Indents', 'PO Amount', 'GRN Amount', 'Issue Amount'],
+                    tooltip: { enabled: true, y: { formatter: (val: number, { seriesIndex }) => seriesIndex === 0 ? val.toFixed(0) : Math.round(val).toString() } },
+                    dataLabels: {
+                      enabled: true,
+                      formatter: (val: number) => Math.round(val) + "%",
+                      style: { fontSize: '10px', fontWeight: 700, colors: ['#fff'] },
+                      dropShadow: { enabled: false }
+                    },
+                    legend: { show: false },
+                    plotOptions: {
+                      pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Total Indent', formatter: () => overallDivisionData.indent.toString(), fontSize: '9px' }, value: { fontSize: '18px', fontWeight: 900, offsetY: 0, formatter: () => overallDivisionData.indent.toString() } } } }
+                    }
+                  }}
+                  series={[overallDivisionData.indent, overallDivisionData.po, overallDivisionData.grn, overallDivisionData.issue]}
+                  type="donut"
+                  height="100%"
+                  width="100%"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 w-full max-w-[220px] sm:max-w-[260px] md:max-w-xs xl:max-w-sm">
+                {[
+                  { label: 'Total Indents', value: overallDivisionData.indent, color: 'bg-emerald-500', isCurrency: false },
+                  { label: 'Total PO Value', value: overallDivisionData.po, color: 'bg-amber-500', isCurrency: true },
+                  { label: 'Total GRN Value', value: overallDivisionData.grn, color: 'bg-blue-500', isCurrency: true },
+                  { label: 'Total Issue Value', value: overallDivisionData.issue, color: 'bg-indigo-600', isCurrency: true },
+                ].map((item, i) => (
+                  <div key={i} className="flex flex-row items-center justify-between gap-2 px-3 py-1.5 md:p-3 md:px-4 rounded-full md:rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 md:gap-2.5 flex-1 min-w-0 pr-1 sm:pr-2 overflow-hidden">
+                      <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${item.color} shrink-0`} />
+                      <span className="text-[9px] md:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight whitespace-nowrap">{item.label}</span>
+                    </div>
+                    <span className="text-[11px] sm:text-xs md:text-sm lg:text-base font-black text-slate-900 dark:text-white shrink-0 md:pl-5 tabular-nums">
+                      {Math.round(item.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Division KPI Cards */}
+        {mergedDivisionData.map((divData: any, idx: number) => (
+          <Card key={`${divData.division}-${idx}`} className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full overflow-hidden">
+            <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <LayoutDashboard size={16} />
+                  </div>
+                  <CardTitle className="text-[14px] font-bold text-slate-800 dark:text-slate-100 truncate uppercase" title={divData.division}>
+                    {divData.division}
+                  </CardTitle>
+                </div>
+                <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors ml-2"
+                  onClick={() => openModal('divIndent', `${divData.division} Details`, divData.division)}>
+                  View Details
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-row items-center justify-between gap-4">
+                <div className="relative w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
+                  <Chart
+                    options={{
+                      ...donorChartOptions,
+                      colors: ['#10b981', '#f59e0b', '#3b82f6', '#4f46e5'], // Indent, PO, GRN, Issue
+                      labels: ['Indents', 'PO Amount', 'GRN Amount', 'Issue Amount'],
+                      tooltip: { enabled: true, y: { formatter: (val: number, { seriesIndex }) => seriesIndex === 0 ? val.toFixed(0) : Math.round(val).toString() } },
+                      dataLabels: {
+                        enabled: true,
+                        formatter: (val: number) => Math.round(val) + "%",
+                        style: { fontSize: '9px', fontWeight: 700, colors: ['#fff'] },
+                        dropShadow: { enabled: false }
+                      },
+                      legend: { show: false },
+                      plotOptions: {
+                        pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Total Indent', formatter: () => divData.indent.toString(), fontSize: '8px' }, value: { fontSize: '14px', fontWeight: 900, offsetY: 0, formatter: () => divData.indent.toString() } } } }
+                      }
+                    }}
+                    series={[divData.indent, divData.po, divData.grn, divData.issue]}
+                    type="donut"
+                    height="100%"
+                    width="100%"
+                  />
+                </div>
+                <div className="flex-1 grid grid-cols-1 gap-2.5">
+                  {[
+                    { label: 'Indents', value: divData.indent, color: 'bg-emerald-500', isCurrency: false },
+                    { label: 'PO Value', value: divData.po, color: 'bg-amber-500', isCurrency: true },
+                    { label: 'GRN Value', value: divData.grn, color: 'bg-blue-500', isCurrency: true },
+                    { label: 'Issue Value', value: divData.issue, color: 'bg-indigo-600', isCurrency: true },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-1.5 h-1.5 rounded-full ${item.color} shrink-0`} />
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight truncate">{item.label}</span>
+                      </div>
+                      <span className="text-[11px] font-black text-slate-900 dark:text-white shrink-0">
+                        {Math.round(item.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
         <TopListCard title="All Products" data={allProducts} type="product" />
         <TopListCard title="All Vendors" data={allVendors} type="vendor" />
@@ -1140,37 +1348,64 @@ export default function StoreDashboard() {
 
       {/* Modal Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent aria-describedby={undefined} className="top-[calc(50%+2.5rem)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] w-[96vw] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl [&>button]:hidden md:top-[50%] md:h-[88vh] md:w-[90vw] md:max-h-[88vh] lg:h-[85vh] lg:w-[80vw] lg:max-w-[1200px]">
-          <DialogHeader className="shrink-0 bg-indigo-600 px-3 py-3 text-white md:p-6">
-            <div className="flex items-center gap-2.5 md:gap-4">
+        <DialogContent aria-describedby={undefined} className="flex flex-col gap-0 !z-[9999] top-[calc(50%+2.5rem)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] w-[96vw] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl [&>button]:hidden md:top-[50%] md:h-[88vh] md:w-[90vw] md:max-h-[88vh] lg:h-[85vh] lg:w-[80vw] lg:max-w-[1200px]">
+          <DialogHeader className="shrink-0 bg-indigo-600 px-4 py-3 text-white md:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
-                <div className="rounded-xl bg-white/20 p-2">
-                  <LayoutDashboard size={24} />
+                <div className="rounded-xl bg-white/20 p-2 shrink-0">
+                  <LayoutDashboard size={20} className="md:w-6 md:h-6" />
                 </div>
-                <DialogTitle className="truncate text-base font-bold md:text-2xl">{modalTitle}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Detailed view of {modalTitle} data and records.
-                </DialogDescription>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate text-base font-bold md:text-2xl leading-tight">{modalTitle}</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Detailed view of {modalTitle} data and records.
+                  </DialogDescription>
+                </div>
+                <DialogClose className="block sm:hidden shrink-0 rounded-full p-2 outline-none transition-colors hover:bg-white/20 ml-auto">
+                  <X size={20} />
+                </DialogClose>
               </div>
 
-              <div className="flex min-w-0 flex-1 items-center gap-2 md:max-w-md md:gap-3">
-                <div className="relative min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2 md:max-w-md md:gap-3 w-full sm:w-auto">
+                <div className="relative min-w-0 flex-1 sm:w-64 md:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" size={16} />
                   <input
                     type="text"
-                    placeholder="Search all columns..."
-                    className="w-full rounded-xl border border-white/20 bg-white/10 py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/50 outline-none transition-all focus:bg-white/20 focus:border-white/40 md:py-2 md:pl-10 md:pr-4 md:text-sm"
+                    placeholder="Search records..."
+                    className="w-full rounded-xl border border-white/20 bg-white/10 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/50 outline-none transition-all focus:bg-white/20 focus:border-white/40"
                     value={modalSearch}
                     onChange={(e) => setModalSearch(e.target.value)}
                   />
                 </div>
-                <DialogClose className="shrink-0 rounded-full p-2 outline-none transition-colors hover:bg-white/20">
-                  <X size={18} />
+                <DialogClose className="hidden sm:block shrink-0 rounded-full p-2 outline-none transition-colors hover:bg-white/20">
+                  <X size={20} />
                 </DialogClose>
               </div>
             </div>
           </DialogHeader>
 
+          {selectedDivision && (
+            <div className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 overflow-x-auto no-scrollbar">
+              <div className="flex px-4 py-2 gap-2">
+                {[
+                  { id: 'divIndent', label: 'Indents' },
+                  { id: 'divPO', label: 'PO' },
+                  { id: 'divGRN', label: 'GRN' },
+                  { id: 'divIssue', label: 'Issues' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`px-4 py-2 text-[12px] font-bold rounded-xl transition-all whitespace-nowrap ${modalType === tab.id
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex-1 overflow-auto p-0 bg-white dark:bg-slate-900">
             {modalLoading ? (
               <div className="flex flex-col items-center justify-center p-24 md:p-40 space-y-6">
@@ -1301,45 +1536,45 @@ function getModalFieldValueClasses(tone?: string) {
 
 function ModalDetailCard({ recordLabel, index, gradient, title, subtitle, meta, fields }: any) {
   return (
-    <div className="overflow-hidden rounded-[18px] border border-white/60 bg-white shadow-md shadow-slate-200/70 ring-1 ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:shadow-slate-950/50 dark:ring-slate-800/80">
-      <div className={`bg-gradient-to-br ${gradient} px-3 py-2.5 text-white`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/70 sm:text-[11px]">
-              {recordLabel} #{index + 1}
-            </p>
-            <h3 className="mt-1 break-words text-[15px] font-black leading-tight sm:text-lg">
+    <div className="overflow-hidden mb-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm hover:shadow-md transition-shadow">
+      <div className={`h-1 w-full bg-gradient-to-r ${gradient}`}></div>
+      <div className="px-3 py-2 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="break-words text-[13px] font-black leading-tight text-slate-800 dark:text-slate-100 uppercase tracking-wide">
               {title}
             </h3>
-            {subtitle && subtitle !== "--" ? (
-              <p className="mt-0.5 break-words text-[11px] font-medium leading-snug text-white/90 sm:text-sm">
-                {subtitle}
-              </p>
-            ) : null}
-            {meta && meta !== "--" ? (
-              <p className="mt-1 break-words text-[10px] font-semibold text-white/75 sm:text-xs">
-                {meta}
-              </p>
-            ) : null}
-          </div>
-          <div className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/90 backdrop-blur-sm">
-            View
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              <span className="inline-flex items-center rounded bg-white dark:bg-slate-800 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500 shadow-sm border border-slate-200 dark:border-slate-700">
+                #{index + 1}
+              </span>
+              {subtitle && subtitle !== "--" && (
+                <span className="text-[10px] sm:text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
+                  {subtitle}
+                </span>
+              )}
+              {meta && meta !== "--" && (
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                  {meta}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-2.5 dark:bg-slate-950">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 px-3 py-2.5">
         {fields.map((field: any, fieldIndex: number) => (
           <div
             key={`${field.label}-${fieldIndex}`}
-            className={`min-w-0 border-b border-slate-200/80 pb-1.5 dark:border-slate-800/80 ${field.fullWidth ? "col-span-2" : ""}`}
+            className={`min-w-0 ${field.fullWidth ? "col-span-2 sm:col-span-3 border-t border-slate-50 dark:border-slate-800/50 pt-1 mt-0.5" : ""}`}
           >
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-0.5">
               {field.label}
             </p>
-            <div className={`mt-0.5 break-words text-[12px] font-bold leading-snug ${getModalFieldValueClasses(field.tone)}`}>
+            <p className={`text-[11px] font-bold leading-tight truncate ${getModalFieldValueClasses(field.tone)}`} title={field.value}>
               {field.value}
-            </div>
+            </p>
           </div>
         ))}
       </div>
