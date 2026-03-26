@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+
 const events = [
   {
     title: "Strategy Review",

@@ -182,6 +182,30 @@ const Setting = () => {
         };
     };
 
+    const serializeDepartmentsAccess = (departments, fallbackDepartment = "") => {
+        const source = Array.isArray(departments)
+            ? departments
+            : typeof departments === "string"
+                ? departments.split(",")
+                : [];
+
+        const normalizedDepartments = [...new Set(
+            source
+                .map((departmentName) =>
+                    typeof departmentName === "string"
+                        ? departmentName.trim()
+                        : String(departmentName || "").trim()
+                )
+                .filter(Boolean)
+        )];
+
+        if (normalizedDepartments.length > 0) {
+            return normalizedDepartments.join(",");
+        }
+
+        return fallbackDepartment?.trim() || "";
+    };
+
     const fetchDivisions = async () => {
         try {
             const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
@@ -208,9 +232,10 @@ const Setting = () => {
         setIsUpdating(true);
         setUpdateMessage({ type: "", text: "" });
 
-        const departmentsString = Array.isArray(userForm.departments)
-            ? userForm.departments.join(",")
-            : "";
+        const departmentsString = serializeDepartmentsAccess(
+            userForm.departments,
+            userForm.department
+        );
 
         const { system_access, page_access } = buildAccessPayload();
 
@@ -223,6 +248,7 @@ const Setting = () => {
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
+            departments: Array.isArray(userForm.departments) ? userForm.departments : [],
             department: userForm.department || "", // From single select dropdown
             givenBy: userForm.givenBy?.trim() || "", // Add givenBy field
             user_access1: (() => {
@@ -305,9 +331,10 @@ const Setting = () => {
         setUpdateMessage({ type: "", text: "" });
 
         // Prepare updated user data
-        const departmentsString = Array.isArray(userForm.departments)
-            ? userForm.departments.join(",")
-            : "";
+        const departmentsString = serializeDepartmentsAccess(
+            userForm.departments,
+            userForm.department
+        );
         const { system_access, page_access } = buildAccessPayload();
 
         const updatedUser = {
@@ -318,6 +345,7 @@ const Setting = () => {
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
+            departments: Array.isArray(userForm.departments) ? userForm.departments : [],
             department: userForm.department || "", // From single select dropdown
             user_access1: (() => {
                 // Handle user_access1: if it's an array, join with commas; if string, use as is; otherwise convert to string
@@ -693,7 +721,9 @@ const Setting = () => {
                     .split(",")
                     .map((d) => d.trim())
                     .filter(Boolean)
-                : [], // Split comma-separated string into array
+                : user.department
+                    ? [user.department]
+                    : [], // Split comma-separated string into array
             givenBy: user.givenBy || "",
             role: user.role || "user",
             status: user.status || "active",
