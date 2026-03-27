@@ -54,6 +54,7 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
 
 export default function StoreDashboard() {
   const { user } = useAuth();
+  const MODAL_PAGE_SIZE = 25;
 
   // ── Local dashboard state (replaces useStoreDashboard) ──────────────────
   const [pendingIndents, setPendingIndents] = useState<any[]>([]);
@@ -76,6 +77,16 @@ export default function StoreDashboard() {
 
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [feedbacksLoading, setFeedbacksLoading] = useState(true);
+
+  // Consolidated Modal & Detail states
+  const [modalData, setModalData] = useState<any[]>([]);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalType, setModalType] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalSearch, setModalSearch] = useState("");
+  const [modalPage, setModalPage] = useState(1);
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MODAL_PAGE_SIZE);
 
   const mountedRef = useRef(true);
 
@@ -181,17 +192,6 @@ export default function StoreDashboard() {
     return storeAccess.includes("DASHBOARD");
   }, [user]);
 
-  // Modal State
-  const MODAL_PAGE_SIZE = 50;
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalTitle, setModalTitle] = useState("");
-  const [modalType, setModalType] = useState("");
-  const [modalData, setModalData] = useState<any[]>([]);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalSearch, setModalSearch] = useState("");
-  const [modalPage, setModalPage] = useState(1);
-  const [mobileVisibleCount, setMobileVisibleCount] = useState(MODAL_PAGE_SIZE);
-
   // Process Purchaser Performance Data for Chart (Current Month History Only)
   const purchaserChartData = useMemo(() => {
     if (!historyIndents || historyIndents.length === 0) return { series: [], labels: [] };
@@ -232,33 +232,42 @@ export default function StoreDashboard() {
     return { series, labels, totalCount: filteredIndents.length };
   }, [historyIndents]);
 
+  const getDivName = (d: any) => {
+    const rawName = String(d.DIVISION || d.division || "Unknown").toUpperCase().trim();
+    if (rawName === "STEEL MELTING SHOP (SMS)") return "SMS";
+    if (rawName.includes("CORPORATE") || rawName.includes("CORP") || rawName.includes("COMMON")) return "COMMON";
+    return rawName;
+  };
+
   const mergedDivisionData = useMemo(() => {
     const map: Record<string, any> = {};
 
-    const getDivName = (d: any) => (d.DIVISION || d.division || "Unknown").toUpperCase().trim();
-
+    // Indents - Now a detailed list, so we COUNT records
     divisionListIndent.forEach(d => {
       const name = getDivName(d);
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
-      map[name].indent += Number(d.TOTAL || d.total || d.TOTAL_INDENT || d.total_indent || 0);
+      map[name].indent++;
     });
 
+    // PO - Aggregated sum poamount
     divisionListPO.forEach(d => {
       const name = getDivName(d);
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
-      map[name].po += Number(d.TOTAL || d.total || 0);
+      map[name].po += Number(d.POAMOUNT || d.poamount || d.ORDER_AMOUNT || d.order_amount || d.TOTAL || d.total || 0);
     });
 
+    // GRN - Aggregated sum grnamount
     divisionListGRN.forEach(d => {
       const name = getDivName(d);
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
-      map[name].grn += Number(d.TOTAL || d.total || 0);
+      map[name].grn += Number(d.GRNAMOUNT || d.grnamount || d.GRN_AMOUNT || d.grn_amount || d.TOTAL || d.total || 0);
     });
 
+    // Issue - Now summarized by employee, sum issue_amount
     divisionListIssue.forEach(d => {
       const name = getDivName(d);
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
-      map[name].issue += Number(d.TOTAL || d.total || d.AMOUNT || d.amount || 0);
+      map[name].issue += Number(d.ISSUE_AMOUNT || d.issue_amount || d.amount || 0);
     });
 
     return Object.values(map)
@@ -278,9 +287,174 @@ export default function StoreDashboard() {
     );
   }, [mergedDivisionData]);
 
+  const categoryChartsData = useMemo(() => {
+    const labels = mergedDivisionData.map(d => d.division);
+    return {
+      indent: { labels, series: mergedDivisionData.map(d => d.indent), total: overallDivisionData.indent },
+      po: { labels, series: mergedDivisionData.map(d => d.po), total: overallDivisionData.po },
+      grn: { labels, series: mergedDivisionData.map(d => d.grn), total: overallDivisionData.grn },
+      issue: { labels, series: mergedDivisionData.map(d => d.issue), total: overallDivisionData.issue },
+    };
+  }, [mergedDivisionData, overallDivisionData]);
+
+  const targetActualChartData = useMemo(() => {
+    const targets: Record<string, number> = {
+      "SMS": 9500000,
+      "PIPE MILL": 3000000,
+      "PATRA ROLLING MILL": 2200000,
+      "COMMON": 300000
+    };
+
+    const categories = ["SMS", "PIPE MILL", "PATRA ROLLING MILL", "COMMON"];
+    const targetSeries: number[] = categories.map(cat => targets[cat]);
+    const actualSeries: number[] = categories.map(cat => {
+      const match = mergedDivisionData.find(d => d.division === cat);
+      return match ? Math.round(match.po) : 0;
+    });
+
+    return {
+      categories,
+      series: [
+        { name: "TARGET", data: targetSeries },
+        { name: "ACTUAL", data: actualSeries }
+      ]
+    };
+  }, [mergedDivisionData]);
+
+  const targetActualChartOptions: ApexOptions = {
+    chart: {
+      type: 'bar',
+      fontFamily: "Outfit, sans-serif",
+      toolbar: { show: false },
+      zoom: { enabled: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '85%',
+        borderRadius: 6,
+        dataLabels: {
+          position: 'top',
+        },
+      },
+    },
+    colors: ['#3b82f6', '#ef4444'], // Blue for Target, Red for Actual
+    dataLabels: {
+      enabled: true,
+      formatter: function (val: number) {
+        if (val === 0) return "0";
+        return (val / 100000).toFixed(1) + 'L';
+      },
+      offsetY: -25,
+      style: {
+        fontSize: '14px',
+        colors: ["#304758"],
+        fontWeight: 700
+      }
+    },
+    stroke: {
+      show: true,
+      width: 2,
+      colors: ['transparent']
+    },
+    xaxis: {
+      categories: targetActualChartData.categories,
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      labels: {
+        rotate: -45,
+        rotateAlways: false,
+        hideOverlappingLabels: true,
+        style: {
+          fontSize: '12px',
+          fontWeight: 600,
+          colors: '#64748b'
+        }
+      }
+    },
+    yaxis: {
+      title: {
+        text: 'PO Value',
+        style: {
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#64748b'
+        }
+      },
+      labels: {
+        formatter: function (val: number) {
+          if (val === 0) return "0";
+          return (val / 100000).toFixed(1) + 'L';
+        }
+      }
+    },
+    fill: { opacity: 1 },
+    tooltip: {
+      y: {
+        formatter: function (val: number) {
+          return val.toString();
+        }
+      }
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'center',
+      fontSize: '12px',
+      fontWeight: 600,
+      markers: {
+        radius: 12
+      } as any,
+    },
+    grid: {
+      borderColor: '#e2e8f0',
+      strokeDashArray: 0,
+      xaxis: {
+        lines: { show: true }
+      },
+      yaxis: {
+        lines: { show: true }
+      },
+      padding: {
+        top: 10,
+        right: 10,
+        bottom: 0,
+        left: 10
+      }
+    },
+    responsive: [
+      {
+        breakpoint: 640,
+        options: {
+          dataLabels: {
+            formatter: (val: number) => val === 0 ? "0" : (val / 100000).toFixed(1) + 'L',
+            style: {
+              fontSize: '10px'
+            }
+          },
+          xaxis: {
+            labels: {
+              style: {
+                fontSize: '10px'
+              }
+            }
+          },
+          yaxis: {
+            labels: {
+              formatter: function (val: number) {
+                if (val === 0) return "0";
+                return (val / 100000).toFixed(1) + 'L';
+              },
+              style: {
+                fontSize: '10px'
+              }
+            }
+          }
+        }
+      }
+    ]
+  };
+
   const donorChartOptions: ApexOptions = {
-    labels: purchaserChartData.labels,
-    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#1e293b'],
     chart: {
       type: 'donut',
       fontFamily: "Outfit, sans-serif",
@@ -295,11 +469,11 @@ export default function StoreDashboard() {
             show: true,
             total: {
               show: true,
-              label: 'Total Completed',
+              label: 'Total',
               fontSize: '10px',
               fontWeight: 600,
               color: '#64748b',
-              formatter: () => (purchaserChartData.totalCount || 0).toString()
+              formatter: () => "0"
             },
             value: {
               fontSize: '22px',
@@ -323,11 +497,10 @@ export default function StoreDashboard() {
       show: false,
     },
     tooltip: {
-      custom: function ({ series, seriesIndex, w }: any) {
-        return `<div style="background: #111827; color: #ffffff; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);">
-          <div style="font-size: 10px; font-weight: 800; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">${w.globals.labels[seriesIndex]}</div>
-          <div style="font-size: 14px; font-weight: 900; color: #ffffff;">${series[seriesIndex]} Indents</div>
-        </div>`;
+      enabled: true,
+      followCursor: true,
+      y: {
+        formatter: (val: number) => Math.round(val).toString()
       }
     }
   };
@@ -414,7 +587,7 @@ export default function StoreDashboard() {
           fields: [
             { label: "Date", value: getDisplayDate(item.indent_date, item.INDENT_DATE) },
             { label: "Acknowledge Date", value: getDisplayDate(item.acknowledgedate, item.ACKNOWLEDGEDATE) },
-            { label: "Division", value: getDisplayValue(item.division, item.DIVISION) },
+            { label: "Division", value: getDivName(item) },
             { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
             { label: "Item Code", value: getDisplayValue(item.item_code, item.ITEM_CODE), tone: "primary" },
             { label: "Qty", value: getDisplayValue(item.qtyindent, item.QTYINDENT, item.REQUIRED_QTY), tone: "primary" },
@@ -433,7 +606,7 @@ export default function StoreDashboard() {
           fields: [
             { label: "Planned Date", value: getDisplayDate(item.PLANNEDTIMESTAMP) },
             { label: "Indent Date", value: getDisplayDate(item.INDENT_DATE) },
-            { label: "Division", value: getDisplayValue(item.DIVISION) },
+            { label: "Division", value: getDivName(item) },
             { label: "Department", value: getDisplayValue(item.DEPARTMENT) },
             { label: "Qty", value: getDisplayValue(item.REQUIRED_QTY, item.required_qty), tone: "primary" },
             { label: "UM", value: getDisplayValue(item.UM) },
@@ -454,6 +627,7 @@ export default function StoreDashboard() {
             { label: "Planned Date", value: getDisplayDate(item.PLANNED_TIMESTAMP) },
             { label: "PO Date", value: getDisplayDate(item.VRDATE) },
             { label: "Indenter", value: getDisplayValue(item.INDENTER) },
+            { label: "Amount", value: getDisplayValue(item.POAMOUNT, item.poamount, 0), tone: "success" },
             { label: "Qty Order", value: getDisplayValue(item.QTYORDER), tone: "primary" },
             { label: "Qty Execute", value: getDisplayValue(item.QTYEXECUTE), tone: "success" },
             { label: "Balance Qty", value: getDisplayValue(item.BALANCE_QTY), tone: "danger" },
@@ -506,21 +680,72 @@ export default function StoreDashboard() {
             { label: "Remarks", value: getDisplayValue(item.REMARK, item.remark, "No remarks"), fullWidth: true },
           ],
         };
-      case "divIssue":
-      case "divIndent":
-      case "divPO":
-      case "divGRN": {
-        const isCount = type === 'divIndent';
-        const label = type === 'divIssue' ? 'Issue' : type === 'divPO' ? 'PO' : type === 'divGRN' ? 'GRN' : 'Indent';
+      case 'divPO':
+      case 'divGRN':
+      case 'divIssue':
+      case 'divIndent': {
+        const isIndent = type === 'divIndent';
+        const isPO = type === 'divPO';
+        const isGRN = type === 'divGRN';
+        const isIssue = type === 'divIssue';
+
+        const gradient = isIndent ? getModalCardGradient('totalIndents') : getModalCardGradient('totalPurchases');
+        const countOrAmountLabel = isIndent ? "Indent Qty" : (isPO ? "PO Amount" : isGRN ? "GRN Amount" : "Issue Amount");
+
+        if (isIndent) {
+          return {
+            gradient,
+            title: getDivName(item),
+            subtitle: `No: ${item.INDENT_NUMBER || item.indent_number || "—"}`,
+            meta: `Employee: ${String(item.EMPLOYEE_NAME || item.employee_name || "—").trim()}`,
+            fields: [
+              { label: "Emp Code", value: item.EMPLOYEE_CODE || item.employee_code || "—", tone: "primary" },
+              { label: "Indent Date", value: getDisplayDate(item.INDENT_DATE, item.indent_date) },
+              { label: "Item Name", value: item.ITEM_NAME || item.item_name || "—", fullWidth: true },
+              { label: "Indent Qty", value: item.INDENT_QUANTITY || item.indent_quantity || 0, tone: "success" },
+              { label: "Received", value: item.RECEIVED || item.received || 0, tone: "success" },
+              { label: "Pending", value: item.PENDING || item.pending || 0, tone: "danger" },
+            ],
+          };
+        }
+
+        if (isPO) {
+          return {
+            gradient,
+            title: getDivName(item),
+            subtitle: `Dept: ${getDisplayValue(item.department, item.DEPARTMENT)}`,
+            meta: `PO Summary`,
+            fields: [
+              { label: "Division", value: getDivName(item) },
+              { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+              { label: "PO Amount", value: Math.round(Number(item.POAMOUNT || item.poamount || 0)), tone: "success" },
+            ],
+          };
+        }
+
+        if (isGRN) {
+          return {
+            gradient,
+            title: getDivName(item),
+            subtitle: `Dept: ${getDisplayValue(item.department, item.DEPARTMENT)}`,
+            meta: `GRN Summary`,
+            fields: [
+              { label: "Division", value: getDivName(item) },
+              { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+              { label: "GRN Amount", value: Math.round(Number(item.GRNAMOUNT || item.grnamount || 0)), tone: "success" },
+            ],
+          };
+        }
+
         return {
-          gradient: getModalCardGradient(isCount ? 'totalIndents' : 'totalPurchases'),
-          title: getDisplayValue(item.DIVISION, item.division, "Unknown Division"),
-          subtitle: `${label} Comparison Details`,
-          meta: `Cost Center: ${getDisplayValue(item.COSTCENTER, item.costcenter)}`,
+          gradient,
+          title: getDivName(item),
+          subtitle: `Dept: ${getDisplayValue(item.department, item.DEPARTMENT)}`,
+          meta: `Issue Summary`,
           fields: [
-            { label: "Emp Code", value: getDisplayValue(item.EMPCODE, item.empcode), tone: "primary" },
-            { label: isCount ? "Total Count" : "Total Amount", value: isCount ? (item.TOTAL || item.total || 0) : Math.round(item.TOTAL || item.total || item.AMOUNT || item.amount || 0), tone: "success" },
-            { label: "Cost Center", value: getDisplayValue(item.COSTCENTER, item.costcenter), fullWidth: true },
+            { label: "Division", value: getDivName(item) },
+            { label: "Department", value: getDisplayValue(item.department, item.DEPARTMENT) },
+            { label: "Issue Amount", value: Math.round(Number(item.ISSUE_AMOUNT || item.issue_amount || 0)), tone: "success" },
           ],
         };
       }
@@ -572,9 +797,9 @@ export default function StoreDashboard() {
       return ts && new Date(ts) < new Date();
     }).length;
 
-    const completed = curMonthHistoryIndents.length;
-    const pending = curMonthPendingIndents.length;
-    const total = completed + pending;
+    const total = (divisionListIndent || []).length;
+    const pending = (divisionListIndent || []).filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
+    const completed = total - pending;
 
     const completedPercent = (total > 0 ? (completed / total) * 100 : 0);
     const pendingPercent = (total > 0 ? (pending / total) * 100 : 0);
@@ -590,6 +815,7 @@ export default function StoreDashboard() {
         overdueIndents: curMonthOverdue,
         totalIndentedQuantity: Number(summary.totalIndentedQuantity || 0),
         totalPurchaseOrders: curMonthPoHistory.length,
+        totalPurchasedAmount: curMonthPoHistory.reduce((acc: number, item: any) => acc + (Number(item.POAMOUNT) || 0), 0),
         totalPurchasedQuantity: Number(summary.totalPurchasedQuantity || 0),
         totalIssuedQuantity: Number(summary.totalIssuedQuantity || 0),
         outOfStockCount: Number(summary.outOfStockCount || 0),
@@ -621,6 +847,7 @@ export default function StoreDashboard() {
     repairPending,
     repairHistory,
     returnableDetails,
+    divisionListIndent,
   ]);
 
   const { dashboardData, repairGatePassCounts, returnableStats } = dashboardStats;
@@ -628,50 +855,26 @@ export default function StoreDashboard() {
   const getModalConfig = (type: string) => {
     switch (type) {
       case 'totalIndents':
-        return {
-          headers: ["Indent No", "Date", "Indenter", "Division", "Department", "Item Code", "Item Name", "Qty", "UM", "Acknowledge Date", "Purchaser", "PO No", "GRN No"],
-          renderRow: (item: any) => (
-            <>
-              <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.indent_no || item.INDENT_NO || item.INDENT_NUMBER || "—"}</td>
-              <td className="px-6 py-4 text-sm whitespace-nowrap font-medium text-slate-900">{formatDate(item.indent_date || item.INDENT_DATE)}</td>
-              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.indenter || item.INDENTER || item.INDENTER_NAME || "—"}</td>
-              <td className="px-6 py-4 text-sm font-medium text-slate-700">{item.division || item.DIVISION || "—"}</td>
-              <td className="px-6 py-4 text-sm font-medium text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
-              <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.item_name || item.ITEM_NAME || "—"}</td>
-              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyindent || item.QTYINDENT || item.REQUIRED_QTY || "—"}</td>
-              <td className="px-6 py-4 text-center text-[11px] uppercase font-black text-slate-600">{item.um || item.UM || "—"}</td>
-              <td className="px-6 py-4 text-sm font-medium text-slate-800">{formatDate(item.acknowledgedate || item.ACKNOWLEDGEDATE)}</td>
-              <td className="px-6 py-4 text-sm font-semibold text-slate-700">{item.purchaser || item.PURCHASER || "—"}</td>
-              <td className="px-6 py-4 text-indigo-700 font-black">{item.po_no || item.PO_NO || "—"}</td>
-              <td className="px-6 py-4 text-emerald-700 font-black">{item.grn_no || item.GRN_NO || "—"}</td>
-            </>
-          )
-        };
       case 'pendingIndents':
         return {
-          headers: ["Indent No", "Planned Date", "Indent Date", "Indenter", "Division", "Department", "Item Name", "Qty", "UM", "Remark", "Specification", "Vendor Type"],
+          headers: ["Division", "Indenter", "Date", "Indent No", "Item Name", "Quantity", "Received", "Pending"],
           renderRow: (item: any) => (
             <>
-              <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.INDENT_NUMBER || item.indent_number || "—"}</td>
-              <td className="px-6 py-4 text-sm font-medium text-slate-900">{formatDate(item.PLANNEDTIMESTAMP)}</td>
-              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{formatDate(item.INDENT_DATE)}</td>
-              <td className="px-6 py-4 text-sm font-bold text-slate-900">{item.INDENTER_NAME || "—"}</td>
-              <td className="px-6 py-4 text-sm font-medium text-slate-700">{item.DIVISION || "—"}</td>
-              <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.DEPARTMENT || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || "—"}</td>
-              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.REQUIRED_QTY || item.required_qty || "—"}</td>
-              <td className="px-6 py-4 text-center text-[11px] uppercase font-black text-slate-600">{item.UM || "—"}</td>
-              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic max-w-[200px] truncate">{item.REMARK || "—"}</td>
-              <td className="px-6 py-4 text-[12px] text-slate-700 font-medium max-w-[200px] truncate">{item.SPECIFICATION || "—"}</td>
-              <td className="px-6 py-4 text-sm font-black text-amber-700">{item.VENDOR_TYPE || "Pending"}</td>
+              <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{getDivName(item)}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase">{item.employee_name || item.EMPLOYEE_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-medium text-slate-600">{formatDate(item.indent_date || item.INDENT_DATE)}</td>
+              <td className="px-6 py-4 text-sm font-black text-indigo-700">{item.indent_number || item.INDENT_NUMBER || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.indent_quantity || item.INDENT_QUANTITY || 0}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.received || item.RECEIVED || 0}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-rose-700">{item.pending || item.PENDING || 0}</td>
             </>
           )
         };
       case 'totalPurchases':
       case 'pendingPOs':
         return {
-          headers: ["Indent No", "PO No", "Planned Date", "PO Date", "Vendor Name", "Indenter", "Item Name", "Qty Order", "Qty Execute", "Balance Qty", "UM"],
+          headers: ["Indent No", "PO No", "Planned Date", "PO Date", "Vendor Name", "Indenter", "Item Name", "Amount", "Qty Order", "Qty Execute", "Balance Qty", "UM"],
           renderRow: (item: any) => (
             <>
               <td className="px-6 py-4 font-mono font-bold text-slate-700">{item.INDENT_NO || "—"}</td>
@@ -679,8 +882,11 @@ export default function StoreDashboard() {
               <td className="px-6 py-4 text-sm font-medium text-slate-900">{formatDate(item.PLANNED_TIMESTAMP)}</td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-800">{formatDate(item.VRDATE)}</td>
               <td className="px-6 py-4 text-sm font-black text-slate-900">{item.VENDOR_NAME || "—"}</td>
-              <td className="px-6 py-4 text-sm font-bold text-slate-800 truncate">{item.INDENTER || "—"}</td>
+              <td className="px-6 py-4 text-sm font-bold text-slate-800">{item.INDENTER || "—"}</td>
               <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-center text-sm font-black text-indigo-700">
+                {item.POAMOUNT ? `${(Number(item.POAMOUNT)).toFixed(2)}` : "—"}
+              </td>
               <td className="px-6 py-4 text-center text-sm font-black text-slate-900">{item.QTYORDER || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYEXECUTE || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-rose-700">{item.BALANCE_QTY || "—"}</td>
@@ -698,10 +904,10 @@ export default function StoreDashboard() {
               <td className="px-6 py-4 text-sm font-black text-slate-900">{item.partyname || item.PARTYNAME || "—"}</td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.item_name || item.ITEM_NAME || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyissued || item.QTYISSUED || "—"}</td>
               <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.um || item.UM || "—"}</td>
-              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.remark || item.REMARK || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic">{item.remark || item.REMARK || "—"}</td>
             </>
           )
         };
@@ -716,10 +922,10 @@ export default function StoreDashboard() {
               <td className="px-6 py-4 text-sm font-black text-slate-900">{item.partyname || item.PARTYNAME || "—"}</td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.department || item.DEPARTMENT || "—"}</td>
               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.item_code || item.ITEM_CODE || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.item_name || item.ITEM_NAME || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.item_name || item.ITEM_NAME || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.qtyrecd || item.QTYRECD || item.qtyreceived || item.QTYRECEIVED || "—"}</td>
               <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.um || item.UM || "—"}</td>
-              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.remark || item.REMARK || "—"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic">{item.remark || item.REMARK || "—"}</td>
             </>
           )
         };
@@ -732,11 +938,11 @@ export default function StoreDashboard() {
               <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.VRNO || item.vrno || "—"}</td>
               <td className="px-6 py-4 text-sm font-black text-slate-900">{item.PARTY_NAME || item.party_name || "—"}</td>
               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.ITEM_CODE || item.item_code || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.ITEM_NAME || item.item_name || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || item.item_name || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-slate-950">{item.QTYISSUED || item.qtyissued || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYRECEIVED || item.qtyreceived || 0}</td>
               <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.UNIT || item.unit || "—"}</td>
-              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.REMARK || item.remark || "No remarks"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic">{item.REMARK || item.remark || "No remarks"}</td>
             </>
           )
         };
@@ -749,7 +955,7 @@ export default function StoreDashboard() {
               <td className="px-6 py-4 font-mono font-black text-indigo-700">{item.VRNO || item.vrno || "—"}</td>
               <td className="px-6 py-4 text-sm font-black text-slate-900">{item.PARTY_NAME || item.party_name || "—"}</td>
               <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">{item.ITEM_CODE || item.item_code || "—"}</td>
-              <td className="px-6 py-4 text-sm font-extrabold text-slate-900 truncate max-w-[200px]">{item.ITEM_NAME || item.item_name || "—"}</td>
+              <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || item.item_name || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-slate-950">{item.QTYISSUED || item.qtyissued || "—"}</td>
               <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.QTYRECEIVED || item.qtyreceived || 0}</td>
               <td className="px-6 py-4 text-center text-[11px] font-black text-slate-600 uppercase">{item.UNIT || item.unit || "—"}</td>
@@ -759,7 +965,7 @@ export default function StoreDashboard() {
                   {item.GATEPASS_STATUS || "—"}
                 </span>
               </td>
-              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic truncate max-w-[150px]">{item.REMARK || item.remark || "No remarks"}</td>
+              <td className="px-6 py-4 text-[12px] text-slate-800 font-medium italic">{item.REMARK || item.remark || "No remarks"}</td>
             </>
           )
         };
@@ -767,19 +973,67 @@ export default function StoreDashboard() {
       case 'divIndent':
       case 'divPO':
       case 'divGRN': {
-        const isCount = type === 'divIndent';
+        const isIndent = type === 'divIndent';
+        const isPO = type === 'divPO';
+        const isGRN = type === 'divGRN';
+        const isIssue = type === 'divIssue';
+
+        let headers: string[] = [];
+        if (isIndent) {
+          headers = ["Date", "Indent No", "Division", "Emp Code", "Employee Name", "Item Name", "Quantity", "Received", "Pending"];
+        } else if (isPO) {
+          headers = ["Division", "Department", "PO Amount"];
+        } else if (isGRN) {
+          headers = ["Division", "Department", "GRN Amount"];
+        } else { // Issue
+          headers = ["Division", "Department", "Issue Amount"];
+        }
+
         return {
-          headers: ["Division", "Cost Center", "Emp Code", isCount ? "Total Count" : "Total Amount"],
-          renderRow: (item: any) => (
-            <>
-              <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{item.DIVISION || item.division || "—"}</td>
-              <td className="px-6 py-4 text-sm font-bold text-slate-700">{item.COSTCENTER || item.costcenter || "—"}</td>
-              <td className="px-6 py-4 text-sm font-mono font-black text-indigo-700">{item.EMPCODE || item.empcode || "—"}</td>
-              <td className="px-6 py-4 text-center text-sm font-black text-slate-900">
-                {isCount ? (item.TOTAL || item.total || 0) : Math.round(Number(item.TOTAL || item.total || item.AMOUNT || item.amount || 0))}
-              </td>
-            </>
-          )
+          headers,
+          renderRow: (item: any) => {
+            if (isIndent) {
+              return (
+                <>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{getDisplayDate(item.INDENT_DATE, item.indent_date)}</td>
+                  <td className="px-6 py-4 font-mono font-bold text-indigo-700">{item.INDENT_NUMBER || item.indent_number || "—"}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-700 uppercase">{getDivName(item)}</td>
+                  <td className="px-6 py-4 text-xs font-mono font-bold text-slate-600">{item.EMPLOYEE_CODE || item.employee_code || "—"}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-800">{String(item.EMPLOYEE_NAME || item.employee_name || "—").trim()}</td>
+                  <td className="px-6 py-4 text-sm font-extrabold text-slate-900">{item.ITEM_NAME || item.item_name || "—"}</td>
+                  <td className="px-6 py-4 text-center text-sm font-black text-indigo-900">{item.INDENT_QUANTITY || item.indent_quantity || 0}</td>
+                  <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{item.RECEIVED || item.received || 0}</td>
+                  <td className="px-6 py-4 text-center text-sm font-black text-rose-700">{item.PENDING || item.pending || 0}</td>
+                </>
+              );
+            }
+            if (isPO) {
+              return (
+                <>
+                  <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{getDivName(item)}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase">{item.DEPARTMENT || item.department || "—"}</td>
+                  <td className="px-6 py-4 text-center text-sm font-black text-emerald-700">{Math.round(item.POAMOUNT || item.poamount || 0)}</td>
+                </>
+              );
+            }
+            if (isGRN) {
+              return (
+                <>
+                  <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{getDivName(item)}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase">{item.DEPARTMENT || item.department || "—"}</td>
+                  <td className="px-6 py-4 text-center text-sm font-black text-indigo-700">{Math.round(item.GRNAMOUNT || item.grnamount || 0)}</td>
+                </>
+              );
+            }
+            // Issue
+            return (
+              <>
+                <td className="px-6 py-4 text-sm font-black text-slate-800 uppercase">{getDivName(item)}</td>
+                <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase">{item.DEPARTMENT || item.department || "—"}</td>
+                <td className="px-6 py-4 text-center text-sm font-black text-slate-900">{Math.round(Number(item.ISSUE_AMOUNT || item.issue_amount || 0))}</td>
+              </>
+            );
+          }
         };
       }
     }
@@ -798,13 +1052,13 @@ export default function StoreDashboard() {
     try {
       let rows: any[] = [];
       const filterByDiv = (data: any[], filter?: string) => filter
-        ? data.filter(d => (d.DIVISION || d.division || "").toUpperCase().trim() === filter.toUpperCase().trim())
+        ? data.filter(d => getDivName(d) === filter.toUpperCase().trim())
         : data;
 
       const getRowsForType = (t: string, filter?: string) => {
         switch (t) {
-          case 'totalIndents': return [...pendingIndents, ...historyIndents];
-          case 'pendingIndents': return pendingIndents;
+          case 'totalIndents': return divisionListIndent || [];
+          case 'pendingIndents': return (divisionListIndent || []).filter(item => (Number(item.pending || item.PENDING || 0)) > 0);
           case 'totalPurchases': return poHistory;
           case 'pendingPOs': return poPending;
           case 'repairPending': return repairPending;
@@ -838,20 +1092,25 @@ export default function StoreDashboard() {
     }
   };
 
-  const handleTabChange = (type: string) => {
-    setModalType(type);
+  const handleTabChange = (division: string) => {
     setModalLoading(true);
+    setModalSearch("");
+    setModalPage(1);
+    setSelectedDivision(division);
+    setMobileVisibleCount(MODAL_PAGE_SIZE);
 
-    const filterByDiv = (data: any[], filter?: string) => filter
-      ? data.filter(d => (d.DIVISION || d.division || "").toUpperCase().trim() === filter.toUpperCase().trim())
-      : data;
+    const categoryName = modalType === 'divIndent' ? 'Indents' : modalType === 'divPO' ? 'PO' : modalType === 'divGRN' ? 'GRN' : 'Issues';
+    setModalTitle(`${division} ${categoryName} Analysis`);
+
+    const filterByDiv = (data: any[], filter: string) =>
+      data.filter(d => getDivName(d) === filter.toUpperCase().trim());
 
     let rows: any[] = [];
-    switch (type) {
-      case 'divIndent': rows = filterByDiv(divisionListIndent, selectedDivision || undefined); break;
-      case 'divPO': rows = filterByDiv(divisionListPO, selectedDivision || undefined); break;
-      case 'divGRN': rows = filterByDiv(divisionListGRN, selectedDivision || undefined); break;
-      case 'divIssue': rows = filterByDiv(divisionListIssue, selectedDivision || undefined); break;
+    switch (modalType) {
+      case 'divIndent': rows = filterByDiv(divisionListIndent, division); break;
+      case 'divPO': rows = filterByDiv(divisionListPO, division); break;
+      case 'divGRN': rows = filterByDiv(divisionListGRN, division); break;
+      case 'divIssue': rows = filterByDiv(divisionListIssue, division); break;
     }
 
     const monthStart = getCurrentMonthStart();
@@ -892,8 +1151,8 @@ export default function StoreDashboard() {
       title: 'Total Purchases',
       icon: <Truck size={16} />,
       value: dashboardData?.totalPurchaseOrders ?? '—',
-      // sublabel: 'Purchased Quantity',
-      // subvalue: dashboardData?.totalPurchasedQuantity?.toLocaleString() ?? '—',
+      sublabel: 'Total Amount',
+      subvalue: dashboardData?.totalPurchasedAmount ? `${(dashboardData.totalPurchasedAmount / 100000).toFixed(2)} L` : '0.00 L',
       bgGradient: 'from-emerald-600 to-teal-700',
       shadowColor: 'shadow-emerald-200 dark:shadow-emerald-900/20',
       iconBg: 'bg-white/20',
@@ -1116,7 +1375,7 @@ export default function StoreDashboard() {
           <button
             key={card.title}
             onClick={() => openModal(card.type, card.title)}
-            className={`group text-left relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} p-3.5 sm:p-5 md:p-6 shadow-lg ${card.shadowColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block w-full border-0 outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800`}
+            className={`group text-left relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} p-1.5 sm:p-5 md:p-6 shadow-lg ${card.shadowColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block w-full border-0 outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800`}
           >
             {/* Background Pattern */}
             <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-1/4 -translate-y-1/4 scale-150 pointer-events-none">
@@ -1148,189 +1407,128 @@ export default function StoreDashboard() {
         ))}
       </div>
 
+      {/* Target vs Actual Chart Section */}
+      <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden transition-all duration-300 hover:shadow-2xl">
+        <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400`}>
+                <TrendingUp size={20} />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">PO Target & Actual</CardTitle>
+            </div>
+            {/* <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Values in Lakhs (L)
+            </div> */}
+          </div>
+        </CardHeader>
+        <CardContent className="p-1 sm:p-2 md:p-4">
+          <div className="w-full h-[400px] sm:h-[550px]">
+            <Chart
+              options={targetActualChartOptions}
+              series={targetActualChartData.series}
+              type="bar"
+              height="100%"
+              width="100%"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Bottom Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full">
-          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                <BarChart3 size={20} />
+        {/* Bottom Analytics Section - Category Wise Breakdown */}
+        {[
+          { title: 'Indent', type: 'divIndent', data: categoryChartsData.indent, color: '#10b981', label: 'Indents' },
+          { title: 'PO', type: 'divPO', data: categoryChartsData.po, color: '#f59e0b', label: 'PO Value' },
+          { title: 'GRN', type: 'divGRN', data: categoryChartsData.grn, color: '#3b82f6', label: 'GRN Value' },
+          { title: 'Issue', type: 'divIssue', data: categoryChartsData.issue, color: '#4f46e5', label: 'Issue Value' }
+        ].map((cat, idx) => (
+          <Card key={cat.type} className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-900/5 hover:-translate-y-1">
+            <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400`}>
+                    <BarChart3 size={20} />
+                  </div>
+                  <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">{cat.title}</CardTitle>
+                </div>
+                <div className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-sm"
+                  onClick={() => openModal(cat.type, `Global ${cat.title}`)}>
+                  View All {cat.label}
+                </div>
               </div>
-              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Performance Indicators</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-5 md:p-8">
-            <div className="flex flex-row items-center justify-between gap-1 sm:gap-4 md:gap-12">
-              <div className="relative w-[150px] h-[150px] sm:w-[170px] sm:h-[170px] md:w-56 md:h-56 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
-                {purchaserChartData.series.length > 0 ? (
-                  <div className="w-full h-full flex items-center justify-center">
+            </CardHeader>
+            <CardContent className="p-4 sm:p-5 md:p-8">
+              <div className="flex flex-row items-center justify-between gap-2 sm:gap-6 md:gap-8 lg:gap-12">
+                <div className="relative w-[150px] h-[150px] sm:w-[170px] sm:h-[170px] md:w-56 md:h-56 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
+                  {cat.data.total > 0 ? (
                     <Chart
                       options={{
                         ...donorChartOptions,
+                        colors: cat.data.labels.map((label: string, i: number) => {
+                          const normalized = label.toUpperCase().trim();
+                          if (/COMMON|CORPORATE|CORP/i.test(normalized)) return '#ef4444';
+                          const palette = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
+                          return palette[i % palette.length];
+                        }),
+                        labels: cat.data.labels,
+                        tooltip: {
+                          enabled: true,
+                          followCursor: true,
+                          y: { formatter: (val: number) => Math.round(val).toString() }
+                        },
                         dataLabels: {
                           enabled: true,
                           formatter: (val: number) => Math.round(val) + "%",
-                          style: { fontSize: '10px', fontWeight: 600, colors: ['#fff'] },
+                          style: { fontSize: '10px', fontWeight: 700, colors: ['#fff'] },
                           dropShadow: { enabled: false }
                         },
                         legend: { show: false },
                         plotOptions: {
-                          pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Purchasers', fontSize: '9px' }, value: { fontSize: '16px', fontWeight: 900, offsetY: 0 } } } }
+                          pie: {
+                            donut: {
+                              size: '55%',
+                              labels: {
+                                total: { show: true, label: 'Total', formatter: () => Math.round(cat.data.total).toString(), fontSize: '10px', fontWeight: 600 },
+                                value: { fontSize: '18px', fontWeight: 900, offsetY: 0, formatter: () => Math.round(cat.data.total).toString() }
+                              }
+                            }
+                          }
                         }
                       }}
-                      series={purchaserChartData.series}
+                      series={cat.data.series}
                       type="donut"
                       height="100%"
                       width="100%"
+                      key={`${cat.type}-${JSON.stringify(cat.data.labels)}`}
                     />
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
-                    <BarChart3 size={48} className="mb-2" />
-                    <p className="text-xs font-bold">No data</p>
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-2 w-full max-w-[220px] sm:max-w-[260px] md:max-w-xs xl:max-w-sm max-h-[140px] md:max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                {purchaserChartData.labels.map((label: string, index: number) => (
-                  <div key={label} className="flex flex-row md:flex-col items-center md:items-start justify-between md:justify-center gap-0 md:gap-1.5 px-3 py-1.5 md:p-3 md:px-4 rounded-full md:rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-colors">
-                    <div className="flex items-center gap-2 md:gap-2.5 flex-1 min-w-0 w-full pr-1 sm:pr-2 overflow-hidden">
-                      <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style={{ backgroundColor: donorChartOptions.colors?.[index % (donorChartOptions.colors?.length || 1)] as string }} />
-                      <span className="text-[9px] md:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight leading-snug break-words whitespace-normal">{label}</span>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full opacity-20">
+                      <LayoutDashboard size={48} className="mb-2" />
+                      <p className="text-xs font-bold font-sans">NO DATA AVAILABLE</p>
                     </div>
-                    <span className="text-[11px] sm:text-xs md:text-sm font-black text-slate-900 dark:text-white shrink-0 md:pl-5">{purchaserChartData.series[index]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden h-full">
-          <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                  <TrendingUp size={20} />
+                  )}
                 </div>
-                <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase">Overall Divisions Progress</CardTitle>
-              </div>
-              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
-                onClick={() => openModal('divIndent', 'Overall Divisions Details')}>
-                View Overall
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-5 md:p-8">
-            <div className="flex flex-row items-center justify-between gap-1 sm:gap-4 md:gap-8 lg:gap-12">
-              <div className="relative w-[150px] h-[150px] sm:w-[170px] sm:h-[170px] md:w-56 md:h-56 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
-                <Chart
-                  options={{
-                    ...donorChartOptions,
-                    colors: ['#10b981', '#f59e0b', '#3b82f6', '#4f46e5'], // Indent, PO, GRN, Issue
-                    labels: ['Indents', 'PO Amount', 'GRN Amount', 'Issue Amount'],
-                    tooltip: { enabled: true, y: { formatter: (val: number, { seriesIndex }) => seriesIndex === 0 ? val.toFixed(0) : Math.round(val).toString() } },
-                    dataLabels: {
-                      enabled: true,
-                      formatter: (val: number) => Math.round(val) + "%",
-                      style: { fontSize: '10px', fontWeight: 700, colors: ['#fff'] },
-                      dropShadow: { enabled: false }
-                    },
-                    legend: { show: false },
-                    plotOptions: {
-                      pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Total Indent', formatter: () => overallDivisionData.indent.toString(), fontSize: '9px' }, value: { fontSize: '18px', fontWeight: 900, offsetY: 0, formatter: () => overallDivisionData.indent.toString() } } } }
-                    }
-                  }}
-                  series={[overallDivisionData.indent, overallDivisionData.po, overallDivisionData.grn, overallDivisionData.issue]}
-                  type="donut"
-                  height="100%"
-                  width="100%"
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2 w-full max-w-[220px] sm:max-w-[260px] md:max-w-xs xl:max-w-sm">
-                {[
-                  { label: 'Total Indents', value: overallDivisionData.indent, color: 'bg-emerald-500', isCurrency: false },
-                  { label: 'Total PO Value', value: overallDivisionData.po, color: 'bg-amber-500', isCurrency: true },
-                  { label: 'Total GRN Value', value: overallDivisionData.grn, color: 'bg-blue-500', isCurrency: true },
-                  { label: 'Total Issue Value', value: overallDivisionData.issue, color: 'bg-indigo-600', isCurrency: true },
-                ].map((item, i) => (
-                  <div key={i} className="flex flex-row items-center justify-between gap-2 px-3 py-1.5 md:p-3 md:px-4 rounded-full md:rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 md:gap-2.5 flex-1 min-w-0 pr-1 sm:pr-2 overflow-hidden">
-                      <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${item.color} shrink-0`} />
-                      <span className="text-[9px] md:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight whitespace-nowrap">{item.label}</span>
-                    </div>
-                    <span className="text-[11px] sm:text-xs md:text-sm lg:text-base font-black text-slate-900 dark:text-white shrink-0 md:pl-5 tabular-nums">
-                      {Math.round(item.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Division KPI Cards */}
-        {mergedDivisionData.map((divData: any, idx: number) => (
-          <Card key={`${divData.division}-${idx}`} className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full overflow-hidden">
-            <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shrink-0">
-                    <LayoutDashboard size={16} />
-                  </div>
-                  <CardTitle className="text-[14px] font-bold text-slate-800 dark:text-slate-100 truncate uppercase" title={divData.division}>
-                    {divData.division}
-                  </CardTitle>
-                </div>
-                <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors ml-2"
-                  onClick={() => openModal('divIndent', `${divData.division} Details`, divData.division)}>
-                  View Details
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex flex-row items-center justify-between gap-4">
-                <div className="relative w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0 flex items-center justify-center -ml-2 sm:ml-0">
-                  <Chart
-                    options={{
-                      ...donorChartOptions,
-                      colors: ['#10b981', '#f59e0b', '#3b82f6', '#4f46e5'], // Indent, PO, GRN, Issue
-                      labels: ['Indents', 'PO Amount', 'GRN Amount', 'Issue Amount'],
-                      tooltip: { enabled: true, y: { formatter: (val: number, { seriesIndex }) => seriesIndex === 0 ? val.toFixed(0) : Math.round(val).toString() } },
-                      dataLabels: {
-                        enabled: true,
-                        formatter: (val: number) => Math.round(val) + "%",
-                        style: { fontSize: '9px', fontWeight: 700, colors: ['#fff'] },
-                        dropShadow: { enabled: false }
-                      },
-                      legend: { show: false },
-                      plotOptions: {
-                        pie: { donut: { size: '55%', labels: { total: { show: true, label: 'Total Indent', formatter: () => divData.indent.toString(), fontSize: '8px' }, value: { fontSize: '14px', fontWeight: 900, offsetY: 0, formatter: () => divData.indent.toString() } } } }
-                      }
-                    }}
-                    series={[divData.indent, divData.po, divData.grn, divData.issue]}
-                    type="donut"
-                    height="100%"
-                    width="100%"
-                  />
-                </div>
-                <div className="flex-1 grid grid-cols-1 gap-2.5">
-                  {[
-                    { label: 'Indents', value: divData.indent, color: 'bg-emerald-500', isCurrency: false },
-                    { label: 'PO Value', value: divData.po, color: 'bg-amber-500', isCurrency: true },
-                    { label: 'GRN Value', value: divData.grn, color: 'bg-blue-500', isCurrency: true },
-                    { label: 'Issue Value', value: divData.issue, color: 'bg-indigo-600', isCurrency: true },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50 shadow-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-1.5 h-1.5 rounded-full ${item.color} shrink-0`} />
-                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight truncate">{item.label}</span>
+                <div className="grid grid-cols-1 gap-2 w-full max-w-[220px] sm:max-w-[260px] md:max-w-xs overflow-y-auto max-h-[160px] sm:max-h-[220px] custom-scrollbar pr-1.5">
+                  {cat.data.labels.map((label: string, i: number) => {
+                    if (cat.data.series[i] === 0) return null;
+                    return (
+                      <div key={`${cat.type}-${label}`}
+                        onClick={() => openModal(cat.type, `${label} ${cat.label} Details`, label)}
+                        className="group flex flex-row items-center justify-between gap-2 px-3 py-2 sm:py-2.5 rounded-full sm:rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800/50 shadow-sm hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all cursor-pointer">
+                        <div className="flex items-center gap-2 md:gap-2.5 flex-1 min-w-0 pr-1 overflow-hidden">
+                          <div className={`w-2 h-2 rounded-full shrink-0`} style={{
+                            backgroundColor: /COMMON|CORPORATE|CORP/i.test(label) ? '#ef4444' : (['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'][i % 11])
+                          }} />
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{label}</span>
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-black text-slate-800 dark:text-white shrink-0 group-hover:scale-110 transition-transform tabular-nums">
+                          {Math.round(cat.data.series[i]).toString()}
+                        </span>
                       </div>
-                      <span className="text-[11px] font-black text-slate-900 dark:text-white shrink-0">
-                        {Math.round(item.value)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
@@ -1356,7 +1554,7 @@ export default function StoreDashboard() {
                   <LayoutDashboard size={20} className="md:w-6 md:h-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <DialogTitle className="truncate text-base font-bold md:text-2xl leading-tight">{modalTitle}</DialogTitle>
+                  <DialogTitle className="text-base font-bold md:text-2xl leading-tight">{modalTitle}</DialogTitle>
                   <DialogDescription className="sr-only">
                     Detailed view of {modalTitle} data and records.
                   </DialogDescription>
@@ -1384,23 +1582,18 @@ export default function StoreDashboard() {
             </div>
           </DialogHeader>
 
-          {selectedDivision && (
+          {(modalType === 'divIndent' || modalType === 'divPO' || modalType === 'divGRN' || modalType === 'divIssue') && (
             <div className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 overflow-x-auto no-scrollbar">
               <div className="flex px-4 py-2 gap-2">
-                {[
-                  { id: 'divIndent', label: 'Indents' },
-                  { id: 'divPO', label: 'PO' },
-                  { id: 'divGRN', label: 'GRN' },
-                  { id: 'divIssue', label: 'Issues' },
-                ].map((tab) => (
+                {[...new Set(mergedDivisionData.map(d => d.division))].map((divName) => (
                   <button
-                    key={tab.id}
-                    onClick={() => handleTabChange(tab.id)}
-                    className={`px-4 py-2 text-[12px] font-bold rounded-xl transition-all whitespace-nowrap ${modalType === tab.id
+                    key={divName}
+                    onClick={() => handleTabChange(divName)}
+                    className={`px-4 py-2 text-[12px] font-bold rounded-xl transition-all whitespace-nowrap ${selectedDivision === divName
                       ? 'bg-indigo-600 text-white shadow-md'
                       : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                   >
-                    {tab.label}
+                    {divName}
                   </button>
                 ))}
               </div>
@@ -1572,7 +1765,7 @@ function ModalDetailCard({ recordLabel, index, gradient, title, subtitle, meta, 
             <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-0.5">
               {field.label}
             </p>
-            <p className={`text-[11px] font-bold leading-tight truncate ${getModalFieldValueClasses(field.tone)}`} title={field.value}>
+            <p className={`text-[11px] font-bold leading-tight ${getModalFieldValueClasses(field.tone)}`} title={field.value}>
               {field.value}
             </p>
           </div>
@@ -1693,23 +1886,125 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
 
   const validFeedbacks = (feedbacks || []).filter((fb: any) => fb && fb.Timestamp && String(fb.Timestamp).trim() !== "");
 
+  const stats = useMemo(() => {
+    if (validFeedbacks.length === 0) return null;
+
+    const getStatus = (val: any) => {
+      if (!val) return 'no';
+      const v = String(val).trim().toLowerCase();
+      if (v.includes("yes") || v.includes("हाँ") || v.includes("ha")) return 'yes';
+      if (v.includes("sometimes") || v.includes("कभी-कभी") || v.includes("occasionally")) return 'sometimes';
+      if (v.includes("maybe") || v.includes("शायद") || v.includes("not sure") || v.includes("possibly")) return 'maybe';
+      return 'no';
+    };
+
+    const getNum = (val: any) => {
+      const n = parseFloat(val);
+      return isNaN(n) ? 0 : n;
+    };
+
+    const totals = {
+      feedback: [] as number[],
+      communication: [] as number[],
+      satisfaction: [] as number[],
+      payments: { yes: 0, no: 0, maybe: 0, sometimes: 0 },
+      continue: { yes: 0, no: 0, maybe: 0, sometimes: 0 }
+    };
+
+    validFeedbacks.forEach(fb => {
+      const f = getNum(fb["Feedback"]);
+      if (f > 0) totals.feedback.push(f);
+
+      const c = getNum(fb["How was our communication?"]);
+      if (c > 0) totals.communication.push(c);
+
+      const s = getNum(fb["How satisfied are you with our overall business relationship?"]);
+      if (s > 0) totals.satisfaction.push(s);
+
+      totals.payments[getStatus(fb["Did you receive payments on time?"])]++;
+      totals.continue[getStatus(fb["Would you like to continue working with us?"])]++;
+    });
+
+    const avg = (arr: number[]) => arr.length > 0 ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : "0.0";
+    const percent = (obj: { yes: number, no: number, maybe: number, sometimes: number }) => {
+      const total = validFeedbacks.length || 1;
+      return {
+        yes: Math.round((obj.yes / total) * 100),
+        no: Math.round((obj.no / total) * 100),
+        maybe: Math.round((obj.maybe / total) * 100),
+        sometimes: Math.round((obj.sometimes / total) * 100),
+      };
+    };
+
+    return {
+      avgFeedback: avg(totals.feedback),
+      avgCommunication: avg(totals.communication),
+      avgSatisfaction: avg(totals.satisfaction),
+      payments: percent(totals.payments),
+      continue: percent(totals.continue)
+    };
+  }, [validFeedbacks]);
+
   return (
     <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden relative">
       <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 pb-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white/20 text-white backdrop-blur-sm">
-              <Users size={20} />
+          <div className="flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-white/20 text-white backdrop-blur-sm">
+              <Users size={16} />
             </div>
             <CardTitle className="text-lg font-bold text-white">Vendor Satisfaction Feedback</CardTitle>
           </div>
-          <span className="text-[11px] font-bold text-white/90 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
+          {/* <span className="text-[11px] font-bold text-white/90 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
             {validFeedbacks.length} Responses
-          </span>
+          </span> */}
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-2 md:p-4">
+        {/* Statistics Summary Bar */}
+        {stats && (
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 bg-transparent">
+            <div className="p-2 md:p-4 border border-blue-200 dark:border-blue-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-blue-500/20 hover:shadow-blue-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Avg Feedback</p>
+              <h4 className="text-xl md:text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgFeedback}</h4>
+              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+            </div>
+            <div className="p-2 md:p-4 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-indigo-500/20 hover:shadow-indigo-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Communication</p>
+              <h4 className="text-xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgCommunication}</h4>
+              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+            </div>
+            <div className="p-2 md:p-4 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-emerald-500/20 hover:shadow-emerald-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Satisfaction</p>
+              <h4 className="text-xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgSatisfaction}</h4>
+              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+            </div>
+            <div className="p-2 md:p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/30">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Payments On Time</p>
+              <div className="flex flex-col items-center">
+                <span className="text-md md:text-xl font-black text-emerald-500">Yes - {stats.payments.yes}%</span>
+                <span className="text-[11px] md:text-[14px] font-extrabold text-rose-500 opacity-80">No - {stats.payments.no}%</span>
+                <div className="flex flex-wrap justify-center gap-x-1.5 mt-0.5">
+                  {stats.payments.sometimes > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-blue-500 opacity-80">Sometimes - {stats.payments.sometimes}%</span>}
+                  {stats.payments.maybe > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-amber-500 opacity-80">Maybe Not - {stats.payments.maybe}%</span>}
+                </div>
+              </div>
+            </div>
+            <div className="p-2 md:p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/30">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Continue Working</p>
+              <div className="flex flex-col items-center">
+                <span className="text-md md:text-xl font-black text-emerald-500">Yes - {stats.continue.yes}%</span>
+                <span className="text-[11px] md:text-[14px] font-extrabold text-rose-500 opacity-80">No - {stats.continue.no}%</span>
+                <div className="flex flex-wrap justify-center gap-x-1.5 mt-0.5">
+                  {stats.continue.sometimes > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-blue-500 opacity-80">Sometimes - {stats.continue.sometimes}%</span>}
+                  {stats.continue.maybe > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-amber-500 opacity-80">Maybe Not - {stats.continue.maybe}%</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile View: Cards */}
         <div className="md:hidden flex flex-col gap-2.5 p-2 max-h-[500px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
           {validFeedbacks.map((fb: any, idx: number) => {
@@ -1723,35 +2018,52 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
             ];
             const colorClass = cardColors[idx % cardColors.length];
 
+            const getStatus = (v: any) => {
+              const str = String(v || '').toLowerCase();
+              if (str.includes('yes') || str.includes('हाँ') || str.includes('ha')) return 'yes';
+              if (str.includes('sometimes') || str.includes('कभी-कभी') || str.includes('occasionally')) return 'sometimes';
+              if (str.includes('maybe') || str.includes('शायद') || str.includes('not sure') || str.includes('possibly')) return 'maybe';
+              return 'no';
+            };
+
             return (
               <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
                 <div className="flex justify-between items-start gap-4">
                   <div className="min-w-0">
                     <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{fb["Vendor Name"] || "Unknown"}</h4>
-                    <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{fb["Company Name"] || "—"}</p>
+                    <p className="text-[12px] text-slate-500 font-medium truncate mt-0.5">{fb["Company Name"] || "—"}</p>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
+                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
                     {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                    <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Payment in time?</p>
-                    <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
-                      ? "bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
-                        ? "bg-rose-100/50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-                        : "bg-amber-100/50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      }`}>
-                      {fb["Did you receive payments on time?"] || "N/A"}
-                    </span>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Feedback</p>
+                    <span className="text-xs font-black text-blue-600">{fb["Feedback"] || "-"}</span>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 shadow-sm p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                    <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 line-clamp-1">Satisfaction</p>
-                    <div className="flex items-center gap-1 font-black text-slate-700 dark:text-slate-300">
-                      <span className="text-indigo-600 dark:text-indigo-400 text-sm leading-none">{fb["How satisfied are you with our overall business relationship?"] || 0}</span>
-                      <span className="text-slate-400 text-[10px] leading-none mt-0.5">/ 5</span>
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Communication</p>
+                    <span className="text-xs font-black text-indigo-600">{fb["How was our communication?"] || "-"}</span>
+                  </div>
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Satisfaction</p>
+                    <span className="text-xs font-black text-emerald-600">{fb["How satisfied are you with our overall business relationship?"] || "-"}</span>
+                  </div>
+
+                  <div className="col-span-3 grid grid-cols-2 gap-2 mt-1">
+                    <div className="bg-white dark:bg-slate-800 shadow-sm px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase">Payment on Time</p>
+                      <span className={`text-[11px] font-black border-l-2 pl-2 ${getStatus(fb["Did you receive payments on time?"]) === 'yes' ? 'text-emerald-500 border-emerald-500' : getStatus(fb["Did you receive payments on time?"]) === 'sometimes' ? 'text-blue-500 border-blue-500' : getStatus(fb["Did you receive payments on time?"]) === 'maybe' ? 'text-amber-500 border-amber-500' : 'text-rose-500 border-rose-500'}`}>
+                        {getStatus(fb["Did you receive payments on time?"]).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase">Continue Working</p>
+                      <span className={`text-[11px] font-black border-l-2 pl-2 ${getStatus(fb["Would you like to continue working with us?"]) === 'yes' ? 'text-emerald-500 border-emerald-500' : getStatus(fb["Would you like to continue working with us?"]) === 'sometimes' ? 'text-blue-500 border-blue-500' : getStatus(fb["Would you like to continue working with us?"]) === 'maybe' ? 'text-amber-500 border-amber-500' : 'text-rose-500 border-rose-500'}`}>
+                        {getStatus(fb["Would you like to continue working with us?"]).toUpperCase()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1767,58 +2079,86 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
         </div>
 
         {/* Desktop View: Table */}
-        <div className="hidden md:block max-h-[400px] overflow-y-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-md shadow-sm z-10">
+        <div className="hidden md:block max-h-[500px] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/95 backdrop-blur-md shadow-sm z-10">
               <tr className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
-                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Date</th>
-                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Vendor & Company</th>
-                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 text-center">Score</th>
-                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Payment on time?</th>
-                <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">Feedback & Suggestions</th>
+                <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-28">Date</th>
+                <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-48">Vendor</th>
+                <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Feedback</th>
+                <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Commu.</th>
+                <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Satisfy</th>
+                <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-28">Payments On Time</th>
+                <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-28">Continue Working</th>
+                <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700">Suggestions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {validFeedbacks.map((fb: any, idx: number) => (
-                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors group">
-                  <td className="px-6 py-4 font-mono font-bold text-slate-500 dark:text-slate-500 text-[11px] whitespace-nowrap">
-                    {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
-                  </td>
-                  <td className="px-6 py-4 max-w-[200px]">
-                    <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug truncate uppercase tracking-widest">{fb["Vendor Name"]}</p>
-                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{fb["Company Name"]}</p>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] shadow-inner border border-indigo-100 dark:border-indigo-800/50">
-                      {fb["How satisfied are you with our overall business relationship?"] || "-"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${fb["Did you receive payments on time?"]?.includes("Yes") || fb["Did you receive payments on time?"]?.includes("हाँ")
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      : fb["Did you receive payments on time?"]?.includes("No") || fb["Did you receive payments on time?"]?.includes("नहीं")
-                        ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
-                        : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                      }`}>
-                      {fb["Did you receive payments on time?"] || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[400px]">
-                      {fb["Feedback"] && parseInt(fb["Feedback"]) > 0 && (
-                        <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-300">
-                          Communication: <span className="font-black text-indigo-600 dark:text-indigo-400">{fb["How was our communication?"]} / 5</span>
-                        </p>
-                      )}
-                      {fb["Any suggestions for us?"] && fb["Any suggestions for us?"].trim() !== "" && (
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 italic line-clamp-3 leading-relaxed">
-                          "{fb["Any suggestions for us?"]}"
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {validFeedbacks.map((fb: any, idx: number) => {
+                const getStatus = (v: any) => {
+                  const str = String(v || '').toLowerCase();
+                  if (str.includes('yes') || str.includes('हाँ') || str.includes('ha')) return 'yes';
+                  if (str.includes('sometimes') || str.includes('कभी-कभी') || str.includes('occasionally')) return 'sometimes';
+                  if (str.includes('maybe') || str.includes('शायद') || str.includes('not sure') || str.includes('possibly')) return 'maybe';
+                  return 'no';
+                };
+
+                return (
+                  <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors group">
+                    <td className="px-6 py-5 font-mono font-bold text-slate-500 dark:text-slate-500 text-[11px]">
+                      {new Date(fb.Timestamp || Date.now()).toLocaleDateString('en-GB')}
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug truncate uppercase tracking-widest">{fb["Vendor Name"]}</p>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{fb["Company Name"] || "—"}</p>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-black text-[13px] border border-blue-100 dark:border-blue-800/50">
+                        {fb["Feedback"] || "-"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] border border-indigo-100 dark:border-indigo-800/50">
+                        {fb["How was our communication?"] || "-"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-black text-[13px] border border-emerald-100 dark:border-emerald-800/50">
+                        {fb["How satisfied are you with our overall business relationship?"] || "-"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatus(fb["Did you receive payments on time?"]) === 'yes'
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : getStatus(fb["Did you receive payments on time?"]) === 'sometimes'
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                          : getStatus(fb["Did you receive payments on time?"]) === 'maybe'
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+                        }`}>
+                        {getStatus(fb["Did you receive payments on time?"])}
+                      </span>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatus(fb["Would you like to continue working with us?"]) === 'yes'
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : getStatus(fb["Would you like to continue working with us?"]) === 'sometimes'
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                          : getStatus(fb["Would you like to continue working with us?"]) === 'maybe'
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+                        }`}>
+                        {getStatus(fb["Would you like to continue working with us?"])}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 italic font-medium">
+                        {fb["Any suggestions for us?"] ? `"${fb["Any suggestions for us?"]}"` : "—"}
+                      </p>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
