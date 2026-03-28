@@ -65,13 +65,15 @@ export default function StoreDashboard() {
   const [repairHistory, setRepairHistory] = useState<any[]>([]);
   const [returnableDetails, setReturnableDetails] = useState<any[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
-  const [allVendors, setAllVendors] = useState<{ vendorName: string }[]>([]);
-  const [allProducts, setAllProducts] = useState<{ itemName: string }[]>([]);
+  const [allVendorsBackup, setAllVendorsBackup] = useState<{ vendorName: string }[]>([]); // Keep as placeholder for legacy logic if needed, but we'll use memo
+  const [allProductsBackup, setAllProductsBackup] = useState<{ itemName: string }[]>([]);
   const [divisionListIssue, setDivisionListIssue] = useState<any[]>([]);
   const [divisionListIndent, setDivisionListIndent] = useState<any[]>([]);
   const [divisionListPO, setDivisionListPO] = useState<any[]>([]);
   const [divisionListGRN, setDivisionListGRN] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [divisionsLoading, setDivisionsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
@@ -96,34 +98,46 @@ export default function StoreDashboard() {
     let cancelled = false;
     let pollTimeout: ReturnType<typeof setTimeout>;
 
-    const fetchDashboardData = async (isRetry = false) => {
-      if (!isRetry) setLoading(true);
-      setError(null);
+    const monthStartStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
+    const fetchDivisions = async () => {
+      try {
+        const [issRes, indRes, poRes, grnRes] = await Promise.all([
+          storeApi.getDivisionWiseIssue(monthStartStr),
+          storeApi.getDivisionWiseIndent(monthStartStr),
+          storeApi.getDivisionWisePO(monthStartStr),
+          storeApi.getDivisionWiseGRN(monthStartStr)
+        ]);
+        if (cancelled) return;
+        setDivisionListIssue(issRes?.data || []);
+        setDivisionListIndent(indRes?.data || []);
+        setDivisionListPO(poRes?.data || []);
+        setDivisionListGRN(grnRes?.data || []);
+        setDivisionsLoading(false);
+        setLoading(false); // First phase ready
+      } catch (e) {
+        console.error("Division fetch err:", e);
+        if (!cancelled) setDivisionsLoading(false);
+      }
+    };
+
+    const fetchSummary = async () => {
       try {
         const response = await storeApi.getDashboard();
         const data = response?.data || response;
-
         if (cancelled) return;
 
         if (data) {
-          // Check if payload is "empty" (indicating background cache is still refreshing)
-          const isEmptyPayload = (!data.summary || Object.keys(data.summary).length === 0) &&
-            (!data.pendingIndents || data.pendingIndents.length === 0) &&
-            (!data.tasks || data.tasks.length === 0);
+          const isEmpty = (!data.summary || Object.keys(data.summary).length === 0) &&
+            (!data.pendingIndents || data.pendingIndents.length === 0);
 
-          if (isEmptyPayload) {
-            // Data is not yet ready, so we wait and retry in 3 seconds.
-            // DO NOT set loading to false so the UI doesn't render zeroes!
+          if (isEmpty) {
             pollTimeout = setTimeout(() => {
-              if (mountedRef.current && !cancelled) {
-                void fetchDashboardData(true);
-              }
-            }, 3000);
+              if (mountedRef.current && !cancelled) void fetchSummary();
+            }, 2500);
             return;
           }
 
-          // Data arrived successfully, update records
           setPendingIndents(data.pendingIndents || []);
           setHistoryIndents(data.historyIndents || []);
           setPoPending(data.poPending || []);
@@ -134,46 +148,19 @@ export default function StoreDashboard() {
           setDashboardSummary(data.summary || null);
           setFeedbacks(data.feedbacks || []);
           setFeedbacksLoading(false);
-
-          try {
-            const [issRes, indRes, poRes, grnRes] = await Promise.all([
-              storeApi.getDivisionWiseIssue(),
-              storeApi.getDivisionWiseIndent(),
-              storeApi.getDivisionWisePO(),
-              storeApi.getDivisionWiseGRN()
-            ]);
-            setDivisionListIssue(issRes?.data || []);
-            setDivisionListIndent(indRes?.data || []);
-            setDivisionListPO(poRes?.data || []);
-            setDivisionListGRN(grnRes?.data || []);
-          } catch (e) { console.error("Division data err:", e) }
-
-
-          // Extract unique vendors and products from datasets
-          const allItems = [
-            ...(data.pendingIndents || []),
-            ...(data.historyIndents || []),
-            ...(data.poPending || []),
-            ...(data.poHistory || []),
-            ...(data.repairPending || []),
-            ...(data.repairHistory || []),
-          ];
-
-          setAllVendors(normalizeVendorList(allItems));
-          setAllProducts(normalizeProductList(allItems));
-
-          setLoading(false);
+          setSummaryLoading(false);
+          setLoading(false); // If summary finishes first
         }
-
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message ?? 'Failed to load dashboard data');
-          setLoading(false);
+          setSummaryLoading(false);
+          if (divisionsLoading) setError(err?.message ?? 'Failed to load dashboard data');
         }
       }
     };
 
-    void fetchDashboardData();
+    void fetchDivisions();
+    void fetchSummary();
 
     return () => {
       cancelled = true;
@@ -181,6 +168,22 @@ export default function StoreDashboard() {
       if (pollTimeout) clearTimeout(pollTimeout);
     };
   }, []);
+
+  // Performance Optimization: Moved static data normalization to useMemo
+  const allItems = useMemo(() => {
+    // Optimization: Pre-calculate size and use a single array for large data sets
+    const combined = [];
+    if (pendingIndents.length) combined.push(...pendingIndents);
+    if (historyIndents.length) combined.push(...historyIndents);
+    if (poPending.length) combined.push(...poPending);
+    if (poHistory.length) combined.push(...poHistory);
+    if (repairPending.length) combined.push(...repairPending);
+    if (repairHistory.length) combined.push(...repairHistory);
+    return combined;
+  }, [pendingIndents, historyIndents, poPending, poHistory, repairPending, repairHistory]);
+
+  const allVendors = useMemo(() => normalizeVendorList(allItems), [allItems]);
+  const allProducts = useMemo(() => normalizeProductList(allItems), [allItems]);
 
   // Permission Check
   const hasAccess = useMemo(() => {
@@ -309,7 +312,7 @@ export default function StoreDashboard() {
     const targetSeries: number[] = categories.map(cat => targets[cat]);
     const actualSeries: number[] = categories.map(cat => {
       const match = mergedDivisionData.find(d => d.division === cat);
-      return match ? Math.round(match.po) : 0;
+      return match ? Math.round(match.grn) : 0;
     });
 
     return {
@@ -374,7 +377,7 @@ export default function StoreDashboard() {
     },
     yaxis: {
       title: {
-        text: 'PO Value',
+        text: 'GRN Value',
         style: {
           fontSize: '12px',
           fontWeight: 600,
@@ -1406,7 +1409,7 @@ export default function StoreDashboard() {
               <div className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400`}>
                 <TrendingUp size={20} />
               </div>
-              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">PO Target & Actual</CardTitle>
+              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Purchase Target vs Actual</CardTitle>
             </div>
             {/* <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">
               Values in Lakhs (L)
@@ -1437,16 +1440,28 @@ export default function StoreDashboard() {
         ].map((cat, idx) => (
           <Card key={cat.type} className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 h-full overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-900/5 hover:-translate-y-1">
             <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <div className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400`}>
                     <BarChart3 size={20} />
                   </div>
-                  <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">{cat.title}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">{cat.title}</CardTitle>
                 </div>
-                <div className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-sm"
-                  onClick={() => openModal(cat.type, `Global ${cat.title}`)}>
-                  View All {cat.label}
+
+                <div className="flex items-center gap-3 sm:gap-6 overflow-hidden">
+                  <div className="flex flex-col items-end shrink-0">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest leading-none mb-1">
+                      Total {cat.title === 'Indent' ? 'Count' : 'Value'}
+                    </span>
+                    <span className="text-sm sm:text-xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
+                      {Math.round(cat.data.total)}
+                    </span>
+                  </div>
+
+                  <div className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 sm:py-2.5 rounded-full shrink-0 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-sm border border-indigo-100/50 dark:border-indigo-900/50"
+                    onClick={() => openModal(cat.type, `Global ${cat.title}`)}>
+                    View All
+                  </div>
                 </div>
               </div>
             </CardHeader>
