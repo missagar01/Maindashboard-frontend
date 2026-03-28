@@ -199,6 +199,9 @@ const AppHeader: React.FC = () => {
     });
 
     const allowedPageRoutes = getAllowedPageRoutes(user);
+    if (allowedPageRoutes.some((route) => route.startsWith("/project"))) {
+      pushNavItem(resolvePortalNavItem("project"), "/project/dashboard");
+    }
     if (
       allowedPageRoutes.some(
         (route) => route.startsWith("/gatepass")

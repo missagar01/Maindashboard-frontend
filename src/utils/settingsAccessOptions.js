@@ -13,6 +13,7 @@ export const SYSTEM_OPTIONS = [
   { value: "HRFMS", label: "HRFMS" },
   { value: "VISITOR GATE PASS", label: "VISITOR GATE PASS" },
   { value: "SALES MODULE", label: "SALES MODULE" },
+  { value: "PROJECT", label: "PROJECT" },
   { value: "SUBSCRIPTION", label: "SUBSCRIPTION" },
 ];
 
@@ -88,6 +89,42 @@ export const PAGE_ROUTES = {
     createPageOption("Follow Up", "Follow Up", "/lead-to-order/follow-up", ["/lead-to-order/follow-up"]),
     createPageOption("Call Tracker", "Call Tracker", "/lead-to-order/call-tracker", ["/lead-to-order/call-tracker"]),
     createPageOption("Quotation", "Quotation", "/lead-to-order/quotation", ["/lead-to-order/quotation"]),
+  ],
+  PROJECT: [
+    createPageOption("Project Dashboard", "Dashboard", "/project/dashboard", [
+      "/project",
+      "/project/dashboard",
+      "Project Dashboard",
+      "Dashboard",
+    ]),
+    createPageOption("Projects", "Projects", "/project/projects", [
+      "/project/projects",
+      "Project Register",
+    ]),
+    createPageOption("Daily Logs", "Daily Logs", "/project/dpr", [
+      "/project/dpr",
+      "DPR",
+      "Daily Progress",
+    ]),
+    createPageOption("Material Stock", "Material Stock", "/project/materials", [
+      "/project/materials",
+      "/project/material-stock",
+      "Materials",
+      "Material Inventory",
+      "Material Registry",
+    ]),
+    createPageOption("Project Setup", "Project Setup", "/project/setup", [
+      "/project/setup",
+      "Setup",
+      "BOQ Builder",
+      "Architecture Architect",
+    ]),
+    createPageOption("Project Users", "Project Users", "/project/users", [
+      "/project/users",
+      "Users",
+      "User Management",
+      "Authorized Personnel",
+    ]),
   ],
   HRFMS: [
     createPageOption("/dashboard", "Dashboard", "/hrfms/dashboard", ["HRFMS Dashboard", "/hrfms/dashboard"]),
@@ -189,6 +226,11 @@ const SYSTEM_ALIASES = {
   leadtoorder: "SALES MODULE",
   o2d: "SALES MODULE",
   batchcode: "SALES MODULE",
+  project: "PROJECT",
+  projects: "PROJECT",
+  civiltrack: "PROJECT",
+  civil: "PROJECT",
+  siteproject: "PROJECT",
   subscription: "SUBSCRIPTION",
   subscriptions: "SUBSCRIPTION",
   documentcontrol: "SUBSCRIPTION",

@@ -37,7 +37,7 @@ const DataTable = ({ columns, data, title, onRowClick }) => {
     }, [data, searchTerm, sortConfig]);
 
     return (
-        <div className="industrial-card !p-0 overflow-hidden group">
+        <div className="overflow-hidden rounded-[1.75rem] border border-slate-100 bg-white shadow-xl shadow-slate-200/50 group">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 bg-slate-50/30 border-b border-slate-50">
                 {title && (
                     <div className="flex items-center gap-3">
@@ -82,8 +82,7 @@ const DataTable = ({ columns, data, title, onRowClick }) => {
                             sortedData.map((row, index) => (
                                 <tr
                                     key={index}
-                                    className={`hover:bg-accent/[0.02] transition-colors animate-in fade-in slide-in-from-right-4 duration-500 ${onRowClick ? 'cursor-pointer' : ''}`}
-                                    style={{ animationDelay: `${index * 50}ms` }}
+                                    className={`hover:bg-accent/[0.02] transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                                     onClick={() => onRowClick && onRowClick(row)}
                                 >
                                     {columns.map((column) => (

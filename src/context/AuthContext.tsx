@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, useEffect, useRef, useCallb
 import api from "../config/api.js";
 import { API_BASE_URL, getStoredToken } from "../api/apiClient";
 import { useChecklistCompatibility } from "./useChecklistCompatibility";
+import { listProjects } from "../api/project/projectApi";
 
 export interface User {
   id: string | number;
@@ -149,6 +150,10 @@ export interface ShareItem {
   contactInfo: string;
 }
 
+export interface ProjectItem {
+  [key: string]: unknown;
+}
+
 
 
 interface AuthContextType {
@@ -163,6 +168,10 @@ interface AuthContextType {
   authError: string | null;
   pageAccess: string | null;
   systemAccess: string | null;
+  projectProjects: ProjectItem[];
+  projectProjectsLoading: boolean;
+  projectProjectsError: string | null;
+  refreshProjectProjects: () => Promise<void>;
   login: (
     credentials: string | { username?: string; password?: string; user_name?: string; employee_id?: string },
     password?: string
@@ -291,6 +300,50 @@ const normalizeAccessArray = (value: unknown): string[] => {
   const csv = normalizeCsvValue(value);
   if (!csv) return [];
   return csv.split(',').map((entry) => entry.trim()).filter(Boolean);
+};
+
+const normalizeComparableValue = (value: unknown): string =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, "");
+
+const hasProjectModuleAccess = (authUser: User | null | undefined): boolean => {
+  if (!authUser) {
+    return false;
+  }
+
+  const normalizedRole = String(authUser.role || authUser.userType || "").trim().toLowerCase();
+  if (normalizedRole === "admin" || normalizedRole === "manager") {
+    return true;
+  }
+
+  const systemEntries = normalizeAccessArray(authUser.system_access);
+  if (
+    systemEntries.some((entry) =>
+      ["project", "projects", "civiltrack", "civil", "siteproject"].includes(
+        normalizeComparableValue(entry)
+      )
+    )
+  ) {
+    return true;
+  }
+
+  const pageEntries = normalizeAccessArray(authUser.page_access);
+  return pageEntries.some((entry) => {
+    const normalizedEntry = normalizeComparableValue(entry);
+    return (
+      normalizedEntry.startsWith("/project") ||
+      [
+        "projectdashboard",
+        "projects",
+        "dailylogs",
+        "materialstock",
+        "projectsetup",
+        "projectusers",
+      ].includes(normalizedEntry)
+    );
+  });
 };
 
 const getLegacyStorageValue = (key: string): string | null =>
@@ -520,6 +573,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [projectProjects, setProjectProjects] = useState<ProjectItem[]>([]);
+  const [projectProjectsLoading, setProjectProjectsLoading] = useState(false);
+  const [projectProjectsError, setProjectProjectsError] = useState<string | null>(null);
 
   // Load from LocalStorage
   useEffect(() => {
@@ -602,6 +658,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteLoan = (id: string) => {
     setLoans(prev => prev.filter(loan => loan.id !== id));
   };
+
+  const refreshProjectProjects = useCallback(async () => {
+    if (!token || !hasProjectModuleAccess(user)) {
+      setProjectProjects((current) => (current.length === 0 ? current : []));
+      setProjectProjectsLoading(false);
+      setProjectProjectsError(null);
+      return;
+    }
+
+    setProjectProjectsLoading(true);
+    setProjectProjectsError(null);
+
+    try {
+      const nextProjects = await listProjects();
+      setProjectProjects(Array.isArray(nextProjects) ? nextProjects : []);
+    } catch (error) {
+      console.error("Failed to fetch project list:", error);
+      setProjectProjectsError("Unable to load project data.");
+    } finally {
+      setProjectProjectsLoading(false);
+    }
+  }, [token, user]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -703,6 +781,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     void initializeAuth();
   }, []);
+
+  useEffect(() => {
+    void refreshProjectProjects();
+  }, [refreshProjectProjects]);
 
   // ── Session revocation polling (every 60 seconds) ──────────────────────────
   // If another device logs in with the same credentials, the backend marks the
@@ -925,6 +1007,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     setLoading(false);
     setAuthError(null);
+    setProjectProjects([]);
+    setProjectProjectsLoading(false);
+    setProjectProjectsError(null);
     clearAuthStorage();
 
     delete api.defaults.headers.common['Authorization'];
@@ -954,6 +1039,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         authError,
         pageAccess,
         systemAccess,
+        projectProjects,
+        projectProjectsLoading,
+        projectProjectsError,
+        refreshProjectProjects,
         login,
         logout,
         getAuthHeaders,

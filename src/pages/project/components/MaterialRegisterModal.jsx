@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
 import { X, Save, Package, Ruler, AlertCircle } from 'lucide-react';
+import { createMaterial } from '../../../api/project/projectApi';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+const emptyFormState = {
+  material_name: '',
+  unit: '',
+  min_threshold: '10'
+};
 
 const MaterialRegisterModal = ({ isOpen, onClose, onRefresh }) => {
-  const [formData, setFormData] = useState({
-    material_name: '',
-    unit: '',
-    min_threshold: '10'
-  });
+  const [formData, setFormData] = useState(emptyFormState);
   const [loading, setLoading] = useState(false);
+  const inputClass =
+    'w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100';
+  const fieldLabelClass =
+    'ml-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500';
+  const primaryButtonClass =
+    'inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_18px_30px_-18px_rgba(249,115,22,0.85)] transition hover:brightness-105 disabled:opacity-50 sm:w-auto sm:min-w-[220px]';
+  const secondaryButtonClass =
+    'inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:min-w-[180px]';
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(emptyFormState);
+      setLoading(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -18,12 +33,10 @@ const MaterialRegisterModal = ({ isOpen, onClose, onRefresh }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE}/materials`, formData, {
-        headers: { 'x-auth-token': token }
-      });
+      await createMaterial(formData);
       onRefresh();
       onClose();
+      setFormData(emptyFormState);
     } catch (err) {
       console.error('Error registering material:', err);
       alert('Failed to register new material');
@@ -33,57 +46,73 @@ const MaterialRegisterModal = ({ isOpen, onClose, onRefresh }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 rounded-2xl text-accent shadow-sm">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-3 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:p-4">
+      <div className="mx-auto my-4 w-full max-w-xl overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.18)] sm:my-8 sm:max-h-[90vh] sm:rounded-[2rem]">
+        <div className="border-b border-slate-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.92))] px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="rounded-[1.2rem] border border-amber-100 bg-amber-50 p-3 text-amber-500 shadow-sm">
               <Package size={24} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600/80">
+                  Material Registry
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 sm:text-[2rem]">
+                  Register New Item
+                </h2>
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                  Create a new material identifier with unit and minimum stock threshold.
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Register New Item</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X size={22} />
+            </button>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-            <X size={24} />
-          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 sm:space-y-6 sm:px-6 sm:py-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+            <label className={fieldLabelClass}>
               <Package size={14} /> Item Nomenclature
             </label>
             <input
               type="text"
               required
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all font-medium"
+              className={inputClass}
               placeholder="e.g. Cement 43 Grade"
               value={formData.material_name}
               onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+              <label className={fieldLabelClass}>
                 <Ruler size={14} /> Unit
               </label>
               <input
                 type="text"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all font-medium"
+                className={inputClass}
                 placeholder="e.g. Bags, m3, kg"
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+              <label className={fieldLabelClass}>
                 <AlertCircle size={14} /> Min Threshold
               </label>
               <input
                 type="number"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all font-medium"
+                className={inputClass}
                 placeholder="10"
                 value={formData.min_threshold}
                 onChange={(e) => setFormData({ ...formData, min_threshold: e.target.value })}
@@ -91,25 +120,25 @@ const MaterialRegisterModal = ({ isOpen, onClose, onRefresh }) => {
             </div>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
+          <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
              <AlertCircle size={16} className="text-slate-400 mt-0.5" />
              <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-wider">
                New items are registered with 0 initial stock. Use "Material Inward" to add stock to this identifier.
              </p>
           </div>
 
-          <div className="pt-4 flex gap-4">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 transition-colors uppercase text-xs tracking-[0.2em]"
+              className={secondaryButtonClass}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-[2] px-6 py-4 rounded-2xl bg-accent text-white font-black hover:bg-accent-dark transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2 uppercase text-xs tracking-[0.2em] disabled:opacity-50"
+              className={primaryButtonClass}
             >
               {loading ? 'Saving...' : <><Save size={18} /> Register Item</>}
             </button>

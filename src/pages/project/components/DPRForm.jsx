@@ -1,30 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Save, AlertCircle, CheckCircle2, Loader2, ChevronRight, HardHat, ClipboardList } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle2, Loader2, HardHat, ClipboardList } from 'lucide-react';
+import { createLog, listTasksForStructure, listWorkAreas } from '../../../api/project/projectApi';
+import useProjectOptions from '../hooks/useProjectOptions';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+const getInitialFormData = () => ({
+  progress_date: new Date().toISOString().split('T')[0],
+  quantity_completed: '',
+  labour_count: '',
+  remarks: ''
+});
 
-const DPRForm = ({ projects }) => {
+const normalizeListResponse = (data) => {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.rows)) {
+    return data.rows;
+  }
+
+  return [];
+};
+
+const DPRForm = () => {
+  const { projects, projectsLoading, projectsError } = useProjectOptions();
   const [selectedProject, setSelectedProject] = useState('');
   const [structures, setStructures] = useState([]);
   const [selectedStructure, setSelectedStructure] = useState('');
   const [activities, setActivities] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState('');
 
-  const [formData, setFormData] = useState({
-    progress_date: new Date().toISOString().split('T')[0],
-    quantity_completed: '',
-    labour_count: '',
-    remarks: ''
-  });
+  const [formData, setFormData] = useState(getInitialFormData);
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
+  const inputClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100/90";
+  const primaryButtonClass =
+    "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 px-5 py-3.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_18px_30px_-18px_rgba(249,115,22,0.85)] transition hover:brightness-105 disabled:opacity-50 sm:w-auto sm:min-w-[220px]";
+  const secondaryButtonClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:min-w-[180px]";
+  const fieldLabelClass =
+    "ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400";
 
   // Fetch structures when project changes
   useEffect(() => {
     if (selectedProject) {
-      fetchStructures(selectedProject);
+      void fetchStructures(selectedProject);
+      setSelectedStructure('');
+      setActivities([]);
+      setSelectedActivity('');
+    } else {
+      setStructures([]);
       setSelectedStructure('');
       setActivities([]);
       setSelectedActivity('');
@@ -34,32 +61,43 @@ const DPRForm = ({ projects }) => {
   // Fetch activities when structure changes
   useEffect(() => {
     if (selectedStructure) {
-      fetchActivities(selectedStructure);
+      void fetchActivities(selectedStructure);
+      setSelectedActivity('');
+    } else {
+      setActivities([]);
       setSelectedActivity('');
     }
   }, [selectedStructure]);
 
+  const resetFormState = ({ clearProjectSelection = false } = {}) => {
+    setFormData(getInitialFormData());
+    setSelectedActivity('');
+
+    if (clearProjectSelection) {
+      setSelectedProject('');
+      setStructures([]);
+      setSelectedStructure('');
+      setActivities([]);
+    }
+  };
+
   const fetchStructures = async (projectId) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/work-areas/${projectId}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setStructures(res.data);
+      const data = await listWorkAreas(projectId);
+      setStructures(normalizeListResponse(data));
     } catch (err) {
       console.error('Error fetching structures:', err);
+      setStructures([]);
     }
   };
 
   const fetchActivities = async (structureId) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/tasks/${structureId}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setActivities(res.data);
+      const data = await listTasksForStructure(structureId);
+      setActivities(normalizeListResponse(data));
     } catch (err) {
       console.error('Error fetching activities:', err);
+      setActivities([]);
     }
   };
 
@@ -72,20 +110,12 @@ const DPRForm = ({ projects }) => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE}/logs`, {
+      await createLog({
         activity_id: selectedActivity,
         ...formData
-      }, {
-        headers: { 'x-auth-token': token }
       });
       setStatus({ type: 'success', message: 'Progress log saved successfully!' });
-      setFormData({
-        ...formData,
-        quantity_completed: '',
-        labour_count: '',
-        remarks: ''
-      });
+      resetFormState({ clearProjectSelection: true });
       setTimeout(() => setStatus({ type: '', message: '' }), 3000);
     } catch (err) {
       setStatus({ type: 'error', message: 'Failed to save log. Please try again.' });
@@ -95,28 +125,34 @@ const DPRForm = ({ projects }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="industrial-card-colorful p-1 bg-gradient-to-r from-amber-500 to-red-600 rounded-2xl md:rounded-[2rem] overflow-hidden">
-        <div className="bg-white/95 backdrop-blur-md p-6 md:p-10 rounded-[0.95rem] md:rounded-[1.95rem]">
-          <div className="flex items-center gap-6 mb-10">
-            <div className="bg-gradient-to-br from-amber-400 to-red-500 p-4 rounded-[1.5rem] text-white shadow-xl shadow-amber-500/20 animate-float">
+    <div className="w-full space-y-4">
+      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:rounded-[2rem]">
+        <div className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.92))] px-4 py-5 sm:px-8 sm:py-8 xl:px-10 xl:py-9">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className="w-fit rounded-[1.25rem] border border-amber-100 bg-amber-50 p-3 text-amber-500 shadow-sm sm:rounded-[1.5rem] sm:p-4">
               <ClipboardList size={32} />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Daily Progress Registry</h2>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-1 italic">Propagate site-level achievements into system metrics</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-600/80">Civil Track Workspace</p>
+              <h2 className="mt-2 text-[1.85rem] font-black tracking-tight text-slate-900 sm:text-3xl xl:text-[2.1rem]">Daily Progress Registry</h2>
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500 sm:text-base">
+                Capture site progress, workforce movement, and remarks in one shared reporting flow.
+              </p>
             </div>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-white px-4 py-4 sm:px-8 sm:py-8 xl:px-10 xl:py-10">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Project Selection */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Project</label>
+              <label className={fieldLabelClass}>Project</label>
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
-                className="w-full input-field py-4"
+                className={inputClass}
+                disabled={projectsLoading}
                 required
               >
                 <option value="">Select Project</option>
@@ -124,15 +160,20 @@ const DPRForm = ({ projects }) => {
                   <option key={p.project_id} value={p.project_id}>{p.project_name}</option>
                 ))}
               </select>
+              {!projectsLoading && projects.length === 0 ? (
+                <p className="ml-1 text-[10px] font-bold uppercase tracking-[0.18em] text-red-400">
+                  {projectsError || 'No project options loaded'}
+                </p>
+              ) : null}
             </div>
 
             {/* Structure Selection */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Structure / Area</label>
+              <label className={fieldLabelClass}>Structure / Area</label>
               <select
                 value={selectedStructure}
                 onChange={(e) => setSelectedStructure(e.target.value)}
-                className="w-full input-field py-4"
+                className={inputClass}
                 disabled={!selectedProject}
                 required
               >
@@ -145,11 +186,11 @@ const DPRForm = ({ projects }) => {
 
             {/* Activity Selection */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Activity (BOQ Item)</label>
+              <label className={fieldLabelClass}>Activity (BOQ Item)</label>
               <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
-                className="w-full input-field py-4"
+                className={inputClass}
                 disabled={!selectedStructure}
                 required
               >
@@ -161,22 +202,22 @@ const DPRForm = ({ projects }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-slate-100">
+          <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 lg:grid-cols-3 sm:pt-8">
             {/* Date */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Log Date</label>
+              <label className={fieldLabelClass}>Log Date</label>
               <input
                 type="date"
                 value={formData.progress_date}
                 onChange={(e) => setFormData({ ...formData, progress_date: e.target.value })}
-                className="w-full input-field py-4"
+                className={inputClass}
                 required
               />
             </div>
 
             {/* Quantity */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Quantity Done</label>
+              <label className={fieldLabelClass}>Quantity Done</label>
               <div className="relative group">
                 <input
                   type="number"
@@ -184,10 +225,10 @@ const DPRForm = ({ projects }) => {
                   value={formData.quantity_completed}
                   onChange={(e) => setFormData({ ...formData, quantity_completed: e.target.value })}
                   placeholder="0.00"
-                  className="w-full input-field py-4 pr-16"
+                  className={`${inputClass} pr-16`}
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black uppercase tracking-tighter bg-slate-100 px-2 py-1 rounded-md">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-tighter text-slate-400">
                   {activities.find(a => a.activity_id == selectedActivity)?.unit || 'unit'}
                 </span>
               </div>
@@ -195,7 +236,7 @@ const DPRForm = ({ projects }) => {
 
             {/* Labour Count */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Labor Strength</label>
+              <label className={fieldLabelClass}>Labor Strength</label>
               <div className="relative group">
                 <HardHat size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-accent transition-colors" />
                 <input
@@ -203,7 +244,7 @@ const DPRForm = ({ projects }) => {
                   value={formData.labour_count}
                   onChange={(e) => setFormData({ ...formData, labour_count: e.target.value })}
                   placeholder="Total workers"
-                  className="w-full input-field py-4 !pl-12"
+                  className={`${inputClass} pl-12`}
                 />
               </div>
             </div>
@@ -211,19 +252,19 @@ const DPRForm = ({ projects }) => {
 
           {/* Remarks */}
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Remarks / Site Observations</label>
+            <label className={fieldLabelClass}>Remarks / Site Observations</label>
             <textarea
               value={formData.remarks}
               onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
               placeholder="Enter site issues, weather conditions, or delay reasons..."
-              className="w-full input-field h-32 resize-none py-4"
+              className={`${inputClass} h-28 resize-none sm:h-36`}
             />
           </div>
 
           {/* Status Messages */}
           {status.message && (
-            <div className={`p-5 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-300 ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-              <div className={`p-2 rounded-full ${status.type === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
+            <div className={`flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center ${status.type === 'success' ? 'border border-green-100 bg-green-50 text-green-700' : 'border border-red-100 bg-red-50 text-red-700'}`}>
+              <div className={`w-fit rounded-full p-2 ${status.type === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
                 {status.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
               </div>
               <div>
@@ -233,34 +274,29 @@ const DPRForm = ({ projects }) => {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-end gap-4 pt-10 border-t border-slate-100">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end sm:pt-8">
             <button
               type="button"
               onClick={() => {
-                setFormData({
-                  ...formData,
-                  quantity_completed: '',
-                  labour_count: '',
-                  remarks: ''
-                });
-                setSelectedActivity('');
+                resetFormState({ clearProjectSelection: true });
+                setStatus({ type: '', message: '' });
               }}
-              className="btn-secondary min-w-[160px]"
+              className={secondaryButtonClass}
             >
               System Reset
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary min-w-[200px]"
+              className={primaryButtonClass}
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               {loading ? 'Processing...' : 'Deploy Progress Log'}
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
 
       {/* Quick Summary / History below the form can be added here */}
     </div>
