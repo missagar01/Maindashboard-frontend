@@ -180,7 +180,7 @@ const AssignTask = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = nextStream;
         videoRef.current.setAttribute("playsinline", "true");
-        await videoRef.current.play().catch(() => {});
+        await videoRef.current.play().catch(() => { });
       }
       setStream(nextStream);
       setCurrentFacingMode(facingMode);
@@ -198,7 +198,7 @@ const AssignTask = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = nextStream;
           videoRef.current.setAttribute("playsinline", "true");
-          await videoRef.current.play().catch(() => {});
+          await videoRef.current.play().catch(() => { });
         }
         setStream(nextStream);
         setCurrentFacingMode(facingMode);
@@ -230,7 +230,7 @@ const AssignTask = () => {
 
   const closeCamera = () => {
     stopStream(stream);
-    if (videoRef.current) {
+    if (videoRef.current) { 
       videoRef.current.srcObject = null;
     }
     setStream(null);

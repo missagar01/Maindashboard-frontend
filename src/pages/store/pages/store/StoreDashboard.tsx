@@ -8,7 +8,7 @@ import {
   ClipboardList, LayoutDashboard, PackageCheck, Truck,
   Warehouse, FileText, TrendingUp, BarChart3, Activity,
   ArrowUpRight, ArrowDownRight, Package, Users, Calendar,
-  ArrowRight, RefreshCcw, Search, X, CheckCircle2, Clock, Box, ChevronRight, Rows3, Sparkles,
+  ArrowRight, RefreshCcw, Search, X, CheckCircle2, Clock, Box, ChevronRight, Rows3, Sparkles, Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "../../components/ui/dialog";
@@ -65,15 +65,11 @@ export default function StoreDashboard() {
   const [repairHistory, setRepairHistory] = useState<any[]>([]);
   const [returnableDetails, setReturnableDetails] = useState<any[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
-  const [allVendorsBackup, setAllVendorsBackup] = useState<{ vendorName: string }[]>([]); // Keep as placeholder for legacy logic if needed, but we'll use memo
-  const [allProductsBackup, setAllProductsBackup] = useState<{ itemName: string }[]>([]);
   const [divisionListIssue, setDivisionListIssue] = useState<any[]>([]);
   const [divisionListIndent, setDivisionListIndent] = useState<any[]>([]);
   const [divisionListPO, setDivisionListPO] = useState<any[]>([]);
   const [divisionListGRN, setDivisionListGRN] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [divisionsLoading, setDivisionsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
@@ -98,69 +94,78 @@ export default function StoreDashboard() {
     let cancelled = false;
     let pollTimeout: ReturnType<typeof setTimeout>;
 
-    const monthStartStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
 
-    const fetchDivisions = async () => {
       try {
-        const [issRes, indRes, poRes, grnRes] = await Promise.all([
-          storeApi.getDivisionWiseIssue(monthStartStr),
-          storeApi.getDivisionWiseIndent(monthStartStr),
-          storeApi.getDivisionWisePO(monthStartStr),
-          storeApi.getDivisionWiseGRN(monthStartStr)
+        // Run both summary and divisions in parallel
+        await Promise.all([
+          // Division Data
+          (async () => {
+            const [issRes, indRes, poRes, grnRes] = await Promise.all([
+              storeApi.getDivisionWiseIssue(),
+              storeApi.getDivisionWiseIndent(),
+              storeApi.getDivisionWisePO(),
+              storeApi.getDivisionWiseGRN()
+            ]);
+            if (cancelled) return;
+
+            // Pre-normalize division names for better performance
+            const normalizeDivs = (data: any[]) => (data || []).map(item => ({
+              ...item,
+              _normalizedDiv: getDivName(item)
+            }));
+
+            setDivisionListIssue(normalizeDivs(issRes?.data));
+            setDivisionListIndent(normalizeDivs(indRes?.data));
+            setDivisionListPO(normalizeDivs(poRes?.data));
+            setDivisionListGRN(normalizeDivs(grnRes?.data));
+          })(),
+          // Summary Data
+          (async () => {
+            const response = await storeApi.getDashboard();
+            const data = response?.data || response;
+            if (cancelled) return;
+
+            if (data) {
+              const isEmpty = (!data.summary || Object.keys(data.summary).length === 0) &&
+                (!data.pendingIndents || data.pendingIndents.length === 0);
+
+              if (isEmpty) {
+                pollTimeout = setTimeout(() => {
+                  if (mountedRef.current && !cancelled) void loadData();
+                }, 2500);
+                return;
+              }
+
+              setPendingIndents(data.pendingIndents || []);
+              setHistoryIndents(data.historyIndents || []);
+              setPoPending(data.poPending || []);
+              setPoHistory(data.poHistory || []);
+              setRepairPending(data.repairPending || []);
+              setRepairHistory(data.repairHistory || []);
+              setReturnableDetails(data.returnableDetails || []);
+              setDashboardSummary(data.summary || null);
+              setFeedbacks(data.feedbacks || []);
+              setFeedbacksLoading(false);
+            }
+          })()
         ]);
-        if (cancelled) return;
-        setDivisionListIssue(issRes?.data || []);
-        setDivisionListIndent(indRes?.data || []);
-        setDivisionListPO(poRes?.data || []);
-        setDivisionListGRN(grnRes?.data || []);
-        setDivisionsLoading(false);
-        setLoading(false); // First phase ready
-      } catch (e) {
-        console.error("Division fetch err:", e);
-        if (!cancelled) setDivisionsLoading(false);
-      }
-    };
 
-    const fetchSummary = async () => {
-      try {
-        const response = await storeApi.getDashboard();
-        const data = response?.data || response;
-        if (cancelled) return;
-
-        if (data) {
-          const isEmpty = (!data.summary || Object.keys(data.summary).length === 0) &&
-            (!data.pendingIndents || data.pendingIndents.length === 0);
-
-          if (isEmpty) {
-            pollTimeout = setTimeout(() => {
-              if (mountedRef.current && !cancelled) void fetchSummary();
-            }, 2500);
-            return;
-          }
-
-          setPendingIndents(data.pendingIndents || []);
-          setHistoryIndents(data.historyIndents || []);
-          setPoPending(data.poPending || []);
-          setPoHistory(data.poHistory || []);
-          setRepairPending(data.repairPending || []);
-          setRepairHistory(data.repairHistory || []);
-          setReturnableDetails(data.returnableDetails || []);
-          setDashboardSummary(data.summary || null);
-          setFeedbacks(data.feedbacks || []);
-          setFeedbacksLoading(false);
-          setSummaryLoading(false);
-          setLoading(false); // If summary finishes first
+        if (!cancelled && !pollTimeout) {
+          setLoading(false);
         }
       } catch (err: any) {
+        console.error("Dashboard data load error:", err);
         if (!cancelled) {
-          setSummaryLoading(false);
-          if (divisionsLoading) setError(err?.message ?? 'Failed to load dashboard data');
+          setError(err?.message ?? 'Failed to load dashboard data');
+          setLoading(false);
         }
       }
     };
 
-    void fetchDivisions();
-    void fetchSummary();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -247,28 +252,32 @@ export default function StoreDashboard() {
 
     // Indents - Now a detailed list, so we COUNT records
     divisionListIndent.forEach(d => {
-      const name = getDivName(d);
+      const name = d._normalizedDiv;
+      if (!name) return;
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
       map[name].indent++;
     });
 
     // PO - Aggregated sum poamount
     divisionListPO.forEach(d => {
-      const name = getDivName(d);
+      const name = d._normalizedDiv;
+      if (!name) return;
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
       map[name].po += Number(d.POAMOUNT || d.poamount || d.ORDER_AMOUNT || d.order_amount || d.TOTAL || d.total || 0);
     });
 
     // GRN - Aggregated sum grnamount
     divisionListGRN.forEach(d => {
-      const name = getDivName(d);
+      const name = d._normalizedDiv;
+      if (!name) return;
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
       map[name].grn += Number(d.GRNAMOUNT || d.grnamount || d.GRN_AMOUNT || d.grn_amount || d.TOTAL || d.total || 0);
     });
 
     // Issue - Now summarized by employee, sum issue_amount
     divisionListIssue.forEach(d => {
-      const name = getDivName(d);
+      const name = d._normalizedDiv;
+      if (!name) return;
       if (!map[name]) map[name] = { division: name, indent: 0, po: 0, grn: 0, issue: 0 };
       map[name].issue += Number(d.ISSUE_AMOUNT || d.issue_amount || d.amount || 0);
     });
@@ -765,8 +774,9 @@ export default function StoreDashboard() {
   const dashboardStats = useMemo(() => {
     const summary = dashboardSummary || {};
     const monthStart = getCurrentMonthStart();
-    const filterMonth = (rows: any[]) =>
-      (rows || []).filter((item) => {
+    const filterMonth = (rows: any[]) => {
+      const ms = monthStart.getTime();
+      return (rows || []).filter((item) => {
         const dateVal =
           item.VRDATE ||
           item.vrdate ||
@@ -774,9 +784,11 @@ export default function StoreDashboard() {
           item.indent_date ||
           item.RECEIVED_DATE ||
           item.received_date ||
-          item.PLANNEDTIMESTAMP;
-        return dateVal && new Date(dateVal) >= monthStart;
+          item.PLANNEDTIMESTAMP ||
+          item.PLANNED_TIMESTAMP;
+        return dateVal && new Date(dateVal).getTime() >= ms;
       });
+    };
 
     const curMonthPendingIndents = filterMonth(pendingIndents);
     const curMonthHistoryIndents = filterMonth(historyIndents);
@@ -784,11 +796,15 @@ export default function StoreDashboard() {
     const curMonthPoHistory = filterMonth(poHistory);
     const curMonthRepairPending = filterMonth(repairPending);
     const curMonthRepairHistory = filterMonth(repairHistory);
-    const curMonthReturnable = (returnableDetails || []).filter((item: any) => new Date(item.VRDATE || item.vrdate) >= monthStart);
+    const curMonthReturnable = (returnableDetails || []).filter((item: any) => {
+      const dv = item.VRDATE || item.vrdate;
+      return dv && new Date(dv).getTime() >= monthStart.getTime();
+    });
 
+    const now = new Date().getTime();
     const curMonthOverdue = curMonthPendingIndents.filter((item) => {
-      const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp;
-      return ts && new Date(ts) < new Date();
+      const ts = item.PLANNEDTIMESTAMP || item.plannedtimestamp || item.PLANNED_TIMESTAMP;
+      return ts && new Date(ts).getTime() < now;
     }).length;
 
     const total = (divisionListIndent || []).length;
@@ -1046,7 +1062,7 @@ export default function StoreDashboard() {
     try {
       let rows: any[] = [];
       const filterByDiv = (data: any[], filter?: string) => filter
-        ? data.filter(d => getDivName(d) === filter.toUpperCase().trim())
+        ? data.filter(d => (d._normalizedDiv || getDivName(d)) === filter.toUpperCase().trim())
         : data;
 
       const getRowsForType = (t: string, filter?: string) => {
@@ -1097,7 +1113,7 @@ export default function StoreDashboard() {
     setModalTitle(`${division} ${categoryName} Analysis`);
 
     const filterByDiv = (data: any[], filter: string) =>
-      data.filter(d => getDivName(d) === filter.toUpperCase().trim());
+      data.filter(d => (d._normalizedDiv || getDivName(d)) === filter.toUpperCase().trim());
 
     let rows: any[] = [];
     switch (modalType) {
@@ -1364,7 +1380,7 @@ export default function StoreDashboard() {
       </div>
 
       {/* Hero Metrics Cards - Updated Grid to 5 columns on large screens */}
-      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 md:gap-4">
         {cards.map((card) => (
           <button
             key={card.title}
@@ -1377,12 +1393,11 @@ export default function StoreDashboard() {
             </div>
 
             <div className="relative z-10 flex flex-col h-full justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-2.5 rounded-xl sm:rounded-2xl ${card.iconBg} backdrop-blur-sm`}>
+              <div className="flex justify-between items-start mb-2">
+                <div className={`p-2 rounded-xl sm:rounded-2xl ${card.iconBg} backdrop-blur-sm`}>
                   {card.icon}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-white/90">
-                  {/* <ArrowUpRight size={14} /> */}
                   <span>View</span>
                 </div>
               </div>
@@ -1390,11 +1405,6 @@ export default function StoreDashboard() {
               <div>
                 <p className="text-white/80 font-medium text-[14px] sm:text-xs tracking-wide uppercase whitespace-normal leading-tight">{card.title}</p>
                 <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-1 mb-3 break-all">{card.value}</h3>
-
-                {/* <div className="flex items-center justify-between border-t border-white/20 pt-3 mt-1">
-                  <p className="text-white/70 text-[9px] font-medium truncate uppercase">{card.sublabel}</p>
-                  <p className="text-white font-bold text-xs sm:text-sm truncate">{card.subvalue}</p>
-                </div> */}
               </div>
             </div>
           </button>
@@ -1411,9 +1421,6 @@ export default function StoreDashboard() {
               </div>
               <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Purchase Target vs Actual</CardTitle>
             </div>
-            {/* <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Values in Lakhs (L)
-            </div> */}
           </div>
         </CardHeader>
         <CardContent className="p-1 sm:p-2 md:p-4">
@@ -1951,6 +1958,36 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
     };
   }, [validFeedbacks]);
 
+  const StarRating = ({ rating, size = 12 }: { rating: number, size?: number }) => {
+    const r = parseFloat(String(rating));
+    return (
+      <div className="flex items-center gap-0.5 mt-1">
+        {[...Array(5)].map((_, i) => {
+          const fillAmount = Math.max(0, Math.min(1, r - i));
+          return (
+            <div key={i} className="relative leading-none">
+              {/* Background Star (Gray) */}
+              <Star
+                size={size}
+                className="text-slate-300 dark:text-slate-700"
+              />
+              {/* Foreground Star (Golden) with Clipping */}
+              <div
+                className="absolute top-0 left-0 overflow-hidden pointer-events-none"
+                style={{ width: `${fillAmount * 100}%` }}
+              >
+                <Star
+                  size={size}
+                  className="fill-amber-400 text-amber-400"
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden relative">
       <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 pb-4">
@@ -1961,9 +1998,6 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
             </div>
             <CardTitle className="text-lg font-bold text-white">Vendor Satisfaction Feedback</CardTitle>
           </div>
-          {/* <span className="text-[11px] font-bold text-white/90 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
-            {validFeedbacks.length} Responses
-          </span> */}
         </div>
       </CardHeader>
 
@@ -1974,17 +2008,17 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
             <div className="p-2 md:p-4 border border-blue-200 dark:border-blue-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-blue-500/20 hover:shadow-blue-500/40">
               <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Avg Feedback</p>
               <h4 className="text-xl md:text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgFeedback}</h4>
-              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+              <StarRating rating={Number(stats.avgFeedback)} size={16} />
             </div>
             <div className="p-2 md:p-4 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-indigo-500/20 hover:shadow-indigo-500/40">
               <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Communication</p>
               <h4 className="text-xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgCommunication}</h4>
-              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+              <StarRating rating={Number(stats.avgCommunication)} size={16} />
             </div>
             <div className="p-2 md:p-4 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-emerald-500/20 hover:shadow-emerald-500/40">
               <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Satisfaction</p>
               <h4 className="text-xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgSatisfaction}</h4>
-              {/* <p className="text-[11px] font-bold text-slate-500 mt-1">Scale 1-5</p> */}
+              <StarRating rating={Number(stats.avgSatisfaction)} size={16} />
             </div>
             <div className="p-2 md:p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/30">
               <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Payments On Time</p>
@@ -2045,17 +2079,20 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 mt-1">
-                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
                     <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Feedback</p>
                     <span className="text-xs font-black text-blue-600">{fb["Feedback"] || "-"}</span>
+                    {fb["Feedback"] && <StarRating rating={fb["Feedback"]} size={10} />}
                   </div>
-                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
                     <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Communication</p>
                     <span className="text-xs font-black text-indigo-600">{fb["How was our communication?"] || "-"}</span>
+                    {fb["How was our communication?"] && <StarRating rating={fb["How was our communication?"]} size={10} />}
                   </div>
-                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
                     <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Satisfaction</p>
                     <span className="text-xs font-black text-emerald-600">{fb["How satisfied are you with our overall business relationship?"] || "-"}</span>
+                    {fb["How satisfied are you with our overall business relationship?"] && <StarRating rating={fb["How satisfied are you with our overall business relationship?"]} size={10} />}
                   </div>
 
                   <div className="col-span-3 grid grid-cols-2 gap-2 mt-1">
@@ -2119,18 +2156,21 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
                       <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{fb["Company Name"] || "—"}</p>
                     </td>
                     <td className="px-3 py-5 text-center">
-                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-black text-[13px] border border-blue-100 dark:border-blue-800/50">
-                        {fb["Feedback"] || "-"}
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-black text-[13px] border border-blue-100 dark:border-blue-800/50">
+                        <span>{fb["Feedback"] || "-"}</span>
+                        {fb["Feedback"] && <StarRating rating={fb["Feedback"]} size={10} />}
                       </div>
                     </td>
                     <td className="px-3 py-5 text-center">
-                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] border border-indigo-100 dark:border-indigo-800/50">
-                        {fb["How was our communication?"] || "-"}
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] border border-indigo-100 dark:border-indigo-800/50">
+                        <span>{fb["How was our communication?"] || "-"}</span>
+                        {fb["How was our communication?"] && <StarRating rating={fb["How was our communication?"]} size={10} />}
                       </div>
                     </td>
                     <td className="px-3 py-5 text-center">
-                      <div className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-black text-[13px] border border-emerald-100 dark:border-emerald-800/50">
-                        {fb["How satisfied are you with our overall business relationship?"] || "-"}
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-black text-[13px] border border-emerald-100 dark:border-emerald-800/50">
+                        <span>{fb["How satisfied are you with our overall business relationship?"] || "-"}</span>
+                        {fb["How satisfied are you with our overall business relationship?"] && <StarRating rating={fb["How satisfied are you with our overall business relationship?"]} size={10} />}
                       </div>
                     </td>
                     <td className="px-3 py-5 text-center">
