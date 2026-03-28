@@ -4,6 +4,10 @@ const envBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
 const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
 const resolveApiBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return '';
+  }
+
   const normalizedEnvBase = normalizeBaseUrl(envBaseUrl);
 
   if (!normalizedEnvBase) {

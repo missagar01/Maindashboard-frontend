@@ -9,6 +9,7 @@ import {
   FileText,
   Files,
   FolderKanban,
+  HardHat,
   Landmark,
   LayoutDashboard,
   LogOut,
@@ -21,6 +22,7 @@ import {
   ShoppingCart,
   Truck,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -267,6 +269,21 @@ const storeSection: SidebarSection = {
   ],
 };
 
+const projectSection: SidebarSection = {
+  key: "project",
+  title: "Project Operations",
+  caption: "Civil Track Workspace",
+  icon: HardHat,
+  nodes: [
+    { kind: "link", key: "project-dashboard", name: "Dashboard", path: "/project/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "project-projects", name: "Projects", path: "/project/projects", icon: FolderKanban },
+    { kind: "link", key: "project-dpr", name: "Daily Logs", path: "/project/dpr", icon: ClipboardList },
+    { kind: "link", key: "project-materials", name: "Material Stock", path: "/project/materials", icon: Warehouse },
+    { kind: "link", key: "project-setup", name: "Project Setup", path: "/project/setup", icon: ShieldCheck },
+    { kind: "link", key: "project-users", name: "Users", path: "/project/users", icon: Users },
+  ],
+};
+
 const visitorSection: SidebarSection = {
   key: "visitor-gate-pass", title: "Visitor Gate Pass", caption: "Security Access", icon: ShieldCheck,
   nodes: [
@@ -284,6 +301,7 @@ const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   batchcode: salesWorkspaceSection,
   hrms: hrmsSection,
   store: storeSection,
+  project: projectSection,
   subscription: subscriptionSection,
   "visitor-gate-pass": visitorSection,
 };

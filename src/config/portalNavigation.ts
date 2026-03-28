@@ -3,6 +3,7 @@ export type PortalNavKey =
   | "checklist"
   | "store"
   | "sales"
+  | "project"
   | "subscription"
   | "hrms"
   | "logistic"
@@ -56,6 +57,12 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     aliases: ["salesmodule", "sales", "sale", "leadtoorder", "lead_to_order", "crm", "o2d", "logistic", "logistics", "dispatch", "batchcode", "batch"],
   },
   {
+    key: "project",
+    label: "PROJECT",
+    path: "/project/dashboard",
+    aliases: ["project", "projects", "civiltrack", "civil", "siteproject"],
+  },
+  {
     key: "subscription",
     label: "SUBSCRIPTION",
     path: "/document/dashboard",
@@ -91,6 +98,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
+  { key: "project", label: "PROJECT", path: "/project/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
   { key: "hrms", label: "HRMS", path: "/hrfms/dashboard" },
   // { key: "logistic", label: "LOGISTIC", path: "https://triofleet.trieon.in/" },
@@ -139,6 +147,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
   if (normalized.startsWith("/checklist")) return "checklist";
   if (normalized.startsWith("/store")) return "store";
   if (normalized.startsWith("/o2d")) return "sales";
+  if (normalized.startsWith("/project")) return "project";
   if (normalized.startsWith("/subscription")) return "subscription";
   if (
     normalized.startsWith("/document") ||
@@ -172,6 +181,10 @@ export const getSidebarModuleForPath = (path: string): PortalNavKey | null => {
     normalized.startsWith("/batchcode")
   ) {
     return "sales";
+  }
+
+  if (normalized.startsWith("/project")) {
+    return "project";
   }
 
   const key = getActivePortalNavKey(path);

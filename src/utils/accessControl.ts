@@ -13,6 +13,7 @@ type SystemKey =
   | "hrfms"
   | "document"
   | "store"
+  | "project"
   | "checklist"
   | "gatepass"
   | null;
@@ -105,6 +106,12 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "All Task": "/lead-to-order/call-tracker",
   Customers: "/o2d/customers",
   "Follow Ups": "/o2d/follow-ups",
+  "Project Dashboard": "/project/dashboard",
+  Projects: "/project/projects",
+  "Daily Logs": "/project/dpr",
+  "Material Stock": "/project/materials",
+  "Project Setup": "/project/setup",
+  "Project Users": "/project/users",
   "HRFMS Dashboard": "/hrfms/dashboard",
   Employee: "/hrfms/employee-create",
   "My Profile": "/hrfms/my-profile",
@@ -477,6 +484,12 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
+  if (required === "project") {
+    return systems.some((value) =>
+      ["project", "projects", "civiltrack", "civil", "siteproject"].includes(value)
+    );
+  }
+
   if (required === "checklist") {
     return systems.some((value) =>
       [
@@ -525,6 +538,10 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "sales";
   }
 
+  if (normalizedPath.startsWith("/project") || lowerPath.includes("tab=project")) {
+    return "project";
+  }
+
   if (
     normalizedPath.startsWith("/checklist") ||
     normalizedPath.startsWith("/maintenance") ||
@@ -571,6 +588,7 @@ const normalizePageEntryToRoute = (
     const hasSales = hasSystemAccess(availableSystems, "sales");
     const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
     const hasStore = hasSystemAccess(availableSystems, "store");
+    const hasProject = hasSystemAccess(availableSystems, "project");
     const hasDocument = hasSystemAccess(availableSystems, "document");
     const hasChecklist = hasSystemAccess(availableSystems, "checklist");
     const hasGatePass = hasSystemAccess(availableSystems, "gatepass");
@@ -578,6 +596,7 @@ const normalizePageEntryToRoute = (
     if (hasSales) return "/o2d/dashboard";
     if (hasHrfms) return "/hrfms/dashboard";
     if (hasStore) return "/store/dashboard";
+    if (hasProject) return "/project/dashboard";
     if (hasDocument) return "/document/dashboard";
     if (hasChecklist) return "/checklist";
     if (hasGatePass) return "/gatepass/approvals";
@@ -608,6 +627,7 @@ const normalizePageEntryToRoute = (
     if (normalized === "/document") return "/document/dashboard";
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
+    if (normalized === "/project") return "/project/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
     if (normalized === "/gatepass") return "/gatepass/approvals";
     if (normalized === "/gatepass/visitor") return "/gatepass/approvals";
@@ -663,6 +683,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Inject system default routes so the sidebar at least opens the root page when the user has system_access.
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
+  if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");
   }

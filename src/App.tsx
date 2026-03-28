@@ -132,6 +132,12 @@ import ChecklistMisReport from "./pages/checklist/pages/MisReport.jsx";
 import ChecklistHousekeepingVerify from "./pages/checklist/pages/HousekeepingVerify.jsx";
 import ChecklistMachines from "./pages/checklist/pages/admin/maintenance/machines.jsx";
 import ChecklistNewMachine from "./pages/checklist/pages/admin/maintenance/newMachine.jsx";
+import ProjectDashboardPage from "./pages/project/pages/ProjectDashboardPage";
+import ProjectProjectsPage from "./pages/project/pages/ProjectProjectsPage";
+import DPRForm from "./pages/project/components/DPRForm";
+import MaterialInventory from "./pages/project/components/MaterialInventory";
+import BOQBuilder from "./pages/project/components/BOQBuilder";
+import UserManagement from "./pages/project/components/UserManagement";
 
 const ChecklistLegacyParamRedirect = ({ basePath }: { basePath: string }) => {
   const params = useParams();
@@ -263,6 +269,15 @@ export default function App() {
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
             </Route>
+
+            {/* Project Routes */}
+            <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />
+            <Route path="/project/dashboard" element={<RouteGuard><ProjectDashboardPage /></RouteGuard>} />
+            <Route path="/project/projects" element={<RouteGuard><ProjectProjectsPage /></RouteGuard>} />
+            <Route path="/project/dpr" element={<RouteGuard><DPRForm /></RouteGuard>} />
+            <Route path="/project/materials" element={<RouteGuard><MaterialInventory /></RouteGuard>} />
+            <Route path="/project/setup" element={<RouteGuard><BOQBuilder /></RouteGuard>} />
+            <Route path="/project/users" element={<RouteGuard><UserManagement /></RouteGuard>} />
 
             {/* Document Routes */}
             <Route path="/document" element={<RouteGuard><DocumentDashboard /></RouteGuard>} />
