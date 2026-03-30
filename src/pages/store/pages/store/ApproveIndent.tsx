@@ -359,10 +359,10 @@ export default function ApproveIndent() {
           <ClipboardCheck size={50} className="text-primary" />
         </Heading>
 
-        <TabsList>
+        {/* <TabsList>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+        </TabsList> */}
 
         {/* Pending Tab */}
         <TabsContent value="pending">

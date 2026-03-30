@@ -126,6 +126,7 @@ import ChecklistDelegation from "./pages/checklist/pages/delegation.jsx";
 import ChecklistDelegationTask from "./pages/checklist/pages/delegation-data.jsx";
 import ChecklistQuickTask from "./pages/checklist/pages/QuickTask.jsx";
 import ChecklistUnifiedTaskPage from "./pages/checklist/pages/admin/UnifiedTaskPage.jsx";
+import ChecklistDepartmentTaskPage from "./pages/checklist/pages/admin/DepartmentTaskPage.jsx";
 import ChecklistHrManager from "./pages/checklist/pages/admin/HrManager.jsx";
 import ChecklistSetting from "./pages/checklist/pages/Setting.jsx";
 import ChecklistMisReport from "./pages/checklist/pages/MisReport.jsx";
@@ -295,6 +296,7 @@ export default function App() {
             <Route path="/checklist/delegation" element={<RouteGuard><ChecklistDelegation /></RouteGuard>} />
             <Route path="/checklist/delegation-task" element={<RouteGuard><ChecklistDelegationTask /></RouteGuard>} />
             <Route path="/checklist/all-task" element={<RouteGuard><ChecklistUnifiedTaskPage /></RouteGuard>} />
+            <Route path="/checklist/department-task" element={<RouteGuard><ChecklistDepartmentTaskPage /></RouteGuard>} />
             <Route path="/checklist/hrmanager" element={<RouteGuard><ChecklistHrManager /></RouteGuard>} />
             <Route path="/checklist/quick-task" element={<RouteGuard><ChecklistQuickTask /></RouteGuard>} />
             <Route path="/checklist/machines" element={<RouteGuard><ChecklistMachines /></RouteGuard>} />

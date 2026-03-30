@@ -205,6 +205,7 @@ const checklistSection: SidebarSection = {
     { kind: "link", key: "checklist-assign-task", name: "Assign Task", path: "/checklist/assign-task", icon: ClipboardList },
     { kind: "link", key: "checklist-delegation", name: "Delegation", path: "/checklist/delegation", icon: RefreshCw },
     { kind: "link", key: "checklist-all-task", name: "All Task", path: "/checklist/all-task", icon: FileText },
+    // { kind: "link", key: "checklist-department-task", name: "Department Tasks", path: "/checklist/department-task", icon: FileText },
     { kind: "link", key: "checklist-housekeeping-verify", name: "Housekeeping Verify", path: "/checklist/housekeeping-verify", icon: BadgeCheck },
     { kind: "link", key: "checklist-task-verification", name: "Task Verification", path: "/checklist/hrmanager", icon: Users },
     { kind: "link", key: "checklist-mis-report", name: "MIS Report", path: "/checklist/mis-report", icon: FileText },
@@ -253,10 +254,10 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-inventory", name: "Inventory", path: "/store/inventory", icon: Boxes },
     { kind: "link", key: "store-returnable", name: "Returnable", path: "/store/returnable", icon: RefreshCw },
     { kind: "link", key: "store-repair-gate-pass", name: "Repair Gate Pass", path: "/store/repair-gate-pass", icon: ShieldCheck },
-    
+
     { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
     { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
-    { kind: "link", key: "store-grn-admin", name: "Store GRN Admin Approval", path: "/store/store-grn-admin", icon: BadgeCheck },
+    // { kind: "link", key: "store-grn-admin", name: "Store GRN Admin Approval", path: "/store/store-grn-admin", icon: BadgeCheck },
     { kind: "link", key: "store-grn-gm", name: "Store GRN GM Approval", path: "/store/store-grn-gm", icon: BadgeCheck },
     { kind: "link", key: "store-grn-close", name: "Store GRN Close", path: "/store/store-grn-close", icon: ShieldCheck },
     { kind: "link", key: "store-out-approval", name: "Store Out Approval", path: "/store/store-out-approval", icon: BadgeCheck },
