@@ -288,7 +288,6 @@ export default function UnifiedTaskPage() {
         // --- DEBUG LOG FOR BIKASH ---
         if (activeStatus === "Completed") {
             const bikashHistoryTasks = historyTasks.filter(t => t.assignedTo?.toLowerCase().includes("bikash") || t.originalData?.name?.toLowerCase().includes("bikash"));
-            // console.log("HISTORY TASKS FOR BIKASH (RAW FROM NORMALIZER):", bikashHistoryTasks);
         }
 
         // Sort housekeeping tasks: confirmed first

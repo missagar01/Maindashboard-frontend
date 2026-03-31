@@ -237,10 +237,10 @@ export default function StaffTasksTable({
 
       const role = localStorage.getItem("role")
       const loggedInUsername = localStorage.getItem("user-name")
-      
+
       let finalStaffFilter = dashboardStaffFilter
-      if ((!finalStaffFilter || finalStaffFilter === "all") && 
-          role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "superadmin") {
+      if ((!finalStaffFilter || finalStaffFilter === "all") &&
+        role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "superadmin") {
         finalStaffFilter = loggedInUsername
       }
 
@@ -444,7 +444,14 @@ export default function StaffTasksTable({
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div>
-                        <div className="text-[13px] font-bold text-gray-800">{staff.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-[13px] font-bold text-gray-800">{staff.name}</div>
+                          {staff.verify_access && (
+                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[9px] font-black rounded-md border border-blue-200 uppercase tracking-tighter">
+                              {staff.verify_access}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-gray-400 font-medium">{staff.employee_id || 'N/A'}</div>
                       </div>
                     </td>
@@ -469,7 +476,14 @@ export default function StaffTasksTable({
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
-                      <h4 className="text-[14px] font-bold text-gray-800 leading-tight">{staff.name}</h4>
+                      <div className="flex flex-col">
+                        <h4 className="text-[14px] font-bold text-gray-800 leading-tight">{staff.name}</h4>
+                        {staff.verify_access && (
+                          <span className="mt-1 w-fit px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[8px] font-black rounded border border-blue-200 uppercase tracking-tighter">
+                            {staff.verify_access}
+                          </span>
+                        )}
+                      </div>
                       {renderOnTimeScore(staff.onTimeScore || 0)}
                     </div>
                     <div className="text-[10px] font-bold text-purple-600 uppercase tracking-tighter mt-0.5">

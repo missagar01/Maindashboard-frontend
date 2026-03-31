@@ -56,6 +56,7 @@ const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   delegation: "/checklist/delegation",
   housekeepingverify: "/checklist/housekeeping-verify",
   setting: "/checklist/settings",
+  checklistdepartmenttask: "/checklist/department-task",
 };
 
 const CHECKLIST_LEGACY_PATH_ROUTE_MAP: Record<string, string> = {
@@ -136,6 +137,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Selected Condidate": "/hrfms/condidate-select",
   "Candidate Status": "/hrfms/condidate-list",
   "Selected Candidate": "/hrfms/condidate-select",
+  "Department Tasks": "/checklist/department-task",
   "Checklist Combined": "/checklist",
   Checklist: "/checklist",
   "Task Verification": "/checklist/hrmanager",

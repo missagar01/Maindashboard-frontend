@@ -1,679 +1,166 @@
 "use client"
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import AdminLayout from "../../components/layout/AdminLayout"
-import UnifiedTaskTable from "../../components/unified/UnifiedTaskTable"
+import DepartmentTaskTable from "../../components/unified/DepartmentTaskTable"
 import { useAuth } from "../../context/AuthContext";
+import { fetchDepartmentTasks } from "../../../../api/checklist/departmentTaskApi";
 import { normalizeAllTasks, sortHousekeepingTasks } from "../../utils/taskNormalizer";
 
-
-/**
- * DepartmentTaskPage - Main page component for department task management
- * Cloned from UnifiedTaskPage
- */
-
-
-
 export default function DepartmentTaskPage() {
-    // State
-    const [userRole, setUserRole] = useState("")    
-    const [username, setUsername] = useState("")
-    const [systemAccess, setSystemAccess] = useState(null) // Initialize to null to detect "not yet loaded"
-    const [activeStatus, setActiveStatus] = useState("Pending") // NEW: Track status in parent
-
-    const systemsLoaded = useRef({ checklist: false, maintenance: false, housekeeping: false })
-
     const {
+        user,
         checklistState, maintenanceState, housekeepingState,
-        fetchChecklistDataAction, fetchChecklistHistoryDataAction, submitChecklistUserStatusAction,
         fetchChecklistDepartmentsAction, fetchChecklistDoersAction,
-        fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchUniqueMachineNamesAction,
-        fetchUniqueAssignedPersonnelAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction,
-        updateMultipleMaintenanceTasksAction,
-        fetchHousekeepingPendingTasksAction, fetchHousekeepingHistoryTasksAction, submitHousekeepingTasksAction,
-        confirmHousekeepingTaskAction, fetchHousekeepingDepartmentsAction
+        fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction,
+        submitChecklistUserStatusAction, updateMultipleMaintenanceTasksAction,
+        submitHousekeepingTasksAction, confirmHousekeepingTaskAction,
+        fetchHousekeepingDepartmentsAction
     } = useAuth();
 
-    // Destructure variables from context state
-    const {
-        checklist = [],
-        history: checklistHistory = [],
-        historyTotal: checklistHistoryTotal = 0,
-        historyHasMore: checklistHistoryHasMore = false,
-        historyCurrentPage: checklistHistoryCurrentPage = 1,
-        loading: checklistLoading,
-        hasMore: checklistHasMore = false,
-        currentPage: checklistCurrentPage = 1,
-        pendingTotal: checklistPendingTotal = 0,
-        departments: checklistDepartments = [],
-        doers: checklistDoers = [],
-    } = checklistState || {}
+    // Local Task State
+    const [tasks, setTasks] = useState([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [totalCount, setTotalCount] = useState(0)
+    const [counts, setCounts] = useState({ checklist: 0, maintenance: 0, housekeeping: 0 })
+    const [currentPage, setCurrentPage] = useState(1)
+    const [activeStatus, setActiveStatus] = useState("Pending")
+    const [activeSource, setActiveSource] = useState("checklist")
 
-    const {
-        tasks: maintenanceTasks = [],
-        history: maintenanceHistory = [],
-        historyTotal: maintenanceHistoryTotal = 0,
-        hasMoreHistory: maintenanceHistoryHasMore = false,
-        currentPageHistory: maintenanceHistoryCurrentPage = 1,
-        loading: maintenanceLoading,
-        assignedPersonnel = [],
-        departments: maintenanceDepartments = [],
-        doers: maintenanceDoers = [],
-        currentPage: maintenanceCurrentPage = 1,
-        pendingTotal: maintenancePendingTotal = 0,
-        hasMore: maintenanceHasMore = false,
-    } = maintenanceState || {}
+    const userRole = useMemo(() => (user?.verify_access || user?.role || "").toLowerCase(), [user]);
+    const username = useMemo(() => user?.user_name || "", [user]);
 
-    const {
-        pendingTasks: housekeepingTasks = [],
-        historyTasks: housekeepingHistory = [],
-        historyTotal: housekeepingHistoryTotal = 0,
-        loading: housekeepingLoading,
-        error: housekeepingError,
-        pendingPage: housekeepingPendingPage = 1,
-        pendingTotal: housekeepingPendingTotal = 0,
-        pendingHasMore: housekeepingPendingHasMore = false,
-        historyPage: housekeepingHistoryPage = 1,
-        historyHasMore: housekeepingHistoryHasMore = false,
-        dashboardDepartments: housekeepingDepartments = [],
-    } = housekeepingState || {}
+    const { departments: checklistDepartments = [], doers: checklistDoers = [] } = checklistState || {}
+    const { departments: maintenanceDepartments = [], doers: maintenanceDoers = [] } = maintenanceState || {}
+    const { dashboardDepartments: housekeepingDepartments = [] } = housekeepingState || {}
 
-    // Load user info
+    // 📋 1. Core Loader - No state updating of source/status here to prevent loops
+    const loadTasks = useCallback(async (pageNum, sourceVal) => {
+        if (!username || !sourceVal) return;
+
+        setIsLoading(true);
+        try {
+            const response = await fetchDepartmentTasks({
+                username: username,
+                type: activeStatus === "Completed" ? "completed" : "pending",
+                page: pageNum,
+                source: sourceVal
+            });
+
+            const rawData = response.data || [];
+            const checklistRaw = sourceVal === 'checklist' ? rawData : [];
+            const maintenanceRaw = sourceVal === 'maintenance' ? rawData : [];
+            const housekeepingRaw = sourceVal === 'housekeeping' ? rawData : [];
+
+            const normalized = normalizeAllTasks(checklistRaw, maintenanceRaw, housekeepingRaw, activeStatus === "Completed");
+            const finalTasks = sourceVal === 'housekeeping' ? sortHousekeepingTasks(normalized) : normalized;
+
+            setTasks(finalTasks);
+            setTotalCount(response.totalCount || 0);
+            setCounts(response.counts || { checklist: 0, maintenance: 0, housekeeping: 0 });
+            setCurrentPage(pageNum);
+        } catch (error) {
+            console.error("❌ [DepartmentTaskPage] API Error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [username, activeStatus]);
+
+    // 🔄 2. Data Fetcher - Reacts to State Changes
     useEffect(() => {
-        const role = localStorage.getItem("role")
-        const user = localStorage.getItem("user-name")
-        const access = (localStorage.getItem("system_access") || "")
-            .split(',')
-            .map(item => item.trim().toLowerCase())
-            .filter(Boolean)
-
-        setUserRole(role || "")
-        setUsername(user || "")
-        setSystemAccess(access)
-    }, [])
-
-    // Function to check if user has access to a system
-    const hasSystemAccess = useCallback((system) => {
-        if (!systemAccess || systemAccess.length === 0) return true; // If no restriction, allow all
-        return systemAccess.includes(system.toLowerCase());
-    }, [systemAccess])
-
-    // Update loadHousekeepingData function to respect system_access
-    // Backend now uses query params for department filtering (no token required)
-    const loadHousekeepingData = useCallback(async () => {
-        // Check if user has housekeeping access
-        if (systemAccess === null) return;
-        if (!hasSystemAccess('housekeeping') && systemAccess.length > 0) {
-            return
+        if (username) {
+            loadTasks(1, activeSource);
         }
+    }, [username, activeStatus, activeSource, loadTasks]);
 
-        // Pass department filter from user_access1 in query params
-        const filters = {}
-        const role = localStorage.getItem("role")
-        const canVerify = localStorage.getItem('page_access')?.includes('housekeeping-verify');
-
-        if (role?.toLowerCase() === "user" && !canVerify) {
-            // Use user_access1 for housekeeping, fallback to user_access
-            const userAccess1 = localStorage.getItem("user_access1") || localStorage.getItem("userAccess1") || ""
-            const userAccess = localStorage.getItem("user_access") || localStorage.getItem("userAccess") || ""
-            const accessToUse = userAccess1 || userAccess
-            if (accessToUse) {
-                // Pass department as query param (comma-separated)
-                filters.department = accessToUse
-            }
-        }
-        await fetchHousekeepingPendingTasksAction({ page: 1, filters });
-    }, [hasSystemAccess, systemAccess, fetchHousekeepingPendingTasksAction])
-
-    // Load housekeeping history data
-    // Backend now uses query params for department filtering (no token required)
-    const loadHousekeepingHistoryData = useCallback(async () => {
-        // Pass department filter from user_access1 in query params
-        const filters = {}
-        const role = localStorage.getItem("role")
-        const canVerify = localStorage.getItem('page_access')?.includes('housekeeping-verify');
-
-        if (role?.toLowerCase() === "user" && !canVerify) {
-            // Use user_access1 for housekeeping, fallback to user_access
-            const userAccess1 = localStorage.getItem("user_access1") || localStorage.getItem("userAccess1") || ""
-            const userAccess = localStorage.getItem("user_access") || localStorage.getItem("userAccess") || ""
-            const accessToUse = userAccess1 || userAccess
-            if (accessToUse) {
-                // Pass department as query param (comma-separated)
-                filters.department = accessToUse
-            }
-        }
-        await fetchHousekeepingHistoryTasksAction({ page: 1, filters });
-    }, [fetchHousekeepingHistoryTasksAction])
-
-    // Combine loading states
-    const isLoading = checklistLoading || maintenanceLoading || housekeepingLoading
-
-    // Load all data sources (pending + history) based on system_access
+    // 🏗️ 3. Initialization - Run once to load filter options
     useEffect(() => {
-        if (systemAccess === null) return; // Wait for systemAccess to be loaded from localStorage
-
-        const role = localStorage.getItem("role")
-        const user = localStorage.getItem("user-name")
-
-        // Load checklist metadata only if user has access
-        if (hasSystemAccess('checklist') || systemAccess.length === 0) {
-            // Note: Checklist data fetching (fetchChecklistDataAction) is triggered by 
-            // UnifiedTaskTable's onRefresh on mount, so we skip it here to avoid double calls.
-            fetchChecklistDepartmentsAction()
-            fetchChecklistDoersAction()
+        if (username) {
+            fetchChecklistDepartmentsAction();
+            fetchChecklistDoersAction();
+            fetchMaintenanceDepartmentsAction();
+            fetchMaintenanceDoersAction();
+            fetchHousekeepingDepartmentsAction();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [username]);
 
-        // Load maintenance data only if user has access
-        if (hasSystemAccess('maintenance') || systemAccess.length === 0) {
-            fetchPendingMaintenanceTasksAction({
-                page: 1,
-                userId: role === "user" ? user : null
-            })
-            fetchCompletedMaintenanceTasksAction({ page: 1, filters: {}, userId: role === "user" ? user : null })
-            fetchUniqueMachineNamesAction()
-            fetchUniqueAssignedPersonnelAction()
-            fetchMaintenanceDepartmentsAction()
-            fetchMaintenanceDoersAction()
-            systemsLoaded.current.maintenance = true
-        }
+    const handlePageChange = useCallback((page) => {
+        loadTasks(page, activeSource);
+    }, [loadTasks, activeSource]);
 
-        // Load housekeeping data only if user has access
-        if (hasSystemAccess('housekeeping') || systemAccess.length === 0) {
-            loadHousekeepingData()
-            loadHousekeepingHistoryData()
-            fetchHousekeepingDepartmentsAction()
-            systemsLoaded.current.housekeeping = true
-        }
-    }, [systemAccess, loadHousekeepingData, loadHousekeepingHistoryData, fetchChecklistDepartmentsAction, fetchChecklistDoersAction, fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchUniqueMachineNamesAction, fetchUniqueAssignedPersonnelAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction, fetchHousekeepingDepartmentsAction])
+    const handleRefresh = useCallback(() => {
+        loadTasks(currentPage, activeSource);
+    }, [loadTasks, currentPage, activeSource]);
 
-    // Callback to load more checklist data (called on scroll)
-    const loadMoreChecklistData = useCallback(() => {
-        if (activeStatus === 'Completed') {
-            if (checklistHistoryHasMore && !checklistLoading) {
-                fetchChecklistHistoryDataAction(checklistHistoryCurrentPage + 1)
-            }
-        }
-    }, [checklistHistoryHasMore, checklistLoading, checklistHistoryCurrentPage, activeStatus, fetchChecklistHistoryDataAction])
+    const handleSourceChange = useCallback((newSource) => {
+        setActiveSource(newSource);
+        // loadTasks(1, newSource);  // The useEffect will handle this! No double-trigger.
+    }, []);
 
-    // Callback to load more housekeeping data (called on scroll)
-    const loadMoreHousekeepingData = useCallback(async () => {
-        if (activeStatus === 'Completed') {
-            if (housekeepingHistoryHasMore && !housekeepingLoading) {
-                fetchHousekeepingHistoryTasksAction({ page: housekeepingHistoryPage + 1 })
-            }
-        }
-    }, [housekeepingHistoryHasMore, housekeepingHistoryPage, housekeepingLoading, activeStatus, fetchHousekeepingHistoryTasksAction])
-
-    // Callback to load more maintenance data (called on scroll)
-    const loadMoreMaintenanceData = useCallback(() => {
-        const role = localStorage.getItem("role")
-        const user = localStorage.getItem("user-name")
-
-        if (activeStatus === 'Completed') {
-            if (maintenanceHistoryHasMore && !maintenanceLoading) {
-                fetchCompletedMaintenanceTasksAction({
-                    page: maintenanceHistoryCurrentPage + 1,
-                    filters: {},
-                    userId: role === "user" ? user : null
-                })
-            }
-        }
-    }, [maintenanceHistoryHasMore, maintenanceHistoryCurrentPage, maintenanceLoading, activeStatus, fetchCompletedMaintenanceTasksAction])
-
-    // Normalize and merge all tasks - filter based on system_access
-    const allTasks = useMemo(() => {
-        const hasAccessChecklist = !systemAccess || systemAccess.length === 0 || hasSystemAccess('checklist');
-        const hasAccessMaintenance = !systemAccess || systemAccess.length === 0 || hasSystemAccess('maintenance');
-        const hasAccessHousekeeping = !systemAccess || systemAccess.length === 0 || hasSystemAccess('housekeeping');
-
-        // Filter checklist tasks based on access
-        const checklistFiltered = hasAccessChecklist
-            ? (Array.isArray(checklist) ? checklist : [])
-            : []
-
-        const checklistHistoryFiltered = hasAccessChecklist
-            ? (Array.isArray(checklistHistory) ? checklistHistory : [])
-            : []
-
-        // Filter maintenance tasks based on access
-        const maintenanceFiltered = hasAccessMaintenance
-            ? (Array.isArray(maintenanceTasks) ? maintenanceTasks : [])
-            : []
-
-        const maintenanceHistoryFiltered = hasAccessMaintenance
-            ? (Array.isArray(maintenanceHistory) ? maintenanceHistory : [])
-            : []
-
-        let housekeepingFiltered = [];
-        let housekeepingHistoryFiltered = [];
-
-        if (hasAccessHousekeeping) {
-            housekeepingFiltered = Array.isArray(housekeepingTasks) ? housekeepingTasks : [];
-            housekeepingHistoryFiltered = Array.isArray(housekeepingHistory) ? housekeepingHistory : [];
-        }
-
-        // Combine pending tasks from all accessible sources
-        const pendingTasks = normalizeAllTasks(
-            checklistFiltered,
-            maintenanceFiltered,
-            housekeepingFiltered
-        )
-
-        // Combine history tasks from all accessible sources
-        const historyTasks = normalizeAllTasks(
-            checklistHistoryFiltered,
-            maintenanceHistoryFiltered,
-            housekeepingHistoryFiltered,
-            true // isHistory flag
-        )
-
-        // Combine all tasks (pending + history)
-        // Deduplicate: if a task appears in both pending and history, prefer history version
-        const taskMap = new Map()
-
-        // First add pending tasks
-        pendingTasks.forEach(task => {
-            const key = `${task.sourceSystem}-${task.id}`
-            taskMap.set(key, task)
-        })
-
-        // Then add history tasks (will overwrite pending if duplicate)
-        historyTasks.forEach(task => {
-            const key = `${task.sourceSystem}-${task.id}`
-            taskMap.set(key, task)
-        })
-
-        const allCombined = Array.from(taskMap.values())
-
-        // Sort housekeeping tasks: confirmed first
-        return sortHousekeepingTasks(allCombined)
-    }, [
-        checklist,
-        checklistHistory,
-        maintenanceTasks,
-        maintenanceHistory,
-        housekeepingTasks,
-        housekeepingHistory,
-        hasSystemAccess,
-        systemAccess,
-        activeStatus
-    ])
-
-    // Get unique assignees from all sources
-    const allAssignees = useMemo(() => {
-        const assigneesSet = new Set()
-
-            // From maintenance
-            ; (Array.isArray(assignedPersonnel) ? assignedPersonnel : []).forEach(p => assigneesSet.add(p))
-            ; (Array.isArray(maintenanceDoers) ? maintenanceDoers : []).forEach(d => assigneesSet.add(d))
-
-            // From checklist (fetched from API)
-            ; (Array.isArray(checklistDoers) ? checklistDoers : []).forEach(d => assigneesSet.add(d))
-
-        // From all tasks
-        allTasks.forEach(task => {
-            if (task.assignedTo && task.assignedTo !== '—') {
-                assigneesSet.add(task.assignedTo)
-            }
-        })
-
-        return Array.from(assigneesSet).filter(Boolean).sort()
-    }, [allTasks, assignedPersonnel, checklistDoers, maintenanceDoers])
-
-    // Get unique departments from all sources
-    const allDepartments = useMemo(() => {
-        const departmentsSet = new Set()
-
-            // From checklist (fetched from API)
-            ; (Array.isArray(checklistDepartments) ? checklistDepartments : []).forEach(d => departmentsSet.add(d))
-
-            // From maintenance (fetched from API)
-            ; (Array.isArray(maintenanceDepartments) ? maintenanceDepartments : []).forEach(d => departmentsSet.add(d))
-
-        allTasks.forEach(task => {
-            if (task.department && task.department !== '—') {
-                departmentsSet.add(task.department)
-            }
-        })
-
-        return Array.from(departmentsSet).filter(Boolean).sort()
-    }, [allTasks, checklistDepartments, maintenanceDepartments])
-
-    // Handle HOD confirm for housekeeping tasks
     const handleHODConfirm = useCallback(async (taskId, { remark = "", doerName2 = "" }) => {
         try {
-            const payload = {
-                taskId,
-                remark,
-                doerName2,
-            };
+            await confirmHousekeepingTaskAction({ taskId, remark, doerName2, hod: username });
+            handleRefresh();
+        } catch (err) { console.error(err); }
+    }, [confirmHousekeepingTaskAction, username, handleRefresh]);
 
-            // Only send hod if remark is present
-            if (remark) {
-                payload.hod = username;
-            }
-
-            await confirmHousekeepingTaskAction(payload);
-
-            // Refresh housekeeping data after confirm
-            await loadHousekeepingData()
-        } catch (error) {
-            console.error('HOD confirm failed:', error)
-            throw error
-        }
-    }, [confirmHousekeepingTaskAction, loadHousekeepingData, username])
-
-    // Handle task update
     const handleUpdateTask = useCallback(async (updateData) => {
         const { taskId, sourceSystem, status, remarks, originalData } = updateData
-
-        switch (sourceSystem) {
-
-            case 'checklist': {
-                const normalizedRole = userRole?.toLowerCase();
-                if (normalizedRole === 'user') {
-                    await submitChecklistUserStatusAction([{
-                        taskId,
-                        remark: remarks || '',   // ✅ only remark
-                        status: status,
-                    }]);
-                    fetchChecklistDataAction(1)
-                }
-                break
+        try {
+            if (sourceSystem === 'checklist') {
+                await submitChecklistUserStatusAction([{ taskId, remark: remarks || '', status }]);
+            } else if (sourceSystem === 'maintenance') {
+                await updateMultipleMaintenanceTasksAction([{ taskId, status, remarks }]);
+            } else if (sourceSystem === 'housekeeping') {
+                await submitHousekeepingTasksAction([{ task_id: taskId, status, remark: remarks, doer_name2: updateData.doerName2 || '', attachment: originalData?.attachment, hod: username }]);
             }
+            handleRefresh();
+        } catch (err) { console.error(err); }
+    }, [username, handleRefresh, submitChecklistUserStatusAction, updateMultipleMaintenanceTasksAction, submitHousekeepingTasksAction]);
 
-            case 'maintenance':
-                await updateMultipleMaintenanceTasksAction([{
-                    taskId,
-                    status,
-                    remarks,
-                }]);
-                fetchPendingMaintenanceTasksAction({
-                    page: 1,
-                    userId: userRole === "user" ? username : null
-                })
-                break
-
-            case 'housekeeping': {
-                const payload = {
-                    task_id: taskId,
-                    status,
-                    remark: remarks,
-                    doer_name2: updateData.doerName2 || '',
-                    attachment: originalData?.attachment,
-                };
-
-                // Only send hod if remark is present
-                if (remarks) {
-                    payload.hod = username;
-                }
-
-                await submitHousekeepingTasksAction([payload]);
-                await loadHousekeepingData();
-                break;
-            }
-
-            default:
-                throw new Error(`Unknown source system: ${sourceSystem}`)
-        }
-    }, [userRole, username, loadHousekeepingData])
-
-    // Handle bulk submit - receives data from UnifiedTaskTable inline editing
     const handleBulkSubmit = useCallback(async (submissionData) => {
-        // submissionData is array of: { taskId, sourceSystem, status, soundStatus, temperature, remarks, image, originalData }
-
-        // Group tasks by source system
-        const tasksBySource = {
-            checklist: [],
-            maintenance: [],
-            housekeeping: [],
-        }
-
-        submissionData.forEach(task => {
-            tasksBySource[task.sourceSystem]?.push(task)
-        })
-
-        const checklistPromise = (() => {
-            if (tasksBySource.checklist.length === 0) {
-                return Promise.resolve();
-            }
-
-            const normalizedRole = userRole?.toLowerCase();
-            const isChecklistUser = normalizedRole === "user";
-
-            if (isChecklistUser) {
-                const payload = tasksBySource.checklist.map((t) => ({
-                    taskId: t.taskId,
-                    remark: t.remarks || "",   // ✅ only remark
-                    status: t.status,
-                }));
-                return submitChecklistUserStatusAction(payload);
-            }
-
-
-            return Promise.resolve();
-        })();
-
-        const results = await Promise.allSettled([
-            checklistPromise,
-
-            // Update maintenance tasks - with all fields
-            tasksBySource.maintenance.length > 0
-                ? updateMultipleMaintenanceTasksAction(
-                    tasksBySource.maintenance.map(t => ({
-                        taskId: t.taskId,
-                        status: t.status,
-                        sound_status: t.soundStatus || '',
-                        temperature_status: t.temperature || '',
-                        remarks: t.remarks || '',
-                        actual_date: t.status === 'Yes'
-                            ? new Date().toISOString().split('T')[0]
-                            : null
-                    }))
-                )
-                : Promise.resolve(),
-
-            // Update housekeeping tasks
-            // User role: use confirmHousekeepingTask for pending tasks
-            // Admin role: use submitHousekeepingTasks for confirmed tasks
-            tasksBySource.housekeeping.length > 0
-                ? Promise.all(
-                    tasksBySource.housekeeping.map(async (t) => {
-                        // Check if task is pending using originalData from submission
-                        const isPending = t.originalData?.attachment !== "confirmed" &&
-                            t.originalData?.confirmedByHOD !== "Confirmed" &&
-                            t.originalData?.confirmedByHOD !== "confirmed";
-
-                        if (userRole?.toLowerCase() === 'user' && isPending) {
-                            const payload = {
-                                taskId: t.taskId,
-                                remark: t.remarks || '',
-                                doerName2: t.doerName2 || '',
-                                hod: username, // Always send current user as HOD
-                            };
-
-                            return confirmHousekeepingTaskAction(payload);
-                        } else {
-                            // Admin role: use submitHousekeepingTasks API for confirmed tasks
-                            const payload = {
-                                task_id: t.taskId,
-                                status: t.status || 'Yes',
-                                remark: t.remarks || '',
-                                doer_name2: t.doerName2 || '',
-                                hod: t.originalData?.hod || username, // Preserve existing HOD if available
-                                attachment: t.originalData?.attachment,
-                            };
-
-                            return submitHousekeepingTasksAction([payload]);
-                        }
-                    })
-                )
-                : Promise.resolve(),
-        ])
-
-        // Refresh all data
-        fetchChecklistDataAction(1)
-        fetchPendingMaintenanceTasksAction({
-            page: 1,
-            userId: userRole === "user" ? username : null
-        })
-        await loadHousekeepingData()
-
-        // Check for errors
-        const errors = results.filter(r => r.status === 'rejected')
-        if (errors.length > 0) {
-            throw new Error(`${errors.length} update(s) failed`)
-        }
-    }, [userRole, username, loadHousekeepingData])
-
-
-    // Handle page change for pagination
-    const handlePageChange = useCallback(async (page, sourceSystem) => {
-        const role = localStorage.getItem("role")
-        const user = localStorage.getItem("user-name")
-
-        switch (sourceSystem) {
-            case 'checklist':
-                fetchChecklistDataAction({ page, replace: true })
-                break;
-            case 'maintenance':
-                fetchPendingMaintenanceTasksAction({
-                    page,
-                    userId: role === "user" ? user : null,
-                    replace: true
-                })
-                break;
-            case 'housekeeping': {
-                const filters = {}
-                const canVerify = localStorage.getItem('page_access')?.includes('housekeeping-verify');
-                if (role?.toLowerCase() === "user" && !canVerify) {
-                    const userAccess1 = localStorage.getItem("user_access1") || localStorage.getItem("userAccess1") || ""
-                    const userAccess = localStorage.getItem("user_access") || localStorage.getItem("userAccess") || ""
-                    const accessToUse = userAccess1 || userAccess
-                    if (accessToUse) filters.department = accessToUse
+        try {
+            await Promise.allSettled(submissionData.map(async t => {
+                if (t.sourceSystem === 'checklist') {
+                    return submitChecklistUserStatusAction([{ taskId: t.taskId, remark: t.remarks || '', status: t.status }]);
+                } else if (t.sourceSystem === 'maintenance') {
+                    return updateMultipleMaintenanceTasksAction([{ taskId: t.taskId, status: t.status, remarks: t.remarks || '' }]);
+                } else if (t.sourceSystem === 'housekeeping') {
+                    return confirmHousekeepingTaskAction({ taskId: t.taskId, remark: t.remarks || '', doerName2: t.doerName2 || '', hod: username });
                 }
-                fetchHousekeepingPendingTasksAction({ page, filters, replace: true })
-                break;
-            }
-            default:
-                break;
-        }
-    }, [fetchChecklistDataAction, fetchPendingMaintenanceTasksAction, fetchHousekeepingPendingTasksAction])
-
-    // Handle refresh based on system
-    const handleRefresh = useCallback((system) => {
-        // If system is already loaded, skip refetch on tab switch (as per user request)
-        if (systemsLoaded.current[system]) return;
-
-        const role = localStorage.getItem("role")
-        const user = localStorage.getItem("user-name")
-
-        switch (system) {
-            case 'checklist':
-                if (hasSystemAccess('checklist') || systemAccess.length === 0) {
-                    fetchChecklistDataAction({ page: 1, replace: true })
-                    fetchChecklistHistoryDataAction({ page: 1, replace: true })
-                    fetchChecklistDepartmentsAction()
-                    fetchChecklistDoersAction()
-                    systemsLoaded.current.checklist = true
-                }
-                break;
-            case 'maintenance':
-                if (hasSystemAccess('maintenance') || systemAccess.length === 0) {
-                    fetchPendingMaintenanceTasksAction({
-                        page: 1,
-                        userId: role === "user" ? user : null,
-                        replace: true
-                    })
-                    fetchCompletedMaintenanceTasksAction({
-                        page: 1,
-                        filters: {},
-                        userId: role === "user" ? user : null,
-                        replace: true
-                    })
-                    fetchMaintenanceDepartmentsAction()
-                    fetchMaintenanceDoersAction()
-                    systemsLoaded.current.maintenance = true
-                }
-                break;
-            case 'housekeeping':
-                if (hasSystemAccess('housekeeping') || systemAccess.length === 0) {
-                    loadHousekeepingData()
-                    loadHousekeepingHistoryData()
-                    fetchHousekeepingDepartmentsAction()
-                    systemsLoaded.current.housekeeping = true
-                }
-                break;
-            default:
-                break;
-        }
-    }, [hasSystemAccess, systemAccess, fetchChecklistDataAction, fetchChecklistHistoryDataAction, fetchChecklistDepartmentsAction, fetchChecklistDoersAction, fetchPendingMaintenanceTasksAction, fetchCompletedMaintenanceTasksAction, fetchMaintenanceDepartmentsAction, fetchMaintenanceDoersAction, loadHousekeepingData, loadHousekeepingHistoryData, fetchHousekeepingDepartmentsAction])
+            }));
+            handleRefresh();
+        } catch (err) { console.error(err); }
+    }, [username, handleRefresh, submitChecklistUserStatusAction, updateMultipleMaintenanceTasksAction, confirmHousekeepingTaskAction]);
 
     return (
         <AdminLayout>
-            <div className="space-y-3 sm:space-y-4 md:space-y-6 p-2 sm:p-4 md:p-0">
-                {/* Header */}
-                <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 ml-1">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-blue-700">
-                        Departments Tasks
-                    </h1>
+            <div className="space-y-2 px-1">
+                <div className="flex flex-col gap-1 ml-1">
+                    <h1 className="text-xl font-bold tracking-tight text-blue-700">Department Tasks</h1>
                 </div>
 
-                {/* Error Display */}
-                {housekeepingError && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded-md text-xs sm:text-sm">
-                        Housekeeping data error: {housekeepingError}
-                    </div>
-                )}
-
-                {/* Unified Task Table */}
-                <UnifiedTaskTable
-                    tasks={allTasks}
+                <DepartmentTaskTable
+                    tasks={tasks}
                     loading={isLoading}
                     onUpdateTask={handleUpdateTask}
                     onBulkSubmit={handleBulkSubmit}
                     onHODConfirm={handleHODConfirm}
-
-                    // Pass specific lists instead of merged ones
                     checklistDepartments={checklistDepartments}
                     checklistDoers={checklistDoers}
                     maintenanceDepartments={maintenanceDepartments}
                     maintenanceDoers={maintenanceDoers}
-
                     housekeepingDepartments={housekeepingDepartments}
                     userRole={userRole}
-                    onLoadMore={() => {
-                        loadMoreChecklistData()
-                        loadMoreHousekeepingData()
-                        loadMoreMaintenanceData()
-                    }}
-                    hasMore={
-                        activeStatus === 'Completed' &&
-                        (checklistHistoryHasMore || maintenanceHistoryHasMore || housekeepingHistoryHasMore)
-                    }
-                    totalCount={(() => {
-                        // Return total count based on source system for Pending
-                        if (activeStatus === 'Completed') return 0; // Pagination not used for history
-
-                        return activeStatus === 'Pending' ? Math.max(checklistPendingTotal, maintenancePendingTotal, housekeepingPendingTotal) : 0;
-                    })()}
-                    // Better approach: pass an object of counts
-                    pendingTotals={{
-                        checklist: checklistPendingTotal,
-                        maintenance: maintenancePendingTotal,
-                        housekeeping: housekeepingPendingTotal
-                    }}
-                    pendingPages={{
-                        checklist: checklistCurrentPage,
-                        maintenance: maintenanceCurrentPage,
-                        housekeeping: housekeepingPendingPage
-                    }}
+                    totalCount={totalCount}
+                    currentPage={currentPage}
+                    activeSource={activeSource}
+                    allCounts={counts}
                     onPageChange={handlePageChange}
-                    checklistHistoryTotal={Number(checklistHistoryTotal)}
-                    maintenanceHistoryTotal={Number(maintenanceHistoryTotal)}
-                    housekeepingHistoryTotal={Number(housekeepingHistoryTotal)}
+                    onSourceChange={handleSourceChange}
                     onRefresh={handleRefresh}
-                    onStatusChange={setActiveStatus} // NEW: Sync status
+                    onStatusChange={setActiveStatus}
+                    isViewOnly={true}
                 />
             </div>
         </AdminLayout>
