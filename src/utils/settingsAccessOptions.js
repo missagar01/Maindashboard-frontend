@@ -162,6 +162,7 @@ export const PAGE_ROUTES = {
     createPageOption("Approve Indent GM", "Approve Indent GM", "/store/approve-indent-gm", ["/store/approve-indent-gm"]),
     createPageOption("Purchase Order", "Purchase Order", "/store/pending-indents", ["Pending Indents", "/store/pending-indents"]),
     createPageOption("Pending POs", "Pending POs", "/store/pending-pos", ["/store/pending-pos"]),
+    createPageOption("Vendor Registration", "Vendor Registration", "/store/vendor-registration", ["Vender Registration", "/store/vendor-registration"]),
     createPageOption("Item Issue", "Item Issue", "/store/item-issue", ["/store/item-issue"]),
     createPageOption("Inventory", "Inventory", "/store/inventory", ["/store/inventory"]),
     createPageOption("Returnable", "Returnable", "/store/returnable", ["/store/returnable"]),

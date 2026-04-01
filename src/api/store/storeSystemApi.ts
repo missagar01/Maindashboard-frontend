@@ -109,6 +109,8 @@ export const storeApi: any = {
 
   getVendorRatePending: () => storeApiRequest("/api/store/vendor-rate-update/pending"),
   getVendorRateHistory: () => storeApiRequest("/api/store/vendor-rate-update/history"),
+  getVendorRegistrations: (refresh = false) =>
+    storeApiRequest(`/api/store/vendor-registration${refresh ? "?refresh=true" : ""}`),
 
   updateVendorRate: (data: unknown) =>
     storeApiRequest("/api/store/vendor-rate-update", {

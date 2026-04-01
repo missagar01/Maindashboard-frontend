@@ -199,6 +199,12 @@ const AppHeader: React.FC = () => {
     });
 
     const allowedPageRoutes = getAllowedPageRoutes(user);
+    if (allowedPageRoutes.some((route) => route.startsWith("/store"))) {
+      pushNavItem(
+        resolvePortalNavItem("store"),
+        getFirstAllowedPathForModule("/store", user) || "/store/dashboard"
+      );
+    }
     if (allowedPageRoutes.some((route) => route.startsWith("/project"))) {
       pushNavItem(resolvePortalNavItem("project"), "/project/dashboard");
     }

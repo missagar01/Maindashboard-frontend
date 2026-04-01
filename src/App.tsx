@@ -86,6 +86,7 @@ import StoreUserIndentListIndent from "./pages/store/pages/store/UserIndentListI
 import StoreUserIndentListRequisition from "./pages/store/pages/store/UserIndentListRequisition";
 import StorePendingIndents from "./pages/store/pages/store/PendingIndents";
 import StoreVendorUpdate from "./pages/store/pages/store/VendorUpdate";
+import StoreVendorRegistration from "./pages/store/pages/store/VendorRegistration";
 import StoreRateApproval from "./pages/store/pages/store/RateApproval";
 import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
 import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
@@ -259,6 +260,7 @@ export default function App() {
               <Route path="/store/user-requisition" element={<RouteGuard><StoreUserIndentListRequisition /></RouteGuard>} />
               <Route path="/store/pending-indents" element={<RouteGuard><StorePendingIndents /></RouteGuard>} />
               <Route path="/store/vendor-update" element={<RouteGuard><StoreVendorUpdate /></RouteGuard>} />
+              <Route path="/store/vendor-registration" element={<RouteGuard><StoreVendorRegistration /></RouteGuard>} />
               <Route path="/store/rate-approval" element={<RouteGuard><StoreRateApproval /></RouteGuard>} />
               <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
               <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />

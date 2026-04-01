@@ -18,6 +18,17 @@ interface POData {
   UM: string;
 }
 
+function formatShortDate(dateStr?: string) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export default function PendingPOs() {
   const [pending, setPending] = useState<POData[]>([]);
   const [history, setHistory] = useState<POData[]>([]);
@@ -115,7 +126,7 @@ export default function PendingPOs() {
                   {data.map((po, idx) => (
                     <tr key={idx} className="border-b">
                       <td className="p-2">{po.VRNO}</td>
-                      <td className="p-2">{po.VRDATE}</td>
+                      <td className="p-2">{formatShortDate(po.VRDATE)}</td>
                       <td className="p-2">{po.VENDOR_NAME}</td>
                       <td className="p-2">{po.ITEM_NAME}</td>
                       <td className="p-2 text-right">{po.QTYORDER}</td>

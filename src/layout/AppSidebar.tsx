@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FC } from "react";
 import { Link, useLocation } from "react-router";
 import {
   BadgeCheck,
+  Building2,
   Boxes,
   BriefcaseBusiness,
   ChevronDown,
@@ -243,30 +244,36 @@ const storeSection: SidebarSection = {
   key: "store", title: "Store and Purchase", caption: "Material Operations", icon: ShoppingCart,
   nodes: [
     { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
-    { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/store-issue", icon: ClipboardList },
+   { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
     { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
     { kind: "link", key: "store-indent", name: "Indent", path: "/store/approve-indent", icon: FileText },
-    { kind: "link", key: "store-approve-indent-hod", name: "Approve Indent HOD", path: "/store/approve-indent-data", icon: BadgeCheck },
-    { kind: "link", key: "store-approve-indent-gm", name: "Approve Indent GM", path: "/store/approve-indent-gm", icon: BadgeCheck },
-    { kind: "link", key: "store-purchase-order", name: "Purchase Order", path: "/store/pending-indents", icon: ShoppingCart },
-    { kind: "link", key: "store-pending-pos", name: "Pending POs", path: "/store/pending-pos", icon: Receipt },
+        { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
+    { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
+    { kind: "link", key: "store-create-indent", name: "Create Indent", path: "/store/user-indent", icon: FileText },
+
+         { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/store-issue", icon: ClipboardList },
+            
     { kind: "link", key: "store-item-issue", name: "Item Issue", path: "/store/item-issue", icon: ClipboardList },
     { kind: "link", key: "store-inventory", name: "Inventory", path: "/store/inventory", icon: Boxes },
     { kind: "link", key: "store-returnable", name: "Returnable", path: "/store/returnable", icon: RefreshCw },
     { kind: "link", key: "store-repair-gate-pass", name: "Repair Gate Pass", path: "/store/repair-gate-pass", icon: ShieldCheck },
+    { kind: "link", key: "store-approve-indent-hod", name: "Approve Indent HOD", path: "/store/approve-indent-data", icon: BadgeCheck },
+    { kind: "link", key: "store-approve-indent-gm", name: "Approve Indent GM", path: "/store/approve-indent-gm", icon: BadgeCheck },
+    { kind: "link", key: "store-purchase-order", name: "Purchase Order", path: "/store/pending-indents", icon: ShoppingCart },
+    { kind: "link", key: "store-pending-pos", name: "Pending POs", path: "/store/pending-pos", icon: Receipt },
+ 
 
     { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
     { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
     // { kind: "link", key: "store-grn-admin", name: "Store GRN Admin Approval", path: "/store/store-grn-admin", icon: BadgeCheck },
+
     { kind: "link", key: "store-grn-gm", name: "Store GRN GM Approval", path: "/store/store-grn-gm", icon: BadgeCheck },
     { kind: "link", key: "store-grn-close", name: "Store GRN Close", path: "/store/store-grn-close", icon: ShieldCheck },
     { kind: "link", key: "store-out-approval", name: "Store Out Approval", path: "/store/store-out-approval", icon: BadgeCheck },
     { kind: "link", key: "store-completed-items", name: "Completed Items", path: "/store/completed-items", icon: Files },
     { kind: "link", key: "store-my-indent", name: "My Indent", path: "/store/erp-indent", icon: FileText },
     { kind: "link", key: "store-user-indent-list", name: "User Indent List", path: "/store/user-indent-list", icon: Files },
-    { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
-    { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
-    { kind: "link", key: "store-create-indent", name: "Create Indent", path: "/store/user-indent", icon: FileText },
+
   ],
 };
 
