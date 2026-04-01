@@ -324,7 +324,14 @@ export default function VendorRegistration() {
                 <SelectTrigger className="h-11 w-full border-slate-200 bg-white">
                   <SelectValue placeholder="Business type" />
                 </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-900 shadow-xl backdrop-blur-none">
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="max-h-[18rem] border-slate-200 bg-white text-slate-900 shadow-xl backdrop-blur-none"
+                >
                   <SelectItem value="all">All Business Types</SelectItem>
                   {businessTypeOptions.map((option) => (
                     <SelectItem key={option} value={option}>
