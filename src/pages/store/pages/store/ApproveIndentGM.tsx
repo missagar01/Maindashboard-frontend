@@ -17,6 +17,7 @@ import {
 import { storeApi } from "@/api/store/storeSystemApi";
 import { Button } from "../../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { compareCurrentMonthFirstDesc } from "./currentMonthSort";
 
 type IndentRow = {
     id?: string;
@@ -120,13 +121,13 @@ export default function ApproveIndentGM() {
                 const mapped = raw.map((rec: Record<string, unknown>) =>
                     mapApiRowToIndent(rec)
                 );
-                setRows(mapped);
+                const sortedRows = [...mapped].sort((a, b) =>
+                    compareCurrentMonthFirstDesc(a.timestamp, b.timestamp)
+                );
+                setRows(sortedRows);
 
-                if (mapped.length > 0) {
-                    const sorted = [...mapped].sort(
-                        (a, b) =>
-                            Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")
-                    );
+                if (sortedRows.length > 0) {
+                    const sorted = [...sortedRows];
                     const latest = sorted.find(
                         (r) => (r.requestNumber || "").trim() !== ""
                     );

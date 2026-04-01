@@ -8,6 +8,7 @@ import { storeGRNApi } from "@/api/store/storeGRNApi";
 import { storeGRNApprovalApi } from "@/api/store/storeGRNApprovalApi";
 import { Card } from "../../components/ui/card";
 import { formatDate, formatDateTime, formatCurrency } from "../../utils/storeUtils";
+import { compareCurrentMonthFirstDesc } from "./currentMonthSort";
 
 /* ================= TYPES ================= */
 
@@ -112,19 +113,26 @@ export default function StoreGRN() {
         const q = search.trim().toLowerCase();
         const baseRows = activeTab === "pending" ? pendingRowsRaw : historyRowsRaw;
 
-        return baseRows.filter((r: any) => {
-            const grnNo = r.VRNO || r.grn_no || "";
-            const party = r.PARTYNAME || r.party_name || "";
-            const billNo = r.PARTYBILLNO || r.party_bill_no || "";
+        return baseRows
+            .filter((r: any) => {
+                const grnNo = r.VRNO || r.grn_no || "";
+                const party = r.PARTYNAME || r.party_name || "";
+                const billNo = r.PARTYBILLNO || r.party_bill_no || "";
 
-            const matchesSearch =
-                !q ||
-                grnNo.toLowerCase().includes(q) ||
-                party.toLowerCase().includes(q) ||
-                billNo.toLowerCase().includes(q);
+                const matchesSearch =
+                    !q ||
+                    grnNo.toLowerCase().includes(q) ||
+                    party.toLowerCase().includes(q) ||
+                    billNo.toLowerCase().includes(q);
 
-            return matchesSearch;
-        });
+                return matchesSearch;
+            })
+            .sort((a: any, b: any) =>
+                compareCurrentMonthFirstDesc(
+                    a.PLANNEDDATE || a.planned_date || a.VRDATE || a.grn_date,
+                    b.PLANNEDDATE || b.planned_date || b.VRDATE || b.grn_date
+                )
+            );
     }, [pendingRowsRaw, historyRowsRaw, search, activeTab]);
 
     /* ================= UI RENDERERS ================= */

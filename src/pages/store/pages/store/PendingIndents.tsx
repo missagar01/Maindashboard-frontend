@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { storeApi } from "@/api/store/storeSystemApi";
 import Loading from "./Loading";
+import { compareCurrentMonthFirstDesc } from "./currentMonthSort";
 
 interface POData {
   PLANNED_TIMESTAMP: string;
@@ -246,6 +247,9 @@ export default function PendingIndents() {
       // }
       
       const normalized = rows.map((row, idx) => normalize(row, idx));
+      normalized.sort((a, b) =>
+        compareCurrentMonthFirstDesc(a.PLANNED_TIMESTAMP || a.VRDATE, b.PLANNED_TIMESTAMP || b.VRDATE)
+      );
       // console.log("✅ Normalized Pending Data (first 3):", normalized.slice(0, 3));
       if (normalized.length > 0) {
         // console.log("✅ First normalized INDENT_NO:", normalized[0]?.INDENT_NO);
@@ -285,6 +289,9 @@ export default function PendingIndents() {
       }
       
       const normalized = rows.map((row, idx) => normalize(row, idx));
+      normalized.sort((a, b) =>
+        compareCurrentMonthFirstDesc(a.PLANNED_TIMESTAMP || a.VRDATE, b.PLANNED_TIMESTAMP || b.VRDATE)
+      );
       // console.log("✅ Normalized History Data (first 3):", normalized.slice(0, 3));
       if (normalized.length > 0) {
         // console.log("✅ First normalized INDENT_NO:", normalized[0]?.INDENT_NO);

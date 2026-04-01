@@ -14,6 +14,7 @@ import Heading from "../../components/element/Heading";
 import { Input } from "../../components/ui/input";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { compareCurrentMonthFirstDesc, parseStoreDateValue } from "./currentMonthSort";
 
 // Custom style to show calendar picker icon (required for iframe compatibility)
 const dateInputStyle = `
@@ -135,21 +136,21 @@ const StoreIssue = () => {
             // Date Range
             let matchesDate = true;
             if (issue.VRDATE) {
-                const issueDate = new Date(issue.VRDATE);
+                const issueDate = parseStoreDateValue(issue.VRDATE);
                 if (fromDate) {
                     const start = new Date(fromDate);
                     start.setHours(0, 0, 0, 0);
-                    if (issueDate < start) matchesDate = false;
+                    if (issueDate && issueDate < start) matchesDate = false;
                 }
                 if (toDate) {
                     const end = new Date(toDate);
                     end.setHours(23, 59, 59, 999);
-                    if (issueDate > end) matchesDate = false;
+                    if (issueDate && issueDate > end) matchesDate = false;
                 }
             }
 
             return matchesSearch && matchesDivision && matchesDept && matchesRequester && matchesDate && matchesVrnoCol && matchesItemCol && matchesCodeCol;
-        });
+        }).sort((a, b) => compareCurrentMonthFirstDesc(a.VRDATE, b.VRDATE));
     }, [issues, debouncedSearch, selectedDivision, selectedDept, selectedRequester, fromDate, toDate, colSearch]);
 
     // Paginate results
@@ -162,7 +163,8 @@ const StoreIssue = () => {
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "—";
-        const date = new Date(dateStr);
+        const date = parseStoreDateValue(dateStr);
+        if (!date) return "—";
         return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: '2-digit',

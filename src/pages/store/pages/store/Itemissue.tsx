@@ -12,6 +12,7 @@ import { storeApi } from "@/api/store/storeSystemApi";
 import Heading from "../../components/element/Heading";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
+import { compareCurrentMonthFirstDesc, parseStoreDateValue } from "./currentMonthSort";
 
 type StoreIssueRow = {
   vrno: string;
@@ -37,20 +38,7 @@ const asNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const parseDate = (value: string): Date | null => {
-  if (!value) return null;
-  const direct = new Date(value);
-  if (!Number.isNaN(direct.getTime())) return direct;
-
-  const match = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
-  const rebuilt = new Date(year, month, day);
-  return Number.isNaN(rebuilt.getTime()) ? null : rebuilt;
-};
+const parseDate = (value: string): Date | null => parseStoreDateValue(value);
 
 const formatDate = (value: string): string => {
   const parsed = parseDate(value);
@@ -172,7 +160,7 @@ export default function Itemissue() {
         .toLowerCase();
 
       return searchText.includes(searchNeedle);
-    });
+    }).sort((a, b) => compareCurrentMonthFirstDesc(a.vrdate, b.vrdate));
   }, [rows, search, division, department, requester, fromDate, toDate]);
 
   const totalRows = filteredRows.length;

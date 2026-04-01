@@ -55,6 +55,7 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
 export default function StoreDashboard() {
   const { user } = useAuth();
   const MODAL_PAGE_SIZE = 25;
+  const EMPTY_RESPONSE_RETRY_LIMIT = 1;
 
   // ── Local dashboard state (replaces useStoreDashboard) ──────────────────
   const [pendingIndents, setPendingIndents] = useState<any[]>([]);
@@ -71,6 +72,7 @@ export default function StoreDashboard() {
   const [divisionListGRN, setDivisionListGRN] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [emptyStateMessage, setEmptyStateMessage] = useState<string | null>(null);
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
@@ -87,71 +89,102 @@ export default function StoreDashboard() {
   const [mobileVisibleCount, setMobileVisibleCount] = useState(MODAL_PAGE_SIZE);
 
   const mountedRef = useRef(true);
+  const emptyDashboardRetryCountRef = useRef(0);
 
   // ── Initial fetch: Consolidated Dashboard API ───────────────────────────
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
-    let pollTimeout: ReturnType<typeof setTimeout>;
+    let pollTimeout: ReturnType<typeof setTimeout> | undefined;
 
     const loadData = async () => {
       setLoading(true);
       setError(null);
+      setEmptyStateMessage(null);
 
       try {
-        // Run both summary and divisions in parallel
-        await Promise.all([
-          // Division Data
-          (async () => {
-            const [issRes, indRes, poRes, grnRes] = await Promise.all([
-              storeApi.getDivisionWiseIssue(),
-              storeApi.getDivisionWiseIndent(),
-              storeApi.getDivisionWisePO(),
-              storeApi.getDivisionWiseGRN()
-            ]);
-            if (cancelled) return;
+        const showCurrentMonthEmptyState = () => {
+          emptyDashboardRetryCountRef.current += 1;
 
-            // Pre-normalize division names for better performance
-            const normalizeDivs = (data: any[]) => (data || []).map(item => ({
-              ...item,
-              _normalizedDiv: getDivName(item)
-            }));
+          if (emptyDashboardRetryCountRef.current <= EMPTY_RESPONSE_RETRY_LIMIT) {
+            pollTimeout = setTimeout(() => {
+              pollTimeout = undefined;
+              if (mountedRef.current && !cancelled) void loadData();
+            }, 2500);
+            return;
+          }
 
-            setDivisionListIssue(normalizeDivs(issRes?.data));
-            setDivisionListIndent(normalizeDivs(indRes?.data));
-            setDivisionListPO(normalizeDivs(poRes?.data));
-            setDivisionListGRN(normalizeDivs(grnRes?.data));
-          })(),
-          // Summary Data
-          (async () => {
-            const response = await storeApi.getDashboard();
-            const data = response?.data || response;
-            if (cancelled) return;
+          setPendingIndents([]);
+          setHistoryIndents([]);
+          setPoPending([]);
+          setPoHistory([]);
+          setRepairPending([]);
+          setRepairHistory([]);
+          setReturnableDetails([]);
+          setDashboardSummary(null);
+          setFeedbacks([]);
+          setFeedbacksLoading(false);
+          setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
+          setLoading(false);
+        };
 
-            if (data) {
-              const isEmpty = (!data.summary || Object.keys(data.summary).length === 0) &&
-                (!data.pendingIndents || data.pendingIndents.length === 0);
-
-              if (isEmpty) {
-                pollTimeout = setTimeout(() => {
-                  if (mountedRef.current && !cancelled) void loadData();
-                }, 2500);
-                return;
-              }
-
-              setPendingIndents(data.pendingIndents || []);
-              setHistoryIndents(data.historyIndents || []);
-              setPoPending(data.poPending || []);
-              setPoHistory(data.poHistory || []);
-              setRepairPending(data.repairPending || []);
-              setRepairHistory(data.repairHistory || []);
-              setReturnableDetails(data.returnableDetails || []);
-              setDashboardSummary(data.summary || null);
-              setFeedbacks(data.feedbacks || []);
-              setFeedbacksLoading(false);
-            }
-          })()
+        const [issRes, indRes, poRes, grnRes, dashboardRes] = await Promise.allSettled([
+          storeApi.getDivisionWiseIssue(),
+          storeApi.getDivisionWiseIndent(),
+          storeApi.getDivisionWisePO(),
+          storeApi.getDivisionWiseGRN(),
+          storeApi.getDashboard()
         ]);
+
+        if (cancelled) return;
+
+        const normalizeDivs = (data: any[]) => (data || []).map(item => ({
+          ...item,
+          _normalizedDiv: getDivName(item)
+        }));
+
+        setDivisionListIssue(issRes.status === "fulfilled" ? normalizeDivs(issRes.value?.data || issRes.value) : []);
+        setDivisionListIndent(indRes.status === "fulfilled" ? normalizeDivs(indRes.value?.data || indRes.value) : []);
+        setDivisionListPO(poRes.status === "fulfilled" ? normalizeDivs(poRes.value?.data || poRes.value) : []);
+        setDivisionListGRN(grnRes.status === "fulfilled" ? normalizeDivs(grnRes.value?.data || grnRes.value) : []);
+
+        if (dashboardRes.status === "rejected") {
+          if (isNoDataApiError(dashboardRes.reason)) {
+            showCurrentMonthEmptyState();
+            return;
+          }
+
+          throw dashboardRes.reason;
+        }
+
+        const data = dashboardRes.value?.data || dashboardRes.value;
+        const hasSummary = !!(data?.summary && Object.keys(data.summary).length > 0);
+        const hasCurrentMonthRows = hasCurrentMonthRecords([
+          data?.pendingIndents,
+          data?.historyIndents,
+          data?.poPending,
+          data?.poHistory,
+          data?.repairPending,
+          data?.repairHistory,
+          data?.returnableDetails,
+        ]);
+
+        if (!hasSummary && !hasCurrentMonthRows) {
+          showCurrentMonthEmptyState();
+          return;
+        }
+
+        emptyDashboardRetryCountRef.current = 0;
+        setPendingIndents(data?.pendingIndents || []);
+        setHistoryIndents(data?.historyIndents || []);
+        setPoPending(data?.poPending || []);
+        setPoHistory(data?.poHistory || []);
+        setRepairPending(data?.repairPending || []);
+        setRepairHistory(data?.repairHistory || []);
+        setReturnableDetails(data?.returnableDetails || []);
+        setDashboardSummary(data?.summary || null);
+        setFeedbacks(data?.feedbacks || []);
+        setFeedbacksLoading(false);
 
         if (!cancelled && !pollTimeout) {
           setLoading(false);
@@ -159,7 +192,21 @@ export default function StoreDashboard() {
       } catch (err: any) {
         console.error("Dashboard data load error:", err);
         if (!cancelled) {
-          setError(err?.message ?? 'Failed to load dashboard data');
+          if (isNoDataApiError(err)) {
+            setPendingIndents([]);
+            setHistoryIndents([]);
+            setPoPending([]);
+            setPoHistory([]);
+            setRepairPending([]);
+            setRepairHistory([]);
+            setReturnableDetails([]);
+            setDashboardSummary(null);
+            setFeedbacks([]);
+            setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
+          } else {
+            setError(err?.message ?? 'Failed to load dashboard data');
+          }
+          setFeedbacksLoading(false);
           setLoading(false);
         }
       }
@@ -536,6 +583,52 @@ export default function StoreDashboard() {
     d.setDate(1);
     d.setHours(0, 0, 0, 0);
     return d;
+  };
+
+  const getCurrentMonthLabel = () =>
+    new Date().toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+  const hasCurrentMonthRecords = (rowsCollection: any[][]) => {
+    const monthStart = getCurrentMonthStart().getTime();
+
+    return rowsCollection.some((rows) =>
+      (rows || []).some((item: any) => {
+        const dateVal =
+          item?.VRDATE ||
+          item?.vrdate ||
+          item?.INDENT_DATE ||
+          item?.indent_date ||
+          item?.RECEIVED_DATE ||
+          item?.received_date ||
+          item?.PLANNEDTIMESTAMP ||
+          item?.PLANNED_TIMESTAMP;
+
+        return dateVal ? new Date(dateVal).getTime() >= monthStart : false;
+      })
+    );
+  };
+
+  const isNoDataApiError = (err: any) => {
+    const status = Number(err?.response?.status || err?.status || 0);
+    const message = String(err?.response?.data?.message || err?.message || "").toLowerCase();
+
+    if (status === 404) return true;
+    if (status !== 500) return false;
+
+    if (!message) return true;
+
+    return [
+      "no data",
+      "data not found",
+      "not found",
+      "no record",
+      "no rows",
+      "empty",
+      "status code 500",
+    ].some((token) => message.includes(token));
   };
 
   const getDisplayValue = (...values: any[]) => {
@@ -1351,6 +1444,42 @@ export default function StoreDashboard() {
           <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
           <p className="text-sm opacity-80">{error}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (emptyStateMessage) {
+    return (
+      <div className="w-full px-1.5 py-4 sm:px-4 md:p-6 lg:p-8 space-y-5 md:space-y-8 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen font-sans">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1 sm:px-0">
+          <div className="flex items-center gap-3.5 md:gap-4">
+            <div className="p-2.5 md:p-3.5 rounded-2xl bg-red-600 shadow-xl shadow-red-200 dark:shadow-red-900/20 shrink-0">
+              <LayoutDashboard className="text-white w-6 h-6 md:w-8 md:h-8" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Store Dashboard
+              </h1>
+              <p className="text-[11px] md:text-sm text-slate-500 dark:text-slate-400 font-medium leading-snug">
+                Real-time monitoring and analytics for Store &amp; Purchase
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden">
+          <CardContent className="flex min-h-[320px] flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="mb-5 rounded-3xl bg-slate-100 p-4 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+              <Calendar size={36} />
+            </div>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+              {emptyStateMessage}
+            </h2>
+            <p className="mt-3 max-w-xl text-sm font-medium text-slate-500 dark:text-slate-400">
+              No records are available from the API for {getCurrentMonthLabel()} right now. The dashboard will populate automatically once current month data is added.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
