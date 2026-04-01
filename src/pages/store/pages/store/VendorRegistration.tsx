@@ -101,6 +101,40 @@ const getRecordKey = (
     .filter(Boolean)
     .join("-");
 
+const MOBILE_CARD_PALETTES = [
+  {
+    article:
+      "border-rose-200/90 bg-[linear-gradient(180deg,#fffefe_0%,#fff3f3_100%)]",
+    line: "bg-[linear-gradient(90deg,#fb7185_0%,#fdba74_100%)]",
+    section:
+      "bg-[linear-gradient(180deg,#fff1f2_0%,#fff8fb_100%)] ring-1 ring-rose-100/70",
+  },
+  {
+    article:
+      "border-sky-200/90 bg-[linear-gradient(180deg,#ffffff_0%,#f2f8ff_100%)]",
+    line: "bg-[linear-gradient(90deg,#38bdf8_0%,#60a5fa_100%)]",
+    section:
+      "bg-[linear-gradient(180deg,#eff6ff_0%,#f7fbff_100%)] ring-1 ring-sky-100/80",
+  },
+  {
+    article:
+      "border-emerald-200/90 bg-[linear-gradient(180deg,#ffffff_0%,#f1fdf7_100%)]",
+    line: "bg-[linear-gradient(90deg,#34d399_0%,#22c55e_100%)]",
+    section:
+      "bg-[linear-gradient(180deg,#ecfdf5_0%,#f7fffb_100%)] ring-1 ring-emerald-100/80",
+  },
+  {
+    article:
+      "border-violet-200/90 bg-[linear-gradient(180deg,#ffffff_0%,#f7f2ff_100%)]",
+    line: "bg-[linear-gradient(90deg,#a78bfa_0%,#c084fc_100%)]",
+    section:
+      "bg-[linear-gradient(180deg,#f5f3ff_0%,#fbf7ff_100%)] ring-1 ring-violet-100/80",
+  },
+];
+
+const getMobileCardPalette = (index: number) =>
+  MOBILE_CARD_PALETTES[index % MOBILE_CARD_PALETTES.length];
+
 function SummaryCard({
   title,
   value,
@@ -150,11 +184,11 @@ function MobileField({
   className?: string;
 }) {
   return (
-    <div className={className}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <div className={cn("min-w-0", className)}>
+      <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400">
         {label}
       </p>
-      <p className="mt-1 whitespace-normal break-words text-sm text-slate-700">
+      <p className="mt-0.5 whitespace-normal break-words text-[12.5px] leading-[1.35] text-slate-700">
         {value?.trim() || EMPTY_VALUE}
       </p>
     </div>
@@ -379,7 +413,7 @@ export default function VendorRegistration() {
             </div>
           ) : null}
 
-          <div className="space-y-3 lg:hidden">
+          <div className="space-y-2 lg:hidden">
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500 shadow-sm">
                 Loading vendor registrations...
@@ -389,26 +423,33 @@ export default function VendorRegistration() {
                 No vendor registration records found for the current filters.
               </div>
             ) : (
-              filteredRecords.map((record, index) => (
-                <article
-                  key={getRecordKey(record, index)}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
+              filteredRecords.map((record, index) => {
+                const palette = getMobileCardPalette(index);
+
+                return (
+                  <article
+                    key={getRecordKey(record, index)}
+                    className={cn(
+                      "relative overflow-hidden rounded-[18px] border px-2.5 py-2 shadow-[0_14px_32px_-30px_rgba(15,23,42,0.45)]",
+                      palette.article
+                    )}
+                  >
+                    <div className={cn("absolute inset-x-0 top-0 h-1", palette.line)} />
+                  <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                         Vendor Reg No
                       </p>
-                      <h2 className="mt-1 text-base font-semibold text-slate-900">
+                      <h2 className="mt-0.5 text-[15px] font-semibold text-slate-900">
                         {record.vendorRegistrationNumber || EMPTY_VALUE}
                       </h2>
-                      <p className="mt-2 text-sm font-medium text-slate-700">
+                      <p className="mt-0.5 text-[13px] font-medium leading-[1.35] text-slate-700">
                         {record.supplierName || EMPTY_VALUE}
                       </p>
                     </div>
                     <span
                       className={cn(
-                        "inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                        "inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.16em]",
                         getStatusClasses(record.whatsappStatus)
                       )}
                     >
@@ -416,7 +457,7 @@ export default function VendorRegistration() {
                     </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="mt-2 grid grid-cols-2 gap-x-2.5 gap-y-2">
                     <MobileField label="GST No" value={record.gstNo} />
                     <MobileField label="Mobile" value={record.mobileNumber} />
                     <MobileField
@@ -430,7 +471,7 @@ export default function VendorRegistration() {
                     <MobileField
                       label="Owner"
                       value={record.companyOwnerName}
-                      className="col-span-2"
+                      className="col-span-2 border-t border-slate-100 pt-1.5"
                     />
                     <MobileField
                       label="Email"
@@ -444,27 +485,41 @@ export default function VendorRegistration() {
                     />
                   </div>
 
-                  <div className="mt-4 space-y-3 rounded-2xl bg-slate-50 p-3">
+                    <div
+                      className={cn(
+                        "mt-2 rounded-[14px] px-2 py-1.5",
+                        palette.section
+                      )}
+                    >
                     <MobileField
                       label="Product Type"
                       value={record.productType}
+                      className="border-b border-white/70 pb-1.5"
                     />
-                    <MobileField label="Clients" value={record.clientNames} />
+                    <MobileField
+                      label="Clients"
+                      value={record.clientNames}
+                      className="border-b border-white/70 py-1.5"
+                    />
                     <MobileField
                       label="Factory/Firm"
                       value={record.factoryOrFirmName}
+                      className="border-b border-white/70 py-1.5"
                     />
                     <MobileField
                       label="Correspondence Address"
                       value={record.correspondenceAddress}
+                      className="border-b border-white/70 py-1.5"
                     />
                     <MobileField
                       label="Registered On"
                       value={formatDate(record.timestamp)}
+                      className="pt-1.5"
                     />
                   </div>
-                </article>
-              ))
+                  </article>
+                );
+              })
             )}
           </div>
 
