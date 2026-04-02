@@ -438,11 +438,7 @@ export default function ApproveIndent() {
                     pendingPageRows.map((row, index) => (
                       <tr
                         key={row.INDENT_NUMBER + index}
-                        className="hover:bg-slate-50 cursor-pointer"
-                        onClick={() => {
-                          setSelectedIndent(row);
-                          setOpenDialog(true);
-                        }}
+                        className="hover:bg-slate-50"
                       >
                         <td className="sticky left-0 z-10 bg-white border-b px-3 py-1 text-left font-medium">
                           {row.INDENT_NUMBER}

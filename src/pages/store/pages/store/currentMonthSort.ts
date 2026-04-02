@@ -41,3 +41,14 @@ export const compareCurrentMonthFirstDesc = (a: unknown, b: unknown): number => 
 
   return dateB.getTime() - dateA.getTime();
 };
+
+export const compareDateDesc = (a: unknown, b: unknown): number => {
+  const dateA = parseStoreDateValue(a);
+  const dateB = parseStoreDateValue(b);
+
+  if (!dateA && !dateB) return 0;
+  if (!dateA) return 1;
+  if (!dateB) return -1;
+
+  return dateB.getTime() - dateA.getTime();
+};

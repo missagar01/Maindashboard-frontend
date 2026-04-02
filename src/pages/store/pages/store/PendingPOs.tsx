@@ -5,6 +5,7 @@ import { ListTodo } from "lucide-react";
 import Heading from "../../components/element/Heading";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { compareDateDesc, parseStoreDateValue } from "./currentMonthSort";
 
 interface POData {
   PLANNED_TIMESTAMP: string;
@@ -19,14 +20,22 @@ interface POData {
 }
 
 function formatShortDate(dateStr?: string) {
-  if (!dateStr) return "—";
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
+  if (!dateStr) return "-";
+
+  const date = parseStoreDateValue(dateStr);
+  if (!date) return dateStr;
+
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
+}
+
+function sortPurchaseOrders(rows: POData[]) {
+  return [...rows].sort((a, b) =>
+    compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP)
+  );
 }
 
 export default function PendingPOs() {
@@ -48,10 +57,10 @@ export default function PendingPOs() {
       ]);
 
       if (pendingRes.success && Array.isArray(pendingRes.data)) {
-        setPending(pendingRes.data);
+        setPending(sortPurchaseOrders(pendingRes.data));
       }
       if (historyRes.success && Array.isArray(historyRes.data)) {
-        setHistory(historyRes.data);
+        setHistory(sortPurchaseOrders(historyRes.data));
       }
     } catch (err) {
       console.error("Failed to fetch POs:", err);
@@ -144,4 +153,3 @@ export default function PendingPOs() {
     </div>
   );
 }
-
