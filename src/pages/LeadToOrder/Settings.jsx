@@ -164,6 +164,7 @@ const PAGE_ROUTES = {
     createPageOption("Repair Gate Pass", "Repair Gate Pass", "/store/repair-gate-pass", ["Repair Gate Pass - Pending", "/store/repair-gate-pass"]),
     createPageOption("Repair Follow Up", "Repair Follow Up", "/store/repair-followup", ["/store/repair-followup"]),
     createPageOption("Store GRN", "Store GRN", "/store/store-grn", ["/store/store-grn"]),
+    createPageOption("Pending Gate Entry", "Pending Gate Entry", "/store/pending-gate-entry", ["/store/pending-gate-entry"]),
     createPageOption("Store GRN GM Approval", "Store GRN GM Approval", "/store/store-grn-gm", ["/store/store-grn-gm"]),
     createPageOption("Store GRN Close", "Store GRN Close", "/store/store-grn-close", ["/store/store-grn-close"]),
     createPageOption("Store Out Approval", "Store Out Approval", "/store/store-out-approval", ["/store/store-out-approval"]),

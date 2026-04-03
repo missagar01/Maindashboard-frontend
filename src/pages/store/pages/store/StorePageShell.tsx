@@ -2,12 +2,16 @@ import type { ReactNode } from "react";
 
 import Heading from "../../components/element/Heading";
 import { Card, CardContent } from "../../components/ui/card";
+import { cn } from "../../lib/utils";
 
 interface StorePageShellProps {
   icon: ReactNode;
   heading: string;
   subtext: string;
   children: ReactNode;
+  containerClassName?: string;
+  contentCardClassName?: string;
+  contentClassName?: string;
 }
 
 export default function StorePageShell({
@@ -15,14 +19,19 @@ export default function StorePageShell({
   heading,
   subtext,
   children,
+  containerClassName,
+  contentCardClassName,
+  contentClassName,
 }: StorePageShellProps) {
   return (
-    <div className="w-full p-4 md:p-6 lg:p-10 space-y-6">
+    <div className={cn("w-full space-y-6 p-4 md:p-6 lg:p-10", containerClassName)}>
       <Heading heading={heading} subtext={subtext}>
         {icon}
       </Heading>
-      <Card>
-        <CardContent className="space-y-6">{children}</CardContent>
+      <Card className={cn(contentCardClassName)}>
+        <CardContent className={cn("space-y-6", contentClassName)}>
+          {children}
+        </CardContent>
       </Card>
     </div>
   );

@@ -245,7 +245,8 @@ const storeSection: SidebarSection = {
   nodes: [
     { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
    { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
-    { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
+    { kind: "link", key: "store-pending-gate-entry", name: "Pending Gate Entry", path: "/store/pending-gate-entry", icon: Truck },
+   { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
     { kind: "link", key: "store-indent", name: "Indent", path: "/store/approve-indent", icon: FileText },
         { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
     { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
@@ -265,6 +266,7 @@ const storeSection: SidebarSection = {
 
     { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
     { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
+   
     // { kind: "link", key: "store-grn-admin", name: "Store GRN Admin Approval", path: "/store/store-grn-admin", icon: BadgeCheck },
 
     { kind: "link", key: "store-grn-gm", name: "Store GRN GM Approval", path: "/store/store-grn-gm", icon: BadgeCheck },

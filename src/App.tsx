@@ -96,6 +96,7 @@ import StoreGRN from "./pages/store/pages/store/StoreGRN";
 import StoreGRNAdminApproval from "./pages/store/pages/store/StoreGRNAdminApproval";
 import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
+import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
 
 // Document module pages
@@ -267,6 +268,7 @@ export default function App() {
               <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
               <Route path="/store/returnable" element={<RouteGuard><StoreReturnable /></RouteGuard>} />
               <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />
+              <Route path="/store/pending-gate-entry" element={<RouteGuard><StorePendingGateEntry /></RouteGuard>} />
               <Route path="/store/store-grn-admin" element={<RouteGuard><StoreGRNAdminApproval /></RouteGuard>} />
               <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />

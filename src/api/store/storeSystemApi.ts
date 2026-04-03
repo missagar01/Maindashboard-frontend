@@ -37,6 +37,18 @@ export const storeApi: any = {
   getRepairGatePassReceived: () => storeApiRequest("/api/store/repair-gate-pass/received"),
   getRepairGatePassHistory: () => storeApiRequest("/api/store/repair-gate-pass/history"),
   getRepairGatePassCounts: () => storeApiRequest("/api/store/repair-gate-pass/counts"),
+  getPendingGateEntry: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) {
+      params.append("fromDate", fromDate);
+    }
+    if (toDate) {
+      params.append("toDate", toDate);
+    }
+
+    const query = params.toString();
+    return storeApiRequest(`/api/store/pending-gate-entry${query ? `?${query}` : ""}`);
+  },
   downloadRepairGatePassPending: () =>
     downloadBlob("/api/store/repair-gate-pass/pending/download"),
 
