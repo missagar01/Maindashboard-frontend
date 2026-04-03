@@ -360,7 +360,7 @@ export default function StoreDashboard() {
     const targets: Record<string, number> = {
       "SMS": 9500000,
       "PIPE MILL": 3000000,
-      "PATRA ROLLING MILL": 2200000,
+      "PATRA ROLLING MILL": 2500000,
       "COMMON": 300000
     };
 
