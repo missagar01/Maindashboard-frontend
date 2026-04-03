@@ -58,6 +58,7 @@ const Machines = () => {
         const formatted = result.data.map((item) => ({
           "Machine Name": item.machine_name,
           "Serial No": item.serial_no,
+          "Tag No": item.tag_no,
           "Department": item.department,
           "Warranty Expiration": item.warranty_expiration,
           "Purchase Date": item.purchase_date,
@@ -399,7 +400,7 @@ const Machines = () => {
                         {machine["Machine Name"]}
                       </div>
                       <div className="text-xs text-gray-500">
-                        SN: {machine["Serial No"]}
+                        Tag No: {machine["Tag No"] || "-"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
