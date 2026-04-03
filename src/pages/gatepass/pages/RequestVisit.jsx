@@ -30,6 +30,7 @@ const AssignTask = () => {
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [photoSourceLabel, setPhotoSourceLabel] = useState("Captured");
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -270,6 +271,7 @@ const AssignTask = () => {
         });
         setPhotoFile(file);
         setCapturedPhoto(URL.createObjectURL(file));
+        setPhotoSourceLabel("Captured");
         setCameraError("");
         closeCamera();
         showToast("Photo captured!", "success");
@@ -285,6 +287,12 @@ const AssignTask = () => {
       return;
     }
 
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid image file", "error");
+      event.target.value = "";
+      return;
+    }
+
     if (capturedPhoto) {
       URL.revokeObjectURL(capturedPhoto);
     }
@@ -292,19 +300,28 @@ const AssignTask = () => {
     closeCamera();
     setPhotoFile(file);
     setCapturedPhoto(URL.createObjectURL(file));
+    setPhotoSourceLabel("Selected");
     setCameraError("");
-    showToast("Photo selected!", "success");
+    showToast("Photo selected from gallery!", "success");
     event.target.value = "";
   };
 
-  const retakePhoto = () => {
+  const clearSelectedPhoto = () => {
     if (capturedPhoto) {
       URL.revokeObjectURL(capturedPhoto);
     }
     setCapturedPhoto(null);
     setPhotoFile(null);
+    setPhotoSourceLabel("Captured");
     setCameraError("");
-    openCamera(currentFacingMode);
+  };
+
+  const retakePhoto = () => {
+    const shouldReopenCamera = photoSourceLabel === "Captured";
+    clearSelectedPhoto();
+    if (shouldReopenCamera) {
+      openCamera(currentFacingMode);
+    }
   };
 
   useEffect(() => {
@@ -600,7 +617,6 @@ const AssignTask = () => {
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        capture={currentFacingMode}
                         onChange={handleFileSelect}
                         className="hidden"
                       />
@@ -624,9 +640,12 @@ const AssignTask = () => {
                           className="border border-slate-300 bg-white text-slate-700 px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-slate-50"
                         >
                           <FileText className="h-5 w-5" />
-                          Upload Photo
+                          Upload From Gallery
                         </button>
                       </div>
+                      <p className="mt-3 text-center text-sm text-slate-500">
+                        Live camera ya gallery, dono same visitor photo field me save honge.
+                      </p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
@@ -647,7 +666,7 @@ const AssignTask = () => {
                         onClick={retakePhoto}
                         className="text-orange-500 hover:text-orange-600 font-bold text-sm underline decoration-2 underline-offset-4"
                       >
-                        Retake Photo
+                        {photoSourceLabel === "Captured" ? "Retake Photo" : "Change Photo"}
                       </button>
                     </div>
                   )}
@@ -691,7 +710,7 @@ const AssignTask = () => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="font-bold text-gray-800">Captured Visitor Photo</h3>
+              <h3 className="font-bold text-gray-800">{photoSourceLabel} Visitor Photo</h3>
               <button
                 onClick={() => setShowImageModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

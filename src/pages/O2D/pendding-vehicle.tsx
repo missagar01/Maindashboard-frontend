@@ -5,12 +5,12 @@ import * as o2dAPI from "../../api/o2dAPI";
 
 const COLUMN_DEFINITIONS = [
   { label: "S.No", key: "S_NO" },
-  { label: "Gate Entry Time", key: "GATE_ENTRY_TIMESTAMP" },
-  { label: "Gate Entry No.", key: "GATE_ENTRY_NUMBER" },
-  { label: "Loading Order No.", key: "LOADING_ORDER_NUMBER" },
+    { label: "Loading Order No.", key: "LOADING_ORDER_NUMBER" },
   { label: "Party Name", key: "PARTY_NAME" },
   { label: "Truck No.", key: "TRUCKNO" },
-  { label: "WB Slip", key: "WSLIP_NO" },
+  { label: "Gate Entry Time", key: "GATE_ENTRY_TIMESTAMP" },
+  { label: "Gate Entry No.", key: "GATE_ENTRY_NUMBER" },
+
   { label: "1st Wt. Planned", key: "FIRST_WEIGHT_PLANNED" },
   { label: "1st Wt. Actual", key: "FIRST_WEIGHT_ACTUAL" },
   { label: "1st Wt. Status", key: "FIRST_WEIGHT_STATUS" },
