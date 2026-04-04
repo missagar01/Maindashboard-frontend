@@ -122,30 +122,47 @@ export default function TaskNavigationTabs({
 
 
   const parseTaskStartDate = (dateStr) => {
-    if (!dateStr || typeof dateStr !== "string") return null
-    if (dateStr.includes("-") && dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-      const parsed = new Date(dateStr)
-      return isNaN(parsed) ? null : parsed
+    if (!dateStr) return null
+    if (dateStr instanceof Date) return Number.isNaN(dateStr.getTime()) ? null : new Date(dateStr)
+    if (typeof dateStr !== "string") return null
+
+    const raw = dateStr.trim()
+    if (!raw) return null
+
+    const isoMatch = raw.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+    )
+    if (isoMatch) {
+      const [, year, month, day, hours = "0", minutes = "0", seconds = "0"] = isoMatch
+      const parsed = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hours),
+        Number(minutes),
+        Number(seconds)
+      )
+      return Number.isNaN(parsed.getTime()) ? null : parsed
     }
-    if (dateStr.includes("/")) {
-      const parts = dateStr.split(" ")
-      const datePart = parts[0]
-      const dateComponents = datePart.split("/")
-      if (dateComponents.length !== 3) return null
-      const [day, month, year] = dateComponents.map(Number)
-      const date = new Date(year, month - 1, day)
-      if (parts.length > 1) {
-        const timePart = parts[1]
-        const timeComponents = timePart.split(":")
-        if (timeComponents.length >= 2) {
-          const [hours, minutes, seconds] = timeComponents.map(Number)
-          date.setHours(hours || 0, minutes || 0, seconds || 0)
-        }
-      }
-      return isNaN(date) ? null : date
+
+    const dmyMatch = raw.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+    )
+    if (dmyMatch) {
+      const [, day, month, year, hours = "0", minutes = "0", seconds = "0"] = dmyMatch
+      const parsed = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hours),
+        Number(minutes),
+        Number(seconds)
+      )
+      return Number.isNaN(parsed.getTime()) ? null : parsed
     }
-    const parsed = new Date(dateStr)
-    return isNaN(parsed) ? null : parsed
+
+    const parsed = new Date(raw)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 
   const formatDateToDDMMYYYY = (date) => {

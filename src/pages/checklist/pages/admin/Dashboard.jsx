@@ -438,46 +438,47 @@ export default function AdminDashboard() {
 
   // Updated date parsing function to handle both formats
   const parseTaskStartDate = (dateStr) => {
-    if (!dateStr || typeof dateStr !== "string") return null
+    if (!dateStr) return null
+    if (dateStr instanceof Date) return Number.isNaN(dateStr.getTime()) ? null : new Date(dateStr)
+    if (typeof dateStr !== "string") return null
 
-    // Handle YYYY-MM-DD format (ISO format from Supabase)
-    if (dateStr.includes("-") && dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-      const parsed = new Date(dateStr)
-      return isNaN(parsed) ? null : parsed
+    const raw = dateStr.trim()
+    if (!raw) return null
+
+    const isoMatch = raw.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+    )
+    if (isoMatch) {
+      const [, year, month, day, hours = "0", minutes = "0", seconds = "0"] = isoMatch
+      const parsed = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hours),
+        Number(minutes),
+        Number(seconds)
+      )
+      return Number.isNaN(parsed.getTime()) ? null : parsed
     }
 
-    // Handle DD/MM/YYYY format (with or without time)
-    if (dateStr.includes("/")) {
-      // Split by space first to separate date and time
-      const parts = dateStr.split(" ")
-      const datePart = parts[0] // "25/08/2025"
-
-      const dateComponents = datePart.split("/")
-      if (dateComponents.length !== 3) return null
-
-      const [day, month, year] = dateComponents.map(Number)
-
-      if (!day || !month || !year) return null
-
-      // Create date object (month is 0-indexed)
-      const date = new Date(year, month - 1, day)
-
-      // If there's time component, parse it
-      if (parts.length > 1) {
-        const timePart = parts[1] // "09:00:00"
-        const timeComponents = timePart.split(":")
-        if (timeComponents.length >= 2) {
-          const [hours, minutes, seconds] = timeComponents.map(Number)
-          date.setHours(hours || 0, minutes || 0, seconds || 0)
-        }
-      }
-
-      return isNaN(date) ? null : date
+    const dmyMatch = raw.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+    )
+    if (dmyMatch) {
+      const [, day, month, year, hours = "0", minutes = "0", seconds = "0"] = dmyMatch
+      const parsed = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hours),
+        Number(minutes),
+        Number(seconds)
+      )
+      return Number.isNaN(parsed.getTime()) ? null : parsed
     }
 
-    // Fallback: Try ISO format
-    const parsed = new Date(dateStr)
-    return isNaN(parsed) ? null : parsed
+    const parsed = new Date(raw)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 
   // Helper function to format date from ISO format to DD/MM/YYYY
