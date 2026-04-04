@@ -2,7 +2,42 @@ import { API_BASE_URL } from '../api/apiClient';
 
 const normalizedApiBaseUrl = String(API_BASE_URL || '').trim().replace(/\/+$/, '');
 const normalizedEnvApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-const effectiveApiBaseUrl = normalizedApiBaseUrl || normalizedEnvApiBaseUrl;
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+
+const resolveReachableApiBaseUrl = () => {
+  const baseUrl = normalizedApiBaseUrl || normalizedEnvApiBaseUrl;
+  if (!baseUrl) {
+    return '';
+  }
+
+  if (typeof window === 'undefined') {
+    return baseUrl;
+  }
+
+  try {
+    const parsedUrl = new URL(baseUrl, window.location.origin);
+    const browserHostname = String(window.location.hostname || '').trim().toLowerCase();
+    const apiHostname = String(parsedUrl.hostname || '').trim().toLowerCase();
+
+    if (
+      browserHostname &&
+      !LOCAL_HOSTS.has(browserHostname) &&
+      LOCAL_HOSTS.has(apiHostname)
+    ) {
+      parsedUrl.hostname = browserHostname;
+    }
+
+    if (window.location.protocol === 'https:' && parsedUrl.protocol === 'http:') {
+      parsedUrl.protocol = 'https:';
+    }
+
+    return parsedUrl.toString().replace(/\/+$/, '');
+  } catch {
+    return baseUrl;
+  }
+};
+
+const effectiveApiBaseUrl = resolveReachableApiBaseUrl();
 
 const normalizeRawValue = (value) => {
   if (value === null || value === undefined) {
