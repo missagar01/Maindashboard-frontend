@@ -34,13 +34,19 @@ const AssignTask = () => {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const streamRef = useRef(null);
 
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [currentFacingMode, setCurrentFacingMode] = useState("environment");
   const [stream, setStream] = useState(null);
+  const canUseLiveCamera =
+    typeof window !== "undefined" &&
+    window.isSecureContext &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
 
   const [formData, setFormData] = useState({
     visitorName: "",
@@ -79,12 +85,13 @@ const AssignTask = () => {
     let isMounted = true;
 
     const initializeCamera = async () => {
-      if (
-        typeof navigator === "undefined" ||
-        !navigator.mediaDevices?.getUserMedia
-      ) {
+      if (!canUseLiveCamera) {
         if (isMounted) {
-          setCameraError("Camera is not supported on this device/browser");
+          setCameraError(
+            typeof window !== "undefined" && !window.isSecureContext
+              ? "Live camera preview needs HTTPS. Start Camera will use your phone camera."
+              : "Live camera preview is unavailable. Use Start Camera or Upload Photo."
+          );
         }
         return;
       }
@@ -114,7 +121,7 @@ const AssignTask = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [canUseLiveCamera]);
 
   const stopStream = (activeStream) => {
     if (activeStream) {
@@ -140,11 +147,21 @@ const AssignTask = () => {
     return "Camera access failed";
   };
 
+  const triggerNativeCamera = () => {
+    setCameraError("");
+    cameraInputRef.current?.click();
+  };
+
+  const triggerGalleryPicker = () => {
+    setCameraError("");
+    galleryInputRef.current?.click();
+  };
+
   const fetchPersonToMeetOptions = async () => {
     setIsLoadingOptions(true);
     try {
       const data = await fetchPersonsApi();
-      setPersonToMeetOptions(data.data || []);
+      setPersonToMeetOptions(Array.isArray(data) ? data : data?.data || []);
     } catch {
       showToast("Failed to load persons", "error");
     } finally {
@@ -153,13 +170,8 @@ const AssignTask = () => {
   };
 
   const openCamera = async (facingMode) => {
-    if (
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      const message = "Camera is not supported on this device/browser";
-      setCameraError(message);
-      showToast(message, "error");
+    if (!canUseLiveCamera) {
+      triggerNativeCamera();
       return;
     }
 
@@ -211,6 +223,12 @@ const AssignTask = () => {
         const message = getCameraErrorMessage(fallbackError || primaryError);
         setCameraError(message);
         showToast(message, "error");
+        if (
+          (fallbackError?.name || primaryError?.name) === "NotAllowedError" ||
+          (fallbackError?.name || primaryError?.name) === "PermissionDeniedError"
+        ) {
+          triggerNativeCamera();
+        }
       } finally {
         setIsOpeningCamera(false);
       }
@@ -227,6 +245,20 @@ const AssignTask = () => {
 
     const next = currentFacingMode === "user" ? "environment" : "user";
     await openCamera(next);
+  };
+
+  const handlePrimaryCameraAction = () => {
+    if (stream) {
+      capturePhoto();
+      return;
+    }
+
+    if (canUseLiveCamera) {
+      openCamera(currentFacingMode);
+      return;
+    }
+
+    triggerNativeCamera();
   };
 
   const closeCamera = () => {
@@ -281,7 +313,7 @@ const AssignTask = () => {
     );
   };
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = (event, source = "Selected") => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -300,9 +332,9 @@ const AssignTask = () => {
     closeCamera();
     setPhotoFile(file);
     setCapturedPhoto(URL.createObjectURL(file));
-    setPhotoSourceLabel("Selected");
+    setPhotoSourceLabel(source);
     setCameraError("");
-    showToast("Photo selected from gallery!", "success");
+    showToast(source === "Captured" ? "Photo captured!" : "Photo selected from gallery!", "success");
     event.target.value = "";
   };
 
@@ -320,7 +352,11 @@ const AssignTask = () => {
     const shouldReopenCamera = photoSourceLabel === "Captured";
     clearSelectedPhoto();
     if (shouldReopenCamera) {
-      openCamera(currentFacingMode);
+      if (canUseLiveCamera) {
+        openCamera(currentFacingMode);
+      } else {
+        triggerNativeCamera();
+      }
     }
   };
 
@@ -614,16 +650,24 @@ const AssignTask = () => {
                         ) : null}
                       </div>
                       <input
-                        ref={fileInputRef}
+                        ref={cameraInputRef}
                         type="file"
                         accept="image/*"
-                        onChange={handleFileSelect}
+                        capture={currentFacingMode}
+                        onChange={(event) => handleFileSelect(event, "Captured")}
+                        className="hidden"
+                      />
+                      <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => handleFileSelect(event, "Selected")}
                         className="hidden"
                       />
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <button
                           type="button"
-                          onClick={stream ? capturePhoto : () => openCamera(currentFacingMode)}
+                          onClick={handlePrimaryCameraAction}
                           disabled={isOpeningCamera}
                           className="bg-orange-500 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-all transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -632,11 +676,13 @@ const AssignTask = () => {
                             ? "Starting..."
                             : stream
                               ? "Take Photo"
-                              : "Start Camera"}
+                              : canUseLiveCamera
+                                ? "Start Camera"
+                                : "Open Camera"}
                         </button>
                         <button
                           type="button"
-                          onClick={() => fileInputRef.current?.click()}
+                          onClick={triggerGalleryPicker}
                           className="border border-slate-300 bg-white text-slate-700 px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-slate-50"
                         >
                           <FileText className="h-5 w-5" />
@@ -644,7 +690,7 @@ const AssignTask = () => {
                         </button>
                       </div>
                       <p className="mt-3 text-center text-sm text-slate-500">
-                        Live camera ya gallery, dono same visitor photo field me save honge.
+                        Live camera, phone camera ya gallery, tino same visitor photo field me save honge.
                       </p>
                     </div>
                   ) : (

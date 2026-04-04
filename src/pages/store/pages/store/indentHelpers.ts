@@ -5,6 +5,7 @@ export interface IndentRow {
   id?: string | number;
   timestamp?: string;
   requestNumber?: string;
+  indentSeries?: string;
   formType?: string;
   requesterName?: string;
   department?: string;
@@ -49,6 +50,7 @@ export function mapApiRowToIndent(row: Record<string, any>): IndentRow {
     requestNumber:
       safeString(row.request_number, row.requestNumber, row.INDENT_NUMBER) ||
       undefined,
+    indentSeries: safeString(row.indent_series, row.indentSeries) || undefined,
     formType: safeString(row.form_type, row.formType),
     requesterName: safeString(
       row.requester_name,

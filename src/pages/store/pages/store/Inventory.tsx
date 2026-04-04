@@ -31,6 +31,29 @@ type StockRow = {
 
 const PAGE_SIZE = 50;
 
+function MobileStockField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  className?: string;
+}) {
+  const isEmpty = value === null || value === undefined || value === "";
+
+  return (
+    <div className={className}>
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-0.5 break-words text-[13px] font-semibold leading-4 text-slate-800">
+        {isEmpty ? "--" : value}
+      </p>
+    </div>
+  );
+}
+
 function PaginationBar({
   page,
   total,
@@ -52,7 +75,7 @@ function PaginationBar({
   const endIndex = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div className="flex items-center justify-between mt-3 text-sm text-slate-500">
+    <div className="mt-2 flex flex-col gap-1.5 px-1 text-xs text-slate-500 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:px-0 sm:text-sm">
       <span>
         Showing{" "}
         <span className="font-semibold text-slate-700">{startIndex}</span>–
@@ -63,7 +86,7 @@ function PaginationBar({
         records
       </span>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 self-center sm:self-auto">
         <Button
           variant="ghost"
           size="icon"
@@ -233,7 +256,7 @@ export default function Inventory() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6 lg:p-8">
+    <div className="space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-8">
     <style>{dateInputStyle}</style>
     {/* Heading */}
     <Heading
@@ -244,8 +267,8 @@ export default function Inventory() {
     </Heading>
 
     {/* Filters – ONLY date filters */}
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
-      <div className="flex flex-col sm:flex-row gap-4">
+    <div className="mx-1.5 flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:mx-0 sm:flex-row sm:items-end sm:gap-4 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="flex flex-col">
           <label htmlFor="fromDate" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
             From Date
@@ -310,7 +333,7 @@ export default function Inventory() {
         </div>
       </div>
 
-      <div className="flex gap-2 items-center justify-between sm:justify-start">
+      <div className="flex items-center justify-between gap-2 sm:justify-start">
         <Button
           onClick={fetchStock}
           disabled={loading || !fromDate || !toDate}
@@ -337,7 +360,7 @@ export default function Inventory() {
     </div>
 
     {/* Record Count + Error */}
-    <div className="flex justify-between items-center text-sm text-slate-500">
+    <div className="flex flex-col gap-2 px-1.5 text-sm text-slate-500 sm:px-0 sm:flex-row sm:items-center sm:justify-between">
       <p>
         Showing{" "}
         <span className="font-semibold text-slate-700">
@@ -354,7 +377,7 @@ export default function Inventory() {
 
     {/* 🔍 Global Search – table ke upar right me */}
     {allRows.length > 0 && (
-      <div className="flex justify-end mb-2">
+      <div className="mb-2 flex justify-end px-1.5 sm:px-0">
         <div className="w-full sm:w-[400px] md:w-[500px]">
           <Input
             type="text"
@@ -369,8 +392,62 @@ export default function Inventory() {
       </div>
     )}
 
+    <div className="space-y-2 px-1.5 md:hidden">
+      {loading ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+          Loading stock records...
+        </div>
+      ) : pagedRows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+          {allRows.length === 0 ? "Please select dates and click Search to load data" : "No Data Found"}
+        </div>
+      ) : (
+        pagedRows.map((row, index) => (
+          <div
+            key={`${row.itemCode}-${index}`}
+            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  Item Code
+                </p>
+                <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">
+                  {row.itemCode || "--"}
+                </h3>
+              </div>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">
+                #{startIndex + index + 1}
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+              <MobileStockField label="UOM" value={row.uom} />
+              <MobileStockField label="Opening Qty" value={row.openingQty.toLocaleString("en-IN")} />
+              <MobileStockField label="Item Name" value={row.itemName} className="col-span-2" />
+            </div>
+
+            <div className="mt-3 rounded-lg bg-slate-50 px-2.5 py-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                Closing Qty
+              </p>
+              {row.closingQty === 0 ? (
+                <span className="mt-1 inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700">
+                  Out of Stock
+                </span>
+              ) : (
+                <p className="mt-1 text-xl font-black leading-5 text-slate-900">
+                  {row.closingQty.toLocaleString("en-IN")}
+                </p>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+
     {/* NEW TABLE with sticky header */}
-    <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+    <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md md:block">
       <div className="max-h-[70vh] overflow-auto relative">
         <table className="min-w-full text-center border-collapse">
           <thead className="sticky top-0 bg-slate-100 z-20 shadow-sm">
@@ -443,7 +520,7 @@ export default function Inventory() {
     )}
 
     {/* Footer */}
-    <div className="text-[11px] text-slate-400 text-right">
+    <div className="px-1.5 text-right text-[11px] text-slate-400 sm:px-0">
       Oracle stock view · {new Date().toLocaleString()}
     </div>
   </div>

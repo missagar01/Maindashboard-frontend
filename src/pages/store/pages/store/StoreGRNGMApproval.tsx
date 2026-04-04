@@ -23,6 +23,32 @@ type StoreGRNRow = {
     approved_by_gm?: boolean;
 };
 
+function MobileInfoRow({
+    label,
+    value,
+    className,
+    hideIfEmpty = false,
+}: {
+    label: string;
+    value: string | number | null | undefined;
+    className?: string;
+    hideIfEmpty?: boolean;
+}) {
+    const isEmpty = value === null || value === undefined || value === "";
+    if (hideIfEmpty && isEmpty) return null;
+
+    return (
+        <div className={className}>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                {label}
+            </p>
+            <p className="mt-0.5 break-words text-[13px] font-semibold leading-4 text-slate-800">
+                {isEmpty ? "--" : value}
+            </p>
+        </div>
+    );
+}
+
 /* ================= COMPONENT ================= */
 
 export default function StoreGRNGMApproval() {
@@ -149,7 +175,7 @@ export default function StoreGRNGMApproval() {
     /* ================= MAIN RENDER ================= */
 
     return (
-        <div className="w-full p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
+        <div className="mx-auto w-full max-w-[1600px] px-0 py-2 sm:p-4 md:p-6 lg:p-8">
             <Heading
                 heading="GRN – GM Approval"
                 subtext="Pending GM approvals and history"
@@ -158,7 +184,7 @@ export default function StoreGRNGMApproval() {
             </Heading>
 
             {/* TABS & ACTIONS */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-2">
+            <div className="mb-4 flex flex-col justify-between gap-3 border-b px-1.5 pb-2 md:flex-row md:items-center md:px-0">
                 <div className="flex gap-4 overflow-x-auto no-scrollbar">
                     <button
                         onClick={() => setActiveTab("pending")}
@@ -211,12 +237,12 @@ export default function StoreGRNGMApproval() {
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center p-20 gap-4">
+                <div className="flex flex-col items-center justify-center gap-4 px-3 py-10">
                     <Loader2 className="animate-spin text-primary" size={48} />
                     <p className="text-muted-foreground font-medium animate-pulse">Checking GM approvals...</p>
                 </div>
             ) : filteredRows.length === 0 ? (
-                <div className="mx-auto max-w-lg text-center p-16 border-2 border-dashed rounded-3xl bg-gray-50/50 mt-4">
+                <div className="mx-1.5 mt-3 rounded-2xl border-2 border-dashed bg-gray-50/50 px-3 py-8 text-center md:mx-auto md:mt-4 md:max-w-lg md:rounded-3xl md:px-6 md:py-16">
                     <div className="mx-auto w-16 h-16 bg-white shadow-sm rounded-2xl flex items-center justify-center mb-4 text-gray-300">
                         <BadgeCheck size={32} />
                     </div>
@@ -291,53 +317,43 @@ export default function StoreGRNGMApproval() {
                     </div>
 
                     {/* MOBILE CARD VIEW */}
-                    <div className="lg:hidden grid grid-cols-1 gap-2.5 px-1.5">
+                    <div className="space-y-2 px-1.5 lg:hidden">
                         {filteredRows.map((row) => {
                             const isHistory = activeTab === "history";
                             return (
-                                <Card key={row.grn_no} className={`border-l-[6px] ${isHistory ? 'border-l-emerald-500' : 'border-l-purple-500'} border-y-0 border-r-0 shadow-md bg-white overflow-hidden rounded-r-xl active:scale-[0.99] transition-transform font-sans`}>
-                                    <div className="px-3 py-3">
-                                        <div className="flex justify-between items-center gap-2 mb-3">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">GRN NUMBER</span>
-                                                <span className="text-base font-black text-slate-900 leading-none">{row.grn_no}</span>
-                                            </div>
-                                            <div className="shrink-0 scale-90 origin-right">
-                                                {renderAction(row)}
-                                            </div>
+                                <Card key={row.grn_no} className={`overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm ${isHistory ? 'border-l-emerald-500' : 'border-l-purple-500'} border-l-[5px] active:scale-[0.99] transition-transform font-sans`}>
+                                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">GRN Number</p>
+                                            <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">{row.grn_no || "--"}</h3>
                                         </div>
+                                        <div className="shrink-0 scale-90 origin-top-right">
+                                            {renderAction(row)}
+                                        </div>
+                                    </div>
 
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-50">
-                                                <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                                                    <User size={14} />
-                                                </div>
-                                                <span className="text-sm font-bold text-slate-800 line-clamp-1">{row.party_name}</span>
-                                            </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+                                        <MobileInfoRow label="GRN Date" value={formatDate(row.grn_date)} />
+                                        <MobileInfoRow label="Bill No" value={row.party_bill_no} />
+                                        <MobileInfoRow label="Party Name" value={row.party_name} className="col-span-2" />
+                                        <MobileInfoRow label="Planned Time" value={formatDateTime(row.planned_date)} className="col-span-2" />
+                                        <MobileInfoRow label="Bill Amount" value={row.party_bill_amount} hideIfEmpty />
+                                    </div>
 
-                                            <div className="grid grid-cols-2 gap-x-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">GRN Date</span>
-                                                    <span className="text-xs font-bold text-slate-700">{formatDate(row.grn_date)}</span>
-                                                </div>
-                                                <div className="flex flex-col border-l pl-3 border-slate-100">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Bill No</span>
-                                                    <span className="text-xs font-bold text-slate-700">{row.party_bill_no}</span>
-                                                </div>
+                                    <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Status</span>
+                                            <span className="mt-0.5 text-[13px] font-semibold text-slate-800">{isHistory ? "Approved" : "Pending"}</span>
+                                        </div>
+                                        <div className="flex gap-1.5">
+                                            <div title="Admin Approved" className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 shadow-sm">
+                                                <BadgeCheck size={14} />
                                             </div>
-
-                                            <div className="bg-slate-50/80 px-3 py-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Planned Timing</span>
-                                                    <span className="text-[11px] font-black text-slate-900">
-                                                        {formatDateTime(row.planned_date)}
-                                                    </span>
+                                            {row.approved_by_gm && (
+                                                <div title="GM Approved" className="flex h-6 w-6 items-center justify-center rounded-lg border border-purple-200 bg-purple-100 text-purple-600 shadow-sm">
+                                                    <BadgeCheck size={14} />
                                                 </div>
-                                                <div title="Current Status" className="shrink-0 flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-slate-100 shadow-sm">
-                                                    <div className={`w-2 h-2 rounded-full ${isHistory ? 'bg-emerald-500' : 'bg-orange-500'}`} />
-                                                    <span className="text-[9px] font-black uppercase text-slate-500">{isHistory ? 'Approved' : 'Pending'}</span>
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 </Card>

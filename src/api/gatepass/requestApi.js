@@ -5,6 +5,7 @@ export const createVisitRequestApi = async (data) => {
 
     formData.append("visitorName", data.visitorName);
     formData.append("mobileNumber", data.mobileNumber);
+    formData.append("email", data.email || "");
     formData.append("visitorAddress", data.visitorAddress || "");
     formData.append("purposeOfVisit", data.purposeOfVisit || "");
     formData.append("personToMeet", data.personToMeet);

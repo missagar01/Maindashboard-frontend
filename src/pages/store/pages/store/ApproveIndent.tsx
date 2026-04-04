@@ -81,7 +81,7 @@ function PaginationBar({
   }
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-3 text-sm text-muted-foreground">
+    <div className="mt-2 flex flex-col gap-1.5 px-1 text-xs text-muted-foreground sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:px-0 sm:text-sm">
       <span>
         Showing{" "}
         <span className="font-semibold">{startIndex.toLocaleString("en-IN")}</span> –
@@ -89,7 +89,7 @@ function PaginationBar({
         <span className="font-semibold">{totalItems.toLocaleString("en-IN")}</span>
       </span>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 self-center sm:self-auto">
         <Button
           variant="ghost"
           size="icon"
@@ -175,6 +175,145 @@ const formatDateTime = (dateString?: string | null) =>
       second: "2-digit",
     })
     : "";
+
+function MobileInfoRow({
+  label,
+  value,
+  className,
+  hideIfEmpty = false,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  className?: string;
+  hideIfEmpty?: boolean;
+}) {
+  const isEmpty = value === null || value === undefined || value === "";
+  if (hideIfEmpty && isEmpty) return null;
+
+  const displayValue = isEmpty ? "--" : value;
+
+  return (
+    <div className={className}>
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-0.5 break-words text-[13px] font-semibold leading-4 text-slate-800">
+        {displayValue}
+      </p>
+    </div>
+  );
+}
+
+function PendingIndentCard({
+  row,
+  index,
+}: {
+  row: IndentRow;
+  index: number;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+            Pending Indent
+          </p>
+          <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">
+            {row.INDENT_NUMBER || "--"}
+          </h3>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+            S.No
+          </p>
+          <p className="text-sm font-bold leading-4 text-slate-700">{index}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+        <MobileInfoRow label="Planned Time Stamp" value={formatDateTime(row.PLANNEDTIMESTAMP)} />
+        <MobileInfoRow label="Indent Date" value={formatDate(row.INDENT_DATE)} />
+        <MobileInfoRow label="Indenter" value={row.INDENTER_NAME} />
+        <MobileInfoRow label="UOM" value={row.UM} />
+        <MobileInfoRow label="Required Qty" value={row.REQUIRED_QTY} />
+        <MobileInfoRow label="Division" value={row.DIVISION} className="col-span-2" />
+        <MobileInfoRow label="Department" value={row.DEPARTMENT} className="col-span-2" />
+        <MobileInfoRow label="Item Name" value={row.ITEM_NAME} className="col-span-2" />
+        <MobileInfoRow label="Remark" value={row.REMARK} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Specification" value={row.SPECIFICATION} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Cost Project" value={row.COST_PROJECT} className="col-span-2" hideIfEmpty />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-2">
+        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+          Vendor Type
+        </span>
+        <Pill variant="pending">{row.VENDOR_TYPE || "Pending"}</Pill>
+      </div>
+    </div>
+  );
+}
+
+function HistoryIndentCard({
+  row,
+  index,
+}: {
+  row: IndentRow;
+  index: number;
+}) {
+  const pillVariant =
+    row.VENDOR_TYPE === "Reject"
+      ? "reject"
+      : row.VENDOR_TYPE
+        ? "primary"
+        : "secondary";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+            History
+          </p>
+          <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">
+            {row.INDENT_NUMBER || "--"}
+          </h3>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+            S.No
+          </p>
+          <p className="text-sm font-bold leading-4 text-slate-700">{index}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+        <MobileInfoRow label="Planned Time Stamp" value={formatDateTime(row.PLANNEDTIMESTAMP)} />
+        <MobileInfoRow label="Indent Date" value={formatDate(row.INDENT_DATE)} />
+        <MobileInfoRow label="Indenter" value={row.INDENTER_NAME} />
+        <MobileInfoRow label="UOM" value={row.UM} />
+        <MobileInfoRow label="Required Qty" value={row.REQUIRED_QTY} />
+        <MobileInfoRow label="PO No." value={row.PO_NO} hideIfEmpty />
+        <MobileInfoRow label="PO Qty" value={row.PO_QTY} hideIfEmpty />
+        <MobileInfoRow label="Division" value={row.DIVISION} className="col-span-2" />
+        <MobileInfoRow label="Department" value={row.DEPARTMENT} className="col-span-2" />
+        <MobileInfoRow label="Item Name" value={row.ITEM_NAME} className="col-span-2" />
+        <MobileInfoRow label="Remark" value={row.REMARK} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Specification" value={row.SPECIFICATION} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Cost Project" value={row.COST_PROJECT} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Cancelled Date & Time" value={formatDateTime(row.CANCELLEDDATE)} className="col-span-2" hideIfEmpty />
+        <MobileInfoRow label="Cancelled Remark" value={row.CANCELLED_REMARK} className="col-span-2" hideIfEmpty />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-2">
+        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+          Vendor Type
+        </span>
+        <Pill variant={pillVariant}>{row.VENDOR_TYPE || "Pending"}</Pill>
+      </div>
+    </div>
+  );
+}
 
 const schema = z
   .object({
@@ -353,7 +492,7 @@ export default function ApproveIndent() {
   };
 
   return (
-    <div className="w-full p-4 md:p-2 lg:p-2">
+    <div className="w-full px-0 py-2 sm:p-4 md:p-2 lg:p-2">
       <Tabs defaultValue="pending">
         <Heading heading="Approve Indent" subtext="Approve or Reject Indents" tabs>
           <ClipboardCheck size={50} className="text-primary" />
@@ -366,7 +505,7 @@ export default function ApproveIndent() {
 
         {/* Pending Tab */}
         <TabsContent value="pending">
-          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-2 flex flex-col gap-2 px-1.5 sm:px-0 sm:flex-row sm:items-center sm:justify-between">
             <Input
               placeholder="Search: Indent / Item / Dept / Indenter"
               value={pendingSearch}
@@ -395,7 +534,30 @@ export default function ApproveIndent() {
             </Button>
           </div>
 
-          <div className="relative w-full">
+          <div className="space-y-2 px-1.5 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader size={16} />
+                  Loading...
+                </div>
+              </div>
+            ) : pendingPageRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-400 shadow-sm">
+                No Pending Indents Found
+              </div>
+            ) : (
+              pendingPageRows.map((row, index) => (
+                <PendingIndentCard
+                  key={row.INDENT_NUMBER + index}
+                  row={row}
+                  index={pendingStartIndex + index + 1}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="relative hidden w-full md:block">
             <div className="max-h-[calc(100vh-350px)] overflow-y-auto border rounded-xl bg-white shadow-sm">
               <table className="min-w-[1400px] text-xs border-collapse">
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
@@ -477,7 +639,7 @@ export default function ApproveIndent() {
 
         {/* History Tab */}
         <TabsContent value="history">
-          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-2 flex flex-col gap-2 px-1.5 sm:px-0 sm:flex-row sm:items-center sm:justify-between">
             <Input
               placeholder="Search: Indent / Item / Dept / Indenter"
               value={historySearch}
@@ -506,7 +668,30 @@ export default function ApproveIndent() {
             </Button>
           </div>
 
-          <div className="relative w-full">
+          <div className="space-y-2 px-1.5 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader size={16} />
+                  Loading...
+                </div>
+              </div>
+            ) : historyPageRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-400 shadow-sm">
+                No History Indents Found
+              </div>
+            ) : (
+              historyPageRows.map((row, index) => (
+                <HistoryIndentCard
+                  key={row.INDENT_NUMBER + index}
+                  row={row}
+                  index={historyStartIndex + index + 1}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="relative hidden w-full md:block">
             <div className="max-h-[calc(100vh-350px)] overflow-y-auto border rounded-xl bg-white shadow-sm">
               <table className="min-w-[1600px] text-xs border-collapse">
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">

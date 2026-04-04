@@ -41,6 +41,34 @@ type StoreIssueData = {
 
 const ITEMS_PER_PAGE = 50;
 
+function MobileField({
+    label,
+    value,
+    className,
+    hideIfEmpty = false,
+}: {
+    label: string;
+    value: string | number | null | undefined;
+    className?: string;
+    hideIfEmpty?: boolean;
+}) {
+    const isEmpty = value === null || value === undefined || value === "";
+    if (hideIfEmpty && isEmpty) return null;
+
+    const displayValue = isEmpty ? "--" : value;
+
+    return (
+        <div className={className}>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                {label}
+            </p>
+            <p className="mt-0.5 break-words text-[13px] font-semibold leading-4 text-slate-800 dark:text-slate-100">
+                {displayValue}
+            </p>
+        </div>
+    );
+}
+
 const StoreIssue = () => {
     const [issues, setIssues] = useState<StoreIssueData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -184,7 +212,7 @@ const StoreIssue = () => {
     };
 
     return (
-        <div className="w-full p-4 md:p-2 lg:p-0 space-y-6">
+        <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-2 lg:p-0">
             <style>{dateInputStyle}</style>
             <Heading
                 heading="Store Issue"
@@ -194,9 +222,9 @@ const StoreIssue = () => {
             </Heading>
 
             {/* ADVANCED FILTER BAR */}
-            <Card className="border-0 shadow-lg shadow-slate-200/50 dark:shadow-none dark:border dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 overflow-visible">
-                <CardContent className="p-1">
-                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <Card className="overflow-visible rounded-2xl border-0 bg-white shadow-lg shadow-slate-200/50 dark:border dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+                <CardContent className="p-2 sm:p-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
                         {/* Search */}
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Universal Search</label>
@@ -302,7 +330,7 @@ const StoreIssue = () => {
                 </CardContent>
             </Card>
 
-            <div className="flex items-center justify-between px-2">
+            <div className="flex flex-col gap-2 px-1.5 sm:px-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm font-bold text-slate-500">
                     Showing <span className="text-indigo-600">{filteredIssues.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredIssues.length)}</span> of <span className="text-slate-900 dark:text-white">{filteredIssues.length}</span> results
                 </div>
@@ -334,7 +362,68 @@ const StoreIssue = () => {
                 )}
             </div>
 
-            <Card className="border-0 shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
+            <div className="space-y-2 px-1.5 md:hidden">
+                {loading ? (
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div className="flex flex-col items-center gap-3">
+                            <Loader2 className="animate-spin text-indigo-600" size={40} />
+                            <span className="text-slate-400 font-bold tracking-widest uppercase text-[10px]">
+                                Synchronizing...
+                            </span>
+                        </div>
+                    </div>
+                ) : paginatedIssues.length > 0 ? (
+                    paginatedIssues.map((issue, idx) => (
+                        <div
+                            key={idx}
+                            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                        >
+                            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                        Store Issue
+                                    </p>
+                                    <h3 className="mt-1 text-lg font-black leading-5 text-slate-900 dark:text-slate-100">
+                                        {issue.VRNO || "--"}
+                                    </h3>
+                                </div>
+                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                    {formatDate(issue.VRDATE)}
+                                </span>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+                                <MobileField label="Division" value={issue.DIVISION} />
+                                <MobileField label="Requester" value={issue.REQUESTER} />
+                                <MobileField label="Department" value={issue.DEPARTMENT} className="col-span-2" />
+                                <MobileField label="Item Code" value={issue.ITEM_CODE} />
+                                <MobileField label="Item Name" value={issue.ITEM_NAME} className="col-span-2" />
+                                <MobileField label="Purpose" value={issue.PURPOSE || "No purpose specified"} className="col-span-2" />
+                            </div>
+
+                            <div className="mt-3 rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-950">
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                    Qty Issued
+                                </p>
+                                <p className="mt-1 text-xl font-black leading-5 text-slate-900 dark:text-white">
+                                    {issue.QTYISSUED.toLocaleString("en-IN")}
+                                </p>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div className="flex flex-col items-center gap-2 opacity-30">
+                            <Search size={40} className="text-slate-400" />
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                No matching records found
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <Card className="hidden overflow-hidden rounded-2xl border-0 bg-white shadow-xl shadow-slate-200/40 dark:border dark:border-slate-800 dark:bg-slate-900 dark:shadow-none md:block">
                 <CardContent className="p-0">
                     <div className="overflow-x-auto min-h-[400px]">
                         <table className="w-full text-sm text-left border-collapse">
@@ -453,8 +542,8 @@ const StoreIssue = () => {
 
             {/* LOWER PAGINATION */}
             {totalPages > 1 && (
-                <div className="flex justify-center pt-2">
-                    <nav className="flex items-center gap-1 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                <div className="flex justify-center px-1.5 pt-1">
+                    <nav className="flex w-full flex-wrap items-center justify-center gap-1 rounded-xl border border-slate-100 bg-white p-2 shadow-xl shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none sm:w-auto sm:rounded-2xl">
                         <Button
                             variant="ghost"
                             size="sm"
