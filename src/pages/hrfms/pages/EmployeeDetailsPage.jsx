@@ -10,7 +10,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay 
 import { getEmployeeFullDetails } from '../../../api/hrfms/dashboardApi';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
+import { extractUploadedFileValues, getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
 
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
     const [error, setError] = useState(false);
@@ -89,6 +89,8 @@ const EmployeeDetailsPage = () => {
     if (!data) return null;
 
     const attendanceRate = ((data.attendanceSummary.present / (data.attendanceSummary.total || 1)) * 100).toFixed(1);
+    const profileImageUrl = resolveUploadedFileUrl(data.profile.profile_img);
+    const profileDocuments = extractUploadedFileValues(data.profile.document_img);
 
     return (
         <div className="min-h-screen bg-[#f8fafc] w-full pb-10 overflow-x-hidden">
@@ -142,7 +144,7 @@ const EmployeeDetailsPage = () => {
                                 <div className="w-28 h-28 rounded-[1.8rem] bg-gradient-to-tr from-indigo-500 to-purple-500 p-1 shadow-xl">
                                     <div className="w-full h-full bg-white rounded-[1.6rem] p-1 transition-transform hover:scale-105 duration-500 overflow-hidden">
                                         <ImageWithFallback
-                                            src={resolveUploadedFileUrl(data.profile.profile_img)}
+                                            src={profileImageUrl}
                                             alt="Profile"
                                             className="w-full h-full object-cover rounded-[1.3rem]"
                                             fallbackIcon={User}
@@ -240,7 +242,7 @@ const EmployeeDetailsPage = () => {
                         </div>
 
                         {/* Document Quick Access - Updated for Multiple Documents & PDF */}
-                        {data.profile.document_img && (Array.isArray(data.profile.document_img) ? data.profile.document_img : [data.profile.document_img]).length > 0 && (
+                        {profileDocuments.length > 0 && (
                             <div className="bg-white rounded-[1.5rem] p-4 shadow-lg shadow-gray-200/40 border border-gray-100 overflow-hidden relative group">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400"></div>
                                 <div className="flex items-center justify-between mb-4">
@@ -248,15 +250,15 @@ const EmployeeDetailsPage = () => {
                                         <FileText size={14} className="text-emerald-500" /> System Verification Documents
                                     </h4>
                                     <span className="px-2 py-0.5 bg-gray-50 rounded text-[8px] font-black text-gray-400 uppercase">
-                                        {(Array.isArray(data.profile.document_img) ? data.profile.document_img : [data.profile.document_img]).length} Files
+                                        {profileDocuments.length} Files
                                     </span>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(Array.isArray(data.profile.document_img) ? data.profile.document_img : [data.profile.document_img]).map((url, idx) => {
+                                    {profileDocuments.map((url, idx) => {
                                         const resolvedUrl = resolveUploadedFileUrl(url);
-                                        const isPdf = isPdfFileUrl(url);
-                                        const fileName = getFileNameFromUrl(url).split('-').pop(); // Show cleaner name
+                                        const isPdf = isPdfFileUrl(url) || isPdfFileUrl(resolvedUrl);
+                                        const fileName = (getFileNameFromUrl(url) || getFileNameFromUrl(resolvedUrl)).split('-').pop(); // Show cleaner name
 
                                         return (
                                             <div key={idx} className="relative rounded-xl overflow-hidden bg-gray-50 group/doc border border-gray-100 transition-all hover:border-emerald-200 shadow-sm">

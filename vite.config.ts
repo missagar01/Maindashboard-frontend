@@ -52,6 +52,11 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        "/uploads": {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+          secure: env.VITE_API_BASE_URL?.startsWith("https"),
+        },
       },
     },
   };

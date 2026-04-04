@@ -4,7 +4,7 @@ import { Building, Edit3, Mail, Phone, Save, User, X, Hash, Shield, Briefcase, C
 import toast from 'react-hot-toast';
 import { getEmployeeById, updateEmployee } from '../../../api/hrfms/employeeApi';
 import { useAuth } from '../../../context/AuthContext';
-import { getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
+import { extractUploadedFileValues, getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
 
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
   const [error, setError] = useState(false);
@@ -35,11 +35,14 @@ const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: Fallbac
 
 const buildDocumentPreview = (url) => {
   const resolvedUrl = resolveUploadedFileUrl(url);
+  const fileName = getFileNameFromUrl(url) || getFileNameFromUrl(resolvedUrl);
+  const isPdf = isPdfFileUrl(url) || isPdfFileUrl(resolvedUrl) || fileName.toLowerCase().endsWith('.pdf');
+
   return {
     url: resolvedUrl,
     sourceUrl: url,
-    name: getFileNameFromUrl(url),
-    type: isPdfFileUrl(url) ? 'application/pdf' : 'image/jpeg',
+    name: fileName,
+    type: isPdf ? 'application/pdf' : 'image/jpeg',
     isExisting: true
   };
 };
@@ -81,7 +84,7 @@ const MyProfile = () => {
         setPreviewProfileImg(resolveUploadedFileUrl(profile.profile_img));
       }
       if (profile.document_img && (!isEditing || previewDocuments.length === 0)) {
-        const docs = Array.isArray(profile.document_img) ? profile.document_img : [profile.document_img];
+        const docs = extractUploadedFileValues(profile.document_img);
         setPreviewDocuments(docs.map(buildDocumentPreview));
       }
 
@@ -218,7 +221,7 @@ const MyProfile = () => {
       if (updatedProfile.profile_img) setPreviewProfileImg(resolveUploadedFileUrl(updatedProfile.profile_img));
 
       if (updatedProfile.document_img) {
-        const docs = Array.isArray(updatedProfile.document_img) ? updatedProfile.document_img : [updatedProfile.document_img];
+        const docs = extractUploadedFileValues(updatedProfile.document_img);
         setPreviewDocuments(docs.map(buildDocumentPreview));
       } else {
         setPreviewDocuments([]);
@@ -248,7 +251,7 @@ const MyProfile = () => {
     });
 
     if (profileData?.document_img) {
-      const docs = Array.isArray(profileData.document_img) ? profileData.document_img : [profileData.document_img];
+      const docs = extractUploadedFileValues(profileData.document_img);
       setPreviewDocuments(docs.map(buildDocumentPreview));
     } else {
       setPreviewDocuments([]);
