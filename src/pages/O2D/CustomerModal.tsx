@@ -7,13 +7,14 @@ interface CustomerModalProps {
     isOpen: boolean;
     onClose: () => void;
     customerToEdit: any;
-    onSuccess: () => void;
+    onSuccess: (message: string) => void | Promise<void>;
 }
 
 const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customerToEdit, onSuccess }) => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [marketingUsers, setMarketingUsers] = useState<any[]>([]);
+    const [submitError, setSubmitError] = useState('');
     const [formData, setFormData] = useState({
         "Client Name": '',
         "City": '',
@@ -27,6 +28,8 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
     useEffect(() => {
         if (!isOpen) return;
+        setSubmitError('');
+
         (async () => {
             try {
                 const res = await o2dAPI.getMarketingUsers();
@@ -56,16 +59,21 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
         }
     }, [isOpen, customerToEdit, user]);
 
-    const handleChange = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
+    const handleChange = (key: string, value: string) => {
+        setSubmitError('');
+        setFormData(prev => ({ ...prev, [key]: value }));
+    };
     const handleSalesPersonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedId = e.target.value;
         const selectedUser = marketingUsers.find(u => String(u.id) === selectedId);
+        setSubmitError('');
         setFormData(prev => ({ ...prev, "sales_person_id": selectedId, "Sales Person": selectedUser?.user_name || '' }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setSubmitError('');
         const payload = {
             client_name: formData["Client Name"], city: formData["City"],
             contact_person: formData["Contact Person"], contact_details: formData["Contact Details"],
@@ -75,8 +83,11 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
         try {
             if (customerToEdit) await o2dAPI.updateClient(customerToEdit.id, payload);
             else await o2dAPI.createClient(payload);
-            onSuccess(); onClose();
-        } catch { alert('Failed to save customer'); }
+            await onSuccess(customerToEdit ? 'Customer updated successfully.' : 'Customer added successfully.');
+            onClose();
+        } catch (error: any) {
+            setSubmitError(error?.response?.data?.message || error?.message || 'Failed to save customer.');
+        }
         finally { setLoading(false); }
     };
 
@@ -107,6 +118,11 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
 
                 {/* Body */}
                 <form onSubmit={handleSubmit} id="customer-form" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:space-y-5 sm:p-6">
+                    {submitError && (
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-semibold text-rose-700 sm:px-4">
+                            {submitError}
+                        </div>
+                    )}
 
                     {/* Client Name */}
                     <div>

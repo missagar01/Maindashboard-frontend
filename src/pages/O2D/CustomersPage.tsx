@@ -23,6 +23,11 @@ interface MarketingUser {
     user_name: string;
 }
 
+interface PageMessage {
+    type: 'success' | 'error';
+    text: string;
+}
+
 const CustomersPage: React.FC = () => {
     const { user } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,6 +41,7 @@ const CustomersPage: React.FC = () => {
     const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [visibleCount, setVisibleCount] = useState(100);
+    const [pageMessage, setPageMessage] = useState<PageMessage | null>(null);
 
     const fetchData = async () => {
         setLoading(true); setError('');
@@ -58,6 +64,11 @@ const CustomersPage: React.FC = () => {
 
     useEffect(() => { fetchData(); }, []);
     useEffect(() => { setVisibleCount(100); }, [search, salesPersonFilterId]);
+    useEffect(() => {
+        if (!pageMessage) return;
+        const timer = window.setTimeout(() => setPageMessage(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [pageMessage]);
 
     const filteredCustomers = useMemo(() => {
         const lower = search.toLowerCase();
@@ -90,7 +101,22 @@ const CustomersPage: React.FC = () => {
 
     const handleDelete = async (id: number) => {
         if (!window.confirm('Delete this customer?')) return;
-        try { await o2dAPI.deleteClient(String(id)); fetchData(); } catch { alert('Failed to delete'); }
+        setPageMessage(null);
+        try {
+            await o2dAPI.deleteClient(String(id));
+            await fetchData();
+            setPageMessage({ type: 'success', text: 'Customer deleted successfully.' });
+        } catch (error: any) {
+            setPageMessage({
+                type: 'error',
+                text: error?.response?.data?.message || error?.message || 'Failed to delete customer.'
+            });
+        }
+    };
+
+    const handleCustomerSuccess = async (message: string) => {
+        await fetchData();
+        setPageMessage({ type: 'success', text: message });
     };
 
     return (
@@ -138,6 +164,17 @@ const CustomersPage: React.FC = () => {
                         {marketingUsers.map(u => <option key={u.id} value={String(u.id)}>{u.user_name}</option>)}
                     </select>
                 </div>
+
+                {pageMessage && (
+                    <div className="px-3 pb-3 sm:px-5">
+                        <div className={`rounded-xl border px-3 py-2 text-xs font-semibold sm:text-sm ${pageMessage.type === 'success'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-rose-200 bg-rose-50 text-rose-700'
+                            }`}>
+                            {pageMessage.text}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── Content ── */}
@@ -230,7 +267,7 @@ const CustomersPage: React.FC = () => {
                 isOpen={isCustomerModalOpen}
                 onClose={() => setIsCustomerModalOpen(false)}
                 customerToEdit={customerToEdit}
-                onSuccess={fetchData}
+                onSuccess={handleCustomerSuccess}
             />
             <FollowUpModal
                 isOpen={isFollowUpModalOpen}
