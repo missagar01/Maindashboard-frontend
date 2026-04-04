@@ -567,43 +567,62 @@ export default function UserIndent() {
     }
   };
 
-  return (
-    <div className="w-full p-4 md:p-6 lg:p-8">
-      <div className="px-4 md:px-6 lg:px-8 mb-6">
-        <Heading
-          heading="User Indent Form"
-          subtext="Create a new Store/Purchase Indent or Requisition"
-        >
-          <ClipboardList size={50} className="text-primary" />
-        </Heading>
-      </div>
+  const selectClassName =
+    "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  const inputClassName = "h-11 rounded-xl border-slate-200 bg-white text-sm";
+  const readOnlyInputClassName =
+    "h-11 rounded-xl border-slate-200 bg-slate-100 text-sm font-medium text-slate-700";
+  const textAreaClassName =
+    "min-h-[92px] rounded-xl border-slate-200 bg-white text-sm";
 
-      <div className="px-4 md:px-6 lg:px-8">
+  return (
+    <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-8">
+      <Heading
+        heading="User Indent Form"
+        subtext="Create a new Store/Purchase Indent or Requisition"
+      >
+        <ClipboardList size={50} className="text-primary" />
+      </Heading>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 md:p-8">
         <Form {...form}>
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-8 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100"
+            className="space-y-5"
           >
-            {/* Header */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Department */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    Indent Setup
+                  </p>
+                  <h2 className="mt-1 text-base font-black text-slate-900">
+                    Fill the request header first
+                  </h2>
+                </div>
+                <div className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">
+                  {itemCount} Item{itemCount > 1 ? "s" : ""}
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Fields marked with <span className="font-semibold text-red-500">*</span> are required.
+              </p>
+            </div>
 
-
-              {/* Form Type */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <FormField
                 control={control}
                 name="formType"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>Form Type</FormLabel>
                     <FormControl>
                       <select
                         {...field}
-                        className="border border-gray-300 rounded-md h-10 px-3 text-sm w-full bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={selectClassName}
                         onChange={(e) => {
                           const v = e.target.value as 'INDENT' | 'REQUISITION' | '';
                           field.onChange(v);
-                          // reset indentSeries & division when form type changes
                           setValue('indentSeries', '');
                           setValue('division', '');
                         }}
@@ -622,10 +641,10 @@ export default function UserIndent() {
                 control={control}
                 name="requesterName"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>User Name</FormLabel>
                     <FormControl>
-                      <Input {...field} readOnly className="bg-gray-100" />
+                      <Input {...field} readOnly className={readOnlyInputClassName} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -635,13 +654,13 @@ export default function UserIndent() {
                 control={control}
                 name="department"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>Department</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         readOnly
-                        className="bg-gray-100"
+                        className={readOnlyInputClassName}
                       />
                     </FormControl>
                   </FormItem>
@@ -653,13 +672,13 @@ export default function UserIndent() {
                 control={control}
                 name="hod"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>Head of Department (HOD)</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         readOnly
-                        className="bg-gray-100 cursor-not-allowed"
+                        className={readOnlyInputClassName}
                         placeholder="Auto from department"
                       />
                     </FormControl>
@@ -672,12 +691,12 @@ export default function UserIndent() {
                 control={control}
                 name="indentSeries"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>{formType === 'REQUISITION' ? 'Requisition Series' : 'Indent Series'}</FormLabel>
                     <FormControl>
                       <select
                         {...field}
-                        className="border border-gray-300 rounded-md h-10 px-3 text-sm w-full bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={selectClassName}
                       >
                         <option value="">
                           {formType === 'REQUISITION'
@@ -712,13 +731,13 @@ export default function UserIndent() {
                 control={control}
                 name="division"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1.5">
                     <FormLabel>Division</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         readOnly
-                        className="bg-gray-100 cursor-not-allowed"
+                        className={readOnlyInputClassName}
                         placeholder="Auto from series"
                       />
                     </FormControl>
@@ -727,34 +746,72 @@ export default function UserIndent() {
               />
             </div>
 
-            {/* Items */}
-            <div className="space-y-6">
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="border rounded-xl p-4 bg-slate-50 space-y-4"
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    Item Details
+                  </p>
+                  <h3 className="mt-1 text-base font-black text-slate-900">
+                    Add requested products
+                  </h3>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl sm:w-auto"
+                  onClick={() =>
+                    append({
+                      category: '',
+                      productName: '',
+                      itemCode: '',
+                      uom: '',
+                      requestQty: '',
+                      make: '',
+                      specification: '',
+                      purpose: '',
+                      costLocation: '',
+                      stock: '0',
+                    })
+                  }
                 >
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium text-sm">Item {index + 1}</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      disabled={itemCount === 1}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
+                  <Plus size={16} />
+                  Add Product
+                </Button>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Product Name */}
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4 md:p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          Line Item
+                        </p>
+                        <p className="mt-1 text-base font-black text-slate-900">Item {index + 1}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => remove(index)}
+                        disabled={itemCount === 1}
+                        className="shrink-0 rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <FormField
                       control={control}
                       name={`items.${index}.productName`}
                       render={() => {
                         return (
-                          <FormItem>
+                          <FormItem className="space-y-1.5">
                             <FormLabel className="flex items-center gap-1">
                               Product Name
                               <span className="text-red-500">*</span>
@@ -791,14 +848,14 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.category`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Group Name</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               readOnly
                               placeholder="Auto-filled from product"
-                              className="bg-gray-100 cursor-not-allowed"
+                              className={readOnlyInputClassName}
                             />
                           </FormControl>
                         </FormItem>
@@ -810,13 +867,13 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.itemCode`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Item Code</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               readOnly
-                              className="bg-gray-100"
+                              className={readOnlyInputClassName}
                             />
                           </FormControl>
                         </FormItem>
@@ -828,7 +885,7 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.uom`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel className="flex items-center gap-1">
                             UOM
                             <span className="text-red-500">*</span>
@@ -850,7 +907,7 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.requestQty`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel className="flex items-center gap-1">
                             Required Qty
                             <span className="text-red-500">*</span>
@@ -861,6 +918,7 @@ export default function UserIndent() {
                               {...field}
                               placeholder="Enter Qty"
                               min="1"
+                              className={inputClassName}
                             />
                           </FormControl>
                         </FormItem>
@@ -872,10 +930,10 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.make`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Make / Brand</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Enter Brand" />
+                            <Input {...field} placeholder="Enter Brand" className={inputClassName} />
                           </FormControl>
                         </FormItem>
                       )}
@@ -886,14 +944,14 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.stock`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Current Stock (Closing Qty)</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Input
                                 {...field}
                                 readOnly
-                                className={`bg-gray-100 font-semibold ${Number(field.value) === 0 ? "text-red-600" : "text-green-600"
+                                className={`${readOnlyInputClassName} font-semibold ${Number(field.value) === 0 ? "text-red-600" : "text-green-600"
                                   }`}
                               />
                               {loadingStock && (
@@ -912,7 +970,7 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.costLocation`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Cost / Project Location</FormLabel>
                           <FormControl>
                             <ComboBox
@@ -932,19 +990,19 @@ export default function UserIndent() {
                     />
                   </div>
 
-                  {/* Specification + Purpose */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <FormField
                       control={control}
                       name={`items.${index}.specification`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Specification</FormLabel>
                           <FormControl>
                             <Textarea
                               {...field}
-                              rows={2}
+                              rows={3}
                               placeholder="Enter technical spec"
+                              className={textAreaClassName}
                             />
                           </FormControl>
                         </FormItem>
@@ -954,28 +1012,29 @@ export default function UserIndent() {
                       control={control}
                       name={`items.${index}.purpose`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1.5">
                           <FormLabel>Purpose / Place of Use</FormLabel>
                           <FormControl>
                             <Textarea
                               {...field}
-                              rows={2}
+                              rows={3}
                               placeholder="Enter purpose / use"
+                              className={textAreaClassName}
                             />
                           </FormControl>
                         </FormItem>
                       )}
                     />
                   </div>
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4">
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-10"
+                className="w-full rounded-xl bg-blue-600 px-10 text-white hover:bg-blue-700 sm:w-auto"
                 disabled={submitting}
               >
                 {submitting ? (
@@ -990,7 +1049,7 @@ export default function UserIndent() {
               <Button
                 type="button"
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex w-full items-center gap-2 rounded-xl sm:w-auto"
                 onClick={() =>
                   append({
                     category: '',
@@ -1002,6 +1061,7 @@ export default function UserIndent() {
                     specification: '',
                     purpose: '',
                     costLocation: '',
+                    stock: '0',
                   })
                 }
               >

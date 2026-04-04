@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, ClipboardCheck, Search } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
-import Heading from "../../components/element/Heading";
+import { storeApi } from "@/api/store/storeSystemApi";
+import { useAuth } from "../../../../context/AuthContext";
 import DataTable from "../../components/element/DataTable";
-import { Input } from "../../components/ui/input";
+import Heading from "../../components/element/Heading";
+import { Button } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import { storeApi } from "@/api/store/storeSystemApi";
-import { Button } from "../../components/ui/button";
-import { useAuth } from "../../../../context/AuthContext";
+import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 type IndentRow = {
@@ -37,54 +37,128 @@ type IndentRow = {
   gmStatus?: "APPROVED" | "REJECTED" | "PENDING" | "";
 };
 
+const PAGE_SIZE = 50;
+
 const mapApiRowToIndent = (rec: Record<string, unknown>): IndentRow => {
   const normalizeStatus = (val: unknown): IndentRow["status"] => {
     if (typeof val !== "string") return "";
     const upper = val.toUpperCase();
-    if (upper === "APPROVED" || upper === "REJECTED" || upper === "PENDING") {
-      return upper as IndentRow["status"];
-    }
-    return "";
+    return upper === "APPROVED" || upper === "REJECTED" || upper === "PENDING"
+      ? (upper as IndentRow["status"])
+      : "";
   };
 
   return {
-    id: rec["id"] ? String(rec["id"]) : undefined,
+    id: rec.id ? String(rec.id) : undefined,
     timestamp:
-      (rec["sample_timestamp"] as string) ??
-      (rec["timestamp"] as string) ??
-      (rec["created_at"] as string) ??
-      (rec["createdAt"] as string) ??
+      (rec.sample_timestamp as string) ??
+      (rec.timestamp as string) ??
+      (rec.created_at as string) ??
+      (rec.createdAt as string) ??
       "",
-    requestNumber:
-      (rec["request_number"] as string) ??
-      (rec["requestNumber"] as string) ??
-      "",
-    requesterName:
-      (rec["requester_name"] as string) ??
-      (rec["requesterName"] as string) ??
-      "",
-    department: (rec["department"] as string) ?? "",
-    indentSeries:
-      (rec["indent_series"] as string) ?? (rec["indentSeries"] as string) ?? "",
-    division: (rec["division"] as string) ?? "",
-    itemCode: (rec["item_code"] as string) ?? (rec["itemCode"] as string) ?? "",
-    productName:
-      (rec["product_name"] as string) ?? (rec["productName"] as string) ?? "",
-    requestQty:
-      Number(rec["request_qty"] ?? rec["requestQty"] ?? 0) ||
-      Number(rec["quantity"] ?? 0),
-    uom: (rec["uom"] as string) ?? "",
-    costLocation:
-      (rec["cost_location"] as string) ??
-      (rec["costLocation"] as string) ??
-      "",
-    formType: (rec["form_type"] as string) ?? (rec["formType"] as string) ?? "",
-    status: normalizeStatus(rec["request_status"]),
-    gmStatus: normalizeStatus(rec["gm_approval"]),
+    requestNumber: (rec.request_number as string) ?? (rec.requestNumber as string) ?? "",
+    requesterName: (rec.requester_name as string) ?? (rec.requesterName as string) ?? "",
+    department: (rec.department as string) ?? "",
+    indentSeries: (rec.indent_series as string) ?? (rec.indentSeries as string) ?? "",
+    division: (rec.division as string) ?? "",
+    itemCode: (rec.item_code as string) ?? (rec.itemCode as string) ?? "",
+    productName: (rec.product_name as string) ?? (rec.productName as string) ?? "",
+    requestQty: Number(rec.request_qty ?? rec.requestQty ?? 0) || Number(rec.quantity ?? 0),
+    uom: (rec.uom as string) ?? "",
+    costLocation: (rec.cost_location as string) ?? (rec.costLocation as string) ?? "",
+    formType: (rec.form_type as string) ?? (rec.formType as string) ?? "",
+    status: normalizeStatus(rec.request_status),
+    gmStatus: normalizeStatus(rec.gm_approval),
   };
 };
 
+const formatTimestamp = (timestamp?: string) => {
+  if (!timestamp) return "--";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getStatusClassName = (status?: string) => {
+  const value = (status || "").toUpperCase();
+  if (value === "APPROVED") return "bg-emerald-50 text-emerald-700";
+  if (value === "REJECTED") return "bg-rose-50 text-rose-700";
+  return "bg-blue-50 text-blue-700";
+};
+
+const filterRows = (rows: IndentRow[], searchText: string) => {
+  const query = searchText.trim().toLowerCase();
+  if (!query) return rows;
+  return rows.filter((row) =>
+    [
+      row.requestNumber,
+      row.formType,
+      row.indentSeries,
+      row.requesterName,
+      row.department,
+      row.division,
+      row.itemCode,
+      row.productName,
+      row.requestQty,
+      row.uom,
+      row.costLocation,
+      row.status,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query)
+  );
+};
+
+function MobileInfoRow({
+  label,
+  value,
+  className,
+  hideIfEmpty = false,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  className?: string;
+  hideIfEmpty?: boolean;
+}) {
+  const isEmpty = value === null || value === undefined || value === "";
+  if (hideIfEmpty && isEmpty) return null;
+  return (
+    <div className={className}>
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-0.5 break-words text-[13px] font-semibold leading-4 text-slate-800">{isEmpty ? "--" : value}</p>
+    </div>
+  );
+}
+
+function PaginationBar({ page, total, onChange }: { page: number; total: number; onChange: (page: number) => void }) {
+  if (!total) return null;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const startIndex = (page - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(page * PAGE_SIZE, total);
+  const pages = totalPages <= 3 ? Array.from({ length: totalPages }, (_, i) => i + 1) : page <= 2 ? [1, 2, 3] : page >= totalPages - 1 ? [totalPages - 2, totalPages - 1, totalPages] : [page - 1, page, page + 1];
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 px-1.5 text-xs text-slate-500 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:px-0 sm:text-sm">
+      <span>Showing <span className="font-semibold text-slate-700">{startIndex}</span>-<span className="font-semibold text-slate-700">{endIndex}</span> of <span className="font-semibold text-slate-700">{total.toLocaleString("en-IN")}</span></span>
+      <div className="flex items-center gap-1 self-center sm:self-auto">
+        <Button variant="ghost" size="icon" onClick={() => onChange(page - 1)} disabled={page === 1}><ChevronLeft className="h-4 w-4" /></Button>
+        {pages.map((p) => <Button key={p} variant={p === page ? "default" : "outline"} size="icon" onClick={() => onChange(p)} disabled={p === page}>{p}</Button>)}
+        <Button variant="ghost" size="icon" onClick={() => onChange(page + 1)} disabled={page === totalPages}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ApprowIndentData() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<IndentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [indentNumber, setIndentNumber] = useState("");
@@ -94,6 +168,10 @@ export default function ApprowIndentData() {
   const [saving, setSaving] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [itemStocks, setItemStocks] = useState<Record<string, number>>({});
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const [pendingPage, setPendingPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
 
   const canSave = useMemo(
     () =>
@@ -107,42 +185,29 @@ export default function ApprowIndentData() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
 
     const fetchIndents = async () => {
       try {
+        setLoading(true);
         const res = await storeApi.getAllIndents();
         if (!active) return;
-        const raw = Array.isArray((res as any)?.data)
-          ? (res as any).data
+
+        const raw = Array.isArray((res as { data?: unknown[] })?.data)
+          ? (res as { data: unknown[] }).data
           : Array.isArray(res)
-            ? (res as any)
+            ? res
             : [];
-        const mapped = raw.map((rec: Record<string, unknown>) =>
-          mapApiRowToIndent(rec)
-        );
+        const mapped = raw.map((rec: Record<string, unknown>) => mapApiRowToIndent(rec));
         setRows(mapped);
 
-        if (mapped.length > 0) {
-          const sorted = [...mapped].sort(
-            (a, b) =>
-              Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")
-          );
-          const latest = sorted.find(
-            (r) => (r.requestNumber || "").trim() !== ""
-          );
-          if (latest?.requestNumber) setIndentNumber(latest.requestNumber);
-          if (latest?.requesterName) setHeaderRequesterName(latest.requesterName);
-        }
+        const latest = mapped.find((row) => (row.requestNumber || "").trim() !== "");
+        if (latest?.requestNumber) setIndentNumber(latest.requestNumber);
+        if (latest?.requesterName) setHeaderRequesterName(latest.requesterName);
       } catch (err) {
         console.error("Failed to load indents", err);
-        if (active) {
-          toast.error("Failed to load indent list");
-        }
+        if (active) toast.error("Failed to load indent list");
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
 
@@ -156,28 +221,25 @@ export default function ApprowIndentData() {
     const fetchStockData = async () => {
       try {
         const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, "0");
-        const d = String(today.getDate()).padStart(2, "0");
-        const todayFormatted = `${d}-${m}-${y}`;
-
+        const todayFormatted = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
         const res = await storeApi.getStock(todayFormatted, todayFormatted);
-        let dataArray: any[] = [];
+        let dataArray: Record<string, unknown>[] = [];
+
         if (Array.isArray(res)) {
           dataArray = res;
         } else if (res && typeof res === "object") {
-          const r = res as any;
-          if (Array.isArray(r.data)) {
-            dataArray = r.data;
-          } else if (r.data?.data && Array.isArray(r.data.data)) {
-            dataArray = r.data.data;
+          const response = res as { data?: Record<string, unknown>[] | { data?: Record<string, unknown>[] } };
+          if (Array.isArray(response.data)) {
+            dataArray = response.data;
+          } else if (Array.isArray(response.data?.data)) {
+            dataArray = response.data.data;
           }
         }
 
         const stockMap: Record<string, number> = {};
-        dataArray.forEach((r: any) => {
-          const code = String(r.COL1 ?? r.itemCode ?? "").trim();
-          const qty = Number(r.COL5 ?? r.closingQty ?? 0);
+        dataArray.forEach((item) => {
+          const code = String(item.COL1 ?? item.itemCode ?? "").trim();
+          const qty = Number(item.COL5 ?? item.closingQty ?? 0);
           if (code) stockMap[code] = qty;
         });
         setItemStocks(stockMap);
@@ -189,143 +251,140 @@ export default function ApprowIndentData() {
     fetchStockData();
   }, []);
 
-  const { user } = useAuth();
-
-  const pendingRows = useMemo(
+  const basePendingRows = useMemo(
     () =>
-      rows.filter((r) => {
-        const status = (r.status || "").toUpperCase();
-        const formType = (r.formType || "").toUpperCase();
-
-        // Strictly only show if status is PENDING
-        const isPending = status === "PENDING";
-        const isAllowedType = formType === "INDENT" || formType === "REQUISITION";
-
-        if (!isPending || !isAllowedType) return false;
-
+      rows.filter((row) => {
+        const status = (row.status || "").toUpperCase();
+        const formType = (row.formType || "").toUpperCase();
         const role = String(user?.role || "").toUpperCase();
         const userDept = (user?.user_access || user?.department || "").toUpperCase();
 
-        const canSeeAll = role === "ADMIN" || role === "USER";
-        if (!canSeeAll && userDept) {
-          return (r.department || "").toUpperCase() === userDept;
-        }
+        if (status !== "PENDING") return false;
+        if (!(formType === "INDENT" || formType === "REQUISITION")) return false;
 
-        return true;
+        const canSeeAll = role === "ADMIN" || role === "USER";
+        return !canSeeAll && userDept
+          ? (row.department || "").toUpperCase() === userDept
+          : true;
       }),
     [rows, user]
   );
 
-  const historyRows = useMemo(
+  const baseHistoryRows = useMemo(
     () =>
-      rows.filter((r) => {
-        const status = (r.status || "").toUpperCase();
-        const formType = (r.formType || "").toUpperCase();
-
-        // Show processing history (APPROVED or REJECTED by HOD)
-        const isProcessed = status === "APPROVED" || status === "REJECTED";
-        const isAllowedType = formType === "INDENT" || formType === "REQUISITION";
-
-        if (!isProcessed || !isAllowedType) return false;
-
+      rows.filter((row) => {
+        const status = (row.status || "").toUpperCase();
+        const formType = (row.formType || "").toUpperCase();
         const role = String(user?.role || "").toUpperCase();
         const userDept = (user?.user_access || user?.department || "").toUpperCase();
 
-        const canSeeAll = role === "ADMIN" || role === "USER";
-        if (!canSeeAll && userDept) {
-          return (r.department || "").toUpperCase() === userDept;
-        }
+        if (!(status === "APPROVED" || status === "REJECTED")) return false;
+        if (!(formType === "INDENT" || formType === "REQUISITION")) return false;
 
-        return true;
+        const canSeeAll = role === "ADMIN" || role === "USER";
+        return !canSeeAll && userDept
+          ? (row.department || "").toUpperCase() === userDept
+          : true;
       }),
     [rows, user]
   );
+
+  const pendingRows = useMemo(() => filterRows(basePendingRows, pendingSearch), [basePendingRows, pendingSearch]);
+  const historyRows = useMemo(() => filterRows(baseHistoryRows, historySearch), [baseHistoryRows, historySearch]);
+  const pendingTotal = pendingRows.length;
+  const historyTotal = historyRows.length;
+  const pendingCurrentPage = Math.min(pendingPage, Math.max(1, Math.ceil(pendingTotal / PAGE_SIZE)));
+  const historyCurrentPage = Math.min(historyPage, Math.max(1, Math.ceil(historyTotal / PAGE_SIZE)));
+  const pendingStartIndex = (pendingCurrentPage - 1) * PAGE_SIZE;
+  const historyStartIndex = (historyCurrentPage - 1) * PAGE_SIZE;
+  const pendingPageRows = pendingRows.slice(pendingStartIndex, pendingStartIndex + PAGE_SIZE);
+  const historyPageRows = historyRows.slice(historyStartIndex, historyStartIndex + PAGE_SIZE);
 
   const fetchRequestItems = useCallback(async (requestNo: string) => {
     const res = await storeApi.getIndent(requestNo);
-    const payload = (res as any)?.data ?? res;
-    const list = Array.isArray(payload)
-      ? payload
-      : payload
-        ? [payload]
-        : [];
+    const payload = (res as { data?: unknown[] }).data ?? res;
+    const list = Array.isArray(payload) ? payload : payload ? [payload] : [];
     return list.map((rec: Record<string, unknown>) => mapApiRowToIndent(rec));
   }, []);
 
   const handleProcess = useCallback(
-    (row: IndentRow) => {
-      const rn = row.requestNumber || "";
-      if (!rn) {
+    async (row: IndentRow) => {
+      const requestNo = row.requestNumber || "";
+      if (!requestNo) {
         toast.error("Request number unavailable for this row");
         return;
       }
 
-      setIndentNumber(rn);
+      setIndentNumber(requestNo);
       setHeaderRequesterName(row.requesterName || "");
-      setModalItems([row]);
+      setModalItems([]);
+      setDetailsLoading(true);
       setOpenEdit(true);
-    },
-    []
-  );
 
-  const commonColumns: ColumnDef<IndentRow>[] = [
-    {
-      accessorKey: "timestamp",
-      header: "Timestamp",
-      cell: ({ row }) => {
-        const timestamp = row.original.timestamp;
-        if (!timestamp) return "";
-        const date = new Date(timestamp);
-        return date.toLocaleString("en-IN", {
-          timeZone: "Asia/Kolkata",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      },
-    },
-    { accessorKey: "requestNumber", header: "Request No." },
-    { accessorKey: "formType", header: "Form Type" },
-    { accessorKey: "indentSeries", header: "Series" },
-    { accessorKey: "requesterName", header: "Requester" },
-    { accessorKey: "department", header: "Department" },
-    { accessorKey: "division", header: "Division" },
-    { accessorKey: "itemCode", header: "Item Code" },
-    { accessorKey: "productName", header: "Product" },
-    { accessorKey: "uom", header: "UOM" },
-    {
-      accessorKey: "itemCode",
-      header: "Stock",
-      id: "stock_col",
-      cell: ({ row }) => {
-        const code = row.original.itemCode || "";
-        const stock = itemStocks[code];
-        if (stock === undefined) return <span className="text-gray-400">-</span>;
-        return (
-          <span className={stock <= 0 ? "text-red-600 font-bold" : "text-green-600 font-medium"}>
-            {stock}
-          </span>
-        );
+      try {
+        const details = await fetchRequestItems(requestNo);
+        setModalItems(details.length ? details : [row]);
+      } catch (err) {
+        console.error("Failed to fetch indent details", err);
+        toast.error("Failed to fetch indent details");
+        setOpenEdit(false);
+      } finally {
+        setDetailsLoading(false);
       }
     },
-    { accessorKey: "requestQty", header: "Qty" },
-    { accessorKey: "costLocation", header: "Cost Location" },
-  ];
+    [fetchRequestItems]
+  );
 
-  const pendingColumns: ColumnDef<IndentRow>[] = useMemo(
+  const renderStatus = (status?: string) => (
+    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${getStatusClassName(status)}`}>
+      {status || "Pending"}
+    </span>
+  );
+
+  const commonColumns = useMemo<ColumnDef<IndentRow>[]>(
+    () => [
+      {
+        accessorKey: "timestamp",
+        header: "Timestamp",
+        cell: ({ row }) => formatTimestamp(row.original.timestamp),
+      },
+      { accessorKey: "requestNumber", header: "Request No." },
+      { accessorKey: "formType", header: "Form Type" },
+      { accessorKey: "indentSeries", header: "Series" },
+      { accessorKey: "requesterName", header: "Requester" },
+      { accessorKey: "department", header: "Department" },
+      { accessorKey: "division", header: "Division" },
+      { accessorKey: "itemCode", header: "Item Code" },
+      { accessorKey: "productName", header: "Product" },
+      { accessorKey: "uom", header: "UOM" },
+      {
+        accessorKey: "itemCode",
+        header: "Stock",
+        id: "stock_col",
+        cell: ({ row }) => {
+          const stock = itemStocks[row.original.itemCode || ""];
+          if (stock === undefined) return <span className="text-gray-400">-</span>;
+          return <span className={stock <= 0 ? "font-bold text-red-600" : "font-medium text-green-600"}>{stock}</span>;
+        },
+      },
+      { accessorKey: "requestQty", header: "Qty" },
+      { accessorKey: "costLocation", header: "Cost Location" },
+    ],
+    [itemStocks]
+  );
+
+  const pendingColumns = useMemo<ColumnDef<IndentRow>[]>(
     () => [
       {
         id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2 justify-center">
+          <div className="flex justify-center">
             <Button
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={(e) => {
-                e.preventDefault();
+              className="bg-blue-600 text-white hover:bg-blue-700"
+              onClick={(event) => {
+                event.preventDefault();
                 handleProcess(row.original);
               }}
             >
@@ -336,18 +395,20 @@ export default function ApprowIndentData() {
       },
       ...commonColumns,
     ],
-    [handleProcess]
+    [commonColumns, handleProcess]
   );
 
-  const historyColumns: ColumnDef<IndentRow>[] = useMemo(
-    () => [...commonColumns],
-    []
+  const historyColumns = useMemo<ColumnDef<IndentRow>[]>(
+    () => [
+      ...commonColumns,
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => renderStatus(row.original.status),
+      },
+    ],
+    [commonColumns]
   );
-
-  function selectFromRow(r: IndentRow) {
-    setIndentNumber(r.requestNumber || "");
-    setHeaderRequesterName(r.requesterName || "");
-  }
 
   const onSaveEdit = async () => {
     if (!indentNumber) {
@@ -367,27 +428,22 @@ export default function ApprowIndentData() {
         item_code: item.itemCode,
         request_qty: Number(item.requestQty ?? 0),
         approved_quantity: Number(item.requestQty ?? 0),
-        request_status: (() => {
-          const status = (item.status ?? "").toUpperCase();
-          return status || "PENDING";
-        })(),
+        request_status: (item.status ?? "").toUpperCase() || "PENDING",
       }));
 
       await storeApi.updateIndentStatus(indentNumber, { items: payload });
 
-      // Update rows and filter out approved/rejected items
-      setRows((prev) => {
-        return prev.map((p) => {
-          const updated = modalItems.find((m) => m.id === p.id);
-          if (updated) {
-            return {
-              ...p,
-              status: (updated.status ?? "").toUpperCase() as "APPROVED" | "REJECTED" | "PENDING" | "",
-            };
-          }
-          return p;
-        });
-      });
+      setRows((prev) =>
+        prev.map((row) => {
+          const updated = modalItems.find((item) => item.id === row.id);
+          return updated
+            ? {
+                ...row,
+                status: ((updated.status ?? "").toUpperCase() as IndentRow["status"]) || "PENDING",
+              }
+            : row;
+        })
+      );
 
       toast.success("Indent status updated");
       setOpenEdit(false);
@@ -399,170 +455,271 @@ export default function ApprowIndentData() {
     }
   };
 
+  const renderPendingCard = (row: IndentRow, index: number) => {
+    const stock = itemStocks[row.itemCode || ""];
+    return (
+      <div key={`${row.requestNumber}-${row.itemCode}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Request No.</p>
+            <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">{row.requestNumber || "--"}</h3>
+          </div>
+          <Button
+            size="sm"
+            className="shrink-0 bg-blue-600 text-white hover:bg-blue-700"
+            onClick={(event) => {
+              event.preventDefault();
+              handleProcess(row);
+            }}
+          >
+            Process
+          </Button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+          <MobileInfoRow label="Timestamp" value={formatTimestamp(row.timestamp)} />
+          <MobileInfoRow label="Qty" value={row.requestQty} />
+          <MobileInfoRow label="Requester" value={row.requesterName} />
+          <MobileInfoRow label="UOM" value={row.uom} />
+          <MobileInfoRow label="Form Type" value={row.formType} />
+          <MobileInfoRow label="Series" value={row.indentSeries} hideIfEmpty />
+          <MobileInfoRow label="Item Code" value={row.itemCode} />
+          <MobileInfoRow label="Stock" value={stock ?? "-"} />
+          <MobileInfoRow label="Department" value={row.department} className="col-span-2" />
+          <MobileInfoRow label="Division" value={row.division} className="col-span-2" />
+          <MobileInfoRow label="Product" value={row.productName} className="col-span-2" />
+          <MobileInfoRow label="Cost Location" value={row.costLocation} className="col-span-2" hideIfEmpty />
+        </div>
+
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Status</span>
+          {renderStatus(row.status)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderHistoryCard = (row: IndentRow, index: number) => {
+    const stock = itemStocks[row.itemCode || ""];
+    return (
+      <div key={`${row.requestNumber}-${row.itemCode}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Processed Request</p>
+            <h3 className="mt-1 text-lg font-black leading-5 text-slate-900">{row.requestNumber || "--"}</h3>
+          </div>
+          <div className="shrink-0">{renderStatus(row.status)}</div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+          <MobileInfoRow label="Timestamp" value={formatTimestamp(row.timestamp)} />
+          <MobileInfoRow label="Qty" value={row.requestQty} />
+          <MobileInfoRow label="Requester" value={row.requesterName} />
+          <MobileInfoRow label="UOM" value={row.uom} />
+          <MobileInfoRow label="Form Type" value={row.formType} />
+          <MobileInfoRow label="Series" value={row.indentSeries} hideIfEmpty />
+          <MobileInfoRow label="Item Code" value={row.itemCode} />
+          <MobileInfoRow label="Stock" value={stock ?? "-"} />
+          <MobileInfoRow label="Department" value={row.department} className="col-span-2" />
+          <MobileInfoRow label="Division" value={row.division} className="col-span-2" />
+          <MobileInfoRow label="Product" value={row.productName} className="col-span-2" />
+          <MobileInfoRow label="Cost Location" value={row.costLocation} className="col-span-2" hideIfEmpty />
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8">
-      <Heading
-        heading="Approve Indent HOD"
-        subtext="View Indent sheet and select a row to fill inputs"
-      >
+    <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-8">
+      <Heading heading="Approve Indent HOD" subtext="View indent sheet and process HOD approvals">
         <ClipboardCheck size={50} className="text-primary" />
       </Heading>
 
-      <div className="mt-4">
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="active">Active Indents ({pendingRows.length})</TabsTrigger>
-            <TabsTrigger value="history">History ({historyRows.length})</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 px-1.5 sm:px-0">
+          <TabsTrigger value="active">Active Indents ({basePendingRows.length})</TabsTrigger>
+          <TabsTrigger value="history">History ({baseHistoryRows.length})</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="active">
-            <DataTable
-              data={pendingRows}
-              columns={pendingColumns}
-              dataLoading={loading}
-              className="h-[70dvh]"
-            />
-            <p className="text-sm text-muted-foreground mt-2">
-              Tip: Click a row, then use Edit to open all items for that request number.
-            </p>
-          </TabsContent>
+        <TabsContent value="active" className="mt-3">
+          <div className="flex flex-col gap-2 px-1.5 sm:px-0">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={pendingSearch}
+                onChange={(event) => {
+                  setPendingSearch(event.target.value);
+                  setPendingPage(1);
+                }}
+                placeholder="Search request / requester / item..."
+                className="pl-9"
+              />
+            </div>
+            <div className="text-sm font-semibold text-slate-500">
+              Showing <span className="text-slate-800">{pendingTotal.toLocaleString("en-IN")}</span> records
+            </div>
+          </div>
 
-          <TabsContent value="history">
-            <DataTable
-              data={historyRows}
-              columns={historyColumns}
-              dataLoading={loading}
-              className="h-[70dvh]"
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+          <div className="space-y-2 px-1.5 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                Loading active indents...
+              </div>
+            ) : pendingPageRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                No active indents found.
+              </div>
+            ) : (
+              pendingPageRows.map(renderPendingCard)
+            )}
+          </div>
 
-      <RowClickBinder rows={pendingRows} onPick={selectFromRow} />
+          <div className="hidden md:block">
+            <DataTable data={pendingPageRows} columns={pendingColumns} searchFields={[]} dataLoading={loading} className="h-[70dvh]" />
+          </div>
+
+          <p className="mt-2 px-1.5 text-sm text-muted-foreground sm:px-0">
+            Tip: Use Process to open all items for that request number.
+          </p>
+          <PaginationBar page={pendingCurrentPage} total={pendingTotal} onChange={(page) => setPendingPage(Math.max(1, page))} />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-3">
+          <div className="flex flex-col gap-2 px-1.5 sm:px-0">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={historySearch}
+                onChange={(event) => {
+                  setHistorySearch(event.target.value);
+                  setHistoryPage(1);
+                }}
+                placeholder="Search processed request / requester / item..."
+                className="pl-9"
+              />
+            </div>
+            <div className="text-sm font-semibold text-slate-500">
+              Showing <span className="text-slate-800">{historyTotal.toLocaleString("en-IN")}</span> records
+            </div>
+          </div>
+
+          <div className="space-y-2 px-1.5 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                Loading processed indents...
+              </div>
+            ) : historyPageRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-sm text-slate-500 shadow-sm">
+                No processed indents found.
+              </div>
+            ) : (
+              historyPageRows.map(renderHistoryCard)
+            )}
+          </div>
+
+          <div className="hidden md:block">
+            <DataTable data={historyPageRows} columns={historyColumns} searchFields={[]} dataLoading={loading} className="h-[70dvh]" />
+          </div>
+
+          <PaginationBar page={historyCurrentPage} total={historyTotal} onChange={(page) => setHistoryPage(Math.max(1, page))} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto bg-white sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit / Approve Items</DialogTitle>
-            <DialogDescription>
-              Update quantity and mark items approved / rejected.
-            </DialogDescription>
+            <DialogDescription>Update quantity and mark items approved or rejected.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm mb-1">Request Number</label>
+              <label className="mb-1 block text-sm">Request Number</label>
               <Input readOnly value={indentNumber} />
             </div>
             <div>
-              <label className="block text-sm mb-1">Requester Name</label>
+              <label className="mb-1 block text-sm">Requester Name</label>
               <Input readOnly value={headerRequesterName} />
             </div>
           </div>
 
-          <div className="border rounded-md overflow-auto">
-            <table className="w-full text-sm min-w-[640px]">
+          <div className="overflow-auto rounded-md border">
+            <table className="min-w-[640px] w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="text-left px-2 py-2">Item Code</th>
-                  <th className="text-left px-2 py-2">Item Name</th>
-                  <th className="text-left px-2 py-2">UOM</th>
-                  <th className="text-left px-2 py-2">Stock</th>
-                  <th className="text-left px-2 py-2 w-24">Qty</th>
-                  <th className="text-left px-2 py-2">Status</th>
-                  <th className="text-left px-2 py-2">Actions</th>
+                  <th className="px-2 py-2 text-left">Item Code</th>
+                  <th className="px-2 py-2 text-left">Item Name</th>
+                  <th className="px-2 py-2 text-left">UOM</th>
+                  <th className="px-2 py-2 text-left">Stock</th>
+                  <th className="w-24 px-2 py-2 text-left">Qty</th>
+                  <th className="px-2 py-2 text-left">Status</th>
+                  <th className="px-2 py-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {detailsLoading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted-foreground">
-                      Loading items...
-                    </td>
+                    <td colSpan={7} className="py-4 text-center text-muted-foreground">Loading items...</td>
                   </tr>
                 ) : modalItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted-foreground">
-                      No items for this request.
-                    </td>
+                    <td colSpan={7} className="py-4 text-center text-muted-foreground">No items for this request.</td>
                   </tr>
                 ) : (
                   modalItems.map((item, idx) => (
-                    <tr key={idx} className="border-t">
+                    <tr key={`${item.itemCode}-${idx}`} className="border-t">
                       <td className="px-2 py-1">{item.itemCode}</td>
                       <td className="px-2 py-1">{item.productName}</td>
                       <td className="px-2 py-1">{item.uom}</td>
                       <td className="px-2 py-1">
                         {itemStocks[item.itemCode || ""] !== undefined ? (
-                          <span className={Number(itemStocks[item.itemCode || ""]) <= 0 ? "text-red-600 font-bold" : "text-green-600 font-medium"}>
+                          <span className={Number(itemStocks[item.itemCode || ""]) <= 0 ? "font-bold text-red-600" : "font-medium text-green-600"}>
                             {itemStocks[item.itemCode || ""]}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-2 py-1 w-24">
+                      <td className="w-24 px-2 py-1">
                         <Input
                           type="number"
-                          value={
-                            typeof item.requestQty === "number"
-                              ? item.requestQty
-                              : item.requestQty || ""
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
+                          value={typeof item.requestQty === "number" ? item.requestQty : item.requestQty || ""}
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setModalItems((prev) =>
-                              prev.map((m, i) =>
-                                i === idx
-                                  ? { ...m, requestQty: val ? Number(val) : 0 }
-                                  : m
+                              prev.map((row, rowIndex) =>
+                                rowIndex === idx ? { ...row, requestQty: value ? Number(value) : 0 } : row
                               )
                             );
                           }}
                         />
                       </td>
                       <td className="px-2 py-1">
-                        {item.status ? (
-                          <span
-                            className={
-                              item.status === "APPROVED"
-                                ? "text-green-600 font-medium"
-                                : "text-red-600 font-medium"
-                            }
-                          >
-                            {item.status}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Pending</span>
-                        )}
+                        {item.status ? renderStatus(item.status) : <span className="text-xs text-muted-foreground">Pending</span>}
                       </td>
                       <td className="px-2 py-1">
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-sm"
+                            className="bg-green-600 text-white hover:bg-green-700"
                             onClick={() =>
                               setModalItems((prev) =>
-                                prev.map((m, i) =>
-                                  i === idx ? { ...m, status: "APPROVED" } : m
-                                )
+                                prev.map((row, rowIndex) => (rowIndex === idx ? { ...row, status: "APPROVED" } : row))
                               )
                             }
                           >
-                            ✓ Approve
+                            Approve
                           </Button>
                           <Button
                             size="sm"
-                            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-sm"
+                            className="bg-red-600 text-white hover:bg-red-700"
                             onClick={() =>
                               setModalItems((prev) =>
-                                prev.map((m, i) =>
-                                  i === idx ? { ...m, status: "REJECTED" } : m
-                                )
+                                prev.map((row, rowIndex) => (rowIndex === idx ? { ...row, status: "REJECTED" } : row))
                               )
                             }
                           >
-                            ✕ Reject
+                            Reject
                           </Button>
                         </div>
                       </td>
@@ -576,9 +733,8 @@ export default function ApprowIndentData() {
           <DialogFooter className="mt-4 flex gap-3">
             <Button
               variant="outline"
-              className="px-4 py-2"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={(event) => {
+                event.preventDefault();
                 setOpenEdit(false);
               }}
               disabled={saving}
@@ -586,43 +742,18 @@ export default function ApprowIndentData() {
               Cancel
             </Button>
             <Button
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-              onClick={(e) => {
-                e.preventDefault();
+              className="bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+              onClick={(event) => {
+                event.preventDefault();
                 onSaveEdit();
               }}
               disabled={saving || !canSave}
             >
-              {saving ? "Saving…" : "💾 Save Changes"}
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
-
-function RowClickBinder({
-  rows,
-  onPick,
-}: {
-  rows: IndentRow[];
-  onPick: (row: IndentRow) => void;
-}) {
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      const tr = target.closest("tr");
-      if (!tr) return;
-      const firstCell = tr.querySelector("td, th");
-      const text = (firstCell?.textContent || "").trim();
-      if (!text) return;
-      const match = rows.find((r) => (r.requestNumber || "") === text);
-      if (match) onPick(match);
-    }
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, [rows, onPick]);
-  return null;
 }

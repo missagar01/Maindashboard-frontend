@@ -47,6 +47,7 @@ import HRFMSLeaveManagerApproval from "./pages/hrfms/pages/LeaveManagerApproval"
 import HRFMSLeaveHrApproval from "./pages/hrfms/pages/LeaveHrApproval";
 import HRFMSCommercialHeadApproval from "./pages/hrfms/pages/CommercialHeadApproval";
 import HRFMSEmployeeDetails from "./pages/hrfms/pages/EmployeeDetailsPage";
+import HRFMSEmployeeCreate from "./pages/hrfms/pages/EmployeeCreate";
 import HRFMSRequestCreate from "./pages/hrfms/pages/RequestCreate";
 import HRFMSTicketCreate from "./pages/hrfms/pages/TicketCreate";
 import HRFMSTravelStatus from "./pages/hrfms/pages/TravelStatus";
@@ -214,6 +215,7 @@ export default function App() {
             <Route path="/hrfms/leave-approvals" element={<RouteGuard><HRFMSLeaveManagerApproval /></RouteGuard>} />
             <Route path="/hrfms/leave-hr-approvals" element={<RouteGuard><HRFMSLeaveHrApproval /></RouteGuard>} />
             <Route path="/hrfms/commercial-head-approval" element={<RouteGuard><HRFMSCommercialHeadApproval /></RouteGuard>} />
+            <Route path="/hrfms/employee-create" element={<RouteGuard><HRFMSEmployeeCreate /></RouteGuard>} />
             <Route path="/hrfms/employee-details/:employeeId" element={<RouteGuard><HRFMSEmployeeDetails /></RouteGuard>} />
             <Route path="/hrfms/requests" element={<RouteGuard><HRFMSRequestCreate /></RouteGuard>} />
             <Route path="/hrfms/tickets" element={<RouteGuard><HRFMSTicketCreate /></RouteGuard>} />

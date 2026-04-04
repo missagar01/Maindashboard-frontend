@@ -221,6 +221,7 @@ const hrmsSection: SidebarSection = {
   nodes: [
     { kind: "link", key: "hrms-dashboard", name: "Dashboard", path: "/hrfms/dashboard", icon: LayoutDashboard },
     { kind: "link", key: "hrms-profile", name: "My Profile", path: "/hrfms/my-profile", icon: Users },
+    { kind: "link", key: "hrms-employee-create", name: "Employee", path: "/hrfms/employee-create", icon: Users },
     { kind: "link", key: "hrms-manpower-request", name: "MainPower Request", path: "/hrfms/resume-request", icon: FileText },
     { kind: "link", key: "hrms-manpower-list", name: "MainPower List", path: "/hrfms/resume-list", icon: Files },
     { kind: "link", key: "hrms-travel-request", name: "Travel Request", path: "/hrfms/requests", icon: FileText },
@@ -230,6 +231,7 @@ const hrmsSection: SidebarSection = {
     { kind: "link", key: "hrms-leave-request", name: "Leave Request", path: "/hrfms/leave-request", icon: FileText },
     { kind: "link", key: "hrms-leave-approvals", name: "Leave Approvals", path: "/hrfms/leave-approvals", icon: BadgeCheck },
     { kind: "link", key: "hrms-hr-approvals", name: "HR Approvals", path: "/hrfms/leave-hr-approvals", icon: BadgeCheck },
+   
     { kind: "link", key: "hrms-plant-visitor", name: "Plant Visitor", path: "/hrfms/plant-visitor", icon: ShieldCheck },
     { kind: "link", key: "hrms-plant-visitor-list", name: "Plant Visitor List", path: "/hrfms/plant-visitorlist", icon: Files },
     { kind: "link", key: "hrms-gatepass-apply", name: "Gate Pass Apply", path: "/hrfms/gatepass-apply", icon: ShieldCheck },

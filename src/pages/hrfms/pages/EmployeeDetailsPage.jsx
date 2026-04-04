@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAutoSync } from '../hooks/useAutoSync';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Mail, Phone, Building, Briefcase,
@@ -67,8 +66,6 @@ const EmployeeDetailsPage = () => {
             if (!isAutoSync) setLoading(false);
         }
     }, [employeeId, token, navigate]);
-
-    useAutoSync(fetchDetails, 15000);
 
     useEffect(() => {
         fetchDetails();
