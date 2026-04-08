@@ -20,6 +20,134 @@ import {
 import { createVisitRequestApi, fetchVisitorByMobileApi } from "../../../api/gatepass/requestApi";
 import { fetchPersonsApi } from "../../../api/gatepass/personApi";
 
+const MAX_VISITOR_PHOTO_DIMENSION = 1280;
+const TARGET_VISITOR_PHOTO_SIZE_BYTES = 900 * 1024;
+const DEFAULT_JPEG_QUALITY = 0.82;
+const MIN_JPEG_QUALITY = 0.55;
+
+const getScaledDimensions = (width, height) => {
+  const longestSide = Math.max(width, height);
+
+  if (!longestSide || longestSide <= MAX_VISITOR_PHOTO_DIMENSION) {
+    return { width, height };
+  }
+
+  const scale = MAX_VISITOR_PHOTO_DIMENSION / longestSide;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+const canvasToBlob = (canvas, type, quality) =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Image conversion failed"));
+          return;
+        }
+
+        resolve(blob);
+      },
+      type,
+      quality
+    );
+  });
+
+const optimizeCanvasToVisitorFile = async (sourceCanvas, fileName) => {
+  const { width, height } = getScaledDimensions(
+    sourceCanvas.width,
+    sourceCanvas.height
+  );
+  const optimizedCanvas = document.createElement("canvas");
+  optimizedCanvas.width = width;
+  optimizedCanvas.height = height;
+
+  const context = optimizedCanvas.getContext("2d");
+  if (!context) {
+    throw new Error("Image processing is not supported on this browser");
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(sourceCanvas, 0, 0, width, height);
+
+  let quality = DEFAULT_JPEG_QUALITY;
+  let blob = await canvasToBlob(optimizedCanvas, "image/jpeg", quality);
+
+  while (
+    blob.size > TARGET_VISITOR_PHOTO_SIZE_BYTES &&
+    quality > MIN_JPEG_QUALITY
+  ) {
+    quality = Number(Math.max(MIN_JPEG_QUALITY, quality - 0.08).toFixed(2));
+    blob = await canvasToBlob(optimizedCanvas, "image/jpeg", quality);
+  }
+
+  const safeBaseName = String(fileName || `visitor_${Date.now()}`)
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^\w-]+/g, "_");
+
+  return new File([blob], `${safeBaseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+};
+
+const loadImageFromFile = (file) =>
+  new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Selected image could not be processed"));
+    };
+
+    image.src = objectUrl;
+  });
+
+const optimizeSelectedImageFile = async (file) => {
+  const image = await loadImageFromFile(file);
+  const canvas = document.createElement("canvas");
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Image processing is not supported on this browser");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return optimizeCanvasToVisitorFile(canvas, file.name);
+};
+
+const getRequestErrorMessage = (error) => {
+  const status = error?.response?.status;
+  const responseMessage =
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message;
+
+  if (status === 413) {
+    return "Photo is too large. Please retake it or use a smaller image.";
+  }
+
+  if (typeof responseMessage === "string" && responseMessage.trim()) {
+    return responseMessage;
+  }
+
+  return "Submission failed";
+};
+
 const AssignTask = () => {
   const navigate = useNavigate();
 
@@ -58,6 +186,17 @@ const AssignTask = () => {
     dateOfVisit: "",
     timeOfEntry: "",
   });
+
+  const applySelectedPhoto = (file, source) => {
+    if (capturedPhoto) {
+      URL.revokeObjectURL(capturedPhoto);
+    }
+
+    setPhotoFile(file);
+    setCapturedPhoto(URL.createObjectURL(file));
+    setPhotoSourceLabel(source);
+    setCameraError("");
+  };
 
   useEffect(() => {
     streamRef.current = stream;
@@ -288,32 +427,34 @@ const AssignTask = () => {
     ctx.drawImage(videoRef.current, 0, 0);
 
     canvas.toBlob(
-      (blob) => {
+      async (blob) => {
         if (!blob) {
           showToast("Photo capture failed", "error");
           return;
         }
 
-        if (capturedPhoto) {
-          URL.revokeObjectURL(capturedPhoto);
-        }
+        try {
+          const file = await optimizeCanvasToVisitorFile(
+            canvas,
+            `visitor_${Date.now()}.jpg`
+          );
 
-        const file = new File([blob], `visitor_${Date.now()}.jpg`, {
-          type: "image/jpeg",
-        });
-        setPhotoFile(file);
-        setCapturedPhoto(URL.createObjectURL(file));
-        setPhotoSourceLabel("Captured");
-        setCameraError("");
-        closeCamera();
-        showToast("Photo captured!", "success");
+          applySelectedPhoto(file, "Captured");
+          closeCamera();
+          showToast("Photo captured!", "success");
+        } catch (error) {
+          showToast(
+            error?.message || "Photo capture failed",
+            "error"
+          );
+        }
       },
       "image/jpeg",
       0.9
     );
   };
 
-  const handleFileSelect = (event, source = "Selected") => {
+  const handleFileSelect = async (event, source = "Selected") => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -325,17 +466,25 @@ const AssignTask = () => {
       return;
     }
 
-    if (capturedPhoto) {
-      URL.revokeObjectURL(capturedPhoto);
-    }
+    try {
+      const optimizedFile = await optimizeSelectedImageFile(file);
 
-    closeCamera();
-    setPhotoFile(file);
-    setCapturedPhoto(URL.createObjectURL(file));
-    setPhotoSourceLabel(source);
-    setCameraError("");
-    showToast(source === "Captured" ? "Photo captured!" : "Photo selected from gallery!", "success");
-    event.target.value = "";
+      closeCamera();
+      applySelectedPhoto(optimizedFile, source);
+      showToast(
+        source === "Captured"
+          ? "Photo captured!"
+          : "Photo selected from gallery!",
+        "success"
+      );
+    } catch (error) {
+      showToast(
+        error?.message || "Selected image could not be processed",
+        "error"
+      );
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const clearSelectedPhoto = () => {
@@ -436,8 +585,8 @@ const AssignTask = () => {
 
       showToast("Visitor registered successfully!", "success");
       setTimeout(() => navigate("/gatepass/approvals"), 1000);
-    } catch {
-      showToast("Submission failed", "error");
+    } catch (error) {
+      showToast(getRequestErrorMessage(error), "error");
     } finally {
       setIsSubmitting(false);
     }

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchVisitsForApprovalApi, updateVisitApprovalApi } from '../../../api/gatepass/approvalApi'
 import { formatDateIN, formatTimeIN } from "../utils/dateUtils";
 import { User, Phone, Calendar, Clock, MapPin, Eye, XCircle, CheckCircle, LogOut, ChevronLeft, ChevronRight, Hash, UserCheck, Shield } from "lucide-react";
+import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 
 const VisitorManagement = () => {
     const { user } = useAuth()
@@ -143,13 +144,7 @@ const VisitorManagement = () => {
         const [showImageModal, setShowImageModal] = useState(false);
 
         const getImageUrl = (image) => {
-            if (!image) return "/user.png";
-
-            if (typeof image === "string" && image.startsWith("http")) {
-                return image;
-            }
-
-            return `${import.meta.env.VITE_API_BASE_URL}/uploads/${image}`;
+            return resolveUploadedFileUrl(image) || "/user.png";
         };
 
 

@@ -9,6 +9,7 @@ import {
     updatePersonApi,
     deletePersonApi
 } from "../../../api/gatepass/personApi";
+import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 
 const AdminAllVisits = () => {
     // ... state and effects ...
@@ -114,13 +115,7 @@ const AdminAllVisits = () => {
     };
 
     const getImageUrl = (image) => {
-        if (!image) return "/user.png";
-
-        if (image.startsWith("http")) {
-            return image;
-        }
-
-        return `${import.meta.env.VITE_API_BASE_URL}/uploads/${image}`;
+        return resolveUploadedFileUrl(image) || "/user.png";
     };
 
     return (

@@ -14,7 +14,11 @@ export const createVisitRequestApi = async (data) => {
 
     // image file (multer expects this)
     if (data.photoFile) {
-        formData.append("photoData", data.photoFile);
+        formData.append(
+            "photoData",
+            data.photoFile,
+            data.photoFile.name || "visitor-photo.jpg"
+        );
     }
 
     return postWithFallback(["/requests", "/request", "/visits"], formData);
