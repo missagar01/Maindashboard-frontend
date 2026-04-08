@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
 import { fetchUserDetailsApi, patchSystemAccessApi } from "../../../api/master/settingApi";
-import { fetchSystemsApi } from "../../../api/master/systemsApi";
 import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
 import { Award, Clock3, Mail, MapPin, Phone, Target } from "lucide-react";
 import { apiCache } from "../runtime";
@@ -41,7 +40,6 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
 
     const [search, setSearch] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
-    const [systemsList, setSystemsList] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [attendanceFilter, setAttendanceFilter] = useState("");
     const [activeIndex, setActiveIndex] = useState(null);
@@ -78,17 +76,13 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                     apiCache.set("users_all", users);
                 }
 
-                const [systemsData, attendanceRes] = await Promise.all([
-                    fetchSystemsApi(),
-                    fetchAttendanceSummaryApi(),
-                ]);
+                const attendanceRes = await fetchAttendanceSummaryApi();
 
                 if (cancelled) {
                     return;
                 }
 
                 setAllUsers(Array.isArray(users) ? users : []);
-                setSystemsList(Array.isArray(systemsData) ? systemsData : []);
 
                 const attendanceList = Array.isArray(attendanceRes?.data?.data)
                     ? attendanceRes.data.data
@@ -319,7 +313,13 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100">
-                                                    {filteredUsers.map((user, idx) => (
+                                                    {filteredUsers.map((user, idx) => {
+                                                        const systemAccessEntries = (user.system_access || "")
+                                                            .split(",")
+                                                            .map((access) => access.trim())
+                                                            .filter(Boolean);
+
+                                                        return (
                                                         <tr key={user.id} className={`transition ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"} hover:bg-red-50`}>
                                                             <td className="px-4 py-3 font-medium text-gray-800">{user.employee_id}</td>
                                                             <td className="px-4 py-3 text-gray-700">{user.user_name}</td>
@@ -333,28 +333,16 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                                                             </td>
                                                             <td className="px-4 py-3 text-gray-600">{user.number}</td>
                                                             <td className="px-4 py-3">
-                                                                <select
-                                                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                                                                    defaultValue=""
-                                                                    onChange={(e) => {
-                                                                        const value = e.target.value;
-                                                                        if (!value) return;
-                                                                        handleSystemAccessPatch(user.id, value);
-                                                                        e.target.value = "";
-                                                                    }}
-                                                                >
-                                                                    <option value="">Add system access</option>
-                                                                    {systemsList.map((sys) => (
-                                                                        <option key={sys.id} value={sys.systems}>{sys.systems}</option>
-                                                                    ))}
-                                                                </select>
                                                                 <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                    {user.system_access?.split(",").map((access, accessIdx) => (
+                                                                    {systemAccessEntries.map((access, accessIdx) => (
                                                                         <span key={`${user.id}-${access}-${accessIdx}`} className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
                                                                             {access}
                                                                             <button onClick={() => handleSystemAccessPatch(user.id, access)} className="text-red-500 hover:text-red-700">✕</button>
                                                                         </span>
                                                                     ))}
+                                                                    {systemAccessEntries.length === 0 && (
+                                                                        <span className="text-xs text-gray-400">No system access</span>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                             <td className="px-4 py-3">
@@ -363,7 +351,8 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                                                                 </span>
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>

@@ -7,7 +7,6 @@ import {
   fetchSystemsApi,
   createSystemApi,
   updateSystemApi,
-  deleteSystemApi,
 } from "../../../api/master/systemsApi";
 import AllUserScore from "../pages/AllUserScore";
 import { storage } from "../runtime";
@@ -699,17 +698,6 @@ export default function AdminLayout({ children }) {
                           className="text-blue-600"
                         >
                           Edit
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this system?")) {
-                              await deleteSystemApi(s.id);
-                              loadSystems();
-                            }
-                          }}
-                          className="text-red-600"
-                        >
-                          Delete
                         </button>
                       </td>
                     </tr>

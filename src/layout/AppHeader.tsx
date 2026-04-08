@@ -18,13 +18,6 @@ import {
   getFirstAllowedPathForModule,
   isAdminUser,
 } from "../utils/accessControl";
-import { fetchSystemsApi } from "../api/master/systemsApi";
-
-interface MasterSystemRecord {
-  id: number;
-  systems: string;
-  link?: string | null;
-}
 
 interface DesktopNavLayout {
   fontSize: number;
@@ -124,11 +117,10 @@ const AppHeader: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isExpanded, isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
-  const { user, logout, token } = useAuth();
+  const { user, logout } = useAuth();
 
   const [isModuleMenuOpen, setModuleMenuOpen] = useState(false);
   const [isDesktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
-  const [masterSystems, setMasterSystems] = useState<MasterSystemRecord[]>([]);
   const [desktopNavLayout, setDesktopNavLayout] = useState<DesktopNavLayout>({
     fontSize: MAX_DESKTOP_NAV_FONT_SIZE,
     visibleCount: DEFAULT_PORTAL_NAV_ITEMS.length,
@@ -138,29 +130,6 @@ const AppHeader: React.FC = () => {
 
   const hasSidebar = shouldShowSidebarForPath(location.pathname);
   const activeNavKey = getActivePortalNavKey(location.pathname);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadSystems = async () => {
-      if (!token || !user) {
-        if (mounted) {
-          setMasterSystems([]);
-        }
-        return;
-      }
-
-      const systems = await fetchSystemsApi();
-      if (!mounted) return;
-      setMasterSystems(Array.isArray(systems) ? systems : []);
-    };
-
-    void loadSystems();
-
-    return () => {
-      mounted = false;
-    };
-  }, [token, user]);
 
   const visibleNavItems = useMemo(() => {
     const isAdmin = isAdminUser(user);
@@ -179,9 +148,6 @@ const AppHeader: React.FC = () => {
     };
 
     if (isAdmin) {
-      if (masterSystems.length > 0) {
-        masterSystems.forEach((system) => pushNavItem(resolvePortalNavItem(system.systems)));
-      }
       DEFAULT_PORTAL_NAV_ITEMS.slice(1).forEach((item) => pushNavItem(item));
       return navItems;
     }
@@ -217,7 +183,7 @@ const AppHeader: React.FC = () => {
     }
 
     return navItems;
-  }, [masterSystems, user]);
+  }, [user]);
 
   const getPrimaryNavItemsForCount = (count: number) => {
     const nextPrimaryItems = visibleNavItems.slice(

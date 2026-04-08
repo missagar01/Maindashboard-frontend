@@ -22,6 +22,7 @@ import { fetchUserDetailsApiById } from "../../../api/master/settingApi";
 import { patchEmpImageApi } from "../../../api/master/userApi";
 import { fetchUserScoreApiByName } from "../../../api/master/userScoreApi";
 import { apiCache, decodeToken, storage } from "../runtime";
+import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 
 const SECTION_PAD = "py-[clamp(1.5rem,0.9rem+2vw,3rem)]";
 const CONTAINER = "max-w-[86rem] px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
@@ -42,6 +43,11 @@ const ICON = "h-[clamp(1.35rem,1.15rem+0.45vw,1.8rem)] w-[clamp(1.35rem,1.15rem+
 const AVATAR = "h-[clamp(8.5rem,7rem+5vw,13rem)] w-[clamp(8.5rem,7rem+5vw,13rem)]";
 
 const formatDate = (date) => date.toISOString().split("T")[0];
+const getUserProfileImage = (user) => {
+    const raw = user?.profile_img || user?.emp_image;
+    if (!raw) return "/user.png";
+    return resolveUploadedFileUrl(raw) || "/user.png";
+};
 
 const buildMonthOptions = (count = 6) => {
     const today = new Date();
@@ -115,10 +121,10 @@ const HomePage = () => {
             await patchEmpImageApi(userDetails.id, file);
             const result = await fetchUserDetailsApiById(userDetails.id);
 
-            if (!result?.data?.emp_image) throw new Error("Image update failed");
+            if (!result?.profile_img) throw new Error("Image update failed");
 
-            setUserDetails(result.data);
-            apiCache.set(`user_${userDetails.id}`, result.data);
+            setUserDetails(result);
+            apiCache.set(`user_${userDetails.id}`, result);
             apiCache.invalidate("users_all");
             setUploadSuccess("Profile image updated successfully.");
             setTimeout(() => setUploadSuccess(""), 15000);
@@ -212,6 +218,10 @@ const HomePage = () => {
         void fetchEmployeeDetails();
     }, [selectedMonth]);
 
+    useEffect(() => {
+        setImageError(false);
+    }, [userDetails?.profile_img, userDetails?.emp_image]);
+
     const scoreRadius = 72;
     const scoreSize = 196;
     const scoreCenter = scoreSize / 2;
@@ -258,7 +268,7 @@ const HomePage = () => {
                                 <div className="relative group">
                                     <div className={`overflow-hidden rounded-[2rem] border-4 border-white bg-slate-100 shadow-[0_24px_44px_-22px_rgba(15,23,42,0.35)] ${AVATAR}`}>
                                         <img
-                                            src={!imageError && userDetails?.emp_image ? userDetails.emp_image : "/user.png"}
+                                            src={!imageError ? getUserProfileImage(userDetails) : "/user.png"}
                                             alt="Employee"
                                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                                             loading="lazy"
@@ -327,7 +337,7 @@ const HomePage = () => {
                                                 </span>
                                             </div>
                                             <p className={`font-bold uppercase tracking-[0.2em] text-red-600/90 ${ROLE}`}>{userDetails.user_access || "N/A"}</p>
-                                           
+
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">

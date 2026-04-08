@@ -2,13 +2,16 @@ import axiosClient from "./axiosClient";
 
 /**
  * PATCH employee image
+ * Sends the file as multipart/form-data so the backend saves it to disk
+ * and stores the URL path (e.g. /uploads/users/filename.jpg) in the DB.
+ *
  * @param {number|string} id - User ID
  * @param {File} file - Image file
  */
 export const patchEmpImageApi = async (id, file) => {
     try {
         const formData = new FormData();
-        formData.append("emp_image", file);
+        formData.append("profile_img", file);
 
         const response = await axiosClient.patch(
             `/users/${id}/emp-image`,
