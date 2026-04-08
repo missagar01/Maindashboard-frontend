@@ -46,7 +46,7 @@ export const getEmployeeById = async (id, token) => {
         throw dashboardError;
       }
 
-      return apiRequest(`/api/employees/${id}`, {
+      return await apiRequest(`/api/employees/${id}`, {
         method: 'GET',
         token,
       });

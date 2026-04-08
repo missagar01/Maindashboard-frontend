@@ -29,3 +29,15 @@ export const patchEmpImageApi = async (id, file) => {
         throw error;
     }
 };
+
+export const getEmpImageApi = async (id) => {
+    try {
+        const response = await axiosClient.get(`/users/${id}/emp-image`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching employee image", error);
+        throw error;
+    }
+};
+
+

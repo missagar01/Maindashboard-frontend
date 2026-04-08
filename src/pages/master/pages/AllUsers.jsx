@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     AlertTriangle,
     Award,
@@ -41,8 +41,16 @@ const STATUS = "text-[clamp(0.7rem,0.64rem+0.16vw,0.82rem)]";
 const ICON_BOX = "h-[clamp(3rem,2.5rem+0.8vw,3.9rem)] w-[clamp(3rem,2.5rem+0.8vw,3.9rem)]";
 const ICON = "h-[clamp(1.35rem,1.15rem+0.45vw,1.8rem)] w-[clamp(1.35rem,1.15rem+0.45vw,1.8rem)]";
 const AVATAR = "h-[clamp(8.5rem,7rem+5vw,13rem)] w-[clamp(8.5rem,7rem+5vw,13rem)]";
+const USER_PROFILE_UPDATED_EVENT = "user-profile-updated";
+const USER_PROFILE_CACHE_TTL = 30 * 1000;
 
 const formatDate = (date) => date.toISOString().split("T")[0];
+const getCurrentUserId = () => {
+    const token = storage.get("token");
+    const decodedToken = decodeToken(token);
+    return String(decodedToken?.id || storage.get("user_id") || "").trim();
+};
+
 const getUserProfileImage = (user) => {
     const raw = user?.profile_img || user?.emp_image;
     if (!raw) return "/user.png";
@@ -87,6 +95,83 @@ const HomePage = () => {
     const monthOptions = buildMonthOptions(6);
     const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]);
 
+    const fetchEmployeeDetails = useCallback(async ({ forceFreshUser = false } = {}) => {
+        try {
+            setLoading(true);
+            const username = storage.get("user-name");
+            const role = storage.get("role");
+            const userId = getCurrentUserId();
+
+            if (!userId || ["admin", "aakash agrawal"].includes(username?.toLowerCase())) {
+                setLoading(false);
+                return;
+            }
+
+            let matchedUser = forceFreshUser ? null : apiCache.get(`user_${userId}`);
+            if (!matchedUser) {
+                matchedUser = await fetchUserDetailsApiById(userId);
+                if (matchedUser) {
+                    apiCache.set(`user_${userId}`, matchedUser, USER_PROFILE_CACHE_TTL);
+                }
+            }
+            setUserDetails(matchedUser || null);
+
+            if (matchedUser?.user_name) {
+                const scoreResponse = await fetchUserScoreApiByName(matchedUser.user_name, {
+                    startDate: selectedMonth.startDate,
+                    endDate: selectedMonth.endDate,
+                });
+                setUserScore(scoreResponse?.data?.[0] || null);
+            }
+
+            const attendanceResponse = await fetchAttendanceSummaryApi();
+            const attendanceList = Array.isArray(attendanceResponse?.data?.data)
+                ? attendanceResponse.data.data
+                : [];
+            const matchedAttendance = attendanceList.find(
+                (entry) => String(entry.employee_id).trim() === String(matchedUser?.employee_id).trim()
+            );
+            setAttendance(matchedAttendance || null);
+
+            const cacheKey = `stats_${username}_${selectedMonth.key}`;
+            let stats = apiCache.get(cacheKey);
+            if (!stats) {
+                const dashboardType = "checklist";
+                const [
+                    pendingCountToday,
+                    completedCountToday,
+                    completedCount,
+                    pendingCount,
+                    overdueCount,
+                ] = await Promise.all([
+                    getPendingTodayApi({ dashboardType, role, username }),
+                    getCompletedTodayApi({ dashboardType, role, username }),
+                    getCompletedTaskApi({ dashboardType, role, username }),
+                    getPendingTaskApi({ dashboardType, role, username }),
+                    getOverdueTaskApi({ dashboardType, role, username }),
+                ]);
+                stats = {
+                    pendingCountToday,
+                    completedCountToday,
+                    completedCount,
+                    pendingCount,
+                    overdueCount,
+                };
+                apiCache.set(cacheKey, stats, 60 * 1000);
+            }
+
+            setPendingToday(stats.pendingCountToday || 0);
+            setCompletedToday(stats.completedCountToday || 0);
+            setCompleted(Number(stats.completedCount) || 0);
+            setPending(Number(stats.pendingCount) || 0);
+            setOverdue(Number(stats.overdueCount) || 0);
+        } catch (error) {
+            console.error("Error fetching employee details:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedMonth.endDate, selectedMonth.key, selectedMonth.startDate]);
+
     const handleEmpImageChange = async (event) => {
         const file = event.target.files?.[0];
         const maxFileSize = 5 * 1024 * 1024;
@@ -124,8 +209,17 @@ const HomePage = () => {
             if (!result?.profile_img) throw new Error("Image update failed");
 
             setUserDetails(result);
-            apiCache.set(`user_${userDetails.id}`, result);
+            apiCache.set(`user_${userDetails.id}`, result, USER_PROFILE_CACHE_TTL);
             apiCache.invalidate("users_all");
+            window.dispatchEvent(
+                new CustomEvent(USER_PROFILE_UPDATED_EVENT, {
+                    detail: {
+                        userId: String(result.id || userDetails.id),
+                        profile_img: result.profile_img || null,
+                        emp_image: result.emp_image || null,
+                    },
+                }),
+            );
             setUploadSuccess("Profile image updated successfully.");
             setTimeout(() => setUploadSuccess(""), 15000);
         } catch (error) {
@@ -138,85 +232,58 @@ const HomePage = () => {
     };
 
     useEffect(() => {
-        const fetchEmployeeDetails = async () => {
-            try {
-                setLoading(true);
-                const username = storage.get("user-name");
-                const role = storage.get("role");
-                const token = storage.get("token");
-                const decodedToken = decodeToken(token);
-                const userId = decodedToken?.id || storage.get("user_id");
+        void fetchEmployeeDetails();
+    }, [fetchEmployeeDetails]);
 
-                if (!userId || ["admin", "aakash agrawal"].includes(username?.toLowerCase())) {
-                    setLoading(false);
-                    return;
-                }
+    useEffect(() => {
+        const handleProfileUpdate = (event) => {
+            const currentUserId = getCurrentUserId();
+            const eventUserId = String(event?.detail?.userId || "").trim();
 
-                let matchedUser = apiCache.get(`user_${userId}`);
-                if (!matchedUser) {
-                    matchedUser = await fetchUserDetailsApiById(userId);
-                    apiCache.set(`user_${userId}`, matchedUser);
-                }
-                setUserDetails(matchedUser || null);
-
-                if (matchedUser?.user_name) {
-                    const scoreResponse = await fetchUserScoreApiByName(matchedUser.user_name, {
-                        startDate: selectedMonth.startDate,
-                        endDate: selectedMonth.endDate,
-                    });
-                    setUserScore(scoreResponse?.data?.[0] || null);
-                }
-
-                const attendanceResponse = await fetchAttendanceSummaryApi();
-                const attendanceList = Array.isArray(attendanceResponse?.data?.data)
-                    ? attendanceResponse.data.data
-                    : [];
-                const matchedAttendance = attendanceList.find(
-                    (entry) => String(entry.employee_id).trim() === String(matchedUser?.employee_id).trim()
-                );
-                setAttendance(matchedAttendance || null);
-
-                const cacheKey = `stats_${username}_${selectedMonth.key}`;
-                let stats = apiCache.get(cacheKey);
-                if (!stats) {
-                    const dashboardType = "checklist";
-                    const [
-                        pendingCountToday,
-                        completedCountToday,
-                        completedCount,
-                        pendingCount,
-                        overdueCount,
-                    ] = await Promise.all([
-                        getPendingTodayApi({ dashboardType, role, username }),
-                        getCompletedTodayApi({ dashboardType, role, username }),
-                        getCompletedTaskApi({ dashboardType, role, username }),
-                        getPendingTaskApi({ dashboardType, role, username }),
-                        getOverdueTaskApi({ dashboardType, role, username }),
-                    ]);
-                    stats = {
-                        pendingCountToday,
-                        completedCountToday,
-                        completedCount,
-                        pendingCount,
-                        overdueCount,
-                    };
-                    apiCache.set(cacheKey, stats, 60 * 1000);
-                }
-
-                setPendingToday(stats.pendingCountToday || 0);
-                setCompletedToday(stats.completedCountToday || 0);
-                setCompleted(Number(stats.completedCount) || 0);
-                setPending(Number(stats.pendingCount) || 0);
-                setOverdue(Number(stats.overdueCount) || 0);
-            } catch (error) {
-                console.error("Error fetching employee details:", error);
-            } finally {
-                setLoading(false);
+            if (!currentUserId || (eventUserId && eventUserId !== currentUserId)) {
+                return;
             }
+
+            apiCache.invalidate(`user_${currentUserId}`);
+            setImageError(false);
+
+            if (event?.detail?.profile_img || event?.detail?.emp_image) {
+                setUserDetails((prev) =>
+                    prev
+                        ? {
+                            ...prev,
+                            profile_img: event.detail.profile_img ?? prev.profile_img,
+                            emp_image: event.detail.emp_image ?? prev.emp_image,
+                        }
+                        : prev,
+                );
+            }
+
+            void fetchEmployeeDetails({ forceFreshUser: true });
         };
 
-        void fetchEmployeeDetails();
-    }, [selectedMonth]);
+        const handleFocusRefresh = () => {
+            if (document.visibilityState !== "visible") {
+                return;
+            }
+
+            const currentUserId = getCurrentUserId();
+            if (currentUserId) {
+                apiCache.invalidate(`user_${currentUserId}`);
+            }
+            void fetchEmployeeDetails({ forceFreshUser: true });
+        };
+
+        window.addEventListener(USER_PROFILE_UPDATED_EVENT, handleProfileUpdate);
+        window.addEventListener("focus", handleFocusRefresh);
+        document.addEventListener("visibilitychange", handleFocusRefresh);
+
+        return () => {
+            window.removeEventListener(USER_PROFILE_UPDATED_EVENT, handleProfileUpdate);
+            window.removeEventListener("focus", handleFocusRefresh);
+            document.removeEventListener("visibilitychange", handleFocusRefresh);
+        };
+    }, [fetchEmployeeDetails]);
 
     useEffect(() => {
         setImageError(false);

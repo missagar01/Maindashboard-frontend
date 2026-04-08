@@ -1,11 +1,64 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAutoSync } from '../hooks/useAutoSync';
-import { Building, Edit3, Mail, Phone, Save, User, X, Hash, Shield, Briefcase, CheckCircle2, Camera, FileText, Upload } from 'lucide-react';
+import {
+  Building,
+  Edit3,
+  Mail,
+  Phone,
+  Save,
+  User,
+  X,
+  Hash,
+  Shield,
+  Briefcase,
+  CheckCircle2,
+  Camera,
+  FileText,
+  Upload
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getEmployeeById, updateEmployee } from '../../../api/hrfms/employeeApi';
 import { useAuth } from '../../../context/AuthContext';
-import { extractUploadedFileValues, getFileNameFromUrl, isPdfFileUrl, resolveUploadedFileUrl } from '../../../utils/fileUrl';
+import { apiCache } from '../../master/runtime';
+import {
+  extractUploadedFileValues,
+  getFileNameFromUrl,
+  isPdfFileUrl
+} from '../../../utils/fileUrl';
 
+// =========================
+// BASE URL HELPER
+// =========================
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_BASE_URL ||
+  'http://localhost:3004';
+const USER_PROFILE_UPDATED_EVENT = 'user-profile-updated';
+const USER_PROFILE_CACHE_TTL = 30 * 1000;
+
+const getFullFileUrl = (filePath) => {
+  if (!filePath || typeof filePath !== 'string') return null;
+
+  const trimmedPath = filePath.trim();
+  if (!trimmedPath) return null;
+
+  // Already full URL
+  if (/^https?:\/\//i.test(trimmedPath)) {
+    return trimmedPath;
+  }
+
+  // Handle paths like /uploads/...
+  if (trimmedPath.startsWith('/')) {
+    return `${API_BASE_URL}${trimmedPath}`;
+  }
+
+  // Handle paths like uploads/...
+  return `${API_BASE_URL}/${trimmedPath}`;
+};
+
+// =========================
+// IMAGE FALLBACK COMPONENT
+// =========================
 const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: FallbackIcon }) => {
   const [error, setError] = useState(false);
 
@@ -33,10 +86,16 @@ const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: Fallbac
   );
 };
 
+// =========================
+// DOCUMENT PREVIEW BUILDER
+// =========================
 const buildDocumentPreview = (url) => {
-  const resolvedUrl = resolveUploadedFileUrl(url);
-  const fileName = getFileNameFromUrl(url) || getFileNameFromUrl(resolvedUrl);
-  const isPdf = isPdfFileUrl(url) || isPdfFileUrl(resolvedUrl) || fileName.toLowerCase().endsWith('.pdf');
+  const resolvedUrl = getFullFileUrl(url);
+  const fileName = getFileNameFromUrl(url) || getFileNameFromUrl(resolvedUrl) || 'Document';
+  const isPdf =
+    isPdfFileUrl(url) ||
+    isPdfFileUrl(resolvedUrl) ||
+    fileName.toLowerCase().endsWith('.pdf');
 
   return {
     url: resolvedUrl,
@@ -67,30 +126,42 @@ const MyProfile = () => {
       if (!token || !profileLookupId) return;
 
       if (!isAutoSync) setLoading(true);
+
       const response = await getEmployeeById(profileLookupId, token);
       const profile = response?.data ?? response?.user ?? response ?? null;
+
       if (!profile) {
         throw new Error('No profile data found');
       }
 
       setProfileData(profile);
-      // Only update formData if not currently editing to avoid overwriting user input
+
       if (!isEditing) {
         setFormData(profile);
       }
 
-      // Set initial previews only if not in editing mode or if it's the first load
+      // profile_img can be:
+      // /uploads/employees/user-profile-xxxx.jpeg
+      // /uploads/employees/employee-profile-xxxx.jpeg
+      // full url
+      // all handled here
       if (profile.profile_img && (!isEditing || !previewProfileImg)) {
-        setPreviewProfileImg(resolveUploadedFileUrl(profile.profile_img));
+        setPreviewProfileImg(getFullFileUrl(profile.profile_img));
+      } else if (!profile.profile_img && !isEditing) {
+        setPreviewProfileImg(null);
       }
+
       if (profile.document_img && (!isEditing || previewDocuments.length === 0)) {
         const docs = extractUploadedFileValues(profile.document_img);
         setPreviewDocuments(docs.map(buildDocumentPreview));
+      } else if (!profile.document_img && !isEditing) {
+        setPreviewDocuments([]);
       }
-
     } catch (error) {
       console.error('Error fetching profile data:', error);
-      if (!isAutoSync) toast.error(`Failed to load profile data: ${error.message}`);
+      if (!isAutoSync) {
+        toast.error(`Failed to load profile data: ${error.message}`);
+      }
     } finally {
       if (!isAutoSync) setLoading(false);
     }
@@ -104,26 +175,27 @@ const MyProfile = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast.error('Image size should be less than 5MB');
-        return;
-      }
-      setSelectedProfileImg(file);
-      setPreviewProfileImg(URL.createObjectURL(file));
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
     }
+
+    setSelectedProfileImg(file);
+    setPreviewProfileImg(URL.createObjectURL(file));
   };
 
   const handleDocumentChange = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
 
     if (previewDocuments.length + files.length > 10) {
       toast.error('You can upload a maximum of 10 documents.');
@@ -133,28 +205,31 @@ const MyProfile = () => {
     if (files.length > 0) {
       const newPreviews = [];
 
-      files.forEach(file => {
+      files.forEach((file) => {
         if (file.size > 5 * 1024 * 1024) {
           toast.error(`${file.name} is too large (>5MB)`);
           return;
         }
+
         newPreviews.push({
           url: URL.createObjectURL(file),
           name: file.name,
-          type: file.type,
+          type: file.type || 'application/octet-stream',
           isExisting: false,
-          file: file
+          file
         });
       });
 
-      setPreviewDocuments(prev => [...prev, ...newPreviews]);
+      setPreviewDocuments((prev) => [...prev, ...newPreviews]);
     }
+
+    e.target.value = '';
   };
 
   const removeDocument = (index) => {
-    setPreviewDocuments(prev => {
+    setPreviewDocuments((prev) => {
       const doc = prev[index];
-      if (doc && !doc.isExisting && doc.url.startsWith('blob:')) {
+      if (doc && !doc.isExisting && doc.url?.startsWith('blob:')) {
         URL.revokeObjectURL(doc.url);
       }
       return prev.filter((_, i) => i !== index);
@@ -164,61 +239,55 @@ const MyProfile = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
+
       if (!token || !profileData?.id) {
         throw new Error('Please login to update your profile');
       }
 
-      // Create FormData to handle file uploads
       const submitData = new FormData();
 
-      // Append basic fields
       submitData.append('email_id', formData.email_id || '');
       submitData.append('number', formData.number || '');
-      // Include other fields needed for update, even if readonly, if the API expects them
-      // Or better, only include what changes. But based on previous code it was sending everything.
-      // Let's send the text fields that are editable + required ones.
-      // The backend service seems to merge so we might just send what we have.
 
-      // Append files if selected
       if (selectedProfileImg) {
         submitData.append('profile_img', selectedProfileImg);
       }
 
-      // Append new files from previewDocuments
       const newFiles = previewDocuments
-        .filter(doc => !doc.isExisting)
-        .map(doc => doc.file);
+        .filter((doc) => !doc.isExisting)
+        .map((doc) => doc.file)
+        .filter(Boolean);
 
       if (newFiles.length > 0) {
-        newFiles.forEach(file => {
+        newFiles.forEach((file) => {
           submitData.append('document_img', file);
         });
       }
 
-      // Explicitly send the list of remaining existing documents
       const existingDocs = previewDocuments
-        .filter(doc => doc.isExisting)
-        .map(doc => doc.sourceUrl || doc.url);
+        .filter((doc) => doc.isExisting)
+        .map((doc) => doc.sourceUrl || doc.url);
+
       submitData.append('existing_documents', JSON.stringify(existingDocs));
 
-      // If we removed existing documents, we'd need to tell the backend.
-      // But for now, let's just send the new files.
-      // Note: The backend as currently written REPLACES document_img if any new files are sent.
-      // If no new files are sent, it keeps existing ones because of COALESCE.
-      // This might not be perfect for "deleting" some but keeping others.
-      // For a "My Profile" page, replacing all is often acceptable when editing.
-
       const response = await updateEmployee(profileData.id, submitData, token);
+
       if (!response?.success) {
         throw new Error(response?.message || 'Failed to update profile');
       }
 
-      const updatedProfile = response?.data || formData; // Fallback
+      const updatedProfile = response?.data || formData;
+
       setProfileData(updatedProfile);
       setFormData(updatedProfile);
+      apiCache.invalidate(`user_${updatedProfile.id || profileData.id}`);
+      apiCache.set(`user_${updatedProfile.id || profileData.id}`, updatedProfile, USER_PROFILE_CACHE_TTL);
 
-      // Update previews/state
-      if (updatedProfile.profile_img) setPreviewProfileImg(resolveUploadedFileUrl(updatedProfile.profile_img));
+      if (updatedProfile.profile_img) {
+        setPreviewProfileImg(getFullFileUrl(updatedProfile.profile_img));
+      } else {
+        setPreviewProfileImg(null);
+      }
 
       if (updatedProfile.document_img) {
         const docs = extractUploadedFileValues(updatedProfile.document_img);
@@ -228,7 +297,15 @@ const MyProfile = () => {
       }
 
       setSelectedProfileImg(null);
-
+      window.dispatchEvent(
+        new CustomEvent(USER_PROFILE_UPDATED_EVENT, {
+          detail: {
+            userId: String(updatedProfile.id || profileData.id || ''),
+            profile_img: updatedProfile.profile_img || null,
+            emp_image: updatedProfile.emp_image || null
+          }
+        })
+      );
       toast.success('Profile updated successfully!');
       setIsEditing(false);
     } catch (error) {
@@ -241,11 +318,15 @@ const MyProfile = () => {
 
   const handleCancel = () => {
     setFormData(profileData || {});
-    setPreviewProfileImg(resolveUploadedFileUrl(profileData?.profile_img) || null);
 
-    // Clean up blob URLs
-    previewDocuments.forEach(doc => {
-      if (doc && !doc.isExisting && doc.url.startsWith('blob:')) {
+    if (profileData?.profile_img) {
+      setPreviewProfileImg(getFullFileUrl(profileData.profile_img));
+    } else {
+      setPreviewProfileImg(null);
+    }
+
+    previewDocuments.forEach((doc) => {
+      if (doc && !doc.isExisting && doc.url?.startsWith('blob:')) {
         URL.revokeObjectURL(doc.url);
       }
     });
@@ -284,20 +365,33 @@ const MyProfile = () => {
     );
   }
 
-  const isAdmin = (profileData?.role || '').toLowerCase() === 'admin' || profileData?.Admin === 'Yes';
-  const statusColor = profileData?.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600';
+  const isAdmin =
+    (profileData?.role || '').toLowerCase() === 'admin' ||
+    profileData?.Admin === 'Yes';
+
+  const statusColor =
+    profileData?.status === 'Active'
+      ? 'bg-emerald-100 text-emerald-700'
+      : 'bg-gray-100 text-gray-600';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
       <div className="w-full space-y-4 sm:space-y-6">
-        {/* Header Section - Responsive */}
+        {/* Header */}
         <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 p-4 sm:p-6 lg:p-8 shadow-2xl border border-white/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-white/80 mb-1 sm:mb-2">Profile</p>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-white">My Profile</h1>
-              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-indigo-100">View and manage your personal information</p>
+              <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-white/80 mb-1 sm:mb-2">
+                Profile
+              </p>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-white">
+                My Profile
+              </h1>
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-indigo-100">
+                View and manage your personal information
+              </p>
             </div>
+
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               {!isEditing ? (
                 <button
@@ -318,6 +412,7 @@ const MyProfile = () => {
                     <span className="hidden sm:inline">Save Changes</span>
                     <span className="sm:hidden">Save</span>
                   </button>
+
                   <button
                     onClick={handleCancel}
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/20 px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-white/30"
@@ -331,9 +426,9 @@ const MyProfile = () => {
           </div>
         </div>
 
-        {/* Main Content Grid - Fully Responsive */}
+        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Profile Card - Left Side */}
+          {/* Left Profile Card */}
           <div className="lg:col-span-1">
             <div className="rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-xl border border-gray-100">
               <div className="text-center">
@@ -356,6 +451,7 @@ const MyProfile = () => {
                       >
                         <Camera size={16} />
                       </button>
+
                       <input
                         type="file"
                         ref={profileInputRef}
@@ -366,19 +462,32 @@ const MyProfile = () => {
                     </>
                   )}
                 </div>
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">{profileData.user_name || '-'}</h2>
-                <p className="text-sm sm:text-base text-gray-600 mb-3">{profileData.designation || 'Not specified'}</p>
+
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">
+                  {profileData.user_name || '-'}
+                </h2>
+
+                <p className="text-sm sm:text-base text-gray-600 mb-3">
+                  {profileData.designation || 'Not specified'}
+                </p>
+
                 <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 sm:px-4 py-1.5 sm:py-2 mb-4">
                   <Hash size={14} className="text-indigo-600 sm:w-4 sm:h-4" />
-                  <span className="text-xs sm:text-sm font-semibold text-indigo-700">{profileData.employee_id || '-'}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-indigo-700">
+                    {profileData.employee_id || '-'}
+                  </span>
                 </div>
+
                 <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusColor}`}>
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusColor}`}
+                    >
                       {isAdmin && <Shield size={12} className="mr-1" />}
                       {profileData?.status || 'Active'}
                     </span>
                   </div>
+
                   {isAdmin && (
                     <p className="text-xs text-gray-500">Administrator Access</p>
                   )}
@@ -387,16 +496,19 @@ const MyProfile = () => {
             </div>
           </div>
 
-          {/* Information Cards - Right Side */}
+          {/* Right Content */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            {/* Personal Information Card */}
+            {/* Personal Information */}
             <div className="rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-xl border border-gray-100">
               <div className="flex items-center gap-3 mb-4 sm:mb-6">
                 <div className="p-2 rounded-lg bg-indigo-100">
                   <User size={18} className="text-indigo-600 sm:w-5 sm:h-5" />
                 </div>
-                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Personal Information</h3>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
+                  Personal Information
+                </h3>
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700">
@@ -413,7 +525,9 @@ const MyProfile = () => {
                       placeholder="your.email@example.com"
                     />
                   ) : (
-                    <p className="text-sm sm:text-base text-gray-800 font-medium break-words">{profileData.email_id || '-'}</p>
+                    <p className="text-sm sm:text-base text-gray-800 font-medium break-words">
+                      {profileData.email_id || '-'}
+                    </p>
                   )}
                 </div>
 
@@ -432,7 +546,9 @@ const MyProfile = () => {
                       placeholder="+91 1234567890"
                     />
                   ) : (
-                    <p className="text-sm sm:text-base text-gray-800 font-medium">{profileData.number || '-'}</p>
+                    <p className="text-sm sm:text-base text-gray-800 font-medium">
+                      {profileData.number || '-'}
+                    </p>
                   )}
                 </div>
 
@@ -450,7 +566,9 @@ const MyProfile = () => {
                       className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-600 cursor-not-allowed"
                     />
                   ) : (
-                    <p className="text-sm sm:text-base text-gray-800 font-medium">{profileData.department || '-'}</p>
+                    <p className="text-sm sm:text-base text-gray-800 font-medium">
+                      {profileData.department || '-'}
+                    </p>
                   )}
                 </div>
 
@@ -468,27 +586,34 @@ const MyProfile = () => {
                       className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-600 cursor-not-allowed"
                     />
                   ) : (
-                    <p className="text-sm sm:text-base text-gray-800 font-medium">{profileData.designation || '-'}</p>
+                    <p className="text-sm sm:text-base text-gray-800 font-medium">
+                      {profileData.designation || '-'}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Additional Information Card */}
+            {/* Additional Information */}
             <div className="rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-xl border border-gray-100">
               <div className="flex items-center gap-3 mb-4 sm:mb-6">
                 <div className="p-2 rounded-lg bg-purple-100">
                   <Briefcase size={18} className="text-purple-600 sm:w-5 sm:h-5" />
                 </div>
-                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Additional Details</h3>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
+                  Additional Details
+                </h3>
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700">
                     <Hash size={14} className="text-purple-600 sm:w-4 sm:h-4" />
                     Employee Code
                   </label>
-                  <p className="text-sm sm:text-base text-gray-800 font-medium">{profileData.employee_id || '-'}</p>
+                  <p className="text-sm sm:text-base text-gray-800 font-medium">
+                    {profileData.employee_id || '-'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -496,7 +621,9 @@ const MyProfile = () => {
                     <Shield size={14} className="text-purple-600 sm:w-4 sm:h-4" />
                     Role
                   </label>
-                  <p className="text-sm sm:text-base text-gray-800 font-medium capitalize">{profileData.role || 'Employee'}</p>
+                  <p className="text-sm sm:text-base text-gray-800 font-medium capitalize">
+                    {profileData.role || 'Employee'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -514,17 +641,22 @@ const MyProfile = () => {
                     <Building size={14} className="text-purple-600 sm:w-4 sm:h-4" />
                     Department
                   </label>
-                  <p className="text-sm sm:text-base text-gray-800 font-medium">{profileData.department || 'Not assigned'}</p>
+                  <p className="text-sm sm:text-base text-gray-800 font-medium">
+                    {profileData.department || 'Not assigned'}
+                  </p>
                 </div>
               </div>
             </div>
-            {/* Document Upload Section */}
+
+            {/* Documents */}
             <div className="rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-xl border border-gray-100">
               <div className="flex items-center gap-3 mb-4 sm:mb-6">
                 <div className="p-2 rounded-lg bg-emerald-100">
                   <FileText size={18} className="text-emerald-600 sm:w-5 sm:h-5" />
                 </div>
-                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Documents</h3>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
+                  Documents
+                </h3>
               </div>
 
               <div className="space-y-4">
@@ -536,11 +668,16 @@ const MyProfile = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {previewDocuments.map((doc, index) => (
-                        <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-2 min-h-[160px]">
+                        <div
+                          key={index}
+                          className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-2 min-h-[160px]"
+                        >
                           {doc.type.includes('pdf') || isPdfFileUrl(doc.url) ? (
                             <div className="flex flex-col items-center justify-center text-red-500 gap-2">
                               <FileText size={48} />
-                              <span className="text-xs text-gray-600 font-medium truncate max-w-[150px]">{doc.name}</span>
+                              <span className="text-xs text-gray-600 font-medium truncate max-w-[150px]">
+                                {doc.name}
+                              </span>
                               <a
                                 href={doc.url}
                                 target="_blank"
@@ -610,6 +747,7 @@ const MyProfile = () => {
                 </div>
               </div>
             </div>
+            {/* Documents end */}
           </div>
         </div>
       </div>
