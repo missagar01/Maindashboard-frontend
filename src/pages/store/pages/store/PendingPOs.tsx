@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, ListTodo } from "lucide-react";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 import { storeApi } from "@/api/store/storeSystemApi";
 import Heading from "../../components/element/Heading";
@@ -29,6 +31,40 @@ function formatShortDate(dateStr?: string) {
 
 function sortPurchaseOrders(rows: POData[]) {
   return [...rows].sort((a, b) => compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP));
+}
+
+function getExportRows(rows: POData[]) {
+  return rows.map((po, index) => ({
+    "S.No": index + 1,
+    "PO No": po.VRNO || "",
+    Date: formatShortDate(po.VRDATE),
+    "Vendor Name": po.VENDOR_NAME || "",
+    "Item Name": po.ITEM_NAME || "",
+    "Order Qty": po.QTYORDER ?? 0,
+    "Execute Qty": po.QTYEXECUTE ?? 0,
+    Balance: po.BALANCE_QTY ?? 0,
+    UOM: po.UM || "",
+    "Planned Time Stamp": po.PLANNED_TIMESTAMP || "",
+  }));
+}
+
+function downloadRowsAsExcel(rows: POData[], fileName: string, sheetName: string) {
+  const worksheet = XLSX.utils.json_to_sheet(getExportRows(rows));
+  worksheet["!cols"] = [
+    { wch: 8 },
+    { wch: 18 },
+    { wch: 14 },
+    { wch: 28 },
+    { wch: 40 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 10 },
+    { wch: 24 },
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, fileName);
 }
 
 function MobileField({ label, value, className, hideIfEmpty = false }: { label: string; value: string | number | null | undefined; className?: string; hideIfEmpty?: boolean }) {
@@ -65,17 +101,17 @@ export default function PendingPOs() {
     fetchData();
   }, []);
 
-  const handleDownload = async (type: "pending" | "history") => {
+  const handleDownload = (type: "pending" | "history", rows: POData[]) => {
     try {
-      const blob = await (type === "pending" ? storeApi.downloadPoPending() : storeApi.downloadPoHistory());
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `po-${type}-${new Date().toISOString()}.xlsx`;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
+      if (!rows.length) {
+        toast.error(searchText.trim() ? "No filtered purchase orders available to download." : "No purchase orders available to download.");
+        return;
+      }
+      const suffix = searchText.trim() ? "filtered" : "all";
+      downloadRowsAsExcel(rows, `po-${type}-${suffix}.xlsx`, type === "pending" ? "Pending POs" : "History POs");
     } catch (err) {
       console.error("Download failed:", err);
+      toast.error("Unable to download the file right now.");
     }
   };
 
@@ -111,9 +147,14 @@ export default function PendingPOs() {
               <Button variant={activeTab === "pending" ? "default" : "outline"} onClick={() => setActiveTab("pending")} className="w-full">Pending</Button>
               <Button variant={activeTab === "history" ? "default" : "outline"} onClick={() => setActiveTab("history")} className="w-full">History</Button>
             </div>
-            <Button onClick={() => handleDownload(activeTab)} className="w-full sm:w-auto">
+            <Button
+              onClick={() => handleDownload(activeTab, filteredData)}
+              className="w-full bg-green-600 text-white hover:bg-green-700 sm:w-auto"
+            >
               <Download className="mr-2 h-4 w-4" />
-              Download {activeTab === "pending" ? "Pending" : "History"}
+              {searchText.trim()
+                ? `Download Filtered ${activeTab === "pending" ? "Pending" : "History"}`
+                : `Download ${activeTab === "pending" ? "Pending" : "History"}`}
             </Button>
           </div>
 
