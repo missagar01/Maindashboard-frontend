@@ -3,6 +3,13 @@ import axiosInstance from "./axiosInstance";
 // Routes are relative to baseURL in axiosInstance
 const BASE_URL = "/api/checklist/settings";
 
+const getApiErrorMessage = (error, fallbackMessage) =>
+  error?.response?.data?.message ||
+  error?.response?.data?.error ||
+  error?.response?.data?.details ||
+  error?.message ||
+  fallbackMessage;
+
 // =======================================================
 // 1️⃣ FETCH USERS
 // =======================================================
@@ -38,7 +45,7 @@ export const createUserApi = async (newUser) => {
     return response.data;
   } catch (error) {
     console.error("Error creating user", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to create user"));
   }
 };
 
@@ -51,7 +58,7 @@ export const updateUserDataApi = async ({ id, updatedUser }) => {
     return response.data;
   } catch (error) {
     console.error("❌ Error updating user:", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to update user"));
   }
 };
 
@@ -75,7 +82,7 @@ export const createDepartmentApi = async (newDept) => {
     return response.data;
   } catch (error) {
     console.error("Error adding department", error);
-    return null;
+    throw new Error(getApiErrorMessage(error, "Failed to create department"));
   }
 };
 
@@ -88,7 +95,7 @@ export const updateDepartmentDataApi = async ({ id, updatedDept }) => {
     return response.data;
   } catch (error) {
     console.error("Error updating department:", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to update department"));
   }
 };
 
@@ -101,7 +108,7 @@ export const deleteDepartmentDataApi = async (id) => {
     return response.data;
   } catch (error) {
     console.error("Error deleting department:", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to delete department"));
   }
 };
 
@@ -136,7 +143,7 @@ export const patchVerifyAccessApi = async ({ id, verify_access }) => {
     return response.data;
   } catch (error) {
     console.error("Error patching verify_access", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to update verify access"));
   }
 };
 
@@ -149,6 +156,6 @@ export const patchVerifyAccessDeptApi = async ({ id, verify_access_dept }) => {
     return response.data;
   } catch (error) {
     console.error("Error patching verify_access_dept", error);
-    throw error.response?.data?.error || error.message;
+    throw new Error(getApiErrorMessage(error, "Failed to update verify access department"));
   }
 };

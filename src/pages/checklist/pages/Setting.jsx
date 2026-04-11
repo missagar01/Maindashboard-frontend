@@ -244,7 +244,7 @@ const Setting = () => {
             email: userForm.email?.trim() || "",
             password: userForm.password?.trim() || "",
             phone: userForm.phone?.trim() || "",
-            employee_id: userForm.employee_id?.trim() || "",
+            employee_id: userForm.employee_id?.trim() || null,
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
@@ -304,6 +304,7 @@ const Setting = () => {
         } catch (error) {
             console.error("Error adding user:", error);
             const errorMessage =
+                (typeof error === "string" && error) ||
                 error?.message ||
                 error?.error ||
                 "Failed to create user. Please check your input and try again.";
@@ -341,7 +342,7 @@ const Setting = () => {
             user_name: userForm.username?.trim() || "",
             email_id: userForm.email?.trim() || "",
             number: userForm.phone?.trim() || "",
-            employee_id: userForm.employee_id?.trim() || "",
+            employee_id: userForm.employee_id?.trim() || null,
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
@@ -412,7 +413,9 @@ const Setting = () => {
             // Extract error message from various possible locations
             let errorMessage = "Failed to update user. Please check your input and try again.";
 
-            if (error?.message) {
+            if (typeof error === "string" && error) {
+                errorMessage = error;
+            } else if (error?.message) {
                 errorMessage = error.message;
             } else if (error?.error) {
                 errorMessage = typeof error.error === 'string' ? error.error : error.error.message || errorMessage;
