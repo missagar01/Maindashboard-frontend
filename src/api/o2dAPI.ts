@@ -31,6 +31,14 @@ export const getCompletedOrders = (params?: any) =>
 export const getProcessTimeline = (params?: any) =>
   apiRequest('/api/o2d/process/timeline', { params });
 
+export const getProcessTimelineDetails = (
+  loadingOrderNumber: string,
+  params?: any
+) =>
+  apiRequest(`/api/o2d/process/timeline/${encodeURIComponent(loadingOrderNumber)}`, {
+    params,
+  });
+
 export const getSizeMaster = () => apiRequest('/api/o2d/size-master');
 
 export const getCurrentMonthEnquiryReport = (month?: string) =>
