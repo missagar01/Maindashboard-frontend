@@ -10,6 +10,7 @@ export const SYSTEM_OPTIONS = [
   { value: "MAINTENANCE", label: "MAINTENANCE" },
   { value: "HOUSEKEEPING", label: "HOUSEKEEPING" },
   { value: "STORE AND PURCHASE", label: "STORE AND PURCHASE" },
+  { value: "TRANSPORT", label: "TRANSPORT" },
   { value: "HRFMS", label: "HRFMS" },
   { value: "VISITOR GATE PASS", label: "VISITOR GATE PASS" },
   { value: "SALES MODULE", label: "SALES MODULE" },
@@ -180,6 +181,14 @@ export const PAGE_ROUTES = {
     createPageOption("Requisition", "Requisition", "/store/user-requisition", ["User Requisitions", "/store/user-requisition"]),
     createPageOption("Create Indent", "Create Indent", "/store/user-indent", ["User Indent", "/store/user-indent"]),
   ],
+  TRANSPORT: [
+    createPageOption("Transport Dashboard", "Dashboard", "/transport/dashboard", [
+      "/transport",
+      "/transport/dashboard",
+      "Transport Dashboard",
+      "Dashboard",
+    ]),
+  ],
   SUBSCRIPTION: [
     createPageOption("Document Dashboard", "Document Dashboard", "/document/dashboard", ["/document/dashboard"]),
     createPageOption("Resource Manager", "Resource Manager", "/resource-manager", ["/resource-manager"]),
@@ -221,6 +230,10 @@ const SYSTEM_ALIASES = {
   inventory: "STORE AND PURCHASE",
   purchase: "STORE AND PURCHASE",
   hrms: "HRFMS",
+  transport: "TRANSPORT",
+  transports: "TRANSPORT",
+  fleet: "TRANSPORT",
+  transportation: "TRANSPORT",
   hrfms: "HRFMS",
   visitorgatepass: "VISITOR GATE PASS",
   gatepass: "VISITOR GATE PASS",

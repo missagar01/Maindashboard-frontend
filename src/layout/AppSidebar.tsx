@@ -281,6 +281,17 @@ const storeSection: SidebarSection = {
   ],
 };
 
+const transportSection: SidebarSection = {
+  key: "transport",
+  title: "Transport",
+  caption: "Fleet Operations",
+  icon: Truck,
+  nodes: [
+    { kind: "link", key: "transport-dashboard", name: "Dashboard", path: "/transport/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
+  ],
+};
+
 const projectSection: SidebarSection = {
   key: "project",
   title: "Project Operations",
@@ -308,6 +319,7 @@ const visitorSection: SidebarSection = {
 
 const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   checklist: checklistSection,
+  transport: transportSection,
   sales: salesWorkspaceSection,
   logistic: salesWorkspaceSection,
   batchcode: salesWorkspaceSection,

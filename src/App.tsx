@@ -99,6 +99,8 @@ import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
+import TransportDashboard from "./pages/transport/pages/TransportDashboard";
+import TransportReports from "./pages/transport/pages/TransportReports";
 
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
@@ -276,6 +278,11 @@ export default function App() {
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
             </Route>
+
+            {/* Transport Routes */}
+            <Route path="/transport" element={<RouteGuard><Navigate to="/transport/dashboard" replace /></RouteGuard>} />
+            <Route path="/transport/dashboard" element={<RouteGuard><TransportDashboard /></RouteGuard>} />
+            <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
 
             {/* Project Routes */}
             <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />

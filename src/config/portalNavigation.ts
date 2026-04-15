@@ -2,6 +2,7 @@ export type PortalNavKey =
   | "home"
   | "checklist"
   | "store"
+  | "transport"
   | "sales"
   | "project"
   | "subscription"
@@ -51,6 +52,12 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     aliases: ["storeandpurchase", "store", "stores", "purchase", "inventory", "storefms"],
   },
   {
+    key: "transport",
+    label: "TRANSPORT",
+    path: "/transport/dashboard",
+    aliases: ["transport", "transports", "fleet", "transportation"],
+  },
+  {
     key: "sales",
     label: "SALES MODULE",
     path: "/o2d/dashboard",
@@ -97,6 +104,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "home", label: "HOME", path: "/" },
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
+  { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
   { key: "project", label: "PROJECT", path: "/project/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
@@ -146,6 +154,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
 
   if (normalized.startsWith("/checklist")) return "checklist";
   if (normalized.startsWith("/store")) return "store";
+  if (normalized.startsWith("/transport")) return "transport";
   if (normalized.startsWith("/o2d")) return "sales";
   if (normalized.startsWith("/project")) return "project";
   if (normalized.startsWith("/subscription")) return "subscription";

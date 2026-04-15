@@ -171,6 +171,12 @@ const AppHeader: React.FC = () => {
         getFirstAllowedPathForModule("/store", user) || "/store/dashboard"
       );
     }
+    if (allowedPageRoutes.some((route) => route.startsWith("/transport"))) {
+      pushNavItem(
+        resolvePortalNavItem("transport"),
+        getFirstAllowedPathForModule("/transport", user) || "/transport/dashboard"
+      );
+    }
     if (allowedPageRoutes.some((route) => route.startsWith("/project"))) {
       pushNavItem(resolvePortalNavItem("project"), "/project/dashboard");
     }
