@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertCircle,
   BadgeIndianRupee,
@@ -8,6 +8,7 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  TrendingUp,
   Truck,
 } from "lucide-react";
 import {
@@ -32,7 +33,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getLrBiltyRegister } from "../../../api/transport/api";
+// import { getLrBiltyRegister } from "../../../api/transport/api";
 
 type TransportLrBiltyRecord = Record<string, unknown>;
 
@@ -128,6 +129,228 @@ const timeRangeOptions = [
   { label: "Last 30 Days", value: "last_30_days" },
   { label: "This Year", value: "this_year" },
   { label: "This Financial Year", value: "this_financial_year" },
+];
+
+const demoTransportMessage = "Demo transport dashboard data";
+
+const demoTransportRecords: TransportLrBiltyRecord[] = [
+  {
+    id: "lr-001",
+    branch_name: "SRMPL",
+    lr_bilty_date: "2026-04-15T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-15T10:15:00.000Z",
+    consignee_name: "API ISPAT AND POWERTECH PVT. LTD.",
+    source_name: "URLA, RAIPUR",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "POD_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "POD-001",
+    total_advance: "25000",
+    lr_bilty_qty: "24.580",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-001",
+    is_service_bill_prepared: true,
+    service_bill_id: "SB-001",
+  },
+  {
+    id: "lr-002",
+    branch_name: "SRMPL",
+    lr_bilty_date: "2026-04-14T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-14T09:10:00.000Z",
+    consignee_name: "PANKAJ GROUP",
+    source_name: "SILTARA, RAIPUR",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "POD_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "",
+    total_advance: "18000",
+    lr_bilty_qty: "23.200",
+    is_freight_advice_prepared: false,
+    freight_voucher_id: "",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-003",
+    branch_name: "PIPL",
+    lr_bilty_date: "2026-04-12T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-12T14:20:00.000Z",
+    consignee_name: "API ISPAT AND POWERTECH PVT. LTD.",
+    source_name: "URLA, RAIPUR",
+    vehicle_type_name: "HYWA",
+    lr_bilty_status: "LR_BILTY_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "",
+    total_advance: "12000",
+    lr_bilty_qty: "18.400",
+    is_freight_advice_prepared: false,
+    freight_voucher_id: "",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-004",
+    branch_name: "AAPL",
+    lr_bilty_date: "2026-04-11T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-11T11:45:00.000Z",
+    consignee_name: "SHRI BALAJI METALS",
+    source_name: "BHILAI",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "FREIGHT_PREPARED",
+    LRStatus: "DUPLICATE",
+    pod_id: "POD-004",
+    total_advance: "21000",
+    lr_bilty_qty: "28.000",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-004",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-005",
+    branch_name: "GGIPL",
+    lr_bilty_date: "2026-04-10T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-10T16:00:00.000Z",
+    consignee_name: "PANKAJ GROUP",
+    source_name: "DURG",
+    vehicle_type_name: "JCB",
+    lr_bilty_status: "SERVICE_BILL_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "POD-005",
+    total_advance: "9000",
+    lr_bilty_qty: "12.750",
+    is_freight_advice_prepared: false,
+    freight_voucher_id: "",
+    is_service_bill_prepared: true,
+    service_bill_id: "SB-005",
+  },
+  {
+    id: "lr-006",
+    branch_name: "SRMPL",
+    lr_bilty_date: "2026-04-09T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-09T12:35:00.000Z",
+    consignee_name: "RADIANT STEELS",
+    source_name: "URLA, RAIPUR",
+    vehicle_type_name: "HYWA",
+    lr_bilty_status: "POD_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "",
+    total_advance: "15000",
+    lr_bilty_qty: "19.250",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-006",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-007",
+    branch_name: "PIPL",
+    lr_bilty_date: "2026-04-07T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-07T08:55:00.000Z",
+    consignee_name: "KUNAL ALLOYS",
+    source_name: "SILTARA, RAIPUR",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "LR_BILTY_PREPARED",
+    LRStatus: "COPY",
+    pod_id: "",
+    total_advance: "11000",
+    lr_bilty_qty: "16.300",
+    is_freight_advice_prepared: false,
+    freight_voucher_id: "",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-008",
+    branch_name: "AAPL",
+    lr_bilty_date: "2026-04-05T00:00:00.000Z",
+    lr_bilty_created_at: "2026-04-05T10:00:00.000Z",
+    consignee_name: "API ISPAT AND POWERTECH PVT. LTD.",
+    source_name: "BHILAI",
+    vehicle_type_name: "POKLEN",
+    lr_bilty_status: "POD_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "POD-008",
+    total_advance: "17500",
+    lr_bilty_qty: "20.500",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-008",
+    is_service_bill_prepared: true,
+    service_bill_id: "SB-008",
+  },
+  {
+    id: "lr-009",
+    branch_name: "GGIPL",
+    lr_bilty_date: "2026-03-28T00:00:00.000Z",
+    lr_bilty_created_at: "2026-03-28T15:10:00.000Z",
+    consignee_name: "PANKAJ GROUP",
+    source_name: "RAIPUR",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "FREIGHT_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "POD-009",
+    total_advance: "22000",
+    lr_bilty_qty: "27.600",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-009",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-010",
+    branch_name: "SRMPL",
+    lr_bilty_date: "2026-03-18T00:00:00.000Z",
+    lr_bilty_created_at: "2026-03-18T11:25:00.000Z",
+    consignee_name: "RADIANT STEELS",
+    source_name: "URLA, RAIPUR",
+    vehicle_type_name: "HYWA",
+    lr_bilty_status: "SERVICE_BILL_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "POD-010",
+    total_advance: "14500",
+    lr_bilty_qty: "17.900",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-010",
+    is_service_bill_prepared: true,
+    service_bill_id: "SB-010",
+  },
+  {
+    id: "lr-011",
+    branch_name: "PIPL",
+    lr_bilty_date: "2026-02-11T00:00:00.000Z",
+    lr_bilty_created_at: "2026-02-11T13:05:00.000Z",
+    consignee_name: "SHRI BALAJI METALS",
+    source_name: "DURG",
+    vehicle_type_name: "JCB",
+    lr_bilty_status: "LR_BILTY_PREPARED",
+    LRStatus: "ORIGINAL",
+    pod_id: "",
+    total_advance: "8000",
+    lr_bilty_qty: "10.800",
+    is_freight_advice_prepared: false,
+    freight_voucher_id: "",
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
+  {
+    id: "lr-012",
+    branch_name: "AAPL",
+    lr_bilty_date: "2026-01-23T00:00:00.000Z",
+    lr_bilty_created_at: "2026-01-23T10:30:00.000Z",
+    consignee_name: "KUNAL ALLOYS",
+    source_name: "SILTARA, RAIPUR",
+    vehicle_type_name: "TRUCK",
+    lr_bilty_status: "POD_PREPARED",
+    LRStatus: "DUPLICATE",
+    pod_id: "POD-012",
+    total_advance: "19500",
+    lr_bilty_qty: "21.700",
+    is_freight_advice_prepared: true,
+    freight_voucher_id: "FV-012",
+    is_service_bill_prePared: false,
+    is_service_bill_prepared: false,
+    service_bill_id: "",
+  },
 ];
 
 const safeString = (value: unknown) => String(value ?? "").trim();
@@ -245,62 +468,21 @@ const SectionCard = ({
 );
 
 export default function TransportDashboard() {
-  const [records, setRecords] = useState<TransportLrBiltyRecord[]>([]);
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [records, setRecords] = useState<TransportLrBiltyRecord[]>(demoTransportRecords);
+  const [message, setMessage] = useState(demoTransportMessage);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedRange, setSelectedRange] = useState("this_year");
 
-  useEffect(() => {
-    let active = true;
+  // Transport API is temporarily disabled for demo mode.
+  // Dashboard currently renders hardcoded records only.
 
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const response = await getLrBiltyRegister();
-
-        if (!active) return;
-        setRecords(Array.isArray(response?.records) ? response.records : []);
-        setMessage(response?.message || "");
-      } catch (err: any) {
-        if (!active) return;
-        setError(
-          err?.response?.data?.message ||
-          err?.message ||
-          "Transport API se data load nahi ho paaya."
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadDashboard();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleRefresh = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await getLrBiltyRegister();
-      setRecords(Array.isArray(response?.records) ? response.records : []);
-      setMessage(response?.message || "");
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-        err?.message ||
-        "Transport API se data refresh nahi ho paaya."
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleRefresh = () => {
+    setLoading(false);
+    setError("");
+    setRecords(demoTransportRecords);
+    setMessage(demoTransportMessage);
   };
 
   const branchOptions = useMemo(() => {

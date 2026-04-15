@@ -1,6 +1,9 @@
 import axios from "axios";
+import { API_BASE_URL } from "../apiClient";
 
-const TRANSPORT_API_BASE_URL = "https://triofleet-backend.trieon.in/hita/api";
+const TRANSPORT_API_BASE_URL = API_BASE_URL
+  ? `${API_BASE_URL}/api/transport`
+  : "/api/transport";
 const TRANSPORT_LOGIN_EMAIL = import.meta.env.VITE_TRANSPORT_EMAIL;
 const TRANSPORT_LOGIN_PASSWORD = import.meta.env.VITE_TRANSPORT_PASSWORD;
 const TRANSPORT_TOKEN_STORAGE_KEY = "transport_auth_token";
