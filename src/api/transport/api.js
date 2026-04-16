@@ -1,9 +1,11 @@
 import axios from "axios";
-import { API_BASE_URL } from "../apiClient";
 
-const TRANSPORT_API_BASE_URL = API_BASE_URL
-  ? `${API_BASE_URL}/api/transport`
-  : "/api/transport";
+const TRANSPORT_API_BASE_URL = String(
+  import.meta.env.VITE_TRANSPORT_API_BASE_URL ||
+    "https://triofleet-backend.trieon.in/hita/api"
+)
+  .trim()
+  .replace(/\/+$/, "");
 const TRANSPORT_LOGIN_EMAIL = import.meta.env.VITE_TRANSPORT_EMAIL;
 const TRANSPORT_LOGIN_PASSWORD = import.meta.env.VITE_TRANSPORT_PASSWORD;
 const TRANSPORT_TOKEN_STORAGE_KEY = "transport_auth_token";
@@ -98,7 +100,7 @@ const hasTransportLoginCredentials = () =>
 
 const buildMissingCredentialsError = () =>
   new Error(
-    "Transport token not available. Add TRANSPORT_LOGIN_EMAIL and TRANSPORT_LOGIN_PASSWORD in src/api/transport/api.js or call setTransportAccessToken(token)."
+    "Transport token not available. Add VITE_TRANSPORT_EMAIL and VITE_TRANSPORT_PASSWORD in frontend/.env or call setTransportAccessToken(token)."
   );
 
 export const loginTransport = async () => {
@@ -223,9 +225,56 @@ export const transportApiRequest = async (path, options = {}) => {
   });
 };
 
+const normalizeLrBiltyRegisterParams = (params = {}) => {
+  const normalizedParams = { ...params };
+  const fromDate =
+    normalizedParams.fromDate ??
+    normalizedParams.startDate ??
+    normalizedParams.from_date ??
+    "";
+  const toDate =
+    normalizedParams.toDate ??
+    normalizedParams.endDate ??
+    normalizedParams.to_date ??
+    "";
+
+  delete normalizedParams.startDate;
+  delete normalizedParams.endDate;
+  delete normalizedParams.from_date;
+  delete normalizedParams.to_date;
+
+  const normalizedFromDate = String(fromDate).trim();
+  const normalizedToDate = String(toDate).trim();
+  const page = Number(normalizedParams.page);
+  const limit = Number(normalizedParams.limit);
+
+  if (normalizedFromDate) {
+    normalizedParams.fromDate = normalizedFromDate;
+    normalizedParams.startDate = normalizedFromDate;
+  }
+
+  if (normalizedToDate) {
+    normalizedParams.toDate = normalizedToDate;
+    normalizedParams.endDate = normalizedToDate;
+  }
+
+  if (Number.isFinite(page) && page > 0) {
+    normalizedParams.page = page;
+    normalizedParams.pageNo = page;
+    normalizedParams.pageNumber = page;
+  }
+
+  if (Number.isFinite(limit) && limit > 0) {
+    normalizedParams.limit = limit;
+    normalizedParams.pageSize = limit;
+  }
+
+  return normalizedParams;
+};
+
 export const getLrBiltyRegister = async (params = {}) => {
   const response = await transportApiRequest("/reports/lr-bilty-register", {
-    params,
+    params: normalizeLrBiltyRegisterParams(params),
   });
   return {
     records: Array.isArray(response?.data?.data) ? response.data.data : [],

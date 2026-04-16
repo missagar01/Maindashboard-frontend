@@ -122,6 +122,57 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+const LR_BILTY_PAGE_SIZE = 30;
+
+const getRecordUniqueId = (record: TransportLrBiltyRecord) =>
+  record?.id || record?.lr_bilty_id || record?.lr_bilty_code || null;
+
+const mergeUniqueRecords = (
+  existing: TransportLrBiltyRecord[],
+  incoming: TransportLrBiltyRecord[]
+) => {
+  const merged = [...existing];
+  const seenIds = new Set(existing.map(getRecordUniqueId).filter(Boolean));
+
+  incoming.forEach((record) => {
+    const recordId = getRecordUniqueId(record);
+
+    if (recordId && seenIds.has(recordId)) {
+      return;
+    }
+
+    if (recordId) {
+      seenIds.add(recordId);
+    }
+
+    merged.push(record);
+  });
+
+  return merged;
+};
+
+const SHOULD_USE_CLIENT_PAGINATION = (
+  page: number, 
+  recordsLen: number, 
+  total: number, 
+  meta: any
+) => {
+  if (page !== 1) return false;
+  
+  // If we got significantly more than one page in the first request, 
+  // or if the backend explicitly reports a massive limit, we switch to client-side mode.
+  const reportedLimit = Number(meta?.limit || 0);
+  const totalPages = Number(meta?.totalPages || 1);
+  const hasNext = !!meta?.hasNextPage;
+
+  return (
+    recordsLen > LR_BILTY_PAGE_SIZE || 
+    (reportedLimit > 1000 && recordsLen >= total) ||
+    (totalPages <= 1 && !hasNext && recordsLen > 0 && recordsLen < total) 
+  );
+};
+
+
 export default function TransportReports() {
   const navigate = useNavigate();
   const [viewStep, setViewStep] = useState(2);
@@ -138,48 +189,110 @@ export default function TransportReports() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const allFetchedRecordsRef = useRef<TransportLrBiltyRecord[]>([]);
+  const paginationModeRef = useRef<"server" | "client">("server");
+  const isFetchingMoreRef = useRef(false);
 
   // Filters for Report View
   const [startDate, setStartDate] = useState("2026-04-01");
   const [endDate, setEndDate] = useState("2026-04-30");
   const [tableSearch, setTableSearch] = useState("");
 
-  const fetchData = async (reportId: string | null, pageNumber = 1, append = false) => {
+  const fetchData = useCallback(async (reportId: string | null, pageNumber = 1, append = false) => {
     if (reportId !== "lr-bilty") {
+      paginationModeRef.current = "server";
+      allFetchedRecordsRef.current = [];
+      isFetchingMoreRef.current = false;
       setRecords([]);
+      setTotalCount(0);
       setLoading(false);
+      setIsFetchingMore(false);
       setHasMore(false);
       return;
     }
 
-    if (append) setIsFetchingMore(true);
-    else setLoading(true);
+    // Client-side pagination mode logic
+    if (append && paginationModeRef.current === "client") {
+      if (isFetchingMoreRef.current) return;
+      isFetchingMoreRef.current = true;
+      setIsFetchingMore(true);
+      
+      const nextBatchSize = pageNumber * LR_BILTY_PAGE_SIZE;
+      const sliced = allFetchedRecordsRef.current.slice(0, nextBatchSize);
+      
+      setRecords(sliced);
+      setHasMore(sliced.length < allFetchedRecordsRef.current.length);
+      setIsFetchingMore(false);
+      isFetchingMoreRef.current = false;
+      return;
+    }
+
+    if (!append) {
+      setLoading(true);
+      paginationModeRef.current = "server";
+      allFetchedRecordsRef.current = [];
+    } else {
+      if (isFetchingMoreRef.current) return;
+      isFetchingMoreRef.current = true;
+      setIsFetchingMore(true);
+    }
 
     setError(null);
     try {
       const data = await getLrBiltyRegister({
         page: pageNumber,
-        limit: 30,
+        limit: LR_BILTY_PAGE_SIZE,
         startDate,
-        endDate
+        endDate,
       });
 
-      const newRecords = data.records;
-      setRecords(prev => append ? [...prev, ...newRecords] : newRecords);
-      setTotalCount(data.count || 0);
-      setHasMore(newRecords.length >= 30);
+      const incomingRecords = Array.isArray(data.records) ? data.records : [];
+      const meta = data.paginationMetadata || {};
+      const total = Number(meta.total || data.count || incomingRecords.length);
+
+      // Check if we should switch to client-side pagination (backend returned all/many records at once)
+      if (SHOULD_USE_CLIENT_PAGINATION(pageNumber, incomingRecords.length, total, meta)) {
+        paginationModeRef.current = "client";
+        const unique = mergeUniqueRecords([], incomingRecords);
+        allFetchedRecordsRef.current = unique;
+        
+        const initialSlice = unique.slice(0, LR_BILTY_PAGE_SIZE);
+        setRecords(initialSlice);
+        setTotalCount(total || unique.length);
+        setHasMore(initialSlice.length < unique.length);
+      } else {
+        // Standard server-side pagination
+        const previousRecordCount = allFetchedRecordsRef.current.length;
+        const merged = append 
+          ? mergeUniqueRecords(allFetchedRecordsRef.current, incomingRecords)
+          : mergeUniqueRecords([], incomingRecords);
+
+        allFetchedRecordsRef.current = merged;
+        setRecords(merged);
+        setTotalCount(total);
+        
+        const derivedHasNext = merged.length < total;
+        const hasNext = meta.hasNextPage !== undefined 
+          ? meta.hasNextPage || derivedHasNext
+          : derivedHasNext;
+        setHasMore(append && merged.length === previousRecordCount ? false : hasNext);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to fetch report data");
+      setError(err.message || "Failed to fetch data");
+      setHasMore(false);
     } finally {
       setLoading(false);
       setIsFetchingMore(false);
+      isFetchingMoreRef.current = false;
     }
-  };
+  }, [startDate, endDate]);
 
   useEffect(() => {
     setPage(1);
     fetchData("lr-bilty", 1, false);
-  }, []);
+  }, [fetchData]);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
 
   const handleApplyFilter = () => {
     setPage(1);
@@ -188,20 +301,21 @@ export default function TransportReports() {
 
   const lastElementRef = useCallback((node: HTMLDivElement | null) => {
     if (loading || isFetchingMore || !hasMore) return;
+    
     if (observerRef.current) observerRef.current.disconnect();
 
-    observerRef.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !isFetchingMore) {
         setPage(prev => {
           const next = prev + 1;
           fetchData(selectedReport, next, true);
           return next;
         });
       }
-    });
+    }, { threshold: 0.1 });
 
     if (node) observerRef.current.observe(node);
-  }, [loading, isFetchingMore, hasMore, selectedReport]);
+  }, [loading, isFetchingMore, hasMore, selectedReport, fetchData]);
 
   const handleCategoryClick = (catId: string) => {
     setSelectedCategory(catId);
@@ -521,80 +635,83 @@ export default function TransportReports() {
                         </tr>
                       ) : tableData.length > 0 ? (
                         <>
-                          {tableData.map((record, idx) => (
-                            <tr key={record.id || record.lr_bilty_id || idx} className="hover:bg-slate-50/50 transition-all group cursor-default">
-                              <td className="px-8 py-5 text-center">
-                                <span className="text-[11px] font-black text-slate-300 group-hover:text-indigo-400">
-                                  {String(idx + 1).padStart(2, '0')}
-                                </span>
-                              </td>
-                              <td className="px-8 py-5">
-                                <div className="flex flex-col">
-                                  <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">
-                                    {record.lr_bilty_code || "N/A"}
+                          {tableData.map((record, idx) => {
+                            const uniqueKey = record.id || record.lr_bilty_id || record.lr_bilty_code || `idx-${idx}`;
+                            return (
+                              <tr key={uniqueKey} className="hover:bg-slate-50/50 transition-all group cursor-default">
+                                <td className="px-8 py-5 text-center">
+                                  <span className="text-[11px] font-black text-slate-300 group-hover:text-indigo-400">
+                                    {String(idx + 1).padStart(2, '0')}
                                   </span>
-                                  <span className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-wider">
-                                    REF No: {record.manual_lr_no || "PE-000"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                                    <Calendar className="h-4 w-4" />
-                                  </div>
-                                  <span className="text-sm font-black text-slate-700">
-                                    {record.lr_bilty_date ? shortDateFormatter.format(new Date(record.lr_bilty_date)) : "N/A"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5">
-                                <div className="flex flex-col gap-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                                    <span className="text-[12px] font-black text-slate-600 uppercase">
-                                      {record.consignor_name || "N/A"}
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex flex-col">
+                                    <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">
+                                      {record.lr_bilty_code || "N/A"}
+                                    </span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-wider">
+                                      REF No: {record.manual_lr_no || "PE-000"}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                                    <span className="text-[11px] font-bold text-indigo-400 uppercase">
-                                      {record.consignee_name || "N/A"}
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                                      <Calendar className="h-4 w-4" />
+                                    </div>
+                                    <span className="text-sm font-black text-slate-700">
+                                      {record.lr_bilty_date ? shortDateFormatter.format(new Date(record.lr_bilty_date)) : "N/A"}
                                     </span>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5">
-                                <div className="flex items-center gap-2 font-black text-[12px] text-slate-800">
-                                  <span className="uppercase">{record.source_name || "Point A"}</span>
-                                  <div className="h-px w-4 bg-slate-200" />
-                                  <span className="uppercase text-indigo-500">{record.destination_name || "Point B"}</span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5">
-                                <div className="flex flex-col">
-                                  <span className="text-[12px] font-black text-slate-700">{record.vehicle_no || "No Data"}</span>
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{record.item_name || "Misc Material"}</span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5 text-right">
-                                <div className="flex flex-col items-end">
-                                  <span className="text-base font-black text-slate-900 tabular-nums">
-                                    {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                      <span className="text-[12px] font-black text-slate-600 uppercase">
+                                        {record.consignor_name || "N/A"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                                      <span className="text-[11px] font-bold text-indigo-400 uppercase">
+                                        {record.consignee_name || "N/A"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex items-center gap-2 font-black text-[12px] text-slate-800">
+                                    <span className="uppercase">{record.source_name || "Point A"}</span>
+                                    <div className="h-px w-4 bg-slate-200" />
+                                    <span className="uppercase text-indigo-500">{record.destination_name || "Point B"}</span>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex flex-col">
+                                    <span className="text-[12px] font-black text-slate-700">{record.vehicle_no || "No Data"}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{record.item_name || "Misc Material"}</span>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-base font-black text-slate-900 tabular-nums">
+                                      {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
+                                    </span>
+                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{record.measuring_unit_name || 'MT'}</span>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5 text-center">
+                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                    : 'bg-amber-50 text-amber-600 border-amber-100'
+                                    }`}>
+                                    {(record.lr_bilty_status || record.status || 'PROCESSED')?.split('_').pop()}
                                   </span>
-                                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{record.measuring_unit_name || 'MT'}</span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-5 text-center">
-                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
-                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                  : 'bg-amber-50 text-amber-600 border-amber-100'
-                                  }`}>
-                                  {(record.lr_bilty_status || record.status || 'PROCESSED')?.split('_').pop()}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </>
                       ) : (
                         <tr>
@@ -616,57 +733,60 @@ export default function TransportReports() {
                     </div>
                   ) : tableData.length > 0 ? (
                     <div className="flex flex-col divide-y divide-slate-100">
-                      {tableData.map((record, idx) => (
-                        <div key={record.id || record.lr_bilty_id || idx} className="bg-white p-6 active:bg-slate-50 transition-colors">
-                          <div className="flex items-start justify-between mb-5">
-                            <div className="flex items-center gap-4">
-                              <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm shadow-xl shadow-slate-900/10">
-                                {idx + 1}
+                      {tableData.map((record, idx) => {
+                        const uniqueKey = record.id || record.lr_bilty_id || record.lr_bilty_code || `idx-${idx}`;
+                        return (
+                          <div key={uniqueKey} className="bg-white p-6 active:bg-slate-50 transition-colors">
+                            <div className="flex items-start justify-between mb-5">
+                              <div className="flex items-center gap-4">
+                                <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm shadow-xl shadow-slate-900/10">
+                                  {idx + 1}
+                                </div>
+                                <div>
+                                  <h4 className="font-black text-base text-slate-900">{record.lr_bilty_code || "N/A"}</h4>
+                                  <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Ref: {record.manual_lr_no || "N/A"}</p>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="font-black text-base text-slate-900">{record.lr_bilty_code || "N/A"}</h4>
-                                <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Ref: {record.manual_lr_no || "N/A"}</p>
-                              </div>
+                              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                                }`}>
+                                {(record.lr_bilty_status || record.status || 'PENDING')?.split('_').pop()}
+                              </span>
                             </div>
-                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
-                              ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                              : 'bg-amber-50 text-amber-600 border-amber-100'
-                              }`}>
-                              {(record.lr_bilty_status || record.status || 'PENDING')?.split('_').pop()}
-                            </span>
-                          </div>
 
-                          <div className="grid grid-cols-2 gap-y-6 mt-4">
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parties</p>
-                              <p className="text-[12px] font-black text-slate-800 leading-tight uppercase">{record.consignor_name || 'N/A'}</p>
-                              <p className="text-[11px] font-bold text-indigo-500 leading-tight border-l-2 border-indigo-100 pl-2 mt-1 uppercase italic">{record.consignee_name || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-1 text-right">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route Analysis</p>
-                              <p className="text-[12px] font-black text-slate-900 uppercase">
-                                {record.source_name || "A"} <span className="inline-block px-1 text-slate-300">→</span> <span className="text-indigo-500">{record.destination_name || "B"}</span>
-                              </p>
-                              <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase italic">Dispatch Mode</p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet & Load</p>
-                              <p className="text-[12px] font-bold text-slate-800 uppercase tracking-tight">{record.item_name || 'Material'}</p>
-                              <div className="inline-flex items-center gap-1.5 mt-1 bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md text-[10px] border border-amber-100">
-                                <Truck className="h-3 w-3" />
-                                {record.vehicle_no || 'VEH-000'}
+                            <div className="grid grid-cols-2 gap-y-6 mt-4">
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parties</p>
+                                <p className="text-[12px] font-black text-slate-800 leading-tight uppercase">{record.consignor_name || 'N/A'}</p>
+                                <p className="text-[11px] font-bold text-indigo-500 leading-tight border-l-2 border-indigo-100 pl-2 mt-1 uppercase italic">{record.consignee_name || 'N/A'}</p>
+                              </div>
+                              <div className="space-y-1 text-right">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route Analysis</p>
+                                <p className="text-[12px] font-black text-slate-900 uppercase">
+                                  {record.source_name || "A"} <span className="inline-block px-1 text-slate-300">→</span> <span className="text-indigo-500">{record.destination_name || "B"}</span>
+                                </p>
+                                <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase italic">Dispatch Mode</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet & Load</p>
+                                <p className="text-[12px] font-bold text-slate-800 uppercase tracking-tight">{record.item_name || 'Material'}</p>
+                                <div className="inline-flex items-center gap-1.5 mt-1 bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md text-[10px] border border-amber-100">
+                                  <Truck className="h-3 w-3" />
+                                  {record.vehicle_no || 'VEH-000'}
+                                </div>
+                              </div>
+                              <div className="space-y-1 text-right">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Quantity</p>
+                                <p className="text-xl font-black text-slate-900 leading-none">
+                                  {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
+                                </p>
+                                <span className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mt-1 inline-block bg-indigo-50 px-2 py-0.5 rounded-md">{record.measuring_unit_name || 'MT'}</span>
                               </div>
                             </div>
-                            <div className="space-y-1 text-right">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Quantity</p>
-                              <p className="text-xl font-black text-slate-900 leading-none">
-                                {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
-                              </p>
-                              <span className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mt-1 inline-block bg-indigo-50 px-2 py-0.5 rounded-md">{record.measuring_unit_name || 'MT'}</span>
-                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="py-32 text-center bg-slate-50/50">
@@ -675,30 +795,23 @@ export default function TransportReports() {
                   )}
                 </div>
 
-                {/* Infinite Scroll Trigger & Loader */}
-                <div ref={lastElementRef} className="py-12 flex flex-col items-center justify-center bg-slate-50/30">
+                {/* Infinite Scroll Trigger */}
+                <div ref={lastElementRef} className="py-12 flex flex-col items-center justify-center bg-slate-50/10">
                   {isFetchingMore ? (
                     <div className="flex flex-col items-center gap-3">
-                      <div className="relative">
-                        <div className="h-10 w-10 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="h-2 w-2 bg-indigo-500 rounded-full" />
-                        </div>
-                      </div>
+                      <div className="h-10 w-10 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
                       <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Syncing Next Batch</p>
                     </div>
                   ) : hasMore ? (
                     <div className="flex items-center gap-4 text-slate-300">
                       <div className="h-px w-12 bg-slate-200" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Scroll to Discover</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Scroll for More</p>
                       <div className="h-px w-12 bg-slate-200" />
                     </div>
                   ) : records.length > 0 ? (
-                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                      <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center">
-                        <Package className="h-5 w-5 text-slate-300" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Inventory Exhausted</p>
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <Package className="h-5 w-5 text-slate-300" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">End of Registry ({records.length})</p>
                     </div>
                   ) : null}
                 </div>

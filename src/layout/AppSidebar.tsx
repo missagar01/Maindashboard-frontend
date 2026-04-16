@@ -288,7 +288,7 @@ const transportSection: SidebarSection = {
   icon: Truck,
   nodes: [
     { kind: "link", key: "transport-dashboard", name: "Dashboard", path: "/transport/dashboard", icon: LayoutDashboard },
-    // { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
+    { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
   ],
 };
 
