@@ -1,7 +1,12 @@
 import { getWithFallback, patchWithFallback } from "./requestWithFallback";
 
-export const fetchGatePassesApi = () =>
-    getWithFallback(["/close-pass", "/close", "/gatepass"]);
+export const fetchGatePassesApi = (personToMeet, showAll = false) =>
+    getWithFallback(["/close-pass", "/close", "/gatepass"], {
+        params: { personToMeet, showAll },
+    });
 
-export const closeGatePassApi = (id) =>
-    patchWithFallback([`/close-pass/${id}`, `/close/${id}`, `/gatepass/${id}`]);
+export const closeGatePassApi = (id, personToMeet, closedBy, showAll = false) =>
+    patchWithFallback(
+        [`/close-pass/${id}`, `/close/${id}`, `/gatepass/${id}`],
+        { personToMeet, closedBy, showAll }
+    );

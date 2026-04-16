@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchGatePassesApi, closeGatePassApi } from '../../../api/gatepass/closePassApi';
 import { formatDateIN, formatTimeIN } from "../utils/dateUtils";
+import { useAuth } from "../../../context/AuthContext";
 import { 
   RefreshCw, 
   DoorOpen, 
@@ -20,6 +21,7 @@ import {
 import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 
 const GatePassClosure = () => {
+  const { user } = useAuth();
   // ... state and effects ...
   const [activeTab, setActiveTab] = useState("pending")
   const [pendingGatePasses, setPendingGatePasses] = useState([])
@@ -32,14 +34,23 @@ const GatePassClosure = () => {
   const [selectedImage, setSelectedImage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const username = user?.user_name || user?.username || "";
+  const isAdmin = String(user?.role || user?.userType || "").toLowerCase().includes("admin");
 
 
   const fetchGatePassData = useCallback(async () => {
+    if (!username && !isAdmin) {
+      setPendingGatePasses([]);
+      setHistoryGatePasses([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetchGatePassesApi();
+      const res = await fetchGatePassesApi(username, isAdmin);
       const rows = res.data.data;
 
       const pending = rows.filter(
@@ -60,7 +71,7 @@ const GatePassClosure = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, username]);
 
   useEffect(() => {
     setCurrentPage(1); // Reset page when changing tabs
@@ -75,10 +86,15 @@ const GatePassClosure = () => {
   }
 
   const handleCloseGatePass = async (id) => {
+    if (!username && !isAdmin) {
+      showToast("Please login again", "error");
+      return;
+    }
+
     setClosingPasses(prev => new Set([...prev, id]));
 
     try {
-      await closeGatePassApi(id);
+      await closeGatePassApi(id, username, username, isAdmin);
 
       showToast("Gate pass closed successfully", "success");
       fetchGatePassData();

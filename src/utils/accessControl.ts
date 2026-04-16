@@ -688,6 +688,29 @@ const normalizePageEntryToRoute = (
   return mappedRoute;
 };
 
+const deriveGatePassRoutes = (
+  rawPages: string[],
+  availableSystems: string[],
+  existingRoutes: Set<string>
+) => {
+  const normalizedApprovalRoute = "/gatepass/approvals";
+  const normalizedCloseRoute = "/gatepass/close-pass";
+  const normalizedCloseAliasRoute = "/gatepass/close";
+
+  const hasApprovalAccess = rawPages.some((page) => {
+    const normalizedRoute = normalizePageEntryToRoute(page, availableSystems);
+    return normalizedRoute === normalizedApprovalRoute;
+  });
+
+  existingRoutes.delete(normalizedCloseRoute);
+  existingRoutes.delete(normalizedCloseAliasRoute);
+
+  if (hasApprovalAccess) {
+    existingRoutes.add(normalizedCloseRoute);
+    existingRoutes.add(normalizedCloseAliasRoute);
+  }
+};
+
 const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   const availableSystems = parseSystemAccess(user);
   const source = parseDelimitedAccess(user?.page_access);
@@ -697,6 +720,8 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
     .filter((value): value is string => Boolean(value));
 
   const routes = new Set(mapped);
+
+  deriveGatePassRoutes(source, availableSystems, routes);
 
   if (hasStoreModuleAccess(user)) {
     getStoreAllowedRoutes(user).forEach((route) => routes.add(route));

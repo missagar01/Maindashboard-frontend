@@ -203,7 +203,6 @@ export const PAGE_ROUTES = {
   "VISITOR GATE PASS": [
     createPageOption("Gate Pass Approvals", "Approvals", "/gatepass/approvals", ["/gatepass/approvals", "/gatepass/visitor"]),
     createPageOption("Gate Pass All Data", "All Data", "/gatepass/all-data", ["/gatepass/all-data"]),
-    createPageOption("Close Gate Pass", "Close Gate Pass", "/gatepass/close-pass", ["/gatepass/close-pass", "/gatepass/close"]),
     createPageOption("Gate Pass Request List", "Request List", "/gatepass/request-visit", ["/gatepass/request-visit"]),
   ],
 };

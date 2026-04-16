@@ -311,8 +311,8 @@ const visitorSection: SidebarSection = {
   key: "visitor-gate-pass", title: "Visitor Gate Pass", caption: "Security Access", icon: ShieldCheck,
   nodes: [
     { kind: "link", key: "gatepass-approvals", name: "Approvals", path: "/gatepass/approvals", icon: BadgeCheck },
-    { kind: "link", key: "gatepass-all-data", name: "All Data", path: "/gatepass/all-data", icon: Files },
     { kind: "link", key: "gatepass-close-pass", name: "Close Pass", path: "/gatepass/close-pass", icon: ShieldCheck },
+    { kind: "link", key: "gatepass-all-data", name: "All Data", path: "/gatepass/all-data", icon: Files },
     { kind: "link", key: "gatepass-request-visit", name: "Request List", path: "/gatepass/request-visit", icon: FileText },
   ],
 };
