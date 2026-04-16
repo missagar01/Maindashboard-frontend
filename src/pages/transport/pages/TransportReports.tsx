@@ -1,841 +1,618 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import {
-  Search,
-  Truck,
-  Package,
-  FileText,
-  TrendingUp,
+  ChevronLeft,
   ChevronRight,
-  ArrowLeft,
-  Calendar,
-  Filter,
   Download,
   RefreshCw,
-  Loader2,
-  AlertCircle,
-  X,
-  ChevronDown,
-  Users,
+  Search,
 } from "lucide-react";
-import { getLrBiltyRegister } from "../../../api/transport/api";
-
-type TransportLrBiltyRecord = Record<string, any>;
-
-const categories = [
-  {
-    id: "transportation",
-    title: "Transportation Reports",
-    icon: Truck,
-    count: 18,
-    description: "Comprehensive insights into transportation operations, performance, and logistics efficiency.",
-    color: "bg-[#0eb180]",
-  },
-  {
-    id: "material",
-    title: "Material Management Report",
-    icon: Package,
-    count: 3,
-    description: "Detailed view of all material for financial tracking and analysis.",
-    color: "bg-[#0eb180]",
-  },
-  {
-    id: "payload",
-    title: "PayLoader Reports",
-    icon: FileText,
-    count: 3,
-    description: "Detailed insights into payload utilization and productivity through automated reporting.",
-    color: "bg-[#7147e4]",
-  },
-  {
-    id: "finance",
-    title: "Finance Reports",
-    icon: FileText,
-    count: 4,
-    description: "Quick access to all essential business performance reports in one place.",
-    color: "bg-[#3372f1]",
-  },
-  {
-    id: "operational",
-    title: "Operational Margin Overview",
-    icon: TrendingUp,
-    count: 2,
-    description: "Real-time insights into operational profitability across functions.",
-    color: "bg-[#9061f9]",
-  },
-];
-
-const reportsByCategory: Record<
-  string,
-  Array<{ id: string; title: string; description: string; icon?: any; color?: string }>
-> = {
-  transportation: [
-    { id: "do-po", title: "DO/PO Register", description: "Maintain records of loading orders issued for dispatch and vehicle allotment.", icon: Package, color: "bg-indigo-500" },
-    { id: "placement", title: "Placement Register", description: "Track and manage scheduled vehicle placements for streamlined logistics.", icon: Package, color: "bg-indigo-500" },
-    { id: "master-lr", title: "Master LR Details Report", description: "Comprehensive record of all Lorry Receipts with full consignment data.", icon: Package, color: "bg-indigo-500" },
-    { id: "lr-bilty", title: "LR Register", description: "Record and manage consignment details with accurate LR (Lorry Receipt) tracking.", icon: Package, color: "bg-indigo-500" },
-    { id: "truck-diesel", title: "Truck Wise Diesel Summary Report", description: "Summarized diesel usage and expenses categorized by individual trucks.", icon: Package, color: "bg-indigo-500" },
-    { id: "freight-advance", title: "Freight Advance Details", description: "Track advance payments issued against freight for trips and consignments.", icon: Package, color: "bg-indigo-500" },
-    { id: "pump-diesel", title: "Pump Wise Diesel Details", description: "Breakdown of diesel consumption and costs per fuel pump.", icon: Package, color: "bg-indigo-500" },
-    { id: "pod-register", title: "POD Register", description: "Consolidated register of received Proof of Delivery documents.", icon: Package, color: "bg-indigo-500" },
-    { id: "freight-advice", title: "Freight Advice summary Report", description: "Concise overview of freight costs, charges, and shipment details for quick reference.", icon: Package, color: "bg-indigo-500" },
-    { id: "service-bill", title: "Service Bill Summary", description: "Summarized view of vehicle service expenses and billing details.", icon: Package, color: "bg-indigo-500" },
-    { id: "lr-pending-pod", title: "Lr Pending for POD Details", description: "Track undelivered Proof of Delivery documents for completed trips.", icon: Package, color: "bg-indigo-500" },
-    { id: "lr-pending-freight", title: "LR Pending for Freight Advice Report", description: "Freight advice documents awaiting verification or approval.", icon: Package, color: "bg-indigo-500" },
-    { id: "lr-pending-service", title: "LR Pending For Service Bill", description: "Track Lorry Receipts awaiting processing in service billing.", icon: Package, color: "bg-indigo-500" },
-    { id: "statutory-expiry", title: "Vehicle Statutory Expiry Details", description: "Stay updated on upcoming expiries of essential vehicle documents.", icon: Package, color: "bg-indigo-500" },
-    { id: "statutory-details", title: "Vehicle Statutory Details", description: "View complete compliance data for vehicle permits, insurance, and fitness.", icon: Package, color: "bg-indigo-500" },
-    { id: "vehicle-handover", title: "Vehicle Handover Register", description: "Record details of vehicle handovers between drivers or departments.", icon: Package, color: "bg-indigo-500" },
-    { id: "vehicle-takeover", title: "Vehicle Takeover Register", description: "Log vehicle takeovers for accountability and operational tracking.", icon: Package, color: "bg-indigo-500" },
-    { id: "internal-transfer", title: "Internal Transfer", description: "Track and manage vehicle or goods movement within internal locations or branches.", icon: Package, color: "bg-indigo-500" },
-  ],
-  material: [
-    { id: "scrap-pending", title: "Scrap Item Pending Report", description: "Scrap item pending for Received", icon: Package, color: "bg-emerald-500" },
-    { id: "accessory-report", title: "Accessory Report", description: "Report related to accessory", icon: Package, color: "bg-emerald-500" },
-    { id: "accessory-issued", title: "Accessories issued but not freighted", description: "Logs material or goods issued", icon: Package, color: "bg-indigo-500" },
-  ],
-  payload: [
-    { id: "pl-reports", title: "PayLoader Reports", description: "Comprehensive reports tracking payload operations, performance, and efficiency for better monitoring and decision-making.", icon: Package, color: "bg-indigo-500" },
-    { id: "pl-shift-change", title: "Equipment Shift Change Reports", description: "Detailed insights into equipment shift changes, including timelines, responsible personnel, and affected assets.", icon: Package, color: "bg-indigo-500" },
-    { id: "pl-diesel-browser", title: "Diesel Browser Register Report", description: "Logs for diesel expenditures", icon: Package, color: "bg-indigo-500" },
-  ],
-  finance: [
-    { id: "day-book", title: "Day Book Report", description: "Stay updated with daily cash flow and transactional snapshots.", icon: FileText, color: "bg-blue-500" },
-    { id: "account-ledger", title: "Account Ledger", description: "Real-time view of all financial movements across your accounts.", icon: Users, color: "bg-emerald-500" },
-    { id: "receivable-payable", title: "Receivable/Payable Report", description: "Comprehensive overview of all receivables and payables.", icon: Truck, color: "bg-pink-500" },
-    { id: "statutory-compliance", title: "Statutory Compliance Report Page", description: "Track pending documents with smart due-date visibility.", icon: FileText, color: "bg-indigo-500" },
-  ],
-  operational: [
-    { id: "lr-margin", title: "Lr Wise Margin Report", description: "Detailed margin analysis based on individual LR entries.", icon: Truck, color: "bg-blue-500" },
-    { id: "vehicle-margin", title: "Vehicle Wise Margin Report", description: "Profitability breakdown by vehicle for cost and revenue insights.", icon: Package, color: "bg-emerald-500" },
-  ],
-};
+import {
+  reportCategories,
+  reportCountByCategory,
+  reportsMasterConfig,
+  ReportConfig,
+} from "../config/reportConfig";
+import { ReportFilterPanel } from "../components/ReportFilterPanel";
+import { ReportRowDetailsDrawer } from "../components/ReportRowDetailsDrawer";
+import { ReportTable } from "../components/ReportTable";
+import { useTransportReport } from "../hooks/useTransportReport";
 
 const numberFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-const shortDateFormatter = new Intl.DateTimeFormat("en-IN", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
+const safeString = (value: unknown) => String(value ?? "").trim();
 
-const LR_BILTY_PAGE_SIZE = 30;
-
-const getRecordUniqueId = (record: TransportLrBiltyRecord) =>
-  record?.id || record?.lr_bilty_id || record?.lr_bilty_code || null;
-
-const mergeUniqueRecords = (
-  existing: TransportLrBiltyRecord[],
-  incoming: TransportLrBiltyRecord[]
-) => {
-  const merged = [...existing];
-  const seenIds = new Set(existing.map(getRecordUniqueId).filter(Boolean));
-
-  incoming.forEach((record) => {
-    const recordId = getRecordUniqueId(record);
-
-    if (recordId && seenIds.has(recordId)) {
-      return;
-    }
-
-    if (recordId) {
-      seenIds.add(recordId);
-    }
-
-    merged.push(record);
-  });
-
-  return merged;
+const toNumber = (value: unknown) => {
+  const parsed = Number.parseFloat(String(value ?? "").replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const SHOULD_USE_CLIENT_PAGINATION = (
-  page: number, 
-  recordsLen: number, 
-  total: number, 
-  meta: any
-) => {
-  if (page !== 1) return false;
-  
-  // If we got significantly more than one page in the first request, 
-  // or if the backend explicitly reports a massive limit, we switch to client-side mode.
-  const reportedLimit = Number(meta?.limit || 0);
-  const totalPages = Number(meta?.totalPages || 1);
-  const hasNext = !!meta?.hasNextPage;
-
-  return (
-    recordsLen > LR_BILTY_PAGE_SIZE || 
-    (reportedLimit > 1000 && recordsLen >= total) ||
-    (totalPages <= 1 && !hasNext && recordsLen > 0 && recordsLen < total) 
-  );
+const toDate = (value: unknown) => {
+  const date = new Date(String(value ?? ""));
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const uniqueCount = (records: any[], keys: string[]) =>
+  new Set(
+    records
+      .map((record) =>
+        keys
+          .map((key) => record?.[key])
+          .find((value) => value !== undefined && value !== null && value !== "")
+      )
+      .filter(Boolean)
+  ).size;
+
+const sumByKeys = (records: any[], keys: string[]) =>
+  records.reduce((total, record) => {
+    const match = keys
+      .map((key) => record?.[key])
+      .find((value) => value !== undefined && value !== null && value !== "");
+    return total + toNumber(match);
+  }, 0);
+
+const buildStats = (config: ReportConfig, records: any[], totalCount: number) => {
+  switch (config.statsKind) {
+    case "diesel": {
+      const totalDiesel = sumByKeys(records, ["total_diesel", "totals", "diesel_qty"]);
+      const vehicles = uniqueCount(records, ["vehicle_no", "vehicle", "vehicle_name"]);
+      const accounts = uniqueCount(records, ["account", "account_name", "pump_name"]);
+      const average = records.length ? totalDiesel / records.length : 0;
+
+      return [
+        { label: "Total Records", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Total Diesel", value: numberFormatter.format(totalDiesel) },
+        { label: "Vehicles", value: numberFormatter.format(vehicles) },
+        { label: "Avg / Record", value: numberFormatter.format(average) },
+        { label: "Accounts", value: numberFormatter.format(accounts) },
+      ];
+    }
+    case "maintenance": {
+      const open = records.filter((record) =>
+        ["open", "pending", "in progress"].some((item) =>
+          safeString(record.status).toLowerCase().includes(item)
+        )
+      ).length;
+      const closed = records.filter((record) =>
+        safeString(record.status).toLowerCase().includes("closed")
+      ).length;
+      const types = uniqueCount(records, ["maintenanceType"]);
+
+      return [
+        { label: "Total Requests", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Open", value: numberFormatter.format(open) },
+        { label: "Closed", value: numberFormatter.format(closed) },
+        { label: "Types", value: numberFormatter.format(types) },
+      ];
+    }
+    case "allowance": {
+      const totalAdvance = sumByKeys(records, ["driver_advance", "advance_amount", "amount"]);
+      const drivers = uniqueCount(records, ["driver_name"]);
+      const vehicles = uniqueCount(records, ["vehicle_no"]);
+
+      return [
+        { label: "Total Entries", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Total Advance", value: numberFormatter.format(totalAdvance) },
+        { label: "Drivers", value: numberFormatter.format(drivers) },
+        { label: "Vehicles", value: numberFormatter.format(vehicles) },
+      ];
+    }
+    case "statuary": {
+      const now = new Date();
+      const expired = records.filter((record) => Boolean(record.is_expired)).length;
+      const expiringSoon = records.filter((record) => {
+        const expiry = toDate(record.expiry_date || record.document_expiry_date);
+
+        if (!expiry || Boolean(record.is_expired)) {
+          return false;
+        }
+
+        const diff = expiry.getTime() - now.getTime();
+        return diff >= 0 && diff <= 30 * 24 * 60 * 60 * 1000;
+      }).length;
+
+      return [
+        { label: "Total Records", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Expired", value: numberFormatter.format(expired) },
+        { label: "Expiring Soon", value: numberFormatter.format(expiringSoon) },
+        { label: "Valid", value: numberFormatter.format(records.length - expired) },
+      ];
+    }
+    case "lr":
+    default: {
+      const quantity = sumByKeys(records, [
+        "lr_bilty_qty",
+        "received_quantity",
+        "loading_order_qty",
+      ]);
+      const vehicles = uniqueCount(records, ["vehicle_no"]);
+      const drivers = uniqueCount(records, ["driver_name", "lr_bilty_driver_name"]);
+      const destinations = uniqueCount(records, ["destination_name"]);
+
+      return [
+        { label: "Total Records", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Total Quantity", value: numberFormatter.format(quantity) },
+        { label: "Vehicles", value: numberFormatter.format(vehicles) },
+        { label: "Drivers", value: numberFormatter.format(drivers) },
+        { label: "Destinations", value: numberFormatter.format(destinations) },
+      ];
+    }
+  }
+};
 
 export default function TransportReports() {
   const navigate = useNavigate();
-  const [viewStep, setViewStep] = useState(2);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>("transportation");
-  const [selectedReport, setSelectedReport] = useState<string | null>("lr-bilty");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [records, setRecords] = useState<TransportLrBiltyRecord[]>([]);
-
-  // Infinite Scroll States
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const allFetchedRecordsRef = useRef<TransportLrBiltyRecord[]>([]);
-  const paginationModeRef = useRef<"server" | "client">("server");
-  const isFetchingMoreRef = useRef(false);
-
-  // Filters for Report View
-  const [startDate, setStartDate] = useState("2026-04-01");
-  const [endDate, setEndDate] = useState("2026-04-30");
+  const [level, setLevel] = useState<1 | 2 | 3>(1);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [categorySearch, setCategorySearch] = useState("");
   const [tableSearch, setTableSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
+  const [sortState, setSortState] = useState<Array<{ id: string; desc: boolean }>>([]);
+  const [selectedRecord, setSelectedRecord] = useState<Record<string, any> | null>(null);
+  const [page, setPage] = useState(1);
 
-  const fetchData = useCallback(async (reportId: string | null, pageNumber = 1, append = false) => {
-    if (reportId !== "lr-bilty") {
-      paginationModeRef.current = "server";
-      allFetchedRecordsRef.current = [];
-      isFetchingMoreRef.current = false;
-      setRecords([]);
-      setTotalCount(0);
-      setLoading(false);
-      setIsFetchingMore(false);
-      setHasMore(false);
-      return;
-    }
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-    // Client-side pagination mode logic
-    if (append && paginationModeRef.current === "client") {
-      if (isFetchingMoreRef.current) return;
-      isFetchingMoreRef.current = true;
-      setIsFetchingMore(true);
-      
-      const nextBatchSize = pageNumber * LR_BILTY_PAGE_SIZE;
-      const sliced = allFetchedRecordsRef.current.slice(0, nextBatchSize);
-      
-      setRecords(sliced);
-      setHasMore(sliced.length < allFetchedRecordsRef.current.length);
-      setIsFetchingMore(false);
-      isFetchingMoreRef.current = false;
-      return;
-    }
+  const currentCategory = useMemo(
+    () => reportCategories.find((category) => category.id === selectedCategoryId) || null,
+    [selectedCategoryId]
+  );
 
-    if (!append) {
-      setLoading(true);
-      paginationModeRef.current = "server";
-      allFetchedRecordsRef.current = [];
-    } else {
-      if (isFetchingMoreRef.current) return;
-      isFetchingMoreRef.current = true;
-      setIsFetchingMore(true);
-    }
+  const categoryReports = useMemo(
+    () => reportsMasterConfig.filter((report) => report.category === selectedCategoryId),
+    [selectedCategoryId]
+  );
 
-    setError(null);
-    try {
-      const data = await getLrBiltyRegister({
-        page: pageNumber,
-        limit: LR_BILTY_PAGE_SIZE,
-        startDate,
-        endDate,
-      });
+  const activeReport = useMemo(
+    () => reportsMasterConfig.find((report) => report.id === selectedReportId) || null,
+    [selectedReportId]
+  );
 
-      const incomingRecords = Array.isArray(data.records) ? data.records : [];
-      const meta = data.paginationMetadata || {};
-      const total = Number(meta.total || data.count || incomingRecords.length);
+  const requestFilters = useMemo(
+    () => ({
+      ...(activeReport?.defaultFilters || {}),
+      ...activeFilters,
+      sort: sortState,
+    }),
+    [activeFilters, activeReport, sortState]
+  );
 
-      // Check if we should switch to client-side pagination (backend returned all/many records at once)
-      if (SHOULD_USE_CLIENT_PAGINATION(pageNumber, incomingRecords.length, total, meta)) {
-        paginationModeRef.current = "client";
-        const unique = mergeUniqueRecords([], incomingRecords);
-        allFetchedRecordsRef.current = unique;
-        
-        const initialSlice = unique.slice(0, LR_BILTY_PAGE_SIZE);
-        setRecords(initialSlice);
-        setTotalCount(total || unique.length);
-        setHasMore(initialSlice.length < unique.length);
-      } else {
-        // Standard server-side pagination
-        const previousRecordCount = allFetchedRecordsRef.current.length;
-        const merged = append 
-          ? mergeUniqueRecords(allFetchedRecordsRef.current, incomingRecords)
-          : mergeUniqueRecords([], incomingRecords);
+  const missingRequiredFilters = useMemo(() => {
+    if (!activeReport) return false;
+    return activeReport.filters.some((field) => {
+      if (!field.required) return false;
 
-        allFetchedRecordsRef.current = merged;
-        setRecords(merged);
-        setTotalCount(total);
-        
-        const derivedHasNext = merged.length < total;
-        const hasNext = meta.hasNextPage !== undefined 
-          ? meta.hasNextPage || derivedHasNext
-          : derivedHasNext;
-        setHasMore(append && merged.length === previousRecordCount ? false : hasNext);
+      if (field.type === "date-range") {
+        const fromKey = field.dateKeys?.from || "fromDate";
+        const toKey = field.dateKeys?.to || "toDate";
+        return !requestFilters[fromKey] || !requestFilters[toKey];
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch data");
-      setHasMore(false);
-    } finally {
-      setLoading(false);
-      setIsFetchingMore(false);
-      isFetchingMoreRef.current = false;
-    }
-  }, [startDate, endDate]);
 
-  useEffect(() => {
-    setPage(1);
-    fetchData("lr-bilty", 1, false);
-  }, [fetchData]);
+      return !requestFilters[field.key] || (typeof requestFilters[field.key] === "object" && !requestFilters[field.key]?.value);
+    });
+  }, [activeReport, requestFilters]);
+
+  const {
+    records,
+    loading,
+    isFetchingMore,
+    totalCount,
+    hasMore,
+    error,
+    fetchData,
+    resetRecords,
+  } = useTransportReport(activeReport);
 
   useEffect(() => () => observerRef.current?.disconnect(), []);
 
-  const handleApplyFilter = () => {
+  useEffect(() => {
+    if (!activeReport || level !== 3 || missingRequiredFilters) {
+      return;
+    }
+
     setPage(1);
-    fetchData(selectedReport, 1, false);
+    setSelectedRecord(null);
+    fetchData(requestFilters, 1, false);
+  }, [activeReport, level, requestFilters, fetchData, missingRequiredFilters]);
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setSelectedReportId(null);
+    setLevel(2);
   };
 
-  const lastElementRef = useCallback((node: HTMLDivElement | null) => {
-    if (loading || isFetchingMore || !hasMore) return;
-    
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !isFetchingMore) {
-        setPage(prev => {
-          const next = prev + 1;
-          fetchData(selectedReport, next, true);
-          return next;
-        });
-      }
-    }, { threshold: 0.1 });
-
-    if (node) observerRef.current.observe(node);
-  }, [loading, isFetchingMore, hasMore, selectedReport, fetchData]);
-
-  const handleCategoryClick = (catId: string) => {
-    setSelectedCategory(catId);
-    setViewStep(1);
-  };
-
-  const handleReportClick = (reportId: string) => {
-    setSelectedReport(reportId);
+  const handleReportSelect = (reportId: string) => {
+    const nextReport = reportsMasterConfig.find((report) => report.id === reportId);
+    setSelectedReportId(reportId);
+    setActiveFilters({ ...(nextReport?.defaultFilters || {}) });
+    setTableSearch("");
     setPage(1);
-    fetchData(reportId, 1, false);
-    setViewStep(2);
+    setSortState(nextReport?.defaultSort || []);
+    setLevel(3);
   };
 
   const handleBack = () => {
-    if (viewStep === 2) {
-      setViewStep(0);
-    } else if (viewStep === 1) {
-      setViewStep(0);
-      setSelectedCategory(null);
-    } else {
-      navigate("/transport/dashboard");
+    if (level === 3) {
+      setLevel(2);
+      setSelectedReportId(null);
+      setSelectedRecord(null);
+      setActiveFilters({});
+      resetRecords();
+      return;
     }
+
+    if (level === 2) {
+      setLevel(1);
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    navigate("/transport/dashboard");
   };
 
-  // Excel Export Logic
-  const handleExportExcel = () => {
-    if (records.length === 0) return;
+  const handleSortChange = (columnKey: string) => {
+    setSortState((previous) => {
+      const current = previous[0];
 
-    const exportData = records.map((r, i) => ({
-      "S.No": i + 1,
-      "LR Code": r.lr_bilty_code || "",
-      "Manual LR": r.manual_lr_no || "",
-      "Date": r.lr_bilty_date ? shortDateFormatter.format(new Date(r.lr_bilty_date)) : "",
-      "Consignor": r.consignor_name || "",
-      "Consignee": r.consignee_name || "",
-      "From": r.source_name || "",
-      "To": r.destination_name || "",
-      "Vehicle No": r.vehicle_no || "",
-      "Item": r.item_name || "",
-      "Quantity": r.lr_bilty_qty || 0,
-      "Unit": r.measuring_unit_name || "",
-      "Status": (r.lr_bilty_status || r.status || "PENDING")?.split('_').pop()
-    }));
+      if (current?.id === columnKey) {
+        return [{ id: columnKey, desc: !current.desc }];
+      }
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "LR Register");
-    XLSX.writeFile(wb, `LR_Register_${new Date().toISOString().split('T')[0]}.xlsx`);
+      return [{ id: columnKey, desc: false }];
+    });
   };
 
-  const filteredCategories = categories.filter((c) =>
-    c.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleRefresh = () => {
+    if (!activeReport) {
+      return;
+    }
+
+    setPage(1);
+    fetchData(requestFilters, 1, false);
+  };
+
+  const handleExport = () => {
+    if (!activeReport || records.length === 0) {
+      return;
+    }
+
+    const exportRows = records.map((record, index) => {
+      const row: Record<string, any> = { "S.No": index + 1 };
+
+      activeReport.columns.forEach((column) => {
+        const value =
+          column.sourceKeys
+            ?.map((key) => record?.[key])
+            .find((item) => item !== undefined && item !== null && item !== "") ??
+          record?.[column.key];
+
+        row[column.label] = value ?? "";
+      });
+
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, activeReport.title.slice(0, 28));
+    XLSX.writeFile(
+      workbook,
+      `${activeReport.id}_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  };
+
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading || isFetchingMore || !hasMore) {
+        return;
+      }
+
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (!entries[0]?.isIntersecting) {
+          return;
+        }
+
+        setPage((previous) => {
+          const nextPage = previous + 1;
+          fetchData(requestFilters, nextPage, true);
+          return nextPage;
+        });
+      });
+
+      if (node) {
+        observerRef.current.observe(node);
+      }
+    },
+    [fetchData, hasMore, isFetchingMore, loading, requestFilters]
   );
 
-  const currentCategory = categories.find((c) => c.id === selectedCategory);
-  const currentReports = selectedCategory ? reportsByCategory[selectedCategory] || [] : [];
-  const currentReportObj = currentReports.find((r) => r.id === selectedReport);
-
   const tableData = useMemo(() => {
-    let filtered = records;
+    if (!tableSearch.trim()) {
+      return records;
+    }
 
-    // Local filtering (Search)
-    if (!tableSearch) return filtered;
-    return filtered.filter((r) =>
-      Object.values(r).some((val) =>
-        String(val).toLowerCase().includes(tableSearch.toLowerCase())
+    const query = tableSearch.toLowerCase();
+    return records.filter((record) =>
+      Object.values(record).some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
       )
     );
   }, [records, tableSearch]);
 
-  const stats = useMemo(() => {
-    const loadedQty = tableData.reduce((sum, r) => sum + (parseFloat(r.lr_bilty_qty) || 0), 0);
-    const uniqueVehicles = new Set(tableData.map((r) => r.vehicle_no)).size;
-    return {
-      totalRecords: totalCount || tableData.length,
-      totalQty: loadedQty,
-      uniqueVehicles: uniqueVehicles,
-    };
-  }, [tableData, totalCount]);
+  const stats = useMemo(
+    () => (activeReport ? buildStats(activeReport, tableData, totalCount) : []),
+    [activeReport, tableData, totalCount]
+  );
+
+  const handleDrilldown = (sourceKey: string, value: any) => {
+    if (!activeReport) {
+      return;
+    }
+
+    const rule = activeReport.drilldownRules.find((item) => item.key === sourceKey);
+    if (!rule) {
+      return;
+    }
+
+    const filterKey = rule.filterKey || sourceKey;
+    const nextFilter: Record<string, any> = {};
+
+    if (rule.filterType === "multi-select") {
+      nextFilter[filterKey] = {
+        value: [value],
+        filter_type: "multi-select",
+      };
+    } else if (rule.filterType === "boolean") {
+      nextFilter[filterKey] = {
+        value: Boolean(value),
+        filter_type: "boolean",
+      };
+    } else {
+      nextFilter[filterKey] = {
+        value: String(value),
+        filter_type: rule.filterType || "string",
+      };
+    }
+
+    setSelectedRecord(null);
+    setActiveFilters((previous) => ({
+      ...(activeReport.defaultFilters || {}),
+      ...previous,
+      ...nextFilter,
+    }));
+    setPage(1);
+  };
+
+  const filteredCategories = useMemo(
+    () =>
+      reportCategories.filter((category) =>
+        category.title.toLowerCase().includes(categorySearch.toLowerCase())
+      ),
+    [categorySearch]
+  );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      {/* Top Header Filter / Search Area */}
-      <div className="bg-white px-4 py-4 sm:px-6 border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleBack}
-                className="p-2 hover:bg-slate-50 rounded-xl transition-all border border-slate-100 active:scale-95"
-              >
-                <ArrowLeft className="h-5 w-5 text-slate-600" />
-              </button>
-              <div>
-                <h1 className="text-xl font-black text-slate-900 leading-tight">
-                  {viewStep === 0
-                    ? "Transport Reports"
-                    : viewStep === 1
-                      ? currentCategory?.title
-                      : currentReportObj?.title}
-                </h1>
-                <p className="text-[10px] text-indigo-500 font-black uppercase tracking-[0.15em]">
-                  {viewStep === 0 ? "Fleet Intelligence Hub" : `Reports / ${currentCategory?.title}`}
-                </p>
-              </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="rounded-xl border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-black text-slate-900 sm:text-2xl">
+                {level === 1
+                  ? "Transport Report Hub"
+                  : level === 2
+                    ? currentCategory?.title
+                    : activeReport?.title}
+              </h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">
+                {level === 1
+                  ? "API Driven Reports"
+                  : `Reports / ${currentCategory?.title || "Transport"}`}
+              </p>
             </div>
-            {viewStep === 2 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleApplyFilter}
-                  className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
-                  title="Reload Data"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                </button>
-              </div>
-            )}
           </div>
 
-          {viewStep === 0 && (
-            <div className="relative group w-full">
-              <input
-                type="text"
-                placeholder="Search across reports..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:bg-white focus:border-indigo-500/50"
-              />
-              <Search className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+          {level === 3 ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExport}
+                className="hidden items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-emerald-700 sm:inline-flex"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
-      <div className="p-0 sm:p-5">
-        {/* Step 0: Category Grid */}
-        {viewStep === 0 && (
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredCategories.map((category) => (
-              <div
-                key={category.id}
-                onClick={() => handleCategoryClick(category.id)}
-                className="group relative bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:shadow-2xl hover:translate-y-[-4px] transition-all duration-500 cursor-pointer overflow-hidden"
+      <div className="w-full px-3 py-3 sm:px-5 sm:py-5">
+        {level === 1 ? (
+          <div className="space-y-4">
+            <div className="relative w-full sm:max-w-lg">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={categorySearch}
+                onChange={(event) => setCategorySearch(event.target.value)}
+                placeholder="Search report categories"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredCategories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => handleCategorySelect(category.id)}
+                  className="rounded-[20px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className={`rounded-2xl p-3 text-white ${category.color}`}>
+                      <category.icon className="h-6 w-6" />
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">
+                      {reportCountByCategory[category.id]}
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <h2 className="mt-4 text-lg font-black text-slate-900">{category.title}</h2>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                    {category.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {level === 2 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {categoryReports.map((report) => (
+              <button
+                key={report.id}
+                type="button"
+                onClick={() => handleReportSelect(report.id)}
+                className="rounded-[20px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md"
               >
-                <div className="flex items-center justify-between mb-8">
-                  <div className={`${category.color} p-4 rounded-2xl text-white shadow-xl shadow-black/5 group-hover:scale-110 transition-transform duration-500`}>
-                    <category.icon className="h-6 w-6" />
+                <div className="flex items-start gap-4">
+                  <div className={`rounded-2xl p-3 text-white ${report.color}`}>
+                    <report.icon className="h-6 w-6" />
                   </div>
-                  <div className="flex items-center gap-2 text-white font-black text-[10px] uppercase tracking-widest bg-indigo-500/10 text-indigo-600 px-4 py-1.5 rounded-full border border-indigo-100">
-                    <span>{category.count} Files</span>
-                    <ChevronRight className="h-3 w-3" />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-black text-slate-900">{report.title}</h3>
+                    <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                      {report.description}
+                    </p>
                   </div>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
                 </div>
-                <h3 className="text-lg font-black text-slate-900 mb-3 group-hover:text-indigo-600 transition-colors">{category.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium opacity-80">
-                  {category.description}
-                </p>
-                <div className="absolute bottom-0 left-0 h-1.5 bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500 w-full" />
-              </div>
+              </button>
             ))}
           </div>
-        )}
+        ) : null}
 
-        {/* Step 1: Report List Grid */}
-        {viewStep === 1 && (
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {currentReports.map((report) => {
-              const Icon = report.icon || Package;
-              return (
+        {level === 3 && activeReport ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-5">
+              {stats.map((stat) => (
                 <div
-                  key={report.id}
-                  onClick={() => handleReportClick(report.id)}
-                  className="bg-white border border-slate-200 rounded-[28px] p-5 flex items-center gap-5 shadow-sm hover:shadow-xl hover:bg-white hover:border-indigo-100 transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-2"
+                  key={stat.label}
+                  className="rounded-[16px] border border-slate-200 bg-white px-3 py-3 shadow-sm sm:px-4 sm:py-4"
                 >
-                  <div className={`${report.color || 'bg-[#4f46e5]'} p-3.5 rounded-2xl text-white shadow-lg shadow-black/5 group-hover:rotate-6 transition-transform`}>
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-base text-slate-800 truncate group-hover:text-indigo-600">
-                      {report.title}
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mt-1 font-black uppercase tracking-widest truncate opacity-80">
-                      Standard Module Report
-                    </p>
-                  </div>
-                  <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
+                    {stat.label}
+                  </p>
+                  <p className="mt-1 text-lg font-black text-slate-900 sm:text-2xl">
+                    {stat.value}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
 
-        {/* Step 2: Specific Report View */}
-        {viewStep === 2 && (
-          <div className="space-y-0 sm:space-y-5">
-            {/* Filter Section - Full Width on Mobile */}
-            <div className="bg-white sm:rounded-[32px] p-4 sm:p-6 border-b sm:border border-slate-200 shadow-sm relative overflow-hidden">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="grid grid-cols-2 sm:flex items-center gap-3">
-                  <div className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border border-slate-200 rounded-2xl group focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-500/5 transition-all">
-                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500" />
-                    <div className="flex flex-col">
-                      <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Start Date</span>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="bg-transparent border-none text-[11px] sm:text-sm font-black text-slate-900 focus:outline-none p-0 cursor-pointer w-full"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border border-slate-200 rounded-2xl group focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-500/5 transition-all">
-                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
-                    <div className="flex flex-col">
-                      <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">End Date</span>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="bg-transparent border-none text-[11px] sm:text-sm font-black text-slate-900 focus:outline-none p-0 cursor-pointer w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
+            <ReportFilterPanel
+              config={activeReport}
+              loading={loading}
+              onApply={(filters) => {
+                setPage(1);
+                setActiveFilters(filters);
+              }}
+              onClear={() => {
+                setPage(1);
+                setActiveFilters({ ...(activeReport.defaultFilters || {}) });
+              }}
+            />
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      setStartDate("2026-04-01");
-                      setEndDate("2026-04-30");
-                    }}
-                    className="flex-1 sm:flex-none px-6 py-3.5 text-slate-600 font-bold text-xs hover:bg-slate-50 rounded-2xl transition-all border border-slate-100 active:scale-95"
-                  >
-                    Clear Filter
-                  </button>
-                  <button
-                    onClick={handleApplyFilter}
-                    className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-8 py-3.5 rounded-2xl flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/20 active:scale-95 transition-all"
-                  >
-                    <Filter className="h-4 w-4" />
-                    Filter
-                  </button>
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={tableSearch}
+                  onChange={(event) => setTableSearch(event.target.value)}
+                  placeholder="Search loaded rows"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300"
+                />
+              </div>
+              <div className="text-sm font-medium text-slate-500">
+                Showing {tableData.length} loaded rows out of {numberFormatter.format(totalCount)}
               </div>
             </div>
 
-            {/* Content Area - Full Width on Mobile */}
-            <div className="p-0 sm:p-0 space-y-4">
-              {/* Metrics Grid */}
-              <div className="px-4 sm:px-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { label: 'Total Records', val: stats.totalRecords, color: 'text-indigo-600', bg: 'bg-indigo-50', icon: FileText },
-                  { label: 'Total Weight', val: numberFormatter.format(stats.totalQty), sub: 'MT', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: Package },
-                  { label: 'Vehicles', val: stats.uniqueVehicles, color: 'text-amber-600', bg: 'bg-amber-50', icon: Truck },
-                  { label: 'Efficiency', val: tableData.length > 0 ? (stats.totalQty / tableData.length).toFixed(2) : 0, color: 'text-rose-600', bg: 'bg-rose-50', icon: TrendingUp }
-                ].map((stat, i) => (
-                  <div key={i} className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
-                    <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 sm:mb-2">{stat.label}</p>
-                    <div className="flex items-baseline gap-1">
-                      <p className={`text-xl sm:text-2xl font-black ${stat.color}`}>{stat.val}</p>
-                      {stat.sub && <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 lowercase">{stat.sub}</span>}
-                    </div>
-                    <stat.icon className={`absolute -right-2 -bottom-2 h-16 w-16 opacity-[0.03] group-hover:scale-110 transition-transform duration-500 ${stat.color}`} />
-                  </div>
-                ))}
+            {error ? (
+              <div className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {error}
               </div>
+            ) : null}
 
-              {/* Table Search & Export */}
-              <div className="px-4 sm:px-0 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="relative w-full sm:max-w-md">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search visible records..."
-                    value={tableSearch}
-                    onChange={(e) => setTableSearch(e.target.value)}
-                    className="w-full pl-12 pr-6 py-3.5 bg-white border border-slate-200 rounded-[20px] text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm"
-                  />
+            {missingRequiredFilters ? (
+              <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50/50 py-16 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-8 ring-slate-100/50">
+                  <Calendar className="h-8 w-8 text-indigo-500" />
                 </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={handleExportExcel}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-6 py-3.5 bg-emerald-600 text-white rounded-[20px] text-sm font-black hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/10 active:scale-95"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export Excel
-                  </button>
-                </div>
+                <h3 className="mt-6 text-base font-black text-slate-900">Required Filters Missing</h3>
+                <p className="mx-auto mt-2 max-w-xs text-sm font-medium leading-relaxed text-slate-500">
+                  Please complete the required date filters or parameters in the panel above to generate this report.
+                </p>
               </div>
+            ) : (
+              <>
+                <ReportTable
+                  config={activeReport}
+                  data={tableData}
+                  loading={loading}
+                  hasMore={hasMore}
+                  isFetchingMore={isFetchingMore}
+                  lastElementRef={lastElementRef}
+                  onRowClick={(record) => setSelectedRecord(record)}
+                  onSortChange={handleSortChange}
+                  sortState={sortState}
+                />
 
-              {/* Data Container - Full width mobile */}
-              <div className="bg-white sm:border border-slate-200 sm:rounded-[40px] overflow-hidden shadow-sm">
-                {/* Desktop Table View */}
-                <div className="hidden lg:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 border-b border-slate-100 whitespace-nowrap">
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 w-16 text-center">#</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">ID / Reference</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Date Info</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Parties Involved</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Logistics Route</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Equipment</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-right">Net Wt.</th>
-                        <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Lifecycle</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {loading && page === 1 ? (
-                        <tr>
-                          <td colSpan={8} className="py-32 text-center">
-                            <Loader2 className="h-12 w-12 animate-spin text-indigo-500 mx-auto" />
-                            <p className="text-sm font-black text-slate-400 mt-6 uppercase tracking-[0.3em]">Synchronizing Registry</p>
-                          </td>
-                        </tr>
-                      ) : tableData.length > 0 ? (
-                        <>
-                          {tableData.map((record, idx) => {
-                            const uniqueKey = record.id || record.lr_bilty_id || record.lr_bilty_code || `idx-${idx}`;
-                            return (
-                              <tr key={uniqueKey} className="hover:bg-slate-50/50 transition-all group cursor-default">
-                                <td className="px-8 py-5 text-center">
-                                  <span className="text-[11px] font-black text-slate-300 group-hover:text-indigo-400">
-                                    {String(idx + 1).padStart(2, '0')}
-                                  </span>
-                                </td>
-                                <td className="px-8 py-5">
-                                  <div className="flex flex-col">
-                                    <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">
-                                      {record.lr_bilty_code || "N/A"}
-                                    </span>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-wider">
-                                      REF No: {record.manual_lr_no || "PE-000"}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                                      <Calendar className="h-4 w-4" />
-                                    </div>
-                                    <span className="text-sm font-black text-slate-700">
-                                      {record.lr_bilty_date ? shortDateFormatter.format(new Date(record.lr_bilty_date)) : "N/A"}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5">
-                                  <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                                      <span className="text-[12px] font-black text-slate-600 uppercase">
-                                        {record.consignor_name || "N/A"}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                                      <span className="text-[11px] font-bold text-indigo-400 uppercase">
-                                        {record.consignee_name || "N/A"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5">
-                                  <div className="flex items-center gap-2 font-black text-[12px] text-slate-800">
-                                    <span className="uppercase">{record.source_name || "Point A"}</span>
-                                    <div className="h-px w-4 bg-slate-200" />
-                                    <span className="uppercase text-indigo-500">{record.destination_name || "Point B"}</span>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5">
-                                  <div className="flex flex-col">
-                                    <span className="text-[12px] font-black text-slate-700">{record.vehicle_no || "No Data"}</span>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{record.item_name || "Misc Material"}</span>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5 text-right">
-                                  <div className="flex flex-col items-end">
-                                    <span className="text-base font-black text-slate-900 tabular-nums">
-                                      {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
-                                    </span>
-                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{record.measuring_unit_name || 'MT'}</span>
-                                  </div>
-                                </td>
-                                <td className="px-8 py-5 text-center">
-                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
-                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                                    }`}>
-                                    {(record.lr_bilty_status || record.status || 'PROCESSED')?.split('_').pop()}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </>
-                      ) : (
-                        <tr>
-                          <td colSpan={8} className="px-8 py-24 text-center">
-                            <FileText className="h-16 w-16 text-slate-100 mx-auto mb-6" />
-                            <p className="text-base font-black text-slate-400 uppercase tracking-widest">No Records Found</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <div className="flex flex-col gap-1 rounded-[16px] border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    Page <span className="text-slate-900">{page}</span>
+                  </span>
+                  <span>
+                    Active Report <span className="text-slate-900">{activeReport.title}</span>
+                  </span>
                 </div>
-
-                {/* Mobile Card Layout - Full Width & Premium */}
-                <div className="lg:hidden">
-                  {loading && page === 1 ? (
-                    <div className="py-32 text-center">
-                      <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mx-auto" />
-                    </div>
-                  ) : tableData.length > 0 ? (
-                    <div className="flex flex-col divide-y divide-slate-100">
-                      {tableData.map((record, idx) => {
-                        const uniqueKey = record.id || record.lr_bilty_id || record.lr_bilty_code || `idx-${idx}`;
-                        return (
-                          <div key={uniqueKey} className="bg-white p-6 active:bg-slate-50 transition-colors">
-                            <div className="flex items-start justify-between mb-5">
-                              <div className="flex items-center gap-4">
-                                <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm shadow-xl shadow-slate-900/10">
-                                  {idx + 1}
-                                </div>
-                                <div>
-                                  <h4 className="font-black text-base text-slate-900">{record.lr_bilty_code || "N/A"}</h4>
-                                  <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Ref: {record.manual_lr_no || "N/A"}</p>
-                                </div>
-                              </div>
-                              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${record.lr_bilty_status === 'LR_BILTY_PREPARED' || record.status === 'DONE'
-                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                : 'bg-amber-50 text-amber-600 border-amber-100'
-                                }`}>
-                                {(record.lr_bilty_status || record.status || 'PENDING')?.split('_').pop()}
-                              </span>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-y-6 mt-4">
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parties</p>
-                                <p className="text-[12px] font-black text-slate-800 leading-tight uppercase">{record.consignor_name || 'N/A'}</p>
-                                <p className="text-[11px] font-bold text-indigo-500 leading-tight border-l-2 border-indigo-100 pl-2 mt-1 uppercase italic">{record.consignee_name || 'N/A'}</p>
-                              </div>
-                              <div className="space-y-1 text-right">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route Analysis</p>
-                                <p className="text-[12px] font-black text-slate-900 uppercase">
-                                  {record.source_name || "A"} <span className="inline-block px-1 text-slate-300">→</span> <span className="text-indigo-500">{record.destination_name || "B"}</span>
-                                </p>
-                                <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase italic">Dispatch Mode</p>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet & Load</p>
-                                <p className="text-[12px] font-bold text-slate-800 uppercase tracking-tight">{record.item_name || 'Material'}</p>
-                                <div className="inline-flex items-center gap-1.5 mt-1 bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md text-[10px] border border-amber-100">
-                                  <Truck className="h-3 w-3" />
-                                  {record.vehicle_no || 'VEH-000'}
-                                </div>
-                              </div>
-                              <div className="space-y-1 text-right">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Quantity</p>
-                                <p className="text-xl font-black text-slate-900 leading-none">
-                                  {record.lr_bilty_qty ? numberFormatter.format(parseFloat(record.lr_bilty_qty)) : "0.00"}
-                                </p>
-                                <span className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mt-1 inline-block bg-indigo-50 px-2 py-0.5 rounded-md">{record.measuring_unit_name || 'MT'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="py-32 text-center bg-slate-50/50">
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Zero Records Found</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Infinite Scroll Trigger */}
-                <div ref={lastElementRef} className="py-12 flex flex-col items-center justify-center bg-slate-50/10">
-                  {isFetchingMore ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="h-10 w-10 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
-                      <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Syncing Next Batch</p>
-                    </div>
-                  ) : hasMore ? (
-                    <div className="flex items-center gap-4 text-slate-300">
-                      <div className="h-px w-12 bg-slate-200" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Scroll for More</p>
-                      <div className="h-px w-12 bg-slate-200" />
-                    </div>
-                  ) : records.length > 0 ? (
-                    <div className="flex flex-col items-center gap-2 text-slate-400">
-                      <Package className="h-5 w-5 text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">End of Registry ({records.length})</p>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Footer Status Bar */}
-                <div className="bg-slate-900 px-6 py-4 flex items-center justify-between shadow-2xl">
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Displaying {records.length} <span className="text-white">/</span> {totalCount} Entities
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="h-4 w-px bg-slate-700" />
-                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                      REGISTRY STRETCH <span className="text-white ml-2">P-0{page}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
+
+      <ReportRowDetailsDrawer
+        config={activeReport}
+        record={selectedRecord}
+        onClose={() => setSelectedRecord(null)}
+        onDrilldown={handleDrilldown}
+      />
     </div>
   );
 }
