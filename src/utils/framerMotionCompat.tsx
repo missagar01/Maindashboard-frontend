@@ -29,3 +29,6 @@ export const motion = new Proxy(
 export const AnimatePresence: React.FC<{ children?: React.ReactNode }> = ({ children }) => <>{children}</>;
 
 export default motion;
+
+
+

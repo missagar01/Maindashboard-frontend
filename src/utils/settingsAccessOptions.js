@@ -188,6 +188,11 @@ export const PAGE_ROUTES = {
       "Transport Dashboard",
       "Dashboard",
     ]),
+    createPageOption("Transport Reports", "Reports", "/transport/reports", [
+      "/transport/reports",
+      "Transport Reports",
+      "Reports",
+    ]),
   ],
   SUBSCRIPTION: [
     createPageOption("Document Dashboard", "Document Dashboard", "/document/dashboard", ["/document/dashboard"]),

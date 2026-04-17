@@ -60,6 +60,12 @@ const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   checklistdepartmenttask: "/checklist/department-task",
 };
 
+const TRANSPORT_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
+  transportdashboard: "/transport/dashboard",
+  transportreports: "/transport/reports",
+  reports: "/transport/reports",
+};
+
 const CHECKLIST_LEGACY_PATH_ROUTE_MAP: Record<string, string> = {
   "/dashboard/admin": "/checklist",
   "/dashboard/assign-task": "/checklist/assign-task",
@@ -196,6 +202,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Setting: "/lead-to-order/settings",
   "Store Dashboard": "/store/dashboard",
   "Transport Dashboard": "/transport/dashboard",
+  "Transport Reports": "/transport/reports",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -637,6 +644,7 @@ const normalizePageEntryToRoute = (
   }
 
   const hasChecklist = hasSystemAccess(availableSystems, "checklist");
+  const hasTransport = hasSystemAccess(availableSystems, "transport");
 
   if (page.startsWith("/")) {
     const normalized = normalizePath(page);
@@ -670,6 +678,10 @@ const normalizePageEntryToRoute = (
   const normalizedPageLookup = normalizeLookupKey(page);
   if (hasChecklist && CHECKLIST_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup]) {
     return CHECKLIST_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup];
+  }
+
+  if (hasTransport && TRANSPORT_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup]) {
+    return TRANSPORT_PAGE_SLUG_ROUTE_MAP[normalizedPageLookup];
   }
 
   const matchedKey = Object.keys(PAGE_NAME_TO_ROUTE_MAP).find(
