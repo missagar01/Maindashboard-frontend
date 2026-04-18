@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 
 const toneClasses = {
   blue: {
@@ -37,17 +36,21 @@ const toneClasses = {
     value: "text-white",
     icon: "bg-white/20 border-white/20 text-white",
   },
+  slate: {
+    card: "bg-gradient-to-br from-slate-600 to-slate-800 border-slate-400/30",
+    label: "text-slate-100",
+    value: "text-white",
+    icon: "bg-white/20 border-white/20 text-white",
+  },
 } as const;
 
 export const AnalyticsKpiCard = ({
   label,
   value,
-  icon: Icon,
   tone = "blue",
 }: {
   label: string;
   value: string;
-  icon: LucideIcon;
   tone?: keyof typeof toneClasses;
 }) => {
   const toneConfig = toneClasses[tone];
@@ -67,12 +70,6 @@ export const AnalyticsKpiCard = ({
           <p className={`mt-2 whitespace-nowrap text-3xl font-black tracking-tight ${toneConfig.value}`}>
             {value}
           </p>
-        </div>
-
-        <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-inner ${toneConfig.icon}`}
-        >
-          <Icon className="h-6 w-6" />
         </div>
       </div>
     </article>

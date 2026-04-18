@@ -132,7 +132,7 @@ export default function TransportDashboard() {
     const totalFreight = filteredRecords.reduce((sum, r) => sum + (Number(r.freight_amount) || 0), 0);
     const totalAdvance = filteredRecords.reduce((sum, r) => sum + (Number(r.advance_cash_amount || r.advance_diesel_amount) || 0), 0);
     const totalTax = filteredRecords.reduce((sum, r) => sum + (Number(r.total_tax_amount) || 0), 0);
-    
+
     return [
       { name: "Freight", value: totalFreight || 10, color: "#6366f1" },
       { name: "Advance", value: totalAdvance || 5, color: "#10b981" },
@@ -149,10 +149,12 @@ export default function TransportDashboard() {
     return [
       { label: "LR ISSUED", count: total, color: "#6366f1", icon: Zap },
       { label: "POD SYNCED", count: pod, color: "#06b6d4", icon: ShieldCheck },
-      { label: "FREIGHT BUILT", count: freight, color: "#f59e0b", icon: BadgeIndianRupee },
-      { label: "SERVICE BILLED", count: service, color: "#10b981", icon: FileClock },
+      { label: "FREIGHT", count: freight, color: "#f59e0b", icon: BadgeIndianRupee },
+      { label: "SERVICE", count: service, color: "#10b981", icon: FileClock },
     ];
   }, [filteredRecords]);
+
+  const recentTakeovers = useMemo(() => takeover.data?.recentTakeovers?.slice(0, 4) ?? [], [takeover.data]);
 
   return (
     <div className="space-y-6 py-2">
@@ -174,26 +176,31 @@ export default function TransportDashboard() {
       </div>
 
       {/* KPI Command Center */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4 px-1">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 px-1">
         <AnalyticsKpiCard
           label="Takeover"
           value={formatNumber(takeover.data?.takeoversThisMonth ?? 0)}
-          icon={TrendingUp} tone="blue"
+          tone="blue"
         />
         <AnalyticsKpiCard
           label="Handover"
           value={formatNumber(handover.data?.handoversThisMonth ?? 0)}
-          icon={ArrowRightLeft} tone="emerald"
+          tone="emerald"
         />
         <AnalyticsKpiCard
           label="Bilty"
           value={formatNumber(filteredRecords.length)}
-          icon={Truck} tone="violet"
+          tone="violet"
         />
         <AnalyticsKpiCard
           label="Deductions"
           value={formatCurrency(takeover.data?.totalDeductionsThisMonth ?? 0)}
-          icon={BadgeIndianRupee} tone="amber"
+          tone="amber"
+        />
+        <AnalyticsKpiCard
+          label="Avg Duration"
+          value={`${takeover.data?.avgAssignmentDurationDays ?? 0} Days`}
+          tone="slate"
         />
       </div>
 
@@ -212,9 +219,9 @@ export default function TransportDashboard() {
                 <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }} 
-                    itemStyle={{ fontWeight: 800, color: '#1e293b' }}
+                <Tooltip
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
+                  itemStyle={{ fontWeight: 800, color: '#1e293b' }}
                 />
                 <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={4} fill="url(#tkGrad)" />
               </AreaChart>
@@ -229,17 +236,17 @@ export default function TransportDashboard() {
                 <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
-                    itemStyle={{ fontWeight: 800, color: '#10b981' }}
+                <Tooltip
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
+                  itemStyle={{ fontWeight: 800, color: '#10b981' }}
                 />
-                <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#10b981" 
-                    strokeWidth={4} 
-                    dot={{ r: 5, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }} 
-                    activeDot={{ r: 8, strokeWidth: 4 }}
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#10b981"
+                  strokeWidth={4}
+                  dot={{ r: 5, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }}
+                  activeDot={{ r: 8, strokeWidth: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -294,22 +301,19 @@ export default function TransportDashboard() {
       </div>
 
       {/* Final Row: Workflow + Distribution */}
-      <div className="grid gap-6 xl:grid-cols-[400px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-4">
-          <h2 className="text-sm font-black uppercase tracking-widest text-slate-800 px-2">Pipeline Status</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Pipeline Status</h2>
           <div className="grid gap-3">
             {pipelineItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}10`, color: item.color }}>
-                  <item.icon className="h-5 w-5" />
+              <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-sm">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}10`, color: item.color }}>
+                  <item.icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black tracking-widest text-slate-400">{item.label}</span>
-                    <span className="text-lg font-black text-slate-900">{formatNumber(item.count)}</span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-slate-50 overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(item.count / (pipelineItems[0].count || 1)) * 100}%`, backgroundColor: item.color }} />
+                    <span className="text-[9px] font-black tracking-widest text-slate-400">{item.label}</span>
+                    <span className="text-base font-black text-slate-900">{formatNumber(item.count)}</span>
                   </div>
                 </div>
               </div>
@@ -317,15 +321,35 @@ export default function TransportDashboard() {
           </div>
         </div>
 
-        <AnalyticsChartContainer variant="flat" title="Vehicle Utilization" subtitle="Operational distribution by type.">
-          <div className="h-[360px] min-w-0">
+        <div className="space-y-4">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Recent Takeovers</h2>
+          <div className="grid gap-3">
+            {recentTakeovers.length > 0 ? recentTakeovers.map((tk: any, i) => (
+              <div key={i} className="flex items-center gap-4 rounded-2xl border border-slate-50 bg-white p-3 shadow-sm hover:border-blue-100 transition-colors">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+                  <Navigation className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black text-slate-900 truncate">{tk.vehicleNo}</p>
+                  <p className="text-[10px] font-bold text-slate-400 truncate">{tk.driverName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-blue-500 uppercase">Active</p>
+                </div>
+              </div>
+            )) : <div className="h-20 flex items-center justify-center rounded-2xl border border-dashed text-[10px] font-bold text-slate-400">No Recent Takeovers</div>}
+          </div>
+        </div>
+
+        <AnalyticsChartContainer variant="flat" title="Distribution" subtitle="By vehicle type.">
+          <div className="h-[240px] min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={assetDistribution} margin={{ left: -20 }} barSize={32}>
+              <BarChart data={assetDistribution} margin={{ left: -25 }} barSize={18}>
                 <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 9, fontWeight: 700 }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 9, fontWeight: 700 }} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
+                <Tooltip />
+                <Bar dataKey="amount" radius={[5, 5, 0, 0]}>
                   {assetDistribution.map((_, i) => <Cell key={`b-${i}`} fill={chartPalette[i % chartPalette.length]} />)}
                 </Bar>
               </BarChart>

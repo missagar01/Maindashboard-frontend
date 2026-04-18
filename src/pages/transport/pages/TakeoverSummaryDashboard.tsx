@@ -137,19 +137,16 @@ export const TakeoverSummaryDashboard = ({
         <AnalyticsKpiCard
           label="Takeovers This Month"
           value={formatNumber(data.takeoversThisMonth)}
-          icon={ShieldCheck}
           tone="blue"
         />
         <AnalyticsKpiCard
           label="Total Deductions"
           value={formatCurrency(data.totalDeductionsThisMonth)}
-          icon={BadgeIndianRupee}
           tone="amber"
         />
         <AnalyticsKpiCard
           label="Avg Assignment Duration"
           value={`${formatNumber(data.avgAssignmentDurationDays)} days`}
-          icon={CalendarClock}
           tone="emerald"
         />
       </div>

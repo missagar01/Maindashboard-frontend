@@ -132,25 +132,21 @@ export const HandoverSummaryDashboard = ({
         <AnalyticsKpiCard
           label="Handovers This Month"
           value={formatNumber(data.handoversThisMonth)}
-          icon={ArrowLeftRight}
           tone="blue"
         />
         <AnalyticsKpiCard
           label="Pending Takeovers"
           value={formatNumber(data.pendingTakeovers)}
-          icon={TimerReset}
           tone="amber"
         />
         <AnalyticsKpiCard
           label="Fleet Utilization"
           value={formatPercent(data.fleetUtilization)}
-          icon={Activity}
           tone="emerald"
         />
         <AnalyticsKpiCard
           label="Avg Turnaround Time"
           value={`${formatNumber(data.avgTurnaroundTimeHours)} hrs`}
-          icon={Clock3}
           tone="violet"
         />
       </div>
