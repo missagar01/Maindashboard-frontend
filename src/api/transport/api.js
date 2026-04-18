@@ -6,6 +6,9 @@ const TRANSPORT_API_BASE_URL = String(
 )
   .trim()
   .replace(/\/+$/, "");
+const TRANSPORT_ACCESS_TOKEN = String(
+  import.meta.env.VITE_TRANSPORT_ACCESS_TOKEN || ""
+).trim();
 const TRANSPORT_LOGIN_EMAIL = import.meta.env.VITE_TRANSPORT_EMAIL;
 const TRANSPORT_LOGIN_PASSWORD = import.meta.env.VITE_TRANSPORT_PASSWORD;
 const TRANSPORT_TOKEN_STORAGE_KEY = "transport_auth_token";
@@ -28,6 +31,7 @@ const getStoredTransportToken = () => {
   return (
     sessionStorage.getItem(TRANSPORT_TOKEN_STORAGE_KEY) ||
     localStorage.getItem(TRANSPORT_TOKEN_STORAGE_KEY) ||
+    TRANSPORT_ACCESS_TOKEN ||
     ""
   );
 };
@@ -35,14 +39,15 @@ const getStoredTransportToken = () => {
 let transportAuthToken = getStoredTransportToken();
 
 const persistTransportToken = (token) => {
-  transportAuthToken = String(token || "").trim();
+  const runtimeToken = String(token || "").trim();
+  transportAuthToken = runtimeToken || TRANSPORT_ACCESS_TOKEN || "";
 
   if (typeof window === "undefined") {
     return transportAuthToken;
   }
 
-  if (transportAuthToken) {
-    sessionStorage.setItem(TRANSPORT_TOKEN_STORAGE_KEY, transportAuthToken);
+  if (runtimeToken) {
+    sessionStorage.setItem(TRANSPORT_TOKEN_STORAGE_KEY, runtimeToken);
   } else {
     sessionStorage.removeItem(TRANSPORT_TOKEN_STORAGE_KEY);
     localStorage.removeItem(TRANSPORT_TOKEN_STORAGE_KEY);
@@ -100,7 +105,7 @@ const hasTransportLoginCredentials = () =>
 
 const buildMissingCredentialsError = () =>
   new Error(
-    "Transport token not available. Add VITE_TRANSPORT_EMAIL and VITE_TRANSPORT_PASSWORD in frontend/.env or call setTransportAccessToken(token)."
+    "Transport token not available. Add VITE_TRANSPORT_ACCESS_TOKEN or VITE_TRANSPORT_EMAIL and VITE_TRANSPORT_PASSWORD in frontend/.env, or call setTransportAccessToken(token)."
   );
 
 export const loginTransport = async () => {

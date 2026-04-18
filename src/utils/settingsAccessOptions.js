@@ -188,6 +188,18 @@ export const PAGE_ROUTES = {
       "Transport Dashboard",
       "Dashboard",
     ]),
+    createPageOption("Transport Takeover", "Takeover", "/transport/takeover", [
+      "/transport/takeover",
+      "Transport Takeover",
+      "Takeover",
+      "Takeover Summary",
+    ]),
+    createPageOption("Transport Handover", "Handover", "/transport/handover", [
+      "/transport/handover",
+      "Transport Handover",
+      "Handover",
+      "Handover Summary",
+    ]),
     createPageOption("Transport Reports", "Reports", "/transport/reports", [
       "/transport/reports",
       "Transport Reports",

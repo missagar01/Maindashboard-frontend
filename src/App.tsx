@@ -100,6 +100,8 @@ import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
 import TransportDashboard from "./pages/transport/pages/TransportDashboard";
+import TransportTakeover from "./pages/transport/pages/TransportTakeover";
+import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
 
 // Document module pages
@@ -282,6 +284,8 @@ export default function App() {
             {/* Transport Routes */}
             <Route path="/transport" element={<RouteGuard><Navigate to="/transport/dashboard" replace /></RouteGuard>} />
             <Route path="/transport/dashboard" element={<RouteGuard><TransportDashboard /></RouteGuard>} />
+            <Route path="/transport/takeover" element={<RouteGuard><TransportTakeover /></RouteGuard>} />
+            <Route path="/transport/handover" element={<RouteGuard><TransportHandover /></RouteGuard>} />
             <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
 
             {/* Project Routes */}

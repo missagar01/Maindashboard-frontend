@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FC } from "react";
 import { Link, useLocation } from "react-router";
 import {
   BadgeCheck,
+  ArrowLeftRight,
   Building2,
   Boxes,
   BriefcaseBusiness,
@@ -21,6 +22,7 @@ import {
   Settings2,
   ShieldCheck,
   ShoppingCart,
+  TimerReset,
   Truck,
   Users,
   Warehouse,
@@ -288,6 +290,8 @@ const transportSection: SidebarSection = {
   icon: Truck,
   nodes: [
     { kind: "link", key: "transport-dashboard", name: "Dashboard", path: "/transport/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "transport-takeover", name: "Takeover", path: "/transport/takeover", icon: TimerReset },
+    { kind: "link", key: "transport-handover", name: "Handover", path: "/transport/handover", icon: ArrowLeftRight },
     { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
   ],
 };
