@@ -202,18 +202,21 @@ export default function TransportDashboard() {
         <AnalyticsChartContainer variant="flat" title="Takeover Trends" subtitle="Daily velocity analysis.">
           <div className="h-[280px] min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={takeover.data?.activityTrend ?? []} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+              <AreaChart data={takeover.data?.activityTrend ?? []} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
                 <defs>
                   <linearGradient id="tkGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                <Area type="monotone" dataKey="count" stroke="#2563eb" strokeWidth={3} fill="url(#tkGrad)" />
+                <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
+                <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }} 
+                    itemStyle={{ fontWeight: 800, color: '#1e293b' }}
+                />
+                <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={4} fill="url(#tkGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -222,12 +225,22 @@ export default function TransportDashboard() {
         <AnalyticsChartContainer variant="flat" title="Handover Momentum" subtitle="Movement Variance.">
           <div className="h-[280px] min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={handover.data?.activityTrend ?? []} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
-                <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', stroke: '#fff' }} />
+              <LineChart data={handover.data?.activityTrend ?? []} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
+                <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
+                <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
+                    itemStyle={{ fontWeight: 800, color: '#10b981' }}
+                />
+                <Line 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="#10b981" 
+                    strokeWidth={4} 
+                    dot={{ r: 5, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }} 
+                    activeDot={{ r: 8, strokeWidth: 4 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
