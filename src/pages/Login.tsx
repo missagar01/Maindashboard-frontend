@@ -43,7 +43,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated && !loading && user) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, loading, navigate, user]);
 
@@ -87,7 +87,7 @@ const Login: React.FC = () => {
 
     if (result.success) {
       showToast(`Welcome back, ${result.user?.username || username}!`, "success");
-      setTimeout(() => navigate("/", { replace: true }), 800);
+      setTimeout(() => navigate("/dashboard", { replace: true }), 800);
     } else {
       const errorMsg = result.error || "Invalid username or password";
       setError(errorMsg);

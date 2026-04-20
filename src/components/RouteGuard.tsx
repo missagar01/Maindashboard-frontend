@@ -26,7 +26,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
   if (!hasAccess) {
     if (!user) {
-      return <Navigate to="/login" state={{ from: location }} replace />;
+      return <Navigate to="/" state={{ from: location }} replace />;
     }
 
     const safePath =
@@ -34,7 +34,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
     // Avoid redirect loops when the fallback path cannot be resolved.
     if (safePath === currentPath || safePath === location.pathname) {
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/" replace />;
     }
 
     return <Navigate to={safePath} replace />;

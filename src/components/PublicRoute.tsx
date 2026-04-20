@@ -15,7 +15,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
   // If still loading, show the public page (login form will be visible)
   // Once loaded, if authenticated, redirect to dashboard
   if (!loading && isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   // Show the public route (login page) - no loading spinner for public routes
