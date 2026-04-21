@@ -165,6 +165,7 @@ const EmployeeDetailsPage = () => {
                                 <ProfileInsight icon={Hash} label="Employee ID" value={data.profile.employee_id} gradient="from-slate-50 to-slate-100/50" />
                                 <ProfileInsight icon={Mail} label="Corporate Email" value={data.profile.email_id} gradient="from-indigo-50 to-indigo-100/30" />
                                 <ProfileInsight icon={Phone} label="Contact Line" value={data.profile.number} gradient="from-purple-50 to-purple-100/30" />
+                                <ProfileInsight icon={MapPin} label="Address" value={data.profile.address} multiline gradient="from-rose-50 to-rose-100/30" />
                                 <ProfileInsight icon={Building} label="Sector Unit" value={data.profile.department} gradient="from-amber-50 to-amber-100/30" />
                                 <ProfileInsight icon={Briefcase} label="Rank / Desig" value={data.profile.designation || 'Standard Node'} gradient="from-emerald-50 to-emerald-100/30" />
                                 <ProfileInsight icon={Award} label="System Role" value={data.profile.role} highlight gradient="from-indigo-600 to-indigo-700" />
@@ -368,14 +369,14 @@ const KPICard = ({ label, value, icon: Icon, gradient, subtext, progress }) => {
     );
 };
 
-const ProfileInsight = ({ icon: Icon, label, value, highlight, gradient }) => (
+const ProfileInsight = ({ icon: Icon, label, value, highlight, gradient, multiline = false }) => (
     <div className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all border group relative overflow-hidden ${highlight ? `bg-gradient-to-br ${gradient} text-white border-transparent shadow-lg shadow-indigo-200` : `bg-gradient-to-br ${gradient} border-gray-50 hover:border-indigo-100`}`}>
         <div className={`p-2 rounded-xl shadow-sm scale-90 ${highlight ? 'bg-white/20' : 'bg-white text-indigo-600'}`}>
             <Icon size={14} />
         </div>
         <div className="flex-1 min-w-0">
             <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-1 ${highlight ? 'text-indigo-100/70' : 'text-gray-400'}`}>{label}</p>
-            <p className={`text-[11px] font-black truncate ${highlight ? 'text-white' : 'text-gray-900 font-bold'}`}>{value || '---'}</p>
+            <p className={`text-[11px] font-black ${multiline ? 'break-words whitespace-pre-wrap' : 'truncate'} ${highlight ? 'text-white' : 'text-gray-900 font-bold'}`}>{value || '---'}</p>
         </div>
     </div>
 );

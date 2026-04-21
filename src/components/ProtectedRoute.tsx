@@ -13,15 +13,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return null; // Avoid flashing a spinner during the single tick of sync auth initialization
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+  if (!isAuthenticated) { 
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 };
 
 export default ProtectedRoute;
-
 
 
 

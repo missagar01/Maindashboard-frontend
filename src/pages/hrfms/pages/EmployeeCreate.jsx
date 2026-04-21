@@ -63,6 +63,7 @@ const initialForm = {
   user_name: '',
   email_id: '',
   number: '',
+  address: '',
   department: '',
   designation: '',
   role: 'user',
@@ -72,6 +73,7 @@ const initialForm = {
   profile_img: null,
   document_img: [],
 };
+const PHONE_NUMBER_LENGTH = 10;
 
 const EmployeeCreate = () => {
   const [form, setForm] = useState(initialForm);
@@ -194,7 +196,11 @@ const EmployeeCreate = () => {
         });
       }
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      const nextValue =
+        name === 'number'
+          ? value.replace(/\D/g, '').slice(0, PHONE_NUMBER_LENGTH)
+          : value;
+      setForm((prev) => ({ ...prev, [name]: nextValue }));
     }
   };
 
@@ -265,6 +271,7 @@ const EmployeeCreate = () => {
       user_name: form.user_name.trim(),
       email_id: form.email_id.trim(),
       number: form.number.trim(),
+      address: form.address.trim(),
       department: form.department.trim(),
       designation: form.designation.trim(),
       role: form.role,
@@ -290,6 +297,7 @@ const EmployeeCreate = () => {
       'user_name',
       'email_id',
       'number',
+      'address',
       'department',
       'designation',
       'role',
@@ -357,6 +365,13 @@ const EmployeeCreate = () => {
 
       // Get the latest form state directly to ensure we have the current page_access
       const currentFormState = { ...form };
+      const phoneNumber = String(currentFormState.number || '').trim();
+
+      if (phoneNumber && phoneNumber.length !== PHONE_NUMBER_LENGTH) {
+        toast.error(`Mobile number must be exactly ${PHONE_NUMBER_LENGTH} digits.`);
+        setSubmitting(false);
+        return;
+      }
 
       // Temporarily override form for buildPayload to use latest state
       const originalForm = form;
@@ -378,6 +393,7 @@ const EmployeeCreate = () => {
         payload.append('user_name', currentFormState.user_name.trim());
         payload.append('email_id', currentFormState.email_id.trim());
         payload.append('number', currentFormState.number.trim());
+        payload.append('address', currentFormState.address.trim());
         payload.append('department', currentFormState.department.trim());
         payload.append('designation', currentFormState.designation.trim());
         payload.append('role', currentFormState.role);
@@ -414,6 +430,7 @@ const EmployeeCreate = () => {
           user_name: currentFormState.user_name.trim(),
           email_id: currentFormState.email_id.trim(),
           number: currentFormState.number.trim(),
+          address: currentFormState.address.trim(),
           department: currentFormState.department.trim(),
           designation: currentFormState.designation.trim(),
           role: currentFormState.role,
@@ -479,6 +496,7 @@ const EmployeeCreate = () => {
       user_name: employee?.user_name ?? '',
       email_id: employee?.email_id ?? '',
       number: employee?.number ?? '',
+      address: employee?.address ?? '',
       department: employee?.department ?? '',
       designation: employee?.designation ?? '',
       page_access: normalizedPageAccessValue,
@@ -510,6 +528,7 @@ const EmployeeCreate = () => {
       user_name: formValues.user_name,
       email_id: formValues.email_id,
       number: formValues.number,
+      address: formValues.address,
       department: formValues.department,
       designation: formValues.designation,
       role: formValues.role,
@@ -667,8 +686,24 @@ const EmployeeCreate = () => {
             name="number"
             value={form.number}
             onChange={handleChange}
+            inputMode="numeric"
+            maxLength={PHONE_NUMBER_LENGTH}
+            pattern={`\\d{${PHONE_NUMBER_LENGTH}}`}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            placeholder="81034dd174"
+            placeholder="Enter 10-digit number"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="address">Address</label>
+          <textarea
+            id="address"
+            name="address"
+            value={form.address}
+            onChange={handleChange}
+            rows={3}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y"
+            placeholder="Enter employee address"
           />
         </div>
 

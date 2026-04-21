@@ -4,6 +4,7 @@ import {
   Building,
   Edit3,
   Mail,
+  MapPin,
   Phone,
   Save,
   User,
@@ -35,6 +36,7 @@ const API_BASE_URL =
   'http://localhost:3004';
 const USER_PROFILE_UPDATED_EVENT = 'user-profile-updated';
 const USER_PROFILE_CACHE_TTL = 30 * 1000;
+const PHONE_NUMBER_LENGTH = 10;
 
 const getFullFileUrl = (filePath) => {
   if (!filePath || typeof filePath !== 'string') return null;
@@ -175,9 +177,14 @@ const MyProfile = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const nextValue =
+      name === 'number'
+        ? value.replace(/\D/g, '').slice(0, PHONE_NUMBER_LENGTH)
+        : value;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: nextValue
     }));
   };
 
@@ -244,10 +251,16 @@ const MyProfile = () => {
         throw new Error('Please login to update your profile');
       }
 
+      const phoneNumber = String(formData.number || '').trim();
+      if (phoneNumber && phoneNumber.length !== PHONE_NUMBER_LENGTH) {
+        throw new Error(`Phone number must be exactly ${PHONE_NUMBER_LENGTH} digits`);
+      }
+
       const submitData = new FormData();
 
       submitData.append('email_id', formData.email_id || '');
       submitData.append('number', formData.number || '');
+      submitData.append('address', formData.address || '');
 
       if (selectedProfileImg) {
         submitData.append('profile_img', selectedProfileImg);
@@ -542,8 +555,11 @@ const MyProfile = () => {
                       name="number"
                       value={formData.number || ''}
                       onChange={handleInputChange}
+                      inputMode="numeric"
+                      maxLength={PHONE_NUMBER_LENGTH}
+                      pattern={`\\d{${PHONE_NUMBER_LENGTH}}`}
                       className="w-full rounded-lg border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-                      placeholder="+91 1234567890"
+                      placeholder="Enter 10-digit number"
                     />
                   ) : (
                     <p className="text-sm sm:text-base text-gray-800 font-medium">
@@ -588,6 +604,27 @@ const MyProfile = () => {
                   ) : (
                     <p className="text-sm sm:text-base text-gray-800 font-medium">
                       {profileData.designation || '-'}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700">
+                    <MapPin size={14} className="text-indigo-600 sm:w-4 sm:h-4" />
+                    Address
+                  </label>
+                  {isEditing ? (
+                    <textarea
+                      name="address"
+                      value={formData.address || ''}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="w-full rounded-lg border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition resize-y"
+                      placeholder="Enter your address"
+                    />
+                  ) : (
+                    <p className="text-sm sm:text-base text-gray-800 font-medium break-words whitespace-pre-wrap">
+                      {profileData.address || '-'}
                     </p>
                   )}
                 </div>
