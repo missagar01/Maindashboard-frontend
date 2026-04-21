@@ -37,6 +37,12 @@ const API_BASE_URL =
 const USER_PROFILE_UPDATED_EVENT = 'user-profile-updated';
 const USER_PROFILE_CACHE_TTL = 30 * 1000;
 const PHONE_NUMBER_LENGTH = 10;
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOAD_SIZE_MB = MAX_UPLOAD_SIZE_BYTES / (1024 * 1024);
+const MAX_UPLOAD_SIZE_KB = MAX_UPLOAD_SIZE_BYTES / 1024;
+const MAX_DOCUMENT_COUNT = 10;
+const PROFILE_IMAGE_LIMIT_TEXT = `Allowed image formats: JPG, PNG, GIF, WEBP. Max size: ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB).`;
+const DOCUMENT_LIMIT_TEXT = `Allowed document formats: JPG, PNG, GIF, WEBP, PDF. Max size per file: ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB). Max ${MAX_DOCUMENT_COUNT} documents.`;
 
 const getFullFileUrl = (filePath) => {
   if (!filePath || typeof filePath !== 'string') return null;
@@ -192,8 +198,8 @@ const MyProfile = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size should be less than 5MB');
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      toast.error(`Image size should be less than ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB)`);
       return;
     }
 
@@ -204,8 +210,8 @@ const MyProfile = () => {
   const handleDocumentChange = (e) => {
     const files = Array.from(e.target.files || []);
 
-    if (previewDocuments.length + files.length > 10) {
-      toast.error('You can upload a maximum of 10 documents.');
+    if (previewDocuments.length + files.length > MAX_DOCUMENT_COUNT) {
+      toast.error(`You can upload a maximum of ${MAX_DOCUMENT_COUNT} documents.`);
       return;
     }
 
@@ -213,8 +219,8 @@ const MyProfile = () => {
       const newPreviews = [];
 
       files.forEach((file) => {
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large (>5MB)`);
+        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+          toast.error(`${file.name} is too large. Max allowed size is ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB).`);
           return;
         }
 
@@ -465,15 +471,19 @@ const MyProfile = () => {
                         <Camera size={16} />
                       </button>
 
-                      <input
-                        type="file"
-                        ref={profileInputRef}
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </>
-                  )}
+                    <input
+                      type="file"
+                      ref={profileInputRef}
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+
+                    <p className="mt-3 text-[11px] leading-5 text-gray-500">
+                      {PROFILE_IMAGE_LIMIT_TEXT}
+                    </p>
+                  </>
+                )}
                 </div>
 
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">
@@ -702,6 +712,9 @@ const MyProfile = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Aadhar Card / Identity Document
                     </label>
+                    <p className="mb-3 text-xs leading-5 text-gray-500">
+                      {DOCUMENT_LIMIT_TEXT}
+                    </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {previewDocuments.map((doc, index) => (
