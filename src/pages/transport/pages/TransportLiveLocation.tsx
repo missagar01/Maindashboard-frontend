@@ -20,7 +20,6 @@ import {
   MapContainer,
   Popup,
   TileLayer,
-  Tooltip,
   useMap,
 } from "react-leaflet";
 import {
@@ -180,11 +179,40 @@ const getInlineLocationName = (record: EquipmentTrackingRecord | null) => {
 
 const buildReverseGeocodeLocationName = (payload: any) => {
   const address = payload?.address || {};
+  const microLocation = Array.from(
+    new Set(
+      [
+        [address.house_number, address.road || address.highway]
+          .map(normalizeLocationValue)
+          .filter(Boolean)
+          .join(" "),
+        address.road,
+        address.highway,
+        address.industrial,
+        address.commercial,
+        address.residential,
+        address.neighbourhood,
+        address.suburb,
+        address.city_district,
+        address.village,
+        address.town,
+        address.municipality,
+        address.city,
+        address.county,
+        address.state,
+      ]
+        .map(normalizeLocationValue)
+        .filter(Boolean)
+    )
+  )
+    .slice(0, 5)
+    .join(", ");
+
   const detailedName = normalizeLocationValue(payload?.display_name)
     .split(",")
     .map((segment) => segment.trim())
     .filter(Boolean)
-    .slice(0, 4)
+    .slice(0, 5)
     .join(", ");
 
   const compactName = Array.from(
@@ -213,8 +241,9 @@ const buildReverseGeocodeLocationName = (payload: any) => {
     .join(", ");
 
   return (
-    compactName ||
+    microLocation ||
     detailedName ||
+    compactName ||
     normalizeLocationValue(payload?.name) ||
     normalizeLocationValue(payload?.display_name)
   );
@@ -241,7 +270,7 @@ const getMapDisplayLocationName = (value: string | undefined) => {
     .split(",")
     .map((segment) => segment.trim())
     .filter(Boolean)
-    .slice(0, 3)
+    .slice(0, 5)
     .join(", ");
 };
 
@@ -421,20 +450,6 @@ const EquipmentMap = ({
             weight: 4,
           }}
         >
-          <Tooltip permanent direction="top" offset={[0, -16]} opacity={1}>
-            <div className="min-w-[136px] max-w-[180px] sm:min-w-[170px] sm:max-w-[250px]">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
-                Current Location
-              </p>
-              <p className="mt-1 text-[11px] font-black leading-4 text-slate-800 sm:text-sm sm:leading-5">
-                {mapDisplayLocationName || "Tracked Position"}
-              </p>
-              <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-[11px]">
-                {coordinateLabel}
-              </p>
-            </div>
-          </Tooltip>
-
           <Popup maxWidth={220} minWidth={140}>
             <div className="space-y-1.5 sm:space-y-2">
               <p className="text-[13px] font-black leading-5 text-slate-900 sm:text-sm">
@@ -448,6 +463,9 @@ const EquipmentMap = ({
                   {locationName}
                 </p>
               ) : null}
+              <p className="text-[10px] font-medium leading-4 text-slate-500 sm:text-[11px]">
+                {coordinateLabel}
+              </p>
               <StatusBadge
                 statusKey={record.statusKey}
                 label={record.statusLabel}
@@ -459,18 +477,6 @@ const EquipmentMap = ({
           </Popup>
         </CircleMarker>
       </MapContainer>
-
-      <div className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[calc(100%-1rem)] rounded-[18px] border border-white/80 bg-white/92 px-2.5 py-2 shadow-lg backdrop-blur-sm sm:bottom-4 sm:left-4 sm:max-w-[380px] sm:rounded-2xl sm:px-3 sm:py-2">
-        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
-          Current Location
-        </p>
-        <p className="mt-1 text-[11px] font-black leading-4 text-slate-800 sm:text-sm sm:leading-5">
-          {mapDisplayLocationName || "Tracked Position"}
-        </p>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-[11px]">
-          {coordinateLabel}
-        </p>
-      </div>
     </div>
   );
 };
