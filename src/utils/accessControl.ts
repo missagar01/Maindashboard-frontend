@@ -62,6 +62,9 @@ const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
 
 const TRANSPORT_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   transportdashboard: "/transport/dashboard",
+  transportlivelocation: "/transport/live-location",
+  livelocation: "/transport/live-location",
+  livelocal: "/transport/live-location",
   transporttakeover: "/transport/takeover",
   takeover: "/transport/takeover",
   transporthandover: "/transport/handover",
@@ -206,6 +209,9 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Setting: "/lead-to-order/settings",
   "Store Dashboard": "/store/dashboard",
   "Transport Dashboard": "/transport/dashboard",
+  "Transport Live Location": "/transport/live-location",
+  "Live Location": "/transport/live-location",
+  "Live Local": "/transport/live-location",
   "Transport Takeover": "/transport/takeover",
   Takeover: "/transport/takeover",
   "Takeover Summary": "/transport/takeover",

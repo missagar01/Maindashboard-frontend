@@ -100,6 +100,7 @@ import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
 import TransportDashboard from "./pages/transport/pages/TransportDashboard";
+import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation";
 import TransportTakeover from "./pages/transport/pages/TransportTakeover";
 import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
@@ -151,6 +152,22 @@ const ChecklistLegacyParamRedirect = ({ basePath }: { basePath: string }) => {
   const params = useParams();
   const taskType = params.taskType ? `/${params.taskType}` : "";
   return <Navigate to={`${basePath}${taskType}`} replace />;
+};
+
+const TransportLiveLocationLegacyRedirect = () => {
+  const params = useParams();
+  const equipmentId = String(params.equipmentId || "").trim();
+
+  if (!equipmentId) {
+    return <Navigate to="/transport/live-location" replace />;
+  }
+
+  return (
+    <Navigate
+      to={`/transport/live-location/${encodeURIComponent(equipmentId)}`}
+      replace
+    />
+  );
 };
 
 export default function App() {
@@ -284,6 +301,10 @@ export default function App() {
             {/* Transport Routes */}
             <Route path="/transport" element={<RouteGuard><Navigate to="/transport/dashboard" replace /></RouteGuard>} />
             <Route path="/transport/dashboard" element={<RouteGuard><TransportDashboard /></RouteGuard>} />
+            <Route path="/transport/live-local" element={<RouteGuard><Navigate to="/transport/live-location" replace /></RouteGuard>} />
+            <Route path="/transport/live-local/:equipmentId" element={<RouteGuard><TransportLiveLocationLegacyRedirect /></RouteGuard>} />
+            <Route path="/transport/live-location" element={<RouteGuard><TransportLiveLocation /></RouteGuard>} />
+            <Route path="/transport/live-location/:equipmentId" element={<RouteGuard><TransportLiveLocation /></RouteGuard>} />
             <Route path="/transport/takeover" element={<RouteGuard><TransportTakeover /></RouteGuard>} />
             <Route path="/transport/handover" element={<RouteGuard><TransportHandover /></RouteGuard>} />
             <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
