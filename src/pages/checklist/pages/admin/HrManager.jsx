@@ -74,14 +74,24 @@ export default function HrManager() {
   }, [hrChecklist]);
 
   const doersFromRows = useMemo(() => {
+    const doerRows = selectedDepartment
+      ? rows.filter((row) => row.department === selectedDepartment)
+      : rows;
+
     return Array.from(
       new Set(
-        rows
-          .map(r => r.doerName)
-          .filter(name => name && name !== "-")
+        doerRows
+          .map((row) => row.doerName)
+          .filter((name) => name && name !== "-")
       )
     );
-  }, [rows]);
+  }, [rows, selectedDepartment]);
+
+  useEffect(() => {
+    if (selectedDoer && !doersFromRows.includes(selectedDoer)) {
+      setSelectedDoer("");
+    }
+  }, [selectedDoer, doersFromRows]);
 
   const departmentsFromRows = useMemo(() => {
     return Array.from(
@@ -285,6 +295,20 @@ export default function HrManager() {
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
+            
+            <select
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+            >
+              <option value="">All Departments</option>
+              {departmentsFromRows.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+            
             <select
               className="rounded-md border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
               value={selectedDoer}
@@ -298,18 +322,6 @@ export default function HrManager() {
               ))}
             </select>
 
-            <select
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
-              value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
-            >
-              <option value="">All Departments</option>
-              {departmentsFromRows.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
 
             <button
               onClick={handleConfirmSelected}
