@@ -25,21 +25,14 @@ function MisReportPage() {
             month: 'short',
             year: 'numeric'
         })
-    const getStartOfWeek = (date) => {
-        const baseDate = new Date(date)
-        baseDate.setHours(0, 0, 0, 0)
-        const day = baseDate.getDay()
-        const diff = day === 0 ? -6 : 1 - day
-        baseDate.setDate(baseDate.getDate() + diff)
-        return baseDate
-    }
-    const getWeekLabel = (weekStartDate) => {
-        const weekEndDate = new Date(weekStartDate)
-        weekEndDate.setDate(weekEndDate.getDate() + 6)
-        return `${formatDateLabel(weekStartDate)} - ${formatDateLabel(weekEndDate)}`
-    }
     const today = new Date()
-    const currentWeekStart = getStartOfWeek(today)
+    today.setHours(0, 0, 0, 0)
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const formatDisplayDate = (dateValue) => {
+        if (!dateValue) return ""
+        const parsedDate = new Date(`${dateValue}T00:00:00`)
+        return Number.isNaN(parsedDate.getTime()) ? dateValue : formatDateLabel(parsedDate)
+    }
 
     const [dashboardStaffFilter, setDashboardStaffFilter] = useState(() => {
         const isAdmin = userRole === "admin" || userRole === "superadmin";
@@ -58,10 +51,8 @@ function MisReportPage() {
         if (userDesignation.includes("manager") || userDesignation.includes("division hod")) return (userDivision && userDivision !== "all") ? userDivision : "all";
         return "all";
     })
-    const [selectedPeriodType, setSelectedPeriodType] = useState("month")
-    const [selectedMonthYear, setSelectedMonthYear] = useState("")
-    const [selectedWeek, setSelectedWeek] = useState(() => formatDateValue(currentWeekStart))
-    const [selectedDay, setSelectedDay] = useState(() => formatDateValue(today))
+    const [fromDate, setFromDate] = useState(() => formatDateValue(currentMonthStart))
+    const [toDate, setToDate] = useState(() => formatDateValue(today))
     const [currentPage, setCurrentPage] = useState(1)
     const [staffMembers, setStaffMembers] = useState([])
     const [filteredStaffMembers, setFilteredStaffMembers] = useState([])
@@ -70,9 +61,6 @@ function MisReportPage() {
     const [totalStaffCount, setTotalStaffCount] = useState(0)
     const [availableStaff, setAvailableStaff] = useState([])
     const [availableDepartments, setAvailableDepartments] = useState([])
-    const [monthYearOptions, setMonthYearOptions] = useState([])
-    const [weekOptions, setWeekOptions] = useState([])
-    const [dayOptions, setDayOptions] = useState([])
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
     const [selectedStaff, setSelectedStaff] = useState(null)
@@ -233,92 +221,13 @@ function MisReportPage() {
     const isAuthorized = true; // Access is now handled by AdminLayout, we just control visibility here
 
 
-    // Generate month-year options (last 12 months + current month)
-    const generateMonthYearOptions = useCallback(() => {
-        const options = []
-        const today = new Date()
-        const currentMonth = today.getMonth() // 0-11
-        const currentYear = today.getFullYear()
-
-        // Generate options for only last month and current month
-        for (let i = 1; i >= 0; i--) {
-            const date = new Date(currentYear, currentMonth - i, 1)
-            const monthName = date.toLocaleString('default', { month: 'long' })
-            const year = date.getFullYear()
-            const monthYear = `${monthName} ${year}`
-
-            options.push({
-                value: `${year}-${(date.getMonth() + 1).toString().padStart(2, '0')}`,
-                label: monthYear,
-                isCurrent: i === 0 // Current month
-            })
-        }
-
-        setMonthYearOptions(options)
-
-        // Set default selection to current month
-        if (options.length > 0 && !selectedMonthYear) {
-            const currentOption = options.find(opt => opt.isCurrent)
-            if (currentOption) {
-                setSelectedMonthYear(currentOption.value)
-            }
-        }
-    }, [selectedMonthYear])
-
-    const generateWeekOptions = useCallback(() => {
-        const options = []
-        const baseWeekStart = getStartOfWeek(new Date())
-
-        for (let i = 0; i < 6; i++) {
-            const weekStart = new Date(baseWeekStart)
-            weekStart.setDate(baseWeekStart.getDate() - (i * 7))
-
-            options.push({
-                value: formatDateValue(weekStart),
-                label: getWeekLabel(weekStart),
-                isCurrent: i === 0,
-            })
-        }
-
-        setWeekOptions(options)
-    }, [])
-
-    const generateDayOptions = useCallback(() => {
-        const options = []
-        const baseDate = new Date()
-        baseDate.setHours(0, 0, 0, 0)
-
-        for (let i = 0; i < 14; i++) {
-            const currentDate = new Date(baseDate)
-            currentDate.setDate(baseDate.getDate() - i)
-
-            options.push({
-                value: formatDateValue(currentDate),
-                label: formatDateLabel(currentDate),
-                isCurrent: i === 0,
-            })
-        }
-
-        setDayOptions(options)
-    }, [])
-
-    useEffect(() => {
-        generateMonthYearOptions()
-        generateWeekOptions()
-        generateDayOptions()
-    }, [generateMonthYearOptions, generateWeekOptions, generateDayOptions])
-
-    const activePeriodValue = selectedPeriodType === "day"
-        ? selectedDay
-        : selectedPeriodType === "week"
-            ? selectedWeek
-            : selectedMonthYear
-
-    const activePeriodLabel = selectedPeriodType === "day"
-        ? dayOptions.find((option) => option.value === selectedDay)?.label || selectedDay
-        : selectedPeriodType === "week"
-            ? weekOptions.find((option) => option.value === selectedWeek)?.label || selectedWeek
-            : monthYearOptions.find((option) => option.value === selectedMonthYear)?.label || selectedMonthYear
+    const activeDateRangeLabel = fromDate && toDate
+        ? `${formatDisplayDate(fromDate)} - ${formatDisplayDate(toDate)}`
+        : fromDate
+            ? `From ${formatDisplayDate(fromDate)}`
+            : toDate
+                ? `Till ${formatDisplayDate(toDate)}`
+                : ""
 
     // Fetch departments on mount or when user info changes
     useEffect(() => {
@@ -350,10 +259,8 @@ function MisReportPage() {
         dashboardStaffFilter,
         departmentFilter,
         divisionFilter,
-        selectedPeriodType,
-        selectedMonthYear,
-        selectedWeek,
-        selectedDay,
+        fromDate,
+        toDate,
         debouncedSearchQuery,
         sortBy,
         sortOrder
@@ -379,14 +286,16 @@ function MisReportPage() {
                 dashboardStaffFilter,
                 page,
                 itemsPerPage,
-                selectedPeriodType === "month" ? selectedMonthYear : "",
+                "",
                 departmentFilter,
                 divisionFilter,
                 debouncedSearchQuery,
                 sortBy,
                 sortOrder,
-                selectedPeriodType,
-                activePeriodValue
+                "",
+                "",
+                fromDate,
+                toDate
             )
 
             // Get total count from first item or fetch separately
@@ -416,11 +325,8 @@ function MisReportPage() {
         dashboardStaffFilter,
         departmentFilter,
         divisionFilter,
-        selectedPeriodType,
-        selectedMonthYear,
-        selectedWeek,
-        selectedDay,
-        activePeriodValue,
+        fromDate,
+        toDate,
         debouncedSearchQuery,
         sortBy,
         sortOrder
@@ -433,10 +339,8 @@ function MisReportPage() {
         dashboardStaffFilter,
         departmentFilter,
         divisionFilter,
-        selectedPeriodType,
-        selectedMonthYear,
-        selectedWeek,
-        selectedDay,
+        fromDate,
+        toDate,
         debouncedSearchQuery,
         currentPage,
         sortBy,
@@ -507,11 +411,13 @@ function MisReportPage() {
             const response = await exportAllStaffTasksApi(
                 "checklist",
                 dashboardStaffFilter,
-                selectedPeriodType === "month" ? selectedMonthYear : "",
+                "",
                 departmentFilter,
                 divisionFilter,
-                selectedPeriodType,
-                activePeriodValue
+                "",
+                "",
+                fromDate,
+                toDate
             )
 
             const allData = response.data || []
@@ -677,58 +583,29 @@ function MisReportPage() {
                                 )}
                             </div>
 
-                            {/* Period Type Filter */}
+                            {/* From Date */}
                             <div className="w-full">
-                                <select
-                                    value={selectedPeriodType}
-                                    onChange={(e) => setSelectedPeriodType(e.target.value)}
+                                <label className="mb-1 block text-xs font-medium text-gray-500">From Date</label>
+                                <input
+                                    type="date"
+                                    value={fromDate}
+                                    onChange={(e) => setFromDate(e.target.value)}
+                                    max={toDate || undefined}
                                     className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-sm"
-                                >
-                                    <option value="month">Month Wise</option>
-                                    <option value="week">Week Wise</option>
-                                    <option value="day">Day Wise</option>
-                                </select>
+                                />
                             </div>
 
-                            {/* Period Value Filter */}
+                            {/* To Date */}
                             <div className="w-full">
-                                {selectedPeriodType === "month" ? (
-                                    <select
-                                        value={selectedMonthYear}
-                                        onChange={(e) => setSelectedMonthYear(e.target.value)}
-                                        className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-sm"
-                                    >
-                                        {monthYearOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label} {option.isCurrent && "(Current)"}
-                                            </option>
-                                        ))}
-                                    </select>
-                                ) : selectedPeriodType === "week" ? (
-                                    <select
-                                        value={selectedWeek}
-                                        onChange={(e) => setSelectedWeek(e.target.value)}
-                                        className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-sm"
-                                    >
-                                        {weekOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label} {option.isCurrent && "(Current Week)"}
-                                            </option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <select
-                                        value={selectedDay}
-                                        onChange={(e) => setSelectedDay(e.target.value)}
-                                        className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-sm"
-                                    >
-                                        {dayOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label} {option.isCurrent && "(Today)"}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
+                                <label className="mb-1 block text-xs font-medium text-gray-500">To Date</label>
+                                <input
+                                    type="date"
+                                    value={toDate}
+                                    onChange={(e) => setToDate(e.target.value)}
+                                    min={fromDate || undefined}
+                                    max={formatDateValue(today)}
+                                    className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-sm"
+                                />
                             </div>
 
                             {/* Staff Filter */}
@@ -783,9 +660,9 @@ function MisReportPage() {
                                         Dept: {departmentFilter}
                                     </span>
                                 )}
-                                {activePeriodLabel && (
+                                {activeDateRangeLabel && (
                                     <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                                        {selectedPeriodType === "day" ? "Day" : selectedPeriodType === "week" ? "Week" : "Month"}: {activePeriodLabel}
+                                        Date: {activeDateRangeLabel}
                                     </span>
                                 )}
                                 {dashboardStaffFilter !== "all" && (
@@ -837,7 +714,7 @@ function MisReportPage() {
                                     ) : (
                                         <div>
                                             <p>No staff data found.</p>
-                                            {(departmentFilter !== "all" || divisionFilter !== "all" || activePeriodValue || dashboardStaffFilter !== "all") && (
+                                            {(departmentFilter !== "all" || divisionFilter !== "all" || fromDate || toDate || dashboardStaffFilter !== "all") && (
                                                 <p className="text-sm mt-2">Try adjusting your filters to see more results.</p>
                                             )}
                                         </div>
