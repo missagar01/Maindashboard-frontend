@@ -193,7 +193,9 @@ export const fetchStaffTasksDataApi = async (
   divisionFilter = "all",
   search = "",
   sortBy = "name",
-  sortOrder = "asc"
+  sortOrder = "asc",
+  periodType = "month",
+  periodValue = ""
 ) => {
   staffFilter = getFinalStaffFilter(staffFilter);
 
@@ -209,6 +211,14 @@ export const fetchStaffTasksDataApi = async (
   // Add monthYear if provided
   if (monthYear) {
     params.append('monthYear', monthYear);
+  }
+
+  if (periodType) {
+    params.append('periodType', periodType);
+  }
+
+  if (periodValue) {
+    params.append('periodValue', periodValue);
   }
 
   // Add departmentFilter if provided
@@ -239,7 +249,9 @@ export const exportAllStaffTasksApi = async (
   staffFilter = "all",
   monthYear = "",
   departmentFilter = "all",
-  divisionFilter = "all"
+  divisionFilter = "all",
+  periodType = "month",
+  periodValue = ""
 ) => {
   staffFilter = getFinalStaffFilter(staffFilter);
 
@@ -251,6 +263,14 @@ export const exportAllStaffTasksApi = async (
   // Add monthYear if provided
   if (monthYear) {
     params.append('monthYear', monthYear);
+  }
+
+  if (periodType) {
+    params.append('periodType', periodType);
+  }
+
+  if (periodValue) {
+    params.append('periodValue', periodValue);
   }
 
   // Add departmentFilter if provided
