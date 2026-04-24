@@ -8,6 +8,7 @@ import {
   Trash2,
   Edit,
   Save,
+  CheckCircle2,
   X,
 } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
@@ -41,8 +42,10 @@ export default function QuickTask() {
     fetchQuickTaskUsers,
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
+    resetQuickTaskMaintenancePagination,
     fetchUniqueChecklistTaskData,
     fetchUniqueDelegationTaskData,
+    fetchUniqueMaintenanceTaskData,
     updateQuickTaskChecklistTask,
     deleteQuickTaskChecklistTask,
     userData
@@ -52,11 +55,14 @@ export default function QuickTask() {
     quickTask,
     loading,
     delegationTasks,
+    maintenanceTasks,
     users,
     checklistPage,
     checklistHasMore,
     delegationPage,
     delegationHasMore,
+    maintenancePage,
+    maintenanceHasMore,
   } = quickTaskState;
 
   useEffect(() => {
@@ -87,6 +93,13 @@ export default function QuickTask() {
           nameFilter,
           append: true,
         });
+      } else if (activeTab === "maintenance" && maintenanceHasMore) {
+        fetchUniqueMaintenanceTaskData({
+          page: maintenancePage,
+          pageSize: 50,
+          nameFilter,
+          append: true,
+        });
       }
     }
   }, [
@@ -94,8 +107,10 @@ export default function QuickTask() {
     activeTab,
     checklistHasMore,
     delegationHasMore,
+    maintenanceHasMore,
     checklistPage,
     delegationPage,
+    maintenancePage,
     nameFilter,
   ]);
 
@@ -309,6 +324,14 @@ export default function QuickTask() {
         nameFilter: name,
         append: false,
       });
+    } else if (activeTab === "maintenance") {
+      resetQuickTaskMaintenancePagination();
+      fetchUniqueMaintenanceTaskData({
+        page: 0,
+        pageSize: 50,
+        nameFilter: name,
+        append: false,
+      });
     } else {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
@@ -333,6 +356,14 @@ export default function QuickTask() {
     if (activeTab === "checklist") {
       resetQuickTaskChecklistPagination();
       fetchUniqueChecklistTaskData({
+        page: 0,
+        pageSize: 50,
+        nameFilter: "",
+        append: false,
+      });
+    } else if (activeTab === "maintenance") {
+      resetQuickTaskMaintenancePagination();
+      fetchUniqueMaintenanceTaskData({
         page: 0,
         pageSize: 50,
         nameFilter: "",
@@ -366,6 +397,7 @@ export default function QuickTask() {
     ...new Set([
       ...quickTask.map((task) => task.frequency),
       ...delegationTasks.map((task) => task.frequency),
+      ...maintenanceTasks.map((task) => task.frequency),
     ]),
   ].filter(
     (frequency) =>
@@ -415,6 +447,55 @@ export default function QuickTask() {
       return 0;
     });
 
+  const filteredMaintenanceTasks = maintenanceTasks
+    .filter((task) => {
+      if (!task) return false;
+
+      const freqFilterPass =
+        !freqFilter ||
+        (task.frequency &&
+          task.frequency.toLowerCase() === freqFilter.toLowerCase());
+
+      const query = searchTerm.toLowerCase();
+      const searchTermPass =
+        !searchTerm ||
+        (task.task_description &&
+          task.task_description.toLowerCase().includes(query)) ||
+        (task.department &&
+          task.department.toLowerCase().includes(query)) ||
+        (task.name &&
+          task.name.toLowerCase().includes(query)) ||
+        (task.given_by &&
+          task.given_by.toLowerCase().includes(query)) ||
+        (task.machine_name &&
+          task.machine_name.toLowerCase().includes(query)) ||
+        (task.serial_no &&
+          String(task.serial_no).toLowerCase().includes(query)) ||
+        (task.task_type &&
+          task.task_type.toLowerCase().includes(query)) ||
+        (task.priority &&
+          task.priority.toLowerCase().includes(query));
+
+      return freqFilterPass && searchTermPass;
+    })
+    .sort((a, b) => {
+      if (!sortConfig.key) return 0;
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      if (aVal < bVal) {
+        return sortConfig.direction === "asc" ? -1 : 1;
+      }
+      if (aVal > bVal) {
+        return sortConfig.direction === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
   function formatTimestampToDDMMYYYY(timestamp) {
     if (!timestamp || timestamp === "" || timestamp === null) {
       return "—"; // or just return ""
@@ -443,7 +524,9 @@ export default function QuickTask() {
             <p className="text-gray-500 text-xs md:text-sm mt-0.5">
               {activeTab === "checklist"
                 ? `Managing ${quickTask.length} checklist items`
-                : `Managing delegation tasks`}
+                : activeTab === "delegation"
+                  ? "Managing delegation tasks"
+                  : `Managing ${maintenanceTasks.length} maintenance items`}
             </p>
           </div>
         </div>
@@ -456,6 +539,8 @@ export default function QuickTask() {
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
               onClick={() => {
+                setSelectedTasks([]);
+                handleCancelEdit();
                 setActiveTab("checklist");
                 resetQuickTaskChecklistPagination();
                 fetchUniqueChecklistTaskData({
@@ -473,6 +558,8 @@ export default function QuickTask() {
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
               onClick={() => {
+                setSelectedTasks([]);
+                handleCancelEdit();
                 setActiveTab("delegation");
                 resetQuickTaskDelegationPagination();
                 fetchUniqueDelegationTaskData({
@@ -483,6 +570,25 @@ export default function QuickTask() {
               }}
             >
               Delegation
+            </button>
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "maintenance"
+                ? "bg-white text-red-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                }`}
+              onClick={() => {
+                setSelectedTasks([]);
+                handleCancelEdit();
+                setActiveTab("maintenance");
+                resetQuickTaskMaintenancePagination();
+                fetchUniqueMaintenanceTaskData({
+                  page: 0,
+                  pageSize: 50,
+                  nameFilter,
+                });
+              }}
+            >
+              Maintenance
             </button>
           </div>
 
@@ -654,7 +760,13 @@ export default function QuickTask() {
           {error}{" "}
           <button
             onClick={() => {
-              fetchUniqueChecklistTaskData();
+              if (activeTab === "checklist") {
+                fetchUniqueChecklistTaskData({ page: 0, pageSize: 50, nameFilter });
+              } else if (activeTab === "maintenance") {
+                fetchUniqueMaintenanceTaskData({ page: 0, pageSize: 50, nameFilter });
+              } else {
+                fetchUniqueDelegationTaskData({ page: 0, pageSize: 50, nameFilter });
+              }
             }}
             className="underline ml-2 hover:text-red-600"
           >
@@ -667,6 +779,13 @@ export default function QuickTask() {
         <div className="mt-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
           <p className="text-purple-600">Loading delegation data...</p>
+        </div>
+      )}
+
+      {loading && activeTab === "maintenance" && (
+        <div className="mt-8 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
+          <p className="text-purple-600">Loading maintenance data...</p>
         </div>
       )}
 
@@ -1021,7 +1140,7 @@ export default function QuickTask() {
                 )}
               </div>
             </div>
-          ) : (
+          ) : activeTab === "delegation" ? (
             <DelegationPage
               searchTerm={searchTerm}
               nameFilter={nameFilter}
@@ -1029,6 +1148,144 @@ export default function QuickTask() {
               setNameFilter={setNameFilter}
               setFreqFilter={setFreqFilter}
             />
+          ) : (
+            <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
+              <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
+                <div>
+                  <h2 className="text-gray-700 font-bold text-sm flex items-center gap-2">
+                    <div className="w-1 h-4 bg-red-600 rounded-full" />
+                    Maintenance Tasks
+                  </h2>
+                  <p className="text-gray-500 text-[10px] sm:text-xs">
+                    Showing all unique items from maintenance
+                  </p>
+                </div>
+                <span className="text-[10px] sm:text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                  {filteredMaintenanceTasks.length} items
+                </span>
+              </div>
+              <div
+                ref={tableContainerRef}
+                className="overflow-x-auto overflow-y-auto"
+                style={{ maxHeight: "calc(100vh - 220px)" }}
+              >
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-20">
+                    <tr>
+                      {[
+                        { key: "department", label: "Department" },
+                        { key: "given_by", label: "Given By" },
+                        { key: "name", label: "Doer Name" },
+                        { key: "machine_name", label: "Machine" },
+                        { key: "serial_no", label: "Serial No" },
+                        {
+                          key: "task_description",
+                          label: "Task Description",
+                          minWidth: "min-w-[300px]",
+                        },
+                        {
+                          key: "task_start_date",
+                          label: "Start Date",
+                          bg: "bg-yellow-50",
+                        },
+                        { key: "frequency", label: "Frequency" },
+                        { key: "task_type", label: "Task Type" },
+                        { key: "priority", label: "Priority" },
+                      ].map((column) => (
+                        <th
+                          key={column.label}
+                          className={`px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest transition-colors ${column.bg ? "bg-red-50/30" : ""
+                            } ${column.minWidth || ""} ${column.key
+                              ? "cursor-pointer hover:bg-gray-100/50 hover:text-red-600"
+                              : ""
+                            }`}
+                          onClick={() => column.key && requestSort(column.key)}
+                        >
+                          <div className="flex items-center gap-1">
+                            {column.label}
+                            {sortConfig.key === column.key && (
+                              <span className="text-red-600 font-bold">
+                                {sortConfig.direction === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredMaintenanceTasks.length > 0 ? (
+                      filteredMaintenanceTasks.map((task, index) => (
+                        <tr key={`${task.task_id}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {task.department || "—"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
+                            {task.given_by || "—"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-bold">
+                            {task.name || "—"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
+                            {task.machine_name || "—"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
+                            {task.serial_no || "—"}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-500 min-w-[300px] max-w-[400px]">
+                            <div className="whitespace-normal break-words leading-relaxed">
+                              {task.task_description || "—"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
+                            {formatTimestampToDDMMYYYY(task.task_start_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-50 text-gray-600 border border-gray-100">
+                              {task.frequency || "—"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
+                            {task.task_type || "—"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold text-gray-500">
+                            {task.priority || "—"}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Filter size={24} className="opacity-20" />
+                            <span>
+                              {!nameFilter
+                                ? "Please select a doer from the filter above"
+                                : searchTerm || freqFilter
+                                  ? "No maintenance tasks matching your search filters"
+                                  : "No maintenance tasks found for this doer"
+                              }
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {loading && maintenanceHasMore && (
+                  <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />
+                    <p className="text-red-600 text-[10px] font-bold uppercase tracking-widest mt-3 animate-pulse">
+                      Loading more maintenance tasks...
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </>
       )}

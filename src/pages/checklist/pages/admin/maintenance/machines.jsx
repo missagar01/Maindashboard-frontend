@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -21,7 +21,7 @@ import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 const Machines = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortColumn, setSortColumn] = useState("name");
+  const [sortColumn, setSortColumn] = useState("Machine Name");
   const [sortDirection, setSortDirection] = useState("asc");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -177,37 +177,60 @@ const Machines = () => {
     setSelectedDepartment(value);
   };
 
-  const filteredMachines = sheetData
-    .filter((machine) => {
-      const matchesSearch = machine["Machine Name"]
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
+  const filteredMachines = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
-      const matchesDepartment =
-        selectedDepartment === "all" ||
-        machine["Department"] === selectedDepartment;
+    return sheetData
+      .filter((machine) => {
+        const searchableFields = [
+          machine["Machine Name"],
+          machine["Serial No"],
+          machine["Tag No"],
+          machine["Department"],
+          machine["Vendor"],
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase());
 
-      const matchesStatus =
-        selectedStatus === "all" || machine["Status"] === selectedStatus;
+        const matchesSearch =
+          !normalizedSearch ||
+          searchableFields.some((value) => value.includes(normalizedSearch));
 
-      return matchesSearch && matchesDepartment && matchesStatus;
-    })
-    .sort((a, b) => {
-      const aValue = a[sortColumn];
-      const bValue = b[sortColumn];
+        const matchesDepartment =
+          selectedDepartment === "all" ||
+          machine["Department"] === selectedDepartment;
 
-      if (typeof aValue === "string" && typeof bValue === "string") {
+        const matchesStatus =
+          selectedStatus === "all" || machine["Status"] === selectedStatus;
+
+        return matchesSearch && matchesDepartment && matchesStatus;
+      })
+      .sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+
+        const aDate = new Date(aValue);
+        const bDate = new Date(bValue);
+        const bothDates = !Number.isNaN(aDate.getTime()) && !Number.isNaN(bDate.getTime());
+
+        if (bothDates) {
+          return sortDirection === "asc"
+            ? aDate.getTime() - bDate.getTime()
+            : bDate.getTime() - aDate.getTime();
+        }
+
+        const aString = String(aValue).toLowerCase();
+        const bString = String(bValue).toLowerCase();
+
         return sortDirection === "asc"
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
-      }
-
-      return 0;
-    });
+          ? aString.localeCompare(bString)
+          : bString.localeCompare(aString);
+      });
+  }, [sheetData, searchTerm, selectedDepartment, selectedStatus, sortColumn, sortDirection]);
 
   // Show results count when either search or dropdown filter is active
   useEffect(() => {
@@ -315,11 +338,11 @@ const Machines = () => {
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("name")}
+                    onClick={() => handleSort("Machine Name")}
                   >
                     <div className="flex items-center">
                       Machine Name
-                      {sortColumn === "name" &&
+                      {sortColumn === "Machine Name" &&
                         (sortDirection === "asc" ? (
                           <ArrowUp size={14} className="ml-1" />
                         ) : (
@@ -330,11 +353,11 @@ const Machines = () => {
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("department")}
+                    onClick={() => handleSort("Department")}
                   >
                     <div className="flex items-center">
                       Department
-                      {sortColumn === "department" &&
+                      {sortColumn === "Department" &&
                         (sortDirection === "asc" ? (
                           <ArrowUp size={14} className="ml-1" />
                         ) : (
@@ -346,11 +369,11 @@ const Machines = () => {
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("nextMaintenance")}
+                    onClick={() => handleSort("Warranty Expiration")}
                   >
                     <div className="flex items-center">
                       Next Maintenance
-                      {sortColumn === "nextMaintenance" &&
+                      {sortColumn === "Warranty Expiration" &&
                         (sortDirection === "asc" ? (
                           <ArrowUp size={14} className="ml-1" />
                         ) : (
@@ -392,8 +415,7 @@ const Machines = () => {
               </thead>
 
               <tbody className="bg-white divide-y divide-gray-200">
-                {/* {filteredMachines.map((machine, index) => ( */}
-                {sheetData.map((machine, index) => (
+                {filteredMachines.map((machine, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">

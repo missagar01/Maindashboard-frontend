@@ -37,6 +37,7 @@ const Setting = () => {
     const [currentUserId, setCurrentUserId] = useState(null);
     const [currentDeptId, setCurrentDeptId] = useState(null);
     const [usernameFilter, setUsernameFilter] = useState("");
+    const [departmentFilter, setDepartmentFilter] = useState("");
     const [usernameDropdownOpen, setUsernameDropdownOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -828,20 +829,39 @@ const Setting = () => {
             return [];
         }
 
+        const search = usernameFilter.trim().toLowerCase();
+        const selectedDepartment = departmentFilter.trim().toLowerCase();
+
         return userData.filter((user) => {
             if (user?.user_name === "admin") return false;
-            if (!usernameFilter) return true;
-
-            const search = usernameFilter.toLowerCase();
-
-            return (
-                (user?.user_name &&
-                    user.user_name.toLowerCase().includes(search)) ||
+            const normalizedDepartment = (user?.department || "").trim().toLowerCase();
+            const matchesUsername =
+                !search ||
+                (user?.user_name && user.user_name.toLowerCase().includes(search)) ||
                 (user?.employee_id &&
-                    String(user.employee_id).toLowerCase().includes(search))
-            );
+                    String(user.employee_id).toLowerCase().includes(search));
+            const matchesDepartment =
+                !selectedDepartment || normalizedDepartment === selectedDepartment;
+
+            return matchesUsername && matchesDepartment;
         });
-    }, [userData, usernameFilter]);
+    }, [userData, usernameFilter, departmentFilter]);
+
+    const departmentFilterOptions = useMemo(() => {
+        const source = Array.isArray(department) && department.length > 0
+            ? department.map((dept) => dept?.department)
+            : Array.isArray(userData)
+                ? userData.map((user) => user?.department)
+                : [];
+
+        return [...new Set(
+            source
+                .map((deptName) =>
+                    typeof deptName === "string" ? deptName.trim() : ""
+                )
+                .filter(Boolean)
+        )].sort((left, right) => left.localeCompare(right));
+    }, [department, userData]);
 
     const getStatusColor = (status) => {
         return status === "active"
@@ -956,92 +976,118 @@ const Setting = () => {
                                     User List
                                 </h2>
 
-                                {/* Username Filter */}
-                                <div className="relative w-full sm:w-auto">
-                                    <div className="flex items-center gap-2">
-                                        {/* Input with datalist for autocomplete */}
-                                        <div className="relative flex-1 sm:flex-none">
-                                            <Search
-                                                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                                                size={16}
-                                            />
-                                            <input
-                                                type="text"
-                                                list="usernameOptions"
-                                                placeholder="Filter by username..."
-                                                value={usernameFilter}
-                                                onChange={(e) => setUsernameFilter(e.target.value)}
-                                                className="w-full sm:w-48 pl-10 pr-8 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                                            />
-                                            <datalist id="usernameOptions">
-                                                {Array.isArray(userData) &&
-                                                    userData
-                                                        .filter((user) => user && user.id && user.user_name && user.user_name !== "admin")
-                                                        .map((user) => (
-                                                            <option
-                                                                key={user.id}
-                                                                value={`${user.user_name} (${user.employee_id || "N/A"})`}
-                                                            />
-                                                        ))}
-                                            </datalist>
+                                <div className="flex w-full flex-col sm:w-auto sm:flex-row gap-2">
+                                    {/* Username Filter */}
+                                    <div className="relative w-full sm:w-auto">
+                                        <div className="flex items-center gap-2">
+                                            {/* Input with datalist for autocomplete */}
+                                            <div className="relative flex-1 sm:flex-none">
+                                                <Search
+                                                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                                                    size={16}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    list="usernameOptions"
+                                                    placeholder="Filter by username..."
+                                                    value={usernameFilter}
+                                                    onChange={(e) => setUsernameFilter(e.target.value)}
+                                                    className="w-full sm:w-48 pl-10 pr-8 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                                />
+                                                <datalist id="usernameOptions">
+                                                    {Array.isArray(userData) &&
+                                                        userData
+                                                            .filter((user) => user && user.id && user.user_name && user.user_name !== "admin")
+                                                            .map((user) => (
+                                                                <option
+                                                                    key={user.id}
+                                                                    value={`${user.user_name} (${user.employee_id || "N/A"})`}
+                                                                />
+                                                            ))}
+                                                </datalist>
 
-                                            {/* Clear button for input */}
-                                            {usernameFilter && (
-                                                <button
-                                                    onClick={clearUsernameFilter}
-                                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            )}
+                                                {/* Clear button for input */}
+                                                {usernameFilter && (
+                                                    <button
+                                                        onClick={clearUsernameFilter}
+                                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Dropdown button */}
+                                            <button
+                                                onClick={toggleUsernameDropdown}
+                                                className="flex items-center gap-1 px-3 py-2 border border-purple-200 rounded-md bg-white text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <ChevronDown
+                                                    size={16}
+                                                    className={`transition-transform ${usernameDropdownOpen ? "rotate-180" : ""
+                                                        }`}
+                                                />
+                                            </button>
                                         </div>
 
-                                        {/* Dropdown button */}
-                                        <button
-                                            onClick={toggleUsernameDropdown}
-                                            className="flex items-center gap-1 px-3 py-2 border border-purple-200 rounded-md bg-white text-sm text-gray-700 hover:bg-gray-50"
-                                        >
-                                            <ChevronDown
-                                                size={16}
-                                                className={`transition-transform ${usernameDropdownOpen ? "rotate-180" : ""
-                                                    }`}
-                                            />
-                                        </button>
+                                        {/* Dropdown menu */}
+                                        {usernameDropdownOpen && (
+                                            <div className="absolute z-50 mt-1 w-full sm:w-56 rounded-md bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto top-full right-0">
+                                                <div className="py-1">
+                                                    <button
+                                                        onClick={clearUsernameFilter}
+                                                        className={`block w-full text-left px-4 py-2 text-sm ${!usernameFilter
+                                                            ? "bg-purple-100 text-purple-900"
+                                                            : "text-gray-700 hover:bg-gray-100"
+                                                            }`}
+                                                    >
+                                                        All Usernames
+                                                    </button>
+                                                    {Array.isArray(userData) &&
+                                                        userData
+                                                            .filter((user) => user && user.user_name !== "admin")
+                                                            .map((user) => (
+                                                                <button
+                                                                    key={user.id}
+                                                                    onClick={() =>
+                                                                        handleUsernameFilterSelect(user.user_name)
+                                                                    }
+                                                                    className={`block w-full text-left px-4 py-2 text-sm ${usernameFilter === user.user_name
+                                                                        ? "bg-purple-100 text-purple-900"
+                                                                        : "text-gray-700 hover:bg-gray-100"
+                                                                        }`}
+                                                                >
+                                                                    {user.user_name}
+                                                                </button>
+                                                            ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Dropdown menu */}
-                                    {usernameDropdownOpen && (
-                                        <div className="absolute z-50 mt-1 w-full sm:w-56 rounded-md bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto top-full right-0">
-                                            <div className="py-1">
-                                                <button
-                                                    onClick={clearUsernameFilter}
-                                                    className={`block w-full text-left px-4 py-2 text-sm ${!usernameFilter
-                                                        ? "bg-purple-100 text-purple-900"
-                                                        : "text-gray-700 hover:bg-gray-100"
-                                                        }`}
-                                                >
-                                                    All Usernames
-                                                </button>
-                                                {Array.isArray(userData) &&
-                                                    userData
-                                                        .filter((user) => user && user.user_name !== "admin")
-                                                        .map((user) => (
-                                                            <button
-                                                                key={user.id}
-                                                                onClick={() =>
-                                                                    handleUsernameFilterSelect(user.user_name)
-                                                                }
-                                                                className={`block w-full text-left px-4 py-2 text-sm ${usernameFilter === user.user_name
-                                                                    ? "bg-purple-100 text-purple-900"
-                                                                    : "text-gray-700 hover:bg-gray-100"
-                                                                    }`}
-                                                            >
-                                                                {user.user_name}
-                                                            </button>
-                                                        ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Department Filter */}
+                                    <div className="relative w-full sm:w-56">
+                                        <Building
+                                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            size={16}
+                                        />
+                                        <select
+                                            value={departmentFilter}
+                                            onChange={(e) => setDepartmentFilter(e.target.value)}
+                                            className="w-full appearance-none border border-purple-200 rounded-md bg-white py-2 pl-10 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                            <option value="">All Departments</option>
+                                            {departmentFilterOptions.map((deptName) => (
+                                                <option key={deptName} value={deptName}>
+                                                    {deptName}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown
+                                            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            size={16}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

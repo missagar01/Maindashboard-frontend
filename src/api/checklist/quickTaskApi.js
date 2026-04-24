@@ -19,6 +19,14 @@ export const fetchDelegationData = async (page = 0, pageSize = 50, nameFilter = 
 };
 
 // =========================
+// FETCH MAINTENANCE
+// =========================
+export const fetchMaintenanceData = async (page = 0, pageSize = 50, nameFilter = "") => {
+  const res = await axiosInstance.post(`${BASE_URL}/maintenance`, { page, pageSize, nameFilter });
+  return res.data;
+};
+
+// =========================
 // DELETE CHECKLIST TASKS
 // =========================
 export const deleteChecklistTasksApi = async (tasks) => {

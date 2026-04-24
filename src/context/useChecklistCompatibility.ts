@@ -121,6 +121,7 @@ export const useChecklistCompatibility = () => {
   const [quickTaskState, setQuickTaskState] = useState({
     quickTask: [] as any[],
     delegationTasks: [] as any[],
+    maintenanceTasks: [] as any[],
     users: [] as any[],
     checklistPage: 0,
     checklistTotal: 0,
@@ -128,6 +129,9 @@ export const useChecklistCompatibility = () => {
     delegationPage: 0,
     delegationTotal: 0,
     delegationHasMore: true,
+    maintenancePage: 0,
+    maintenanceTotal: 0,
+    maintenanceHasMore: true,
     loading: false,
   });
 
@@ -400,6 +404,15 @@ export const useChecklistCompatibility = () => {
     }));
   };
 
+  const resetQuickTaskMaintenancePagination = () => {
+    setQuickTaskState((previous) => ({
+      ...previous,
+      maintenancePage: 0,
+      maintenanceTasks: [],
+      maintenanceHasMore: true,
+    }));
+  };
+
   const fetchUniqueChecklistTaskData = useCallback(async ({
     page = 0,
     pageSize = 50,
@@ -460,6 +473,38 @@ export const useChecklistCompatibility = () => {
     } catch (error) {
       setQuickTaskState((previous) => ({ ...previous, loading: false }));
       console.error("Checklist delegation task data error:", error);
+      throw error;
+    }
+  }, []);
+
+  const fetchUniqueMaintenanceTaskData = useCallback(async ({
+    page = 0,
+    pageSize = 50,
+    nameFilter = "",
+    append = false,
+  } = {}) => {
+    setQuickTaskState((previous) => ({ ...previous, loading: true }));
+    try {
+      const result = await quickTaskApi.fetchMaintenanceData(page, pageSize, nameFilter);
+      const data = Array.isArray(result?.data) ? result.data : [];
+      const total = Number(result?.total) || data.length;
+
+      setQuickTaskState((previous) => {
+        const nextMaintenanceTasks = append ? [...previous.maintenanceTasks, ...data] : data;
+        return {
+          ...previous,
+          maintenanceTasks: nextMaintenanceTasks,
+          maintenancePage: page + 1,
+          maintenanceTotal: total,
+          maintenanceHasMore: nextMaintenanceTasks.length < total,
+          loading: false,
+        };
+      });
+
+      return result;
+    } catch (error) {
+      setQuickTaskState((previous) => ({ ...previous, loading: false }));
+      console.error("Checklist maintenance quick-task data error:", error);
       throw error;
     }
   }, []);
@@ -1214,8 +1259,10 @@ export const useChecklistCompatibility = () => {
     fetchQuickTaskUsers,
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
+    resetQuickTaskMaintenancePagination,
     fetchUniqueChecklistTaskData,
     fetchUniqueDelegationTaskData,
+    fetchUniqueMaintenanceTaskData,
     fetchUniqueDelegationTaskDataAction: fetchUniqueDelegationTaskData,
     updateQuickTaskChecklistTask,
     deleteQuickTaskChecklistTask,
