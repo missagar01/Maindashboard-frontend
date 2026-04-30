@@ -2,10 +2,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { storeApi } from "@/api/store/storeSystemApi";
 import {
-    Package, Search, RefreshCcw, FileText,
+    Package, Search, RefreshCcw, FileText, Download,
     Calendar, User, Box, Hash, Scale, CheckCircle2, Clock,
     MoreHorizontal, Smartphone, Laptop, LayoutGrid, List
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import Loading from "./Loading";
@@ -96,6 +97,64 @@ export default function ReturnablePage() {
         });
     }, [data, mainTab, subTab, searchTerm]);
 
+    const handleDownload = () => {
+        if (!filteredData.length) return;
+
+        const exportRows = filteredData.map((item, index) => ({
+            "S.No": index + 1,
+            "VR No": item.VRNO || "",
+            "Date": item.VRDATE ? new Date(item.VRDATE).toLocaleDateString("en-IN") : "",
+            "Type": item.GATEPASS_TYPE || "",
+            "Party Name": item.PARTY_NAME || "",
+            "Mobile": item.MOBILE || "",
+            "Email": item.EMAIL || "",
+            "Item Code": item.ITEM_CODE || "",
+            "Item Name": item.ITEM_NAME || "",
+            "Issued Qty": item.QTYISSUED ?? 0,
+            "Received Qty": item.QTYRECEIVED ?? 0,
+            "Unit": item.UNIT || "",
+            "Status": item.GATEPASS_STATUS || "",
+            "Remarks": item.REMARK || "",
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportRows);
+        worksheet["!cols"] = [
+            { wch: 8 },
+            { wch: 16 },
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 28 },
+            { wch: 16 },
+            { wch: 28 },
+            { wch: 16 },
+            { wch: 34 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 10 },
+            { wch: 14 },
+            { wch: 48 },
+        ];
+
+        const workbook = XLSX.utils.book_new();
+        const sheetName = mainTab === "NON_RETURNABLE"
+            ? "Non Returnable"
+            : subTab === "COMPLETED"
+                ? "Returnable Completed"
+                : "Returnable Pending";
+
+        const filePrefix = mainTab === "NON_RETURNABLE"
+            ? "non_returnable"
+            : subTab === "COMPLETED"
+                ? "returnable_completed"
+                : "returnable_pending";
+
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
+        XLSX.writeFile(
+            workbook,
+            `${filePrefix}_${searchTerm.trim() ? "filtered_" : ""}${new Date().toISOString().slice(0, 10)}.xlsx`
+        );
+    };
+
     if (loading) {
         return (
             <Loading
@@ -121,15 +180,26 @@ export default function ReturnablePage() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search records..."
-                        className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+                    <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search records..."
+                            className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-sm"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleDownload}
+                        disabled={!filteredData.length}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                    >
+                        <Download size={16} />
+                        Export Excel
+                    </button>
                 </div>
             </div>
 
