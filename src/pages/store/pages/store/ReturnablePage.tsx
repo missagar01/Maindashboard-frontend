@@ -35,6 +35,21 @@ interface Stats {
     RETURNABLE_PENDING_COUNT: number;
 }
 
+function formatDate(value: string) {
+    if (!value) return "--";
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return value;
+    }
+
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const year = parsed.getFullYear();
+
+    return `${day}/${month}/${year}`;
+}
+
 export default function ReturnablePage() {
     const [data, setData] = useState<ReturnableItem[]>([]);
     const [stats, setStats] = useState<Stats>({
@@ -103,7 +118,7 @@ export default function ReturnablePage() {
         const exportRows = filteredData.map((item, index) => ({
             "S.No": index + 1,
             "VR No": item.VRNO || "",
-            "Date": item.VRDATE ? new Date(item.VRDATE).toLocaleDateString("en-IN") : "",
+            "Date": formatDate(item.VRDATE),
             "Type": item.GATEPASS_TYPE || "",
             "Party Name": item.PARTY_NAME || "",
             "Mobile": item.MOBILE || "",
@@ -279,7 +294,7 @@ export default function ReturnablePage() {
                                                 {item.VRNO}
                                             </td>
                                             <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
-                                                {new Date(item.VRDATE).toLocaleDateString()}
+                                                {formatDate(item.VRDATE)}
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex flex-col">
@@ -378,7 +393,7 @@ export default function ReturnablePage() {
                                                     <Calendar size={14} />
                                                     <span>Date</span>
                                                 </div>
-                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{new Date(item.VRDATE).toLocaleDateString()}</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(item.VRDATE)}</span>
                                             </div>
                                             <div className="flex items-center justify-between text-xs">
                                                 <div className="flex items-center gap-2 text-slate-500">
