@@ -32,6 +32,7 @@ import Settings from "./pages/LeadToOrder/Settings";
 import { DashboardView as O2DDashboard } from "./pages/O2D/dashboard-view";
 import { OrdersView as O2DOrders } from "./pages/O2D/order-view";
 import { PendingVehicles as O2DProcess } from "./pages/O2D/pendding-vehicle";
+import { TodaysVehiclePage as O2DTodaysVehicles } from "./pages/O2D/todays-vehicle";
 import EnquiryView from "./pages/O2D/enq-view";
 import EnqList from "./pages/O2D/enq-list";
 
@@ -224,6 +225,7 @@ export default function App() {
             <Route path="/o2d/dashboard" element={<RouteGuard><O2DDashboard /></RouteGuard>} />
             <Route path="/o2d/orders" element={<RouteGuard><O2DOrders /></RouteGuard>} />
             <Route path="/o2d/process" element={<RouteGuard><O2DProcess /></RouteGuard>} />
+            <Route path="/o2d/todays-vehicles" element={<RouteGuard><O2DTodaysVehicles /></RouteGuard>} />
             <Route path="/o2d/enquiry" element={<RouteGuard><EnquiryView /></RouteGuard>} />
             <Route path="/o2d/enquiry-list" element={<RouteGuard><EnqList /></RouteGuard>} />
             <Route path="/o2d/customers" element={<RouteGuard><CustomersPage /></RouteGuard>} />

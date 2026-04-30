@@ -28,6 +28,9 @@ export const getPendingOrders = (params?: any) =>
 export const getCompletedOrders = (params?: any) =>
   apiRequest('/api/o2d/orders/history', { params });
 
+export const getTodaysVehicles = (params?: any) =>
+  apiRequest('/api/o2d/todays-vehicles', { params });
+
 export const getProcessTimeline = (params?: any) =>
   apiRequest('/api/o2d/process/timeline', { params });
 

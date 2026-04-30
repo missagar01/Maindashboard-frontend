@@ -45,7 +45,8 @@ type DashboardSummary = {
   dailyGd?: number
   saudaAvg?: Array<{ ITEM: string; AVERAGE: number }>
   allSaudaAvg?: Array<{ SALES_PERSON: string; ITEM: string; AVERAGE: number }>
-  salesAvg?: Array<{ SALES_PERSON: string; ITEM: string; AVERAGE: number }>
+  salesAvg?: Array<{ ITEM: string; AVERAGE: number }>
+  allSalesAvg?: Array<{ SALES_PERSON: string; ITEM: string; AVERAGE: number }>
   saudaRate2026?: number
   stateDistribution?: Array<{ STATE_NAME: string; TOTAL: number }>
 }
@@ -654,7 +655,7 @@ export function DashboardView() {
   // Get all three item averages for the composite card
   const getItemAverages = () => {
     const summary: DashboardSummary = data?.summary || {}
-    const saudaAvgList = summary.allSaudaAvg || []
+    const saudaAvgList = summary.saudaAvg || []
     const salesAvgList = summary.salesAvg || []
 
     const items = ['PIPE', 'STRIPS', 'BILLET']
@@ -790,7 +791,7 @@ export function DashboardView() {
     });
 
     // 2. Sales Averages
-    (summary.salesAvg || []).forEach(s => {
+    (summary.allSalesAvg || []).forEach(s => {
       initPerson(s.SALES_PERSON);
       if (analytics[s.SALES_PERSON]) analytics[s.SALES_PERSON].salesAvg.push(s);
     });

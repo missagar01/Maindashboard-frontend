@@ -101,6 +101,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "O2D Dashboard": "/o2d/dashboard",
   Orders: "/o2d/orders",
   "Pending Vehicles": "/o2d/process",
+  "Today Vehicles": "/o2d/todays-vehicles",
   "Complaint Details": "/o2d/complaint-details",
   Permissions: "/o2d/permissions",
   Enquiry: "/o2d/enquiry",

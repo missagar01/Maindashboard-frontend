@@ -77,6 +77,7 @@ const PAGE_ROUTES = {
     createPageOption("Enquiry", "Enquiry", "/o2d/enquiry", ["/o2d/enquiry"]),
     createPageOption("Enquiry List", "Enquiry List", "/o2d/enquiry-list", ["/o2d/enquiry-list"]),
     createPageOption("Pending Vehicles", "Pending Vehicles", "/o2d/process", ["/o2d/process"]),
+    createPageOption("Today Vehicles", "Today Vehicles", "/o2d/todays-vehicles", ["/o2d/todays-vehicles"]),
     createPageOption("Customers", "Customers", "/o2d/customers", ["/o2d/customers"]),
     createPageOption("Follow Ups", "Follow Ups", "/o2d/follow-ups", ["/o2d/follow-ups"]),
     createPageOption("Hot Coil", "Hot Coil", "/batchcode/hot-coil", ["/batchcode/hot-coil"]),

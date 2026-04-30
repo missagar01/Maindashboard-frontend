@@ -134,6 +134,7 @@ const salesWorkspaceSection: SidebarSection = {
     { kind: "link", key: "o2d-enquiry", name: "Enquiry", path: "/o2d/enquiry", icon: Search },
     { kind: "link", key: "o2d-enquiry-list", name: "Enquiry List", path: "/o2d/enquiry-list", icon: Files },
     { kind: "link", key: "o2d-pending-vehicles", name: "Pending Vehicles", path: "/o2d/process", icon: Truck },
+    { kind: "link", key: "o2d-todays-vehicles", name: "Today Vehicles", path: "/o2d/todays-vehicles", icon: TimerReset },
     { kind: "link", key: "o2d-customers", name: "Customers", path: "/o2d/customers", icon: Users },
     { kind: "link", key: "o2d-follow-ups", name: "Follow Ups", path: "/o2d/follow-ups", icon: RefreshCw },
     { kind: "link", key: "batchcode-section-label", name: "BATCHCODE SECTION", path: "/__label__/batchcode", icon: Boxes },
