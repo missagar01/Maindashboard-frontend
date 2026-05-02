@@ -52,3 +52,5 @@ export interface HandoverSummary {
   frequentSwitchers: FrequentSwitcher[];
   handoverEfficiencyTrend: HandoverEfficiencyPoint[];
 }
+
+

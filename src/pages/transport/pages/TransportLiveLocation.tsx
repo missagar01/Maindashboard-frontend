@@ -707,7 +707,7 @@ export default function TransportLiveLocation() {
 
   if (loading && !records.length) {
     return (
-      <div className="space-y-3 py-1 sm:space-y-6 sm:py-2">
+      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
         <div className={`rounded-[24px] p-5 sm:rounded-[32px] sm:p-8 ${pageCardClass}`}>
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 sm:h-14 sm:w-14">
@@ -729,7 +729,7 @@ export default function TransportLiveLocation() {
 
   if (!loading && !records.length) {
     return (
-      <div className="space-y-3 py-1 sm:space-y-6 sm:py-2">
+      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
         <div className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 sm:h-16 sm:w-16">
             <AlertCircle className="h-7 w-7 text-slate-500" />
@@ -754,7 +754,7 @@ export default function TransportLiveLocation() {
 
   if (equipmentId && !selectedRecord) {
     return (
-      <div className="space-y-3 py-1 sm:space-y-6 sm:py-2">
+      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
         <div className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 sm:h-16 sm:w-16">
             <Truck className="h-7 w-7 text-slate-500" />
@@ -778,9 +778,9 @@ export default function TransportLiveLocation() {
   }
 
   return (
-    <div className="space-y-3 py-1 sm:space-y-6 sm:py-2">
-      <section className="px-0 py-1 sm:overflow-hidden sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_36%),linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] sm:p-6 sm:shadow-sm">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+    <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
+      <section className="px-0 py-0 sm:overflow-hidden sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_36%),linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] sm:p-6 sm:shadow-sm">
+        <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
             {equipmentId ? (
               <button
@@ -796,7 +796,7 @@ export default function TransportLiveLocation() {
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-sky-600">
                 Transport Live Location
               </p>
-              <h1 className="break-words text-[1.7rem] font-black leading-[1.02] tracking-tight text-slate-900 sm:text-3xl">
+              <h1 className="break-words text-[1.45rem] font-black leading-tight tracking-tight text-slate-900 sm:text-3xl">
                 {selectedRecord ? getRecordTitle(selectedRecord) : "Fleet GPS Monitor"}
               </h1>
            
@@ -833,7 +833,7 @@ export default function TransportLiveLocation() {
         </div>
 
         {!equipmentId ? (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_220px_220px]">
+          <div className="mt-4 grid gap-2.5 sm:mt-6 sm:grid-cols-2 sm:gap-3 xl:grid-cols-[minmax(0,1.5fr)_220px_220px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -873,7 +873,7 @@ export default function TransportLiveLocation() {
 
       {!equipmentId ? (
         <>
-          <section className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
+          <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
             <div className={`rounded-[20px] p-3 sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey.total}`}>
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
                 Visible Equipments
@@ -937,7 +937,7 @@ export default function TransportLiveLocation() {
             </section>
           ) : (
             <>
-              <section className={`space-y-4 rounded-[24px] p-4 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
+              <section className={`space-y-3 rounded-[22px] p-3 sm:space-y-4 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -987,7 +987,7 @@ export default function TransportLiveLocation() {
                 </div>
               </section>
 
-              <section className="space-y-4">
+              <section className="space-y-3 sm:space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -1007,11 +1007,11 @@ export default function TransportLiveLocation() {
                     <Link
                       key={record.routeId}
                       to={`/transport/live-location/${encodeURIComponent(record.routeId)}`}
-                      className={`group rounded-[22px] p-3.5 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:rounded-[28px] sm:p-5 ${equipmentGridCardClassByKey[record.statusKey]}`}
+                      className={`group rounded-[20px] p-3 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:rounded-[28px] sm:p-5 ${equipmentGridCardClassByKey[record.statusKey]}`}
                     >
-                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div className="min-w-0">
-                          <p className="truncate text-[1.6rem] font-black leading-none text-slate-900 sm:text-lg sm:leading-tight">
+                          <p className="truncate text-lg font-black leading-tight text-slate-900 sm:text-xl">
                             {getRecordTitle(record)}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-600">
@@ -1024,34 +1024,34 @@ export default function TransportLiveLocation() {
                         />
                       </div>
 
-                      <div className="mt-3 grid gap-2 sm:mt-5 sm:grid-cols-2 sm:gap-3">
-                        <div className="rounded-[18px] bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
+                        <div className="rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
                             Speed
                           </p>
-                          <p className="mt-1.5 text-[1.1rem] font-black text-slate-900 sm:mt-2 sm:text-base">
+                          <p className="mt-1 text-base font-black text-slate-900 sm:mt-2 sm:text-base">
                             {formatSpeed(record.speed)}
                           </p>
                         </div>
-                        <div className="rounded-[18px] bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
+                        <div className="rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
                             Ignition
                           </p>
-                          <p className="mt-1.5 text-[1.1rem] font-black text-slate-900 sm:mt-2 sm:text-base">
+                          <p className="mt-1 text-base font-black text-slate-900 sm:mt-2 sm:text-base">
                             {record.ignitionOn ? "ON" : "OFF"}
                           </p>
                         </div>
-                        <div className="rounded-[18px] bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:col-span-2 sm:rounded-2xl sm:px-4 sm:py-3">
+                        <div className="col-span-2 rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
                             Coordinates
                           </p>
-                          <p className="mt-1.5 text-[0.95rem] font-semibold leading-5 text-slate-700 sm:mt-2 sm:text-sm">
+                          <p className="mt-1 text-[0.95rem] font-semibold leading-5 text-slate-700 sm:mt-2 sm:text-sm">
                             {formatCoordinates(record)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-end justify-between gap-3 border-t border-white/70 pt-3 sm:mt-5 sm:items-center sm:border-slate-100 sm:pt-4">
+                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-white/70 pt-2.5 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:border-slate-100 sm:pt-4">
                         <div>
                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
                             Last Update
@@ -1060,7 +1060,7 @@ export default function TransportLiveLocation() {
                             {formatRelativeTime(record.lastUpdate)}
                           </p>
                         </div>
-                        <span className="text-[0.95rem] font-black leading-5 text-slate-900 group-hover:text-slate-700 sm:text-sm">
+                        <span className="self-start text-[0.95rem] font-black leading-5 text-slate-900 group-hover:text-slate-700 sm:self-auto sm:text-sm">
                           Open Tracking
                         </span>
                       </div>
