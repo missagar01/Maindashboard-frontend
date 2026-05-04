@@ -14,6 +14,7 @@ type SystemKey =
   | "document"
   | "store"
   | "transport"
+  | "iot"
   | "project"
   | "checklist"
   | "gatepass"
@@ -220,6 +221,10 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Handover: "/transport/handover",
   "Handover Summary": "/transport/handover",
   "Transport Reports": "/transport/reports",
+  "IoT Dashboard": "/iot/dashboard",
+  "IOT Dashboard": "/iot/dashboard",
+  "IoT Module": "/iot/dashboard",
+  "IOT Module": "/iot/dashboard",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -525,6 +530,21 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
+  if (required === "iot") {
+    return systems.some((value) =>
+      [
+        "iot",
+        "iote",
+        "internetofthings",
+        "telemetry",
+        "smartfactory",
+        "smart-factory",
+        "devicemonitoring",
+        "devices",
+      ].includes(value)
+    );
+  }
+
   if (required === "project") {
     return systems.some((value) =>
       ["project", "projects", "civiltrack", "civil", "siteproject"].includes(value)
@@ -609,6 +629,10 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "transport";
   }
 
+  if (normalizedPath.startsWith("/iot") || lowerPath.includes("tab=iot")) {
+    return "iot";
+  }
+
   if (
     normalizedPath.startsWith("/document") ||
     normalizedPath.startsWith("/subscription") ||
@@ -634,6 +658,7 @@ const normalizePageEntryToRoute = (
     const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
     const hasStore = hasSystemAccess(availableSystems, "store");
     const hasTransport = hasSystemAccess(availableSystems, "transport");
+    const hasIot = hasSystemAccess(availableSystems, "iot");
     const hasProject = hasSystemAccess(availableSystems, "project");
     const hasDocument = hasSystemAccess(availableSystems, "document");
     const hasChecklist = hasSystemAccess(availableSystems, "checklist");
@@ -643,6 +668,7 @@ const normalizePageEntryToRoute = (
     if (hasHrfms) return "/hrfms/dashboard";
     if (hasStore) return "/store/dashboard";
     if (hasTransport) return "/transport/dashboard";
+    if (hasIot) return "/iot/dashboard";
     if (hasProject) return "/project/dashboard";
     if (hasDocument) return "/document/dashboard";
     if (hasChecklist) return "/checklist";
@@ -676,6 +702,7 @@ const normalizePageEntryToRoute = (
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
     if (normalized === "/transport") return "/transport/dashboard";
+    if (normalized === "/iot") return "/iot/dashboard";
     if (normalized === "/project") return "/project/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
     if (normalized === "/gatepass") return "/gatepass/approvals";
@@ -737,6 +764,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
   if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
+  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");

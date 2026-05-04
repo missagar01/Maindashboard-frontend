@@ -27,6 +27,7 @@ import {
   Users,
   Warehouse,
   Navigation,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -299,6 +300,16 @@ const transportSection: SidebarSection = {
   ],
 };
 
+const iotSection: SidebarSection = {
+  key: "iot",
+  title: "IoT Command Center",
+  caption: "Live Device Monitoring",
+  icon: Cpu,
+  nodes: [
+    { kind: "link", key: "iot-dashboard", name: "Dashboard", path: "/iot/dashboard", icon: LayoutDashboard },
+  ],
+};
+
 const projectSection: SidebarSection = {
   key: "project",
   title: "Project Operations",
@@ -327,6 +338,7 @@ const visitorSection: SidebarSection = {
 const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   checklist: checklistSection,
   transport: transportSection,
+  iot: iotSection,
   sales: salesWorkspaceSection,
   logistic: salesWorkspaceSection,
   batchcode: salesWorkspaceSection,

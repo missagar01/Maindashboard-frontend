@@ -105,6 +105,7 @@ import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation
 import TransportTakeover from "./pages/transport/pages/TransportTakeover";
 import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
+import IotDashboard from "./pages/iot/pages/IotDashboard";
 
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
@@ -311,6 +312,10 @@ export default function App() {
             <Route path="/transport/takeover" element={<RouteGuard><TransportTakeover /></RouteGuard>} />
             <Route path="/transport/handover" element={<RouteGuard><TransportHandover /></RouteGuard>} />
             <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
+
+            {/* IoT Routes */}
+            <Route path="/iot" element={<RouteGuard><Navigate to="/iot/dashboard" replace /></RouteGuard>} />
+            <Route path="/iot/dashboard" element={<RouteGuard><IotDashboard /></RouteGuard>} />
 
             {/* Project Routes */}
             <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />

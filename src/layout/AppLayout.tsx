@@ -10,6 +10,7 @@ const LayoutContent: React.FC = () => {
   const location = useLocation();
   const hasSidebar = shouldShowSidebarForPath(location.pathname);
   const isLeadFormPage = location.pathname === "/lead-to-order/leads";
+  const isIotPage = location.pathname.startsWith("/iot");
 
   return (
     <div className="min-h-screen overflow-x-hidden xl:flex">
@@ -30,6 +31,8 @@ const LayoutContent: React.FC = () => {
           className={`${hasSidebar
             ? isLeadFormPage
               ? "w-full p-0"
+              : isIotPage
+                ? "mx-auto w-full max-w-(--breakpoint-2xl) p-0 md:p-5"
               : "mx-auto max-w-(--breakpoint-2xl) p-3 md:p-5"
             : "w-full px-3 py-4 md:px-6 md:py-6"} overflow-x-hidden bg-transparent`}
         >

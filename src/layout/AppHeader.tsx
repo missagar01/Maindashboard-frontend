@@ -177,6 +177,12 @@ const AppHeader: React.FC = () => {
         getFirstAllowedPathForModule("/transport", user) || "/transport/dashboard"
       );
     }
+    if (allowedPageRoutes.some((route) => route.startsWith("/iot"))) {
+      pushNavItem(
+        resolvePortalNavItem("iot"),
+        getFirstAllowedPathForModule("/iot", user) || "/iot/dashboard"
+      );
+    }
     if (allowedPageRoutes.some((route) => route.startsWith("/project"))) {
       pushNavItem(resolvePortalNavItem("project"), "/project/dashboard");
     }
