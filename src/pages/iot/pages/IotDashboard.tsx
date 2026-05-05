@@ -83,18 +83,102 @@ const formatCoordinates = (record: EquipmentTrackingRecord) => {
   return `${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}`;
 };
 
+const FLEET_FILTER_KEYWORDS = ["IOT/PUM", "IOT/PUMP", "IOT PUM", "IOT PUMP"];
+
+const normalizeRecordText = (value: unknown) => String(value ?? "").trim();
+
+const getRecordNameCandidates = (record: EquipmentTrackingRecord) =>
+  Array.from(
+    new Set(
+      [
+        record.equipment.equipmentName,
+        record.raw?.equipment_name,
+        record.raw?.equipment?.equipment_name,
+        record.raw?.equipmentName,
+        record.raw?.equipment?.equipmentName,
+        record.raw?.display_name,
+        record.raw?.equipment_label,
+        record.raw?.label,
+        record.registrationNo,
+        record.equipment.doorNumber,
+        record.serial,
+        record.deviceId,
+      ]
+        .map(normalizeRecordText)
+        .filter(Boolean)
+    )
+  );
+
+const getRecordTitleScore = (
+  candidate: string,
+  record: EquipmentTrackingRecord
+) => {
+  const normalizedCandidate = candidate.toUpperCase();
+  const doorNumber = normalizeRecordText(record.equipment.doorNumber).toUpperCase();
+  const registrationNo = normalizeRecordText(record.registrationNo).toUpperCase();
+
+  let score = 0;
+
+  if (
+    FLEET_FILTER_KEYWORDS.some((keyword) => normalizedCandidate.includes(keyword))
+  ) {
+    score += 100;
+  }
+
+  if (normalizedCandidate.includes("/") || normalizedCandidate.includes(" ")) {
+    score += 40;
+  }
+
+  if (candidate.length >= 12) {
+    score += 20;
+  }
+
+  if (normalizedCandidate !== doorNumber && normalizedCandidate !== registrationNo) {
+    score += 15;
+  }
+
+  if (normalizedCandidate === doorNumber) {
+    score -= 15;
+  }
+
+  return score;
+};
+
 const getRecordTitle = (record: EquipmentTrackingRecord) =>
-  record.equipment.equipmentName ||
-  record.equipment.doorNumber ||
-  record.registrationNo ||
-  record.serial ||
-  record.deviceId ||
-  "Unnamed equipment";
+  [...getRecordNameCandidates(record)]
+    .sort((left, right) => {
+      const scoreDelta =
+        getRecordTitleScore(right, record) - getRecordTitleScore(left, record);
+
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return right.length - left.length;
+    })[0] || "Unnamed equipment";
 
 const getRecordSubtitle = (record: EquipmentTrackingRecord) =>
   [record.equipment.equipmentCategory, record.equipment.equipmentType]
     .filter(Boolean)
     .join(" / ") || "Equipment";
+
+const getRecordSearchText = (record: EquipmentTrackingRecord) =>
+  [
+    ...getRecordNameCandidates(record),
+    getRecordSubtitle(record),
+    record.equipment.equipmentCategory,
+    record.equipment.equipmentType,
+    record.voiceNo,
+  ]
+    .map(normalizeRecordText)
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+const isIotPumpRecord = (record: EquipmentTrackingRecord) => {
+  const searchableText = getRecordSearchText(record);
+  return FLEET_FILTER_KEYWORDS.some((keyword) => searchableText.includes(keyword));
+};
 
 const isAbortLikeError = (error: any) => {
   const name = String(error?.name || "").toLowerCase();
@@ -123,26 +207,42 @@ const pageCardClass =
 
 const equipmentGridCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
   moving:
-    "border border-emerald-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(236,253,245,0.98)_48%,rgba(209,250,229,0.92)_100%)] shadow-sm",
+    "border border-emerald-200 bg-gradient-to-br from-emerald-100 via-white to-emerald-50 shadow-sm hover:shadow-md transition-all",
   stopped:
-    "border border-amber-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(255,251,235,0.98)_48%,rgba(254,215,170,0.88)_100%)] shadow-sm",
+    "border border-amber-200 bg-gradient-to-br from-amber-100 via-white to-orange-50 shadow-sm hover:shadow-md transition-all",
   idling:
-    "border border-sky-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(240,249,255,0.98)_48%,rgba(191,219,254,0.9)_100%)] shadow-sm",
+    "border border-sky-200 bg-gradient-to-br from-sky-100 via-white to-blue-50 shadow-sm hover:shadow-md transition-all",
   unreachable:
-    "border border-slate-200 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_48%,rgba(226,232,240,0.94)_100%)] shadow-sm",
+    "border border-slate-300 bg-gradient-to-br from-slate-200 via-white to-slate-100 shadow-sm hover:shadow-md transition-all",
 };
 
 const summaryCardClassByKey: Record<EquipmentTrackingStatusKey | "total", string> = {
   total:
-    "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-indigo-50/55 shadow-sm",
+    "relative overflow-hidden border border-indigo-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(224,231,255,0.96)_44%,rgba(186,230,253,0.9)_100%)] shadow-[0_10px_28px_rgba(79,70,229,0.14)] transition-all duration-300 hover:shadow-[0_16px_36px_rgba(79,70,229,0.2)]",
   moving:
-    "border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-teal-100/70 shadow-sm",
+    "relative overflow-hidden border border-emerald-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(209,250,229,0.94)_42%,rgba(153,246,228,0.82)_100%)] shadow-[0_10px_28px_rgba(5,150,105,0.14)] transition-all duration-300 hover:shadow-[0_16px_36px_rgba(5,150,105,0.2)]",
   stopped:
-    "border border-amber-200/70 bg-gradient-to-br from-white via-amber-50 to-orange-100/70 shadow-sm",
+    "relative overflow-hidden border border-amber-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(254,243,199,0.95)_42%,rgba(253,230,138,0.84)_100%)] shadow-[0_10px_28px_rgba(217,119,6,0.14)] transition-all duration-300 hover:shadow-[0_16px_36px_rgba(217,119,6,0.2)]",
   idling:
-    "border border-sky-200/70 bg-gradient-to-br from-white via-sky-50 to-blue-100/70 shadow-sm",
+    "relative overflow-hidden border border-sky-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(224,242,254,0.95)_42%,rgba(186,230,253,0.84)_100%)] shadow-[0_10px_28px_rgba(2,132,199,0.14)] transition-all duration-300 hover:shadow-[0_16px_36px_rgba(2,132,199,0.2)]",
   unreachable:
-    "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-200/70 shadow-sm",
+    "relative overflow-hidden border border-slate-300/90 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(241,245,249,0.95)_42%,rgba(203,213,225,0.86)_100%)] shadow-[0_10px_28px_rgba(71,85,105,0.14)] transition-all duration-300 hover:shadow-[0_16px_36px_rgba(71,85,105,0.2)]",
+};
+
+const summaryCardGlowClassByKey: Record<
+  EquipmentTrackingStatusKey | "total",
+  string
+> = {
+  total:
+    "bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,0.2),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.16),transparent_42%)]",
+  moving:
+    "bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.2),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(20,184,166,0.16),transparent_42%)]",
+  stopped:
+    "bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.2),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(249,115,22,0.16),transparent_42%)]",
+  idling:
+    "bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.2),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.16),transparent_42%)]",
+  unreachable:
+    "bg-[radial-gradient(circle_at_top_right,rgba(100,116,139,0.18),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(148,163,184,0.14),transparent_42%)]",
 };
 
 const StatusBadge = ({
@@ -214,15 +314,10 @@ export default function IOTDashbaord() {
     try {
       const response = await getEquipmentTrackingReport(signal);
 
-      // Filter for SRMPL_1 through SRMPL_8 only
-      const srmplRecords = response.records.filter((record) => {
-        const title = getRecordTitle(record).toUpperCase();
-        const reg = (record.registrationNo || "").toUpperCase();
-        return title.includes("SRMPL_") || reg.includes("SRMPL_");
-      });
+      const iotPumpRecords = response.records.filter(isIotPumpRecord);
 
-      setRecords(srmplRecords);
-      setApiSummary(buildEquipmentTrackingSummary(srmplRecords));
+      setRecords(iotPumpRecords);
+      setApiSummary(buildEquipmentTrackingSummary(iotPumpRecords));
       setError("");
       setLastSyncedAt(new Date().toISOString());
     } catch (err: any) {
@@ -374,7 +469,7 @@ export default function IOTDashbaord() {
   }
 
   return (
-    <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
+    <div className="space-y-4 px-4 py-2 sm:space-y-6 sm:px-0 sm:py-2">
       <section className="px-0 py-0 sm:overflow-hidden sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_36%),linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] sm:p-6 sm:shadow-sm">
         <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
@@ -383,7 +478,7 @@ export default function IOTDashbaord() {
                 Transport Live Location
               </p>
               <h1 className="break-words text-[1.45rem] font-black leading-tight tracking-tight text-slate-900 sm:text-3xl">
-                Fleet GPS Monitor (SRMPL 1-8)
+                Fleet GPS Monitor (IOT/PUM)
               </h1>
             </div>
           </div>
@@ -426,17 +521,23 @@ export default function IOTDashbaord() {
         ) : null}
       </section>
 
-      <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-5">
         <div className={`rounded-[20px] p-3 sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey.total}`}>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
-            Equipments
-          </p>
-          <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
-            {formatNumber(filteredRecords.length)}
-          </p>
-          <p className="mt-1 text-xs font-medium leading-5 text-slate-500 sm:mt-2 sm:text-sm">
-            Visible SRMPL fleet
-          </p>
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 ${summaryCardGlowClassByKey.total}`}
+          />
+          <div className="relative z-10">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[10px] sm:tracking-[0.2em]">
+              Equipments
+            </p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
+              {formatNumber(filteredRecords.length)}
+            </p>
+            <p className="mt-1 text-xs font-medium leading-5 text-slate-600 sm:mt-2 sm:text-sm">
+              Visible IOT/PUM fleet
+            </p>
+          </div>
         </div>
 
         {statusSummaryOrder.map((key) => (
@@ -444,20 +545,26 @@ export default function IOTDashbaord() {
             key={key}
             className={`rounded-[20px] p-3 sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey[key]}`}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
-                {statusMeta[key].label}
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-0 ${summaryCardGlowClassByKey[key]}`}
+            />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[10px] sm:tracking-[0.2em]">
+                  {statusMeta[key].label}
+                </p>
+                <div
+                  className={`h-3.5 w-3.5 rounded-full bg-gradient-to-br ${statusMeta[key].summaryTone}`}
+                />
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
+                {formatNumber(displaySummary[key])}
               </p>
-              <div
-                className={`h-3.5 w-3.5 rounded-full bg-gradient-to-br ${statusMeta[key].summaryTone}`}
-              />
+              <p className="mt-1 text-xs font-medium leading-5 text-slate-600 sm:mt-2 sm:text-sm">
+                Live snapshot
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
-              {formatNumber(displaySummary[key])}
-            </p>
-            <p className="mt-1 text-xs font-medium leading-5 text-slate-500 sm:mt-2 sm:text-sm">
-              Live snapshot
-            </p>
           </div>
         ))}
       </section>
@@ -490,7 +597,7 @@ export default function IOTDashbaord() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-4">
             {filteredRecords.map((record) => (
               <div
                 key={record.routeId}
@@ -498,7 +605,7 @@ export default function IOTDashbaord() {
               >
                 <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-black leading-tight text-slate-900 sm:text-xl">
+                    <p className="text-base font-black leading-tight text-slate-900 break-words sm:text-xl">
                       {getRecordTitle(record)}
                     </p>
                     <p className="mt-0.5 text-[11px] font-semibold text-slate-600 sm:mt-1 sm:text-sm">
