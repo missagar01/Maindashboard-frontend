@@ -85,6 +85,10 @@ const formatCoordinates = (record: EquipmentTrackingRecord) => {
 
 const FLEET_FILTER_KEYWORDS = ["IOT/PUM", "IOT/PUMP", "IOT PUM", "IOT PUMP"];
 
+const RECORD_TITLE_OVERRIDES: Record<string, string> = {
+  "353742371399445": "SRMPL_8_Workshop",
+};
+
 const normalizeRecordText = (value: unknown) => String(value ?? "").trim();
 
 const getRecordNameCandidates = (record: EquipmentTrackingRecord) =>
@@ -144,8 +148,19 @@ const getRecordTitleScore = (
   return score;
 };
 
-const getRecordTitle = (record: EquipmentTrackingRecord) =>
-  [...getRecordNameCandidates(record)]
+const getRecordTitleOverride = (record: EquipmentTrackingRecord) =>
+  getRecordNameCandidates(record).find(
+    (candidate) => RECORD_TITLE_OVERRIDES[candidate]
+  );
+
+const getRecordTitle = (record: EquipmentTrackingRecord) => {
+  const overrideCandidate = getRecordTitleOverride(record);
+
+  if (overrideCandidate) {
+    return RECORD_TITLE_OVERRIDES[overrideCandidate];
+  }
+
+  return [...getRecordNameCandidates(record)]
     .sort((left, right) => {
       const scoreDelta =
         getRecordTitleScore(right, record) - getRecordTitleScore(left, record);
@@ -156,6 +171,7 @@ const getRecordTitle = (record: EquipmentTrackingRecord) =>
 
       return right.length - left.length;
     })[0] || "Unnamed equipment";
+};
 
 const getRecordSubtitle = (record: EquipmentTrackingRecord) =>
   [record.equipment.equipmentCategory, record.equipment.equipmentType]
@@ -474,11 +490,9 @@ export default function IOTDashbaord() {
         <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
             <div className="space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-sky-600">
-                Transport Live Location
-              </p>
+             
               <h1 className="break-words text-[1.45rem] font-black leading-tight tracking-tight text-slate-900 sm:text-3xl">
-                Fleet GPS Monitor (IOT/PUM)
+                IOT/PUM
               </h1>
             </div>
           </div>
@@ -589,7 +603,7 @@ export default function IOTDashbaord() {
                 Equipment Data
               </p>
               <h2 className="mt-2 text-xl font-black text-slate-900 sm:text-2xl">
-                Fleet Live Feed
+                IoT Live Monitoring
               </h2>
             </div>
             <p className="text-sm font-semibold text-slate-500">
