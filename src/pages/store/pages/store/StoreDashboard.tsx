@@ -48,6 +48,79 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
   return list.sort((a, b) => a.itemName.localeCompare(b.itemName));
 };
 
+const DASHBOARD_REQUEST_RETRY_LIMIT = 2;
+const DASHBOARD_REQUEST_RETRY_DELAY_MS = 1200;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isTransientDashboardError = (err: any) => {
+  const status = Number(err?.response?.status || err?.status || 0);
+  const code = String(err?.code || err?.cause?.code || "").toUpperCase();
+  const message = String(err?.response?.data?.message || err?.message || "").toLowerCase();
+
+  if (status >= 500 || status === 0) return true;
+
+  return [
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "ECONNABORTED",
+  ].includes(code) || [
+    "network error",
+    "econnreset",
+    "timeout",
+    "socket hang up",
+  ].some((token) => message.includes(token));
+};
+
+const fetchDashboardWithRetry = async () => {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await storeApi.getDashboard();
+    } catch (err) {
+      if (attempt >= DASHBOARD_REQUEST_RETRY_LIMIT || !isTransientDashboardError(err)) {
+        throw err;
+      }
+
+      attempt += 1;
+      await wait(DASHBOARD_REQUEST_RETRY_DELAY_MS * attempt);
+    }
+  }
+};
+
+const unwrapResponseData = (value: any) => value?.data ?? value;
+
+const unwrapResponseRows = (value: any): any[] => {
+  const payload = unwrapResponseData(value);
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.rows)) {
+    return payload.rows;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
+};
+
+const getDashboardErrorMessage = (err: any) => {
+  if (isTransientDashboardError(err)) {
+    return "Dashboard request timed out while waiting for live server data. Please refresh in a few seconds.";
+  }
+
+  return (
+    err?.response?.data?.message ??
+    err?.message ??
+    "Failed to load dashboard data"
+  );
+};
+
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -77,6 +150,8 @@ export default function StoreDashboard() {
 
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [feedbacksLoading, setFeedbacksLoading] = useState(true);
+  const [vendorOptions, setVendorOptions] = useState<{ vendorName: string }[]>([]);
+  const [productOptions, setProductOptions] = useState<{ itemName: string }[]>([]);
 
   // Consolidated Modal & Detail states
   const [modalData, setModalData] = useState<any[]>([]);
@@ -96,6 +171,122 @@ export default function StoreDashboard() {
     mountedRef.current = true;
     let cancelled = false;
     let pollTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const normalizeDivs = (data: any[]) => (data || []).map((item) => ({
+      ...item,
+      _normalizedDiv: getDivName(item),
+    }));
+
+    const applySupplementalData = (
+      issueData: any[],
+      indentData: any[],
+      poData: any[],
+      grnData: any[],
+      vendors: any[],
+      products: any[]
+    ) => {
+      setDivisionListIssue(normalizeDivs(issueData));
+      setDivisionListIndent(normalizeDivs(indentData));
+      setDivisionListPO(normalizeDivs(poData));
+      setDivisionListGRN(normalizeDivs(grnData));
+      setVendorOptions(normalizeVendorList(vendors));
+      setProductOptions(normalizeProductList(products));
+    };
+
+    const loadSupplementalData = async () => {
+      const [issRes, indRes, poRes, grnRes, vendorRes, productRes] =
+        await Promise.allSettled([
+          storeApi.getDivisionWiseIssue(),
+          storeApi.getDivisionWiseIndent(),
+          storeApi.getDivisionWisePO(),
+          storeApi.getDivisionWiseGRN(),
+          storeApi.getAllVendors(),
+          storeApi.getAllProducts(),
+        ]);
+
+      if (cancelled) return;
+
+      applySupplementalData(
+        issRes.status === "fulfilled" ? unwrapResponseRows(issRes.value) : [],
+        indRes.status === "fulfilled" ? unwrapResponseRows(indRes.value) : [],
+        poRes.status === "fulfilled" ? unwrapResponseRows(poRes.value) : [],
+        grnRes.status === "fulfilled" ? unwrapResponseRows(grnRes.value) : [],
+        vendorRes.status === "fulfilled" ? unwrapResponseRows(vendorRes.value) : [],
+        productRes.status === "fulfilled" ? unwrapResponseRows(productRes.value) : []
+      );
+    };
+
+    const loadFallbackDashboardData = async () => {
+      const [
+        pendingRes,
+        historyRes,
+        poPendingRes,
+        poHistoryRes,
+        repairPendingRes,
+        repairHistoryRes,
+        returnableRes,
+      ] = await Promise.allSettled([
+        storeApi.getPendingIndents(),
+        storeApi.getHistoryIndents(),
+        storeApi.getPoPending(),
+        storeApi.getPoHistory(),
+        storeApi.getRepairGatePassPending(),
+        storeApi.getRepairGatePassReceived(),
+        storeApi.getReturnableDetails(),
+      ]);
+
+      if (cancelled) {
+        return false;
+      }
+
+      const fallbackPendingIndents =
+        pendingRes.status === "fulfilled" ? unwrapResponseRows(pendingRes.value) : [];
+      const fallbackHistoryIndents =
+        historyRes.status === "fulfilled" ? unwrapResponseRows(historyRes.value) : [];
+      const fallbackPoPending =
+        poPendingRes.status === "fulfilled" ? unwrapResponseRows(poPendingRes.value) : [];
+      const fallbackPoHistory =
+        poHistoryRes.status === "fulfilled" ? unwrapResponseRows(poHistoryRes.value) : [];
+      const fallbackRepairPending =
+        repairPendingRes.status === "fulfilled"
+          ? unwrapResponseRows(repairPendingRes.value)
+          : [];
+      const fallbackRepairHistory =
+        repairHistoryRes.status === "fulfilled"
+          ? unwrapResponseRows(repairHistoryRes.value)
+          : [];
+      const fallbackReturnable =
+        returnableRes.status === "fulfilled" ? unwrapResponseRows(returnableRes.value) : [];
+
+      const hasFallbackRows = hasCurrentMonthRecords([
+        fallbackPendingIndents,
+        fallbackHistoryIndents,
+        fallbackPoPending,
+        fallbackPoHistory,
+        fallbackRepairPending,
+        fallbackRepairHistory,
+        fallbackReturnable,
+      ]);
+
+      if (!hasFallbackRows) {
+        return false;
+      }
+
+      emptyDashboardRetryCountRef.current = 0;
+      setPendingIndents(fallbackPendingIndents);
+      setHistoryIndents(fallbackHistoryIndents);
+      setPoPending(fallbackPoPending);
+      setPoHistory(fallbackPoHistory);
+      setRepairPending(fallbackRepairPending);
+      setRepairHistory(fallbackRepairHistory);
+      setReturnableDetails(fallbackReturnable);
+      setDashboardSummary(null);
+      setFeedbacks([]);
+      setFeedbacksLoading(false);
+      setLoading(false);
+      void loadSupplementalData();
+      return true;
+    };
 
     const loadData = async () => {
       setLoading(true);
@@ -123,41 +314,18 @@ export default function StoreDashboard() {
           setReturnableDetails([]);
           setDashboardSummary(null);
           setFeedbacks([]);
+          setVendorOptions([]);
+          setProductOptions([]);
           setFeedbacksLoading(false);
           setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
           setLoading(false);
         };
 
-        const [issRes, indRes, poRes, grnRes, dashboardRes] = await Promise.allSettled([
-          storeApi.getDivisionWiseIssue(),
-          storeApi.getDivisionWiseIndent(),
-          storeApi.getDivisionWisePO(),
-          storeApi.getDivisionWiseGRN(),
-          storeApi.getDashboard()
-        ]);
+        const dashboardRes = await fetchDashboardWithRetry();
 
         if (cancelled) return;
 
-        const normalizeDivs = (data: any[]) => (data || []).map(item => ({
-          ...item,
-          _normalizedDiv: getDivName(item)
-        }));
-
-        setDivisionListIssue(issRes.status === "fulfilled" ? normalizeDivs(issRes.value?.data || issRes.value) : []);
-        setDivisionListIndent(indRes.status === "fulfilled" ? normalizeDivs(indRes.value?.data || indRes.value) : []);
-        setDivisionListPO(poRes.status === "fulfilled" ? normalizeDivs(poRes.value?.data || poRes.value) : []);
-        setDivisionListGRN(grnRes.status === "fulfilled" ? normalizeDivs(grnRes.value?.data || grnRes.value) : []);
-
-        if (dashboardRes.status === "rejected") {
-          if (isNoDataApiError(dashboardRes.reason)) {
-            showCurrentMonthEmptyState();
-            return;
-          }
-
-          throw dashboardRes.reason;
-        }
-
-        const data = dashboardRes.value?.data || dashboardRes.value;
+        const data = unwrapResponseData(dashboardRes);
         const hasSummary = !!(data?.summary && Object.keys(data.summary).length > 0);
         const hasCurrentMonthRows = hasCurrentMonthRecords([
           data?.pendingIndents,
@@ -170,6 +338,10 @@ export default function StoreDashboard() {
         ]);
 
         if (!hasSummary && !hasCurrentMonthRows) {
+          const restoredFromFallback = await loadFallbackDashboardData();
+          if (restoredFromFallback || cancelled) {
+            return;
+          }
           showCurrentMonthEmptyState();
           return;
         }
@@ -185,13 +357,16 @@ export default function StoreDashboard() {
         setDashboardSummary(data?.summary || null);
         setFeedbacks(data?.feedbacks || []);
         setFeedbacksLoading(false);
-
-        if (!cancelled && !pollTimeout) {
-          setLoading(false);
-        }
+        setLoading(false);
+        void loadSupplementalData();
       } catch (err: any) {
         console.error("Dashboard data load error:", err);
         if (!cancelled) {
+          const restoredFromFallback = await loadFallbackDashboardData();
+          if (restoredFromFallback || cancelled) {
+            return;
+          }
+
           if (isNoDataApiError(err)) {
             setPendingIndents([]);
             setHistoryIndents([]);
@@ -202,9 +377,11 @@ export default function StoreDashboard() {
             setReturnableDetails([]);
             setDashboardSummary(null);
             setFeedbacks([]);
+            setVendorOptions([]);
+            setProductOptions([]);
             setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
           } else {
-            setError(err?.message ?? 'Failed to load dashboard data');
+            setError(getDashboardErrorMessage(err));
           }
           setFeedbacksLoading(false);
           setLoading(false);
@@ -234,8 +411,14 @@ export default function StoreDashboard() {
     return combined;
   }, [pendingIndents, historyIndents, poPending, poHistory, repairPending, repairHistory]);
 
-  const allVendors = useMemo(() => normalizeVendorList(allItems), [allItems]);
-  const allProducts = useMemo(() => normalizeProductList(allItems), [allItems]);
+  const allVendors = useMemo(
+    () => vendorOptions.length > 0 ? vendorOptions : normalizeVendorList(allItems),
+    [vendorOptions, allItems]
+  );
+  const allProducts = useMemo(
+    () => productOptions.length > 0 ? productOptions : normalizeProductList(allItems),
+    [productOptions, allItems]
+  );
 
   // Permission Check
   const hasAccess = useMemo(() => {
@@ -900,8 +1083,14 @@ export default function StoreDashboard() {
       return ts && new Date(ts).getTime() < now;
     }).length;
 
-    const total = (divisionListIndent || []).length;
-    const pending = (divisionListIndent || []).filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
+    const derivedTotal = (divisionListIndent || []).length;
+    const derivedPending = (divisionListIndent || []).filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
+    const total = derivedTotal > 0
+      ? derivedTotal
+      : Number(summary.totalIndents || curMonthPendingIndents.length + curMonthHistoryIndents.length);
+    const pending = derivedTotal > 0
+      ? derivedPending
+      : Number(summary.pendingIndents || curMonthPendingIndents.length);
     const completed = total - pending;
 
     const completedPercent = (total > 0 ? (completed / total) * 100 : 0);
