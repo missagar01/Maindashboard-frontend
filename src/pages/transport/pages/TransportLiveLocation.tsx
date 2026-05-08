@@ -4,6 +4,7 @@ import {
   Activity,
   AlertCircle,
   ArrowLeft,
+  CalendarDays,
   Clock3,
   Fuel,
   Gauge,
@@ -31,6 +32,19 @@ import {
   type EquipmentTrackingStatusKey,
   type EquipmentTrackingSummary,
 } from "../../../api/transport/trackingApi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../O2D/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../O2D/ui/popover";
+import { Calendar as CalendarComponent } from "../../O2D/ui/calendar";
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -135,6 +149,11 @@ const formatParkingDuration = (seconds: number) => {
 };
 
 const padNumber = (value: number) => String(value).padStart(2, "0");
+
+const toDateInputValue = (date: Date) =>
+  `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(
+    date.getDate()
+  )}`;
 
 const buildDefaultFromDate = () => "";
 
@@ -523,6 +542,124 @@ const FilterSelect = ({
     ))}
   </select>
 );
+
+const EquipmentSelectField = ({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+  options: Array<{ label: string; value: string }>;
+}) => (
+  <label className="block">
+    <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
+      Equipment GPS
+    </span>
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger className="h-auto w-full rounded-xl border-slate-200 bg-white px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 shadow-none focus-visible:ring-0 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
+        <SelectValue placeholder="Select equipment" />
+      </SelectTrigger>
+      <SelectContent
+        position="popper"
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        className="z-[10001] max-h-[min(60vh,22rem)] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl"
+      >
+        {options.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            className="whitespace-normal break-words py-2.5 pr-8 text-[13px] font-semibold leading-5 text-slate-700 sm:text-sm"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </label>
+);
+
+const DatePickerField = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (nextValue: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const selectedDate = value ? parseDateInputValue(value) : null;
+
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
+        {label}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 outline-none transition focus:border-slate-300 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
+          >
+            <span className="min-w-0 truncate">
+              {selectedDate ? (
+                formatDateInputPreview(value)
+              ) : (
+                <span className="text-slate-400">Select date</span>
+              )}
+            </span>
+            <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="bottom"
+          sideOffset={6}
+          className="z-[10001] w-[calc(100vw-1.5rem)] max-w-[20rem] rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl"
+        >
+          <CalendarComponent
+            mode="single"
+            selected={selectedDate || undefined}
+            onSelect={(nextDate) => {
+              onChange(nextDate ? toDateInputValue(nextDate) : "");
+              if (nextDate) {
+                setOpen(false);
+              }
+            }}
+            initialFocus
+            className="w-full bg-white p-2"
+            classNames={{ root: "w-full" }}
+          />
+          <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="rounded-lg px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-rose-500 transition hover:bg-rose-50 hover:text-rose-600"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onChange(toDateInputValue(new Date()));
+                setOpen(false);
+              }}
+              className="rounded-lg px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-sky-600 transition hover:bg-sky-50 hover:text-sky-700"
+            >
+              Today
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </label>
+  );
+};
 
 const EquipmentMap = ({
   record,
@@ -1134,56 +1271,32 @@ export default function TransportLiveLocation() {
         </div>
 
         <div className="mt-2 grid gap-2 p-0 sm:mt-6 sm:rounded-[28px] sm:border sm:border-slate-200 sm:bg-white/90 sm:gap-3 sm:p-5 sm:shadow-sm xl:grid-cols-[minmax(0,1.55fr)_220px_220px_auto_auto] xl:items-end">
-          <label className="block">
-            <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
-              Equipment GPS
-            </span>
-            <select
-              value={selectedEquipmentRouteId}
-              onChange={(event) => {
-                setSelectedEquipmentRouteId(event.target.value);
-                setTripError("");
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-slate-700 outline-none transition focus:border-slate-300 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-            >
-              <option value="">Select equipment</option>
-              {equipmentOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <EquipmentSelectField
+            value={selectedEquipmentRouteId}
+            onChange={(nextValue) => {
+              setSelectedEquipmentRouteId(nextValue);
+              setTripError("");
+            }}
+            options={equipmentOptions}
+          />
 
-          <label className="block">
-            <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
-              From
-            </span>
-            <input
-              type="date"
-              value={fromDateTime}
-              onChange={(event) => {
-                setFromDateTime(event.target.value);
-                setTripError("");
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-slate-700 outline-none transition focus:border-slate-300 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-            />
-          </label>
+          <DatePickerField
+            label="From"
+            value={fromDateTime}
+            onChange={(nextValue) => {
+              setFromDateTime(nextValue);
+              setTripError("");
+            }}
+          />
 
-          <label className="block">
-            <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
-              To
-            </span>
-            <input
-              type="date"
-              value={toDateTime}
-              onChange={(event) => {
-                setToDateTime(event.target.value);
-                setTripError("");
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-slate-700 outline-none transition focus:border-slate-300 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-            />
-          </label>
+          <DatePickerField
+            label="To"
+            value={toDateTime}
+            onChange={(nextValue) => {
+              setToDateTime(nextValue);
+              setTripError("");
+            }}
+          />
 
           <button
             onClick={handleFetchSelectedEquipmentDetails}
