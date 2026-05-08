@@ -56,6 +56,46 @@ export interface EquipmentTrackingReportResponse {
   summary: EquipmentTrackingSummary;
 }
 
+export interface EquipmentTripReportRecord {
+  tripId: number;
+  startLatitude: number | null;
+  startLongitude: number | null;
+  startLocation: string;
+  endLatitude: number | null;
+  endLongitude: number | null;
+  endLocation: string;
+  vehicleStatus: string;
+  vehicleStatusValue: number | null;
+  fuelLevel: number | null;
+  temperature: number | null;
+  humidity: string;
+  gpsDataId: string;
+  startDate: string | null;
+  movingStartDate: string | null;
+  endDate: string | null;
+  movingEndDate: string | null;
+  distance: number;
+  vehicleStatusImage: number | null;
+  averageSpeed: number;
+  diffSeconds: number;
+  timeInterval: string;
+  raw: Record<string, any>;
+}
+
+export interface EquipmentTripReportParams {
+  deviceId: string;
+  dateFrom: string;
+  dateTo: string;
+  timePickerFrom: string;
+  timePickerTo: string;
+}
+
+export interface EquipmentTripReportResponse {
+  records: EquipmentTripReportRecord[];
+  message: string;
+  statusCode: number;
+}
+
 const safeString = (value: unknown) => String(value ?? "").trim();
 
 const safeNumber = (value: unknown) => {
@@ -140,6 +180,34 @@ const normalizeEquipmentTrackingRecord = (
   };
 };
 
+const normalizeEquipmentTripReportRecord = (
+  item: Record<string, any>
+): EquipmentTripReportRecord => ({
+  tripId: Number(item.trip_id || 0),
+  startLatitude: safeNumber(item.start_latitude),
+  startLongitude: safeNumber(item.start_longitude),
+  startLocation: safeString(item.start_location),
+  endLatitude: safeNumber(item.end_latitude),
+  endLongitude: safeNumber(item.end_longitude),
+  endLocation: safeString(item.end_location),
+  vehicleStatus: safeString(item.vehicle_status),
+  vehicleStatusValue: safeNumber(item.vehicle_status_1),
+  fuelLevel: safeNumber(item.fuel_level),
+  temperature: safeNumber(item.temperature),
+  humidity: safeString(item.humidity),
+  gpsDataId: safeString(item.gps_data_id),
+  startDate: safeString(item.start_date) || null,
+  movingStartDate: safeString(item.mov_start_date) || null,
+  endDate: safeString(item.end_date) || null,
+  movingEndDate: safeString(item.mov_end_date) || null,
+  distance: safeNumber(item.distance) ?? 0,
+  vehicleStatusImage: safeNumber(item.vehicle_status_image),
+  averageSpeed: safeNumber(item.average_speed) ?? 0,
+  diffSeconds: safeNumber(item.diff_secs) ?? 0,
+  timeInterval: safeString(item.time_interval),
+  raw: item,
+});
+
 export const buildEquipmentTrackingSummary = (
   records: EquipmentTrackingRecord[]
 ): EquipmentTrackingSummary =>
@@ -205,5 +273,37 @@ export const getEquipmentTrackingReport = async (
         fallbackSummary.unreachable
       ),
     },
+  };
+};
+
+export const getEquipmentTripReport = async (
+  params: EquipmentTripReportParams,
+  signal?: AbortSignal
+): Promise<EquipmentTripReportResponse> => {
+  const response = await transportApiRequest(
+    "entity/equipment-master/get-equipment-trip-report",
+    {
+      params: {
+        device_id: params.deviceId,
+        date_from: params.dateFrom,
+        date_to: params.dateTo,
+        time_picker_from: params.timePickerFrom,
+        time_picker_to: params.timePickerTo,
+      },
+      signal,
+    }
+  );
+
+  const body = response?.data || {};
+  const records = Array.isArray(body.data)
+    ? body.data.map((item: Record<string, any>) =>
+        normalizeEquipmentTripReportRecord(item)
+      )
+    : [];
+
+  return {
+    records,
+    message: safeString(body.message),
+    statusCode: Number(body.statusCode || response?.status || 0),
   };
 };
