@@ -1,25 +1,30 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import {
   AlertCircle,
   ArrowLeft,
-  CalendarDays,
   Clock3,
   Gauge,
-  Navigation,
   RefreshCw,
-  Search,
-  Wifi,
-  WifiOff,
+  Thermometer,
+  Droplets,
+  Zap,
+  Battery,
+  MapPin,
+  Bell,
+  Signal,
+  Power,
+  Hourglass,
+  CheckCircle2,
+  Map as MapIcon,
+  Play,
+  Compass,
 } from "lucide-react";
 import {
-  buildEquipmentTrackingSummary,
   getEquipmentTripReport,
   getEquipmentTrackingReport,
   type EquipmentTripReportRecord,
   type EquipmentTrackingRecord,
-  type EquipmentTrackingStatusKey,
-  type EquipmentTrackingSummary,
 } from "../../../api/transport/trackingApi";
 import {
   Select,
@@ -28,18 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../O2D/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../O2D/ui/popover";
-import { Calendar as CalendarComponent } from "../../O2D/ui/calendar";
 
-const REFRESH_INTERVAL_MS = 60_000;
-const TRIP_REPORT_START_TIME = "00:00:00";
-const TRIP_REPORT_END_TIME = "23:59:59";
-
-const numberFormatter = new Intl.NumberFormat("en-IN");
 const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
 });
@@ -47,44 +41,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-const statusMeta: Record<
-  EquipmentTrackingStatusKey,
-  {
-    label: string;
-    badgeClassName: string;
-    markerColor: string;
-    summaryTone: string;
-  }
-> = {
-  moving: {
-    label: "Moving",
-    badgeClassName: "border-white/20 bg-white/10 text-white backdrop-blur-md shadow-sm",
-    markerColor: "#059669",
-    summaryTone: "from-emerald-500 to-teal-500",
-  },
-  stopped: {
-    label: "Stopped",
-    badgeClassName: "border-white/20 bg-white/10 text-white backdrop-blur-md shadow-sm",
-    markerColor: "#d97706",
-    summaryTone: "from-amber-500 to-orange-500",
-  },
-  idling: {
-    label: "Idling",
-    badgeClassName: "border-white/20 bg-white/10 text-white backdrop-blur-md shadow-sm",
-    markerColor: "#0284c7",
-    summaryTone: "from-sky-500 to-blue-500",
-  },
-  unreachable: {
-    label: "Offline",
-    badgeClassName: "border-white/20 bg-white/10 text-white backdrop-blur-md shadow-sm",
-    markerColor: "#475569",
-    summaryTone: "from-slate-500 to-slate-700",
-  },
-};
-
-
-const formatNumber = (value: number) => numberFormatter.format(Number(value || 0));
 
 const formatRelativeTime = (value: string | null) => {
   if (!value) return "No recent update";
@@ -111,11 +67,6 @@ const formatDateTime = (value: string | null) => {
 
   return dateTimeFormatter.format(parsed);
 };
-
-const formatSpeed = (speed: number) => `${speed.toFixed(0)} km/h`;
-
-const formatHeading = (value: number | null) =>
-  value === null ? "--" : `${value.toFixed(0)} deg`;
 
 const padNumber = (value: number) => String(value).padStart(2, "0");
 
@@ -166,10 +117,28 @@ const parseLocalDateTimeValue = (value: string) => {
   );
 };
 
+const parseTripReportDateTime = (value: string | null) => {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const directParsed = new Date(normalized);
+  if (!Number.isNaN(directParsed.getTime())) {
+    return directParsed.getTime();
+  }
+
+  const localParsed = parseLocalDateTimeValue(normalized.replace(" ", "T"));
+  if (!localParsed || Number.isNaN(localParsed.getTime())) {
+    return null;
+  }
+
+  return localParsed.getTime();
+};
+
 const buildDefaultFromDate = () =>
   `${toDateInputValue(new Date())}T00:00:00`;
-
-const buildDefaultToDate = () => toDateTimeInputValue(new Date());
 
 const parseDateInputValue = (value: string) => {
   const [year, month, day] = String(value || "")
@@ -183,53 +152,7 @@ const parseDateInputValue = (value: string) => {
   return new Date(year, month - 1, day);
 };
 
-const formatDurationHms = (seconds: number) => {
-  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const remainingSeconds = safeSeconds % 60;
-
-  return `${hours}:${padNumber(minutes)}:${padNumber(remainingSeconds)}`;
-};
-
 const formatTripDistance = (value: number) => `${value.toFixed(2)} Km`;
-
-const formatTripAverageSpeed = (value: number) => `${value.toFixed(2)} Kmph`;
-
-const formatTripTableDateTime = (value: string | null) => {
-  if (!value) return "--";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return `${parsed.getFullYear()}-${padNumber(parsed.getMonth() + 1)}-${padNumber(
-    parsed.getDate()
-  )} ${padNumber(parsed.getHours())}:${padNumber(
-    parsed.getMinutes()
-  )}:${padNumber(parsed.getSeconds())}`;
-};
-
-const formatTripTableDuration = (seconds: number) => {
-  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
-  const days = Math.floor(safeSeconds / 86400);
-  const hours = Math.floor((safeSeconds % 86400) / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const remainingSeconds = safeSeconds % 60;
-
-  return `${days}d ${hours}h ${minutes}m ${remainingSeconds}s`;
-};
-
-const formatTripTableDistance = (value: number) =>
-  value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d*[1-9])0$/, "$1");
-
-const formatDateInputPreview = (value: string) => {
-  const [datePart, timePart] = value.split("T");
-  const parsed = parseDateInputValue(datePart);
-  if (!parsed || Number.isNaN(parsed.getTime())) return "No date selected";
-
-  const dateStr = dateFormatter.format(parsed);
-  return timePart ? `${dateStr} ${timePart}` : dateStr;
-};
 
 interface EquipmentTripSummary {
   totalDistance: number;
@@ -283,18 +206,6 @@ const buildEquipmentTripSummary = (
     startTime: records[0]?.startDate || null,
     endTime: records[records.length - 1]?.endDate || null,
   };
-};
-
-const resolveTripStatusKey = (
-  record: EquipmentTripReportRecord
-): EquipmentTrackingStatusKey => {
-  const normalized = record.vehicleStatus.toLowerCase();
-
-  if (normalized.includes("moving")) return "moving";
-  if (normalized.includes("idle")) return "idling";
-  if (normalized.includes("stop")) return "stopped";
-
-  return "unreachable";
 };
 
 const FLEET_FILTER_KEYWORDS = [
@@ -447,8 +358,63 @@ const normalizeLocationValue = (value: unknown) => {
   return normalized;
 };
 
-const formatTripLocation = (value: string) =>
-  normalizeLocationValue(value) || "Location unavailable";
+const getTripOrInlineLocationLabel = (
+  record: EquipmentTrackingRecord,
+  latestTripRecord?: EquipmentTripReportRecord | null
+) =>
+  [
+    latestTripRecord?.endLocation,
+    latestTripRecord?.startLocation,
+    record.raw?.location_name,
+    record.raw?.location,
+    record.raw?.address,
+    record.raw?.geo_address,
+    record.raw?.display_name,
+    record.raw?.place_name,
+    record.raw?.tag,
+  ]
+    .map(normalizeLocationValue)
+    .find(Boolean) || "";
+
+const buildReverseGeocodeLocationName = (payload: any) => {
+  const address = payload?.address || {};
+
+  return (
+    [
+      payload?.name,
+      [address.house_number, address.road || address.highway]
+        .map(normalizeLocationValue)
+        .filter(Boolean)
+        .join(" "),
+      address.neighbourhood,
+      address.suburb,
+      address.village,
+      address.town,
+      address.city,
+      address.state,
+    ]
+      .map(normalizeLocationValue)
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(", ") ||
+    normalizeLocationValue(payload?.display_name)
+  );
+};
+
+const formatCoordinateLabel = (value: number | null, axis: "lat" | "lng") => {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const suffix = axis === "lat" ? (value >= 0 ? "N" : "S") : value >= 0 ? "E" : "W";
+  return `${Math.abs(value).toFixed(6)} deg ${suffix}`;
+};
+
+const buildGoogleMapEmbedUrl = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
+
+const buildGoogleMapOpenUrl = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${lat},${lng}&z=16`;
 
 const isAbortLikeError = (error: any) => {
   const name = String(error?.name || "").toLowerCase();
@@ -465,370 +431,313 @@ const isAbortLikeError = (error: any) => {
   );
 };
 
-const statusSummaryOrder: EquipmentTrackingStatusKey[] = [
-  "moving",
-  "stopped",
-  "idling",
-  "unreachable",
-];
-
-const pageCardClass =
-  "border border-white/20 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_40%),linear-gradient(145deg,rgba(15,23,42,0.02)_0%,rgba(248,250,252,1)_60%,rgba(241,245,249,1)_100%)] [background-size:24px_24px,24px_24px,auto,auto] shadow-[0_8px_30px_rgb(0,0,0,0.04)]";
-
-const equipmentCardPaletteClasses = [
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#4f46e5_0%,#312e81_100%)] shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(79,70,229,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#10b981_0%,#064e3b_100%)] shadow-[0_20px_40px_rgba(16,185,129,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(16,185,129,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f59e0b_0%,#78350f_100%)] shadow-[0_20px_40px_rgba(245,158,11,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(245,158,11,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#ec4899_0%,#831843_100%)] shadow-[0_20px_40px_rgba(236,72,153,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(236,72,153,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#3b82f6_0%,#1e3a8a_100%)] shadow-[0_20px_40px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(59,130,246,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#8b5cf6_0%,#4c1d95_100%)] shadow-[0_20px_40px_rgba(139,92,246,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(139,92,246,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f97316_0%,#7c2d12_100%)] shadow-[0_20px_40px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(249,115,22,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#06b6d4_0%,#164e63_100%)] shadow-[0_20px_40px_rgba(6,182,212,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(6,182,212,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#6366f1_0%,#312e81_100%)] shadow-[0_20px_40px_rgba(99,102,241,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(99,102,241,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#a855f7_0%,#581c87_100%)] shadow-[0_20px_40px_rgba(168,85,247,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(168,85,247,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#14b8a6_0%,#134e4a_100%)] shadow-[0_20px_40px_rgba(20,184,166,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(20,184,166,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#334155_0%,#0f172a_100%)] shadow-[0_20px_40px_rgba(51,65,85,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(51,65,85,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-] as const;
-
-
-
-
-const getEquipmentCardPaletteClass = (index: number) =>
-  equipmentCardPaletteClasses[index % equipmentCardPaletteClasses.length];
-
-const summaryCardClassByKey: Record<EquipmentTrackingStatusKey | "total", string> = {
-  total:
-    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#6366f1_0%,#4338ca_100%)] shadow-[0_20px_50px_rgba(99,102,241,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(99,102,241,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  moving:
-    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#10b981_0%,#065f46_100%)] shadow-[0_20px_50px_rgba(16,185,129,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(16,185,129,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  stopped:
-    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f59e0b_0%,#b45309_100%)] shadow-[0_20px_50px_rgba(245,158,11,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(245,158,11,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  idling:
-    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#0ea5e9_0%,#1e40af_100%)] shadow-[0_20px_50px_rgba(14,165,233,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(14,165,233,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  unreachable:
-    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#64748b_0%,#334155_100%)] shadow-[0_20px_50px_rgba(100,116,139,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(100,116,139,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
-};
-
-
-
-const summaryCardGlowClassByKey: Record<
-  EquipmentTrackingStatusKey | "total",
-  string
-> = {
-  total:
-    "bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,0.16),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_42%)]",
-  moving:
-    "bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.12),transparent_42%)]",
-  stopped:
-    "bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(249,115,22,0.12),transparent_42%)]",
-  idling:
-    "bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_42%)]",
-  unreachable:
-    "bg-[radial-gradient(circle_at_top_right,rgba(100,116,139,0.14),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(148,163,184,0.1),transparent_42%)]",
-};
-
-type MetricTone = "amber" | "emerald" | "sky" | "slate";
-
-
-
-
-
-const tripWindowMetaCardClassByKey = {
-  wide:
-    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#312e81_0%,#1e1b4b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(30,27,75,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  sky:
-    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#be185d_0%,#831843_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(190,24,93,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  emerald:
-    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#0f766e_0%,#134e4a_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(15,118,110,0.45)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  amber:
-    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#c2410c_0%,#7c2d12_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(194,65,12,0.45)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  slate:
-    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#334155_0%,#0f172a_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(15,23,42,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-} as const;
-
-const tripSummaryCardClassByKey = {
-  total:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#6d28d9_0%,#4c1d95_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(109,40,217,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  emerald:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#047857_0%,#064e3b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(4,120,87,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  sky:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#0369a1_0%,#0c4a6e_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(3,105,161,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  violet:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#a21caf_0%,#701a75_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(162,28,175,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  amber:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#b45309_0%,#78350f_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(180,83,9,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-  slate:
-    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#3f3f46_0%,#18181b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(24,24,27,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
-} as const;
-
-const tripMobileCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
-  moving:
-    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#059669_0%,#065f46_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
-  stopped:
-    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#d97706_0%,#92400e_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
-  idling:
-    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#0284c7_0%,#075985_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
-  unreachable:
-    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#475569_0%,#1e293b_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
-};
-
-
-
-const StatusBadge = ({
-  statusKey,
-  label,
+// UI Components for the new Premium Theme
+const GlassCard = ({
+  children,
+  className = "",
+  onClick,
 }: {
-  statusKey: EquipmentTrackingStatusKey;
-  label?: string;
-}) => (
-  <span
-    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.2em] ${statusMeta[statusKey].badgeClassName}`}
-  >
-    {label || statusMeta[statusKey].label}
-  </span>
-);
-
-const OverviewStatCard = ({
-  toneKey,
-  label,
-  value,
-  caption,
-}: {
-  toneKey: EquipmentTrackingStatusKey | "total";
-  label: string;
-  value: string;
-  caption: string;
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
 }) => (
   <div
-    className={`h-full min-h-[128px] rounded-[18px] p-2.5 sm:min-h-[170px] sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey[toneKey]}`}
+    onClick={onClick}
+    className={`relative overflow-hidden rounded-[16px] border border-slate-200/90 bg-white/70 shadow-[0_18px_48px_rgba(148,163,184,0.22)] backdrop-blur-xl md:rounded-[24px] ${className}`}
   >
-    <div
-      aria-hidden
-      className={`pointer-events-none absolute inset-0 ${summaryCardGlowClassByKey[toneKey]}`}
-    />
-    <div className="relative z-10 flex h-full flex-col">
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className={`inline-flex rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]`}
-        >
-          {label}
-        </span>
-        <span
-          className={`flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-8 sm:w-8`}
-        >
-          <span className={`h-2 w-2 rounded-full bg-white sm:h-2.5 sm:w-2.5`} />
-        </span>
-      </div>
-      <p className="mt-3 text-[2rem] font-black leading-none text-white sm:mt-4 sm:text-3xl">
-        {value}
-      </p>
-      <span
-        className={`mt-3 inline-flex self-start rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold text-white/90 shadow-sm backdrop-blur-md sm:mt-4 sm:px-3 sm:py-1 sm:text-[11px]`}
-      >
-        {caption}
-      </span>
-    </div>
+    {children}
   </div>
 );
-
 
 const MetricTile = ({
   label,
   value,
-  subtitle,
-  icon,
-  className = "",
-  valueClassName = "",
+  unit = "",
+  icon: Icon,
+  colorClass = "text-blue-400",
+  bgClass = "",
 }: {
   label: string;
-  value: string;
-  subtitle?: string;
-  icon: ReactNode;
-  tone?: MetricTone;
-  className?: string;
-  valueClassName?: string;
+  value: string | number;
+  unit?: string;
+  icon: any;
+  colorClass?: string;
+  bgClass?: string;
 }) => (
-
-  <div
-    className={`relative h-full min-h-[88px] overflow-hidden rounded-[14px] border border-white/20 bg-white/10 px-2 py-2.5 backdrop-blur-md sm:min-h-[118px] sm:rounded-2xl sm:px-4 ${className}`}
-  >
-    <div className="flex items-start justify-between gap-2">
-      <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/60 sm:text-[10px] sm:tracking-[0.18em]">
-        {label}
-      </p>
-      <div
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-8 sm:w-8`}
-      >
-        {icon}
-      </div>
+  <GlassCard className={`flex h-full min-h-[98px] flex-col items-center justify-between border-slate-200/80 px-1.5 py-2.5 md:min-h-[184px] md:px-2 md:py-7 ${bgClass}`}>
+    <p className="text-[7px] font-black uppercase tracking-[0.14em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">{label}</p>
+    <div className="my-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/45 shadow-inner md:my-2 md:h-14 md:w-14">
+      <Icon className={`h-4 w-4 md:h-7 md:w-7 ${colorClass}`} />
     </div>
-    <p
-      className={`mt-2 text-[13px] font-black leading-tight text-white sm:mt-3 sm:text-lg ${valueClassName}`}
-    >
-      {value}
-    </p>
-    {subtitle ? (
-      <p className="mt-0.5 text-[10px] font-semibold text-white/70 sm:mt-1 sm:text-xs">
-        {subtitle}
-      </p>
-    ) : null}
-  </div>
+    <div className="flex flex-col items-center">
+      <span className={`text-[1.45rem] font-black leading-none md:text-3xl ${colorClass}`}>{value}</span>
+      {unit && <span className="mt-0.5 text-[7px] font-bold uppercase tracking-[0.14em] text-slate-500 md:mt-1 md:text-[10px] md:tracking-widest">{unit}</span>}
+    </div>
+  </GlassCard>
 );
 
-
-const EquipmentSelectField = ({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (nextValue: string) => void;
-  options: Array<{ label: string; value: string }>;
-}) => (
-  <label className="block">
-    <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
-      Equipment GPS
-    </span>
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger className="h-auto w-full rounded-xl border-slate-200 bg-white px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 shadow-none focus-visible:ring-0 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
-        <SelectValue placeholder="Select equipment" />
-      </SelectTrigger>
-      <SelectContent
-        position="popper"
-        side="bottom"
-        align="start"
-        sideOffset={6}
-        className="z-[10001] max-h-[min(60vh,22rem)] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl"
-      >
-        {options.map((option) => (
-          <SelectItem
-            key={option.value}
-            value={option.value}
-            className="whitespace-normal break-words py-2.5 pr-8 text-[13px] font-semibold leading-5 text-slate-700 sm:text-sm"
-          >
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </label>
-);
-
-const DateTimePickerField = ({
+const DetailStatCard = ({
   label,
   value,
-  onChange,
+  unit = "",
+  icon: Icon,
+  colorClass = "text-blue-400",
+  subtitle = "",
+  bgClass = "",
 }: {
   label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const [datePart, timePart] = value.split("T");
-  const selectedDate = datePart ? parseDateInputValue(datePart) : null;
-  const selectedTime = normalizeTimeInputValue(timePart);
+  value: string | number;
+  unit?: string;
+  icon: any;
+  colorClass?: string;
+  subtitle?: string;
+  bgClass?: string;
+}) => (
+  <GlassCard className={`h-full min-h-[100px] border-slate-200/80 p-3 md:min-h-[176px] md:p-6 ${bgClass}`}>
+    <div className="flex items-start gap-2 md:gap-4">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/45 shadow-inner md:h-12 md:w-12 md:rounded-2xl">
+        <Icon className={`h-4 w-4 md:h-6 md:w-6 ${colorClass}`} />
+      </div>
+      <div className="flex-1">
+        <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.18em]">{label}</p>
+        <div className="mt-0.5 flex items-baseline gap-1">
+          <span className={`text-base font-black md:text-2xl ${colorClass}`}>{value}</span>
+          {unit && <span className="text-[7px] font-bold text-slate-500 md:text-[10px]">{unit}</span>}
+        </div>
+        {subtitle && <p className="mt-1 text-[7px] font-bold uppercase tracking-[0.12em] text-slate-500 md:mt-2 md:text-[9px] md:tracking-widest">{subtitle}</p>}
+      </div>
+    </div>
+  </GlassCard>
+);
 
+const EquipmentDetailView = ({
+  record,
+  isSingle = false,
+  onBack,
+  tripSummary,
+  latestTripRecord,
+  currentTime,
+  resolvedLocationLabel,
+  locationLookupLoading = false,
+}: {
+  record: EquipmentTrackingRecord;
+  isSingle?: boolean;
+  onBack?: () => void;
+  tripSummary?: EquipmentTripSummary | null;
+  latestTripRecord?: EquipmentTripReportRecord | null;
+  currentTime?: Date;
+  resolvedLocationLabel?: string;
+  locationLookupLoading?: boolean;
+}) => {
+  const runHours = normalizeRecordText(record.raw?.odo) || "0";
+  const voltage = normalizeRecordText(record.raw?.analog_voltage) || "0";
+  const temperature =
+    latestTripRecord?.temperature ??
+    Number(normalizeRecordText(record.raw?.temperature) || 0);
+  const humidity =
+    latestTripRecord?.humidity ||
+    normalizeRecordText(record.raw?.humidity) ||
+    "0";
+  const registrationNo =
+    record.registrationNo || normalizeRecordText(record.raw?.registration_no) || "N/A";
+  const fuelLevelValue = latestTripRecord?.fuelLevel ?? record.fuelLevel ?? null;
+  const pumpStatus =
+    record.statusLabel?.toUpperCase() || (record.ignitionOn ? "RUNNING" : "STOPPED");
+  const pumpStatusColor = record.ignitionOn ? "text-blue-600" : "text-slate-500";
+  const currentDateLabel = dateFormatter.format(currentTime || new Date());
+  const currentClockLabel = new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(currentTime || new Date());
+  const pumpStatusSince = formatDateTime(
+    latestTripRecord?.movingStartDate ||
+      latestTripRecord?.startDate ||
+      record.lastUpdate
+  );
+  const selectedTripDistance = tripSummary
+    ? formatTripDistance(tripSummary.totalDistance)
+    : formatTripDistance(record.distance || 0);
+  const inlineLocationLabel = getTripOrInlineLocationLabel(record, latestTripRecord);
+  const locationLabel =
+    resolvedLocationLabel ||
+    inlineLocationLabel 
+    
+  const hasMapCoordinates = record.lat !== null && record.lng !== null;
+  const mapEmbedUrl = hasMapCoordinates
+    ? buildGoogleMapEmbedUrl(record.lat, record.lng)
+    : "";
+  const mapOpenUrl = hasMapCoordinates
+    ? buildGoogleMapOpenUrl(record.lat, record.lng)
+    : "";
+  
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:mb-2 sm:text-[10px] sm:tracking-[0.18em]">
-        {label}
-      </span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-[13px] font-semibold text-slate-700 outline-none transition focus:border-slate-300 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-          >
-            <span className="min-w-0 truncate">
-              {selectedDate ? (
-                formatDateInputPreview(value)
-              ) : (
-                <span className="text-slate-400">Select date & time</span>
-              )}
-            </span>
-            <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          side="bottom"
-          sideOffset={6}
-          className="z-[10001] w-[calc(100vw-1.5rem)] max-w-[19rem] rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl origin-top-left transition-transform sm:scale-100 scale-[0.92]"
-        >
-          <div className="p-2.5 border-b border-slate-100 sm:p-3">
-            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:mb-1.5">
-              Select Time
-            </span>
-            <input
-              type="time"
-              step="1"
-              value={selectedTime}
-              onChange={(e) => {
-                const newTime = normalizeTimeInputValue(e.target.value);
-                onChange(`${datePart || toDateInputValue(new Date())}T${newTime}`);
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 outline-none focus:border-slate-300 sm:py-2"
-            />
-          </div>
-          <CalendarComponent
-            mode="single"
-            selected={selectedDate || undefined}
-            onSelect={(nextDate) => {
-              const d = nextDate ? toDateInputValue(nextDate) : "";
-              if (d) {
-                onChange(`${d}T${selectedTime}`);
-              } else {
-                onChange("");
-              }
-            }}
-            initialFocus
-            className="w-full bg-white p-1 sm:p-2"
-            classNames={{
-              root: "w-full",
-              months: "w-full",
-              month: "w-full space-y-2",
-              caption: "flex justify-center pt-1 relative items-center",
-              caption_label: "text-xs font-black uppercase tracking-widest",
-              nav: "space-x-1 flex items-center",
-              nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-              table: "w-full border-collapse space-y-1",
-              head_row: "flex w-full",
-              head_cell: "text-slate-500 rounded-md w-full font-bold text-[10px] uppercase",
-              row: "flex w-full mt-1",
-              cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20 w-full",
-              day: "h-8 w-full p-0 font-semibold aria-selected:opacity-100 hover:bg-slate-100 rounded-lg transition-colors",
-              day_selected: "bg-slate-900 text-white hover:bg-slate-900 hover:text-white focus:bg-slate-900 focus:text-white",
-              day_today: "bg-slate-100 text-slate-900",
-              day_outside: "text-slate-500 opacity-50",
-              day_disabled: "text-slate-500 opacity-50",
-              day_hidden: "invisible",
-            }}
-          />
-          <div className="flex items-center justify-between border-t border-slate-100 px-3 py-1.5 sm:py-2">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-              className="rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-rose-500 transition hover:bg-rose-50 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
-            >
-              Clear
+    <div className={`space-y-4 md:space-y-8 ${!isSingle ? "mb-10 border-b border-slate-200 pb-10 md:mb-20 md:pb-20" : ""}`}>
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3 md:gap-5">
+          {isSingle && (
+            <button onClick={onBack} className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all hover:bg-slate-50 md:mt-1 md:h-12 md:w-12">
+              <ArrowLeft className="h-4 w-4 text-slate-700 md:h-5 md:w-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(toDateTimeInputValue(new Date()));
-                setOpen(false);
-              }}
-              className="rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-sky-600 transition hover:bg-sky-50 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
-            >
-              Now
-            </button>
+          )}
+          <div>
+            <h1 className="text-[1.7rem] font-black leading-none tracking-tight text-slate-900 md:text-4xl">
+              {getRecordTitle(record)}
+            </h1>
+            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-blue-600 md:mt-2 md:text-[11px] md:tracking-[0.25em]">
+              {getRecordSubtitle(record)}
+            </p>
           </div>
-        </PopoverContent>
-      </Popover>
-    </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 md:gap-6 md:justify-end">
+          <div className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#020617] shadow-lg md:gap-3 md:px-5 md:py-2.5 md:text-[11px] md:tracking-widest ${record.statusKey === 'moving' ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-amber-500 shadow-amber-500/30'}`}>
+            {record.statusKey === 'moving' ? <Play className="h-2.5 w-2.5 fill-current md:h-3 md:w-3" /> : <Power className="h-2.5 w-2.5 md:h-3 md:w-3" />}
+            {record.statusLabel || "Unknown"}
+          </div>
+          <div className="flex items-center gap-2.5 md:gap-5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm md:h-12 md:w-12 md:rounded-2xl">
+              <Signal className={`h-5 w-5 md:h-6 md:w-6 ${record.statusKey === 'unreachable' ? 'text-slate-300' : 'text-emerald-500'}`} />
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 md:text-[10px] md:tracking-widest">{currentDateLabel}</p>
+              <p className="text-base font-black text-slate-900 md:text-xl">{currentClockLabel}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 1: Core Metrics */}
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-5">
+        <MetricTile label="Speed" value={record.speed.toFixed(0)} unit="km/h" icon={Gauge} colorClass="text-blue-600" bgClass="bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-100" />
+        <MetricTile label="Ignition" value={record.ignitionOn ? "ON" : "OFF"} icon={Power} colorClass="text-emerald-600" bgClass="bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100" />
+        <MetricTile label="Heading" value={record.direction?.toFixed(0) || "0"} unit="deg" icon={Compass} colorClass="text-purple-600" bgClass="bg-gradient-to-br from-violet-100 via-fuchsia-50 to-purple-100" />
+        <MetricTile label="Odometer" value={runHours} unit="km" icon={Hourglass} colorClass="text-amber-600" bgClass="bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100" />
+        <MetricTile label="Voltage" value={voltage} unit="V" icon={Zap} colorClass="text-cyan-600" bgClass="bg-gradient-to-br from-cyan-100 via-sky-50 to-blue-100" />
+      </div>
+
+      {/* Row 2: Pump Metrics */}
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-5">
+        <GlassCard className="col-span-3 flex items-center gap-2.5 border-slate-200/80 p-3 md:col-span-2 md:min-h-[176px] md:gap-6 md:p-8 bg-gradient-to-br from-indigo-100 via-indigo-50 to-sky-100">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white/55 shadow-inner md:h-20 md:w-20 md:rounded-[24px]">
+            <Droplets className={`h-7 w-7 md:h-10 md:w-10 ${record.ignitionOn ? 'text-blue-600 fill-blue-600/10' : 'text-slate-300'}`} />
+          </div>
+          <div>
+            <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">
+              <span className="md:hidden">Current Status</span>
+              <span className="hidden md:inline">Pump Status</span>
+            </p>
+            <p className={`mt-0.5 text-lg font-black md:mt-2 md:text-3xl ${pumpStatusColor}`}>{pumpStatus}</p>
+            <p className="mt-1.5 text-[8px] font-bold text-slate-500 md:mt-4 md:text-[10px]">Since: {pumpStatusSince}</p>
+            <p className="mt-1 text-[8px] font-bold text-slate-500 md:mt-2 md:text-[10px]">Reg No: {registrationNo}</p>
+          </div>
+        </GlassCard>
+        <DetailStatCard label="Temperature" value={temperature} unit="C" icon={Thermometer} colorClass="text-rose-600" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-rose-100 via-pink-50 to-red-100" />
+        <DetailStatCard label="Humidity" value={humidity} unit="%" icon={Droplets} colorClass="text-sky-600" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-sky-100 via-cyan-50 to-blue-100" />
+        <DetailStatCard
+          label="Fuel Level"
+          value={fuelLevelValue === null ? "--" : Number(fuelLevelValue).toFixed(0)}
+          unit="%"
+          icon={Battery}
+          colorClass="text-amber-600"
+          subtitle={`Selected Range: ${selectedTripDistance}`}
+          bgClass="bg-gradient-to-br from-orange-100 via-amber-50 to-rose-100"
+        />
+      </div>
+
+      {/* Row 3: Systems & Diagnostics */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-5">
+        <GlassCard className="col-span-2 p-3 md:col-span-1 md:p-8 bg-gradient-to-br from-slate-100 via-slate-50 to-zinc-100">
+          <p className="mb-3 text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:mb-8 md:text-[10px] md:tracking-[0.2em]">
+            <span className="md:hidden">System Diagnostics</span>
+            <span className="hidden md:inline">System Status</span>
+          </p>
+          <div className="space-y-2.5 md:space-y-5">
+            {[
+              { label: "GPS Fix", status: record.lat ? "LOCKED" : "NO FIX", ok: !!record.lat },
+              { label: "Connectivity", status: record.statusKey !== 'unreachable' ? "STABLE" : "OFFLINE", ok: record.statusKey !== 'unreachable' },
+              { label: "Power", status: record.ignitionOn ? "ACTIVE" : "STANDBY", ok: true },
+              { label: "Hardware", status: record.serial ? "VERIFIED" : "ERROR", ok: !!record.serial },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`h-2 w-2 rounded-full ${item.ok ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}`} />
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-700 md:text-[11px] md:tracking-widest">{item.label}</span>
+                </div>
+                <span className={`text-[8px] font-black uppercase tracking-[0.1em] md:text-[10px] md:tracking-widest ${item.ok ? 'text-emerald-600' : 'text-rose-500'}`}>{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard className="col-span-2 p-3 md:col-span-1 md:p-6 bg-gradient-to-br from-violet-100 via-fuchsia-50 to-sky-100">
+          <div className="mb-2.5 flex items-center justify-between gap-2 md:mb-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-blue-600" />
+              <span className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">Location</span>
+            </div>
+            {hasMapCoordinates ? (
+              <a
+                href={mapOpenUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/75 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-slate-600 transition hover:bg-white hover:text-slate-900 md:px-3 md:text-[9px]"
+              >
+                <MapPin className="h-3 w-3 text-rose-500" />
+                Open Map
+              </a>
+            ) : null}
+          </div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-[18px] bg-white/55 ring-1 ring-slate-200 md:aspect-video md:rounded-[20px]">
+            {hasMapCoordinates ? (
+              <>
+                <iframe
+                  title={`Location map for ${getRecordTitle(record)}`}
+                  src={mapEmbedUrl}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-full w-full border-0"
+                />
+                <div className="pointer-events-none absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-slate-950/75 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-white shadow-lg md:left-3 md:top-3 md:text-[8px]">
+                  <MapPin className="h-3 w-3 text-rose-400" />
+                  Live GPS
+                </div>
+              </>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                <MapIcon className="h-16 w-16 text-violet-300" />
+              </div>
+            )}
+          </div>
+          <div className="mt-2.5 hidden space-y-2.5 md:mt-6 md:block md:space-y-4">
+            <div>
+              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">
+                Current Location
+              </p>
+              <p className="mt-1 text-[9px] font-bold leading-4 text-slate-700 md:text-[11px] md:leading-5">
+                {locationLabel}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:gap-4">
+              <div>
+                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">Lat</p>
+                <p className="text-[9px] font-bold text-slate-700 uppercase md:text-[11px]">
+                  {formatCoordinateLabel(record.lat, "lat")}
+                </p>
+              </div>
+              <div>
+                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">Long</p>
+                <p className="text-[9px] font-bold text-slate-700 uppercase md:text-[11px]">
+                  {formatCoordinateLabel(record.lng, "lng")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      
+      </div>
+
+    </div>
   );
 };
 
@@ -837,66 +746,32 @@ export default function IOTDashbaord() {
   const { equipmentId } = useParams();
 
   const [records, setRecords] = useState<EquipmentTrackingRecord[]>([]);
-  const [apiSummary, setApiSummary] = useState<EquipmentTrackingSummary>({
-    total: 0,
-    moving: 0,
-    stopped: 0,
-    idling: 0,
-    unreachable: 0,
-  });
   const [loading, setLoading] = useState(true);
-  const [, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [, setLastSyncedAt] = useState<string | null>(null);
-  const [selectedEquipmentRouteId, setSelectedEquipmentRouteId] = useState(
-    () => equipmentId || ""
-  );
-  const [fromDateTime, setFromDateTime] = useState(() => buildDefaultFromDate());
-  const [toDateTime, setToDateTime] = useState(() => buildDefaultToDate());
-  const [appliedFromDateTime, setAppliedFromDateTime] = useState(() =>
-    buildDefaultFromDate()
-  );
-  const [appliedToDateTime, setAppliedToDateTime] = useState(() =>
-    buildDefaultToDate()
-  );
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedLocationLabel, setSelectedLocationLabel] = useState("");
+  const [locationLookupLoading, setLocationLookupLoading] = useState(false);
+  
+  const [selectedEquipmentRouteId, setSelectedEquipmentRouteId] = useState(() => equipmentId || "");
   const [tripRecords, setTripRecords] = useState<EquipmentTripReportRecord[]>([]);
-  const [tripLoading, setTripLoading] = useState(false);
-  const [tripLoaded, setTripLoaded] = useState(false);
-  const [tripError, setTripError] = useState("");
 
-  const loadTrackingData = async ({
-    background = false,
-    signal,
-  }: {
-    background?: boolean;
-    signal?: AbortSignal;
-  } = {}) => {
-    if (background) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  // Update clock every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
+  const loadTrackingData = async ({ signal }: { signal?: AbortSignal } = {}) => {
+    setLoading(true);
     try {
       const response = await getEquipmentTrackingReport(signal);
       const iotPumpRecords = response.records.filter(isIotPumpRecord);
-
       setRecords(iotPumpRecords);
-      setApiSummary(buildEquipmentTrackingSummary(iotPumpRecords));
-      setError("");
-      setLastSyncedAt(new Date().toISOString());
     } catch (err: any) {
-      if (isAbortLikeError(err)) {
-        return;
+      if (!isAbortLikeError(err)) {
+        setRecords([]);
       }
-
-      setError(err?.message || "Live location feed load nahi ho paya.");
     } finally {
-      if (background) {
-        setRefreshing(false);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -906,61 +781,16 @@ export default function IOTDashbaord() {
     return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      loadTrackingData({ background: true });
-    }, REFRESH_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    setSelectedEquipmentRouteId(equipmentId || "");
-  }, [equipmentId]);
-
-  const filteredRecords = useMemo(() => {
-    return [...records]
-      .sort((left, right) => {
-        const leftTime = left.lastUpdate ? new Date(left.lastUpdate).getTime() : 0;
-        const rightTime = right.lastUpdate ? new Date(right.lastUpdate).getTime() : 0;
-        return rightTime - leftTime;
-      });
-  }, [records]);
-
-  const filteredSummary = useMemo(
-    () => buildEquipmentTrackingSummary(filteredRecords),
-    [filteredRecords]
-  );
-
-  const displaySummary = apiSummary.total > 0 ? apiSummary : filteredSummary;
-
   const selectedRecord = useMemo(
-    () =>
-      equipmentId
-        ? records.find((record) => record.routeId === equipmentId) || null
-        : null,
+    () => equipmentId ? records.find((r) => r.routeId === equipmentId) || null : null,
     [equipmentId, records]
   );
 
-  const selectedEquipmentOptionRecord = useMemo(
-    () =>
-      selectedEquipmentRouteId
-        ? records.find((record) => record.routeId === selectedEquipmentRouteId) || null
-        : null,
-    [records, selectedEquipmentRouteId]
-  );
-
   const equipmentOptions = useMemo(
-    () =>
-      [...records]
-        .sort((left, right) =>
-          getRecordTitle(left).localeCompare(getRecordTitle(right))
-        )
-        .map((record) => ({
-          label: `${getRecordTitle(record)}${record.deviceId ? ` (${record.deviceId})` : ""
-            }`,
-          value: record.routeId,
-        })),
+    () => [...records].sort((a, b) => getRecordTitle(a).localeCompare(getRecordTitle(b))).map((r) => ({
+      label: `${getRecordTitle(r)}${r.deviceId ? ` (${r.deviceId})` : ""}`,
+      value: r.routeId,
+    })),
     [records]
   );
 
@@ -969,799 +799,213 @@ export default function IOTDashbaord() {
     [tripRecords]
   );
 
-  const loadTripReport = async ({
-    record,
-    fromValue = fromDateTime,
-    toValue = toDateTime,
-    signal,
-  }: {
-    record: EquipmentTrackingRecord;
-    fromValue?: string;
-    toValue?: string;
-    signal?: AbortSignal;
-  }) => {
-    const [dateFrom, rawTimeFrom] = String(fromValue || "").split("T");
-    const [dateTo, rawTimeTo] = String(toValue || "").split("T");
+  const latestTripRecord = useMemo(
+    () => tripRecords[tripRecords.length - 1] || null,
+    [tripRecords]
+  );
+  const selectedInlineLocationLabel = useMemo(
+    () =>
+      selectedRecord ? getTripOrInlineLocationLabel(selectedRecord, latestTripRecord) : "",
+    [selectedRecord, latestTripRecord]
+  );
+
+  const loadTripReport = async ({ record, fromValue, toValue, signal }: { record: EquipmentTrackingRecord; fromValue: string; toValue: string; signal?: AbortSignal }) => {
+    const [dateFrom, rawTimeFrom] = fromValue.split("T");
+    const [dateTo, rawTimeTo] = toValue.split("T");
     const timeFrom = normalizeTimeInputValue(rawTimeFrom);
     const timeTo = normalizeTimeInputValue(rawTimeTo);
     const rangeStartDate = parseLocalDateTimeValue(`${dateFrom}T${timeFrom}`);
     const rangeEndDate = parseLocalDateTimeValue(`${dateTo}T${timeTo}`);
 
-    if (!record.deviceId) {
+    if (!record.deviceId || !dateFrom || !dateTo || !rangeStartDate || !rangeEndDate) {
       setTripRecords([]);
-      setTripError("Selected equipment ka GPS ID available nahi hai.");
-      setTripLoaded(true);
       return;
     }
-
-    if (!dateFrom || !dateTo) {
-      setTripRecords([]);
-      setTripError("From aur To date select karo.");
-      setTripLoaded(true);
-      return;
-    }
-
-    if (
-      !rangeStartDate ||
-      !rangeEndDate ||
-      Number.isNaN(rangeStartDate.getTime()) ||
-      Number.isNaN(rangeEndDate.getTime())
-    ) {
-      setTripRecords([]);
-      setTripError("Valid date aur time select karo.");
-      setTripLoaded(true);
-      return;
-    }
-
-    if (rangeStartDate.getTime() > rangeEndDate.getTime()) {
-      setTripRecords([]);
-      setTripError("From datetime, To datetime se bada nahi ho sakta.");
-      setTripLoaded(true);
-      return;
-    }
-
-    setTripLoading(true);
-    setTripLoaded(false);
-    setAppliedFromDateTime(fromValue);
-    setAppliedToDateTime(toValue);
 
     try {
-      const response = await getEquipmentTripReport(
-        {
-          deviceId: record.deviceId,
-          dateFrom,
-          dateTo,
-          timePickerFrom: timeFrom || TRIP_REPORT_START_TIME,
-          timePickerTo: timeTo || TRIP_REPORT_END_TIME,
-        },
-        signal
-      );
+      const response = await getEquipmentTripReport({
+        deviceId: record.deviceId,
+        dateFrom,
+        dateTo,
+        timePickerFrom: timeFrom,
+        timePickerTo: timeTo,
+      }, signal);
 
-      setTripRecords(response.records);
-      setTripError("");
+      const filterStart = rangeStartDate.getTime();
+      const filterEnd = rangeEndDate.getTime();
+      const filteredTripRecords = (response.records || []).filter((tripRecord) => {
+        const segmentStart =
+          parseTripReportDateTime(tripRecord.startDate) ??
+          parseTripReportDateTime(tripRecord.movingStartDate);
+        const segmentEnd =
+          parseTripReportDateTime(tripRecord.endDate) ??
+          parseTripReportDateTime(tripRecord.movingEndDate) ??
+          segmentStart;
+
+        if (segmentStart === null && segmentEnd === null) {
+          return true;
+        }
+
+        const safeSegmentStart = segmentStart ?? segmentEnd ?? filterStart;
+        const safeSegmentEnd = segmentEnd ?? segmentStart ?? filterEnd;
+        return safeSegmentEnd >= filterStart && safeSegmentStart <= filterEnd;
+      });
+
+      setTripRecords(filteredTripRecords);
     } catch (err: any) {
-      if (isAbortLikeError(err)) {
-        return;
+      if (!isAbortLikeError(err)) {
+        setTripRecords([]);
       }
-
-      setTripRecords([]);
-      setTripError(err?.message || "Trip report load nahi ho paya.");
-    } finally {
-      if (!signal?.aborted) {
-        setTripLoading(false);
-        setTripLoaded(true);
-      }
-    }
-  };
-
-  const handleFetchSelectedEquipmentDetails = () => {
-    if (!selectedEquipmentOptionRecord) {
-      setTripRecords([]);
-      setTripError("Equipment GPS select karo.");
-      setTripLoaded(true);
-      return;
-    }
-
-    if (equipmentId !== selectedEquipmentOptionRecord.routeId) {
-      navigate(
-        `/iot/dashboard/${encodeURIComponent(selectedEquipmentOptionRecord.routeId)}`
-      );
-      return;
-    }
-
-    void loadTripReport({ record: selectedEquipmentOptionRecord });
-  };
-
-  const handleResetTripFilters = () => {
-    const nextFromValue = buildDefaultFromDate();
-    const nextToValue = buildDefaultToDate();
-
-    setFromDateTime(nextFromValue);
-    setToDateTime(nextToValue);
-    setTripError("");
-    setAppliedFromDateTime(nextFromValue);
-    setAppliedToDateTime(nextToValue);
-    setTripRecords([]);
-    setTripLoading(false);
-    setTripLoaded(false);
-
-    if (!equipmentId) {
-      setSelectedEquipmentRouteId("");
     }
   };
 
   useEffect(() => {
     if (!selectedRecord) {
       setTripRecords([]);
-      setTripError("");
-      setTripLoading(false);
-      setTripLoaded(false);
       return;
     }
 
-    const freshFrom = buildDefaultFromDate();
-    const freshTo = buildDefaultToDate();
-
-    setFromDateTime(freshFrom);
-    setToDateTime(freshTo);
+    const nextFromDateTime = buildDefaultFromDate();
+    const nextToDateTime = toDateTimeInputValue(currentTime);
 
     const controller = new AbortController();
-    void loadTripReport({
+    loadTripReport({
       record: selectedRecord,
-      fromValue: freshFrom,
-      toValue: freshTo,
+      fromValue: nextFromDateTime,
+      toValue: nextToDateTime,
       signal: controller.signal,
     });
+    return () => controller.abort();
+  }, [selectedRecord?.routeId, currentTime]);
+
+  useEffect(() => {
+    if (!selectedRecord) {
+      setSelectedLocationLabel("");
+      setLocationLookupLoading(false);
+      return;
+    }
+
+    if (selectedInlineLocationLabel) {
+      setSelectedLocationLabel(selectedInlineLocationLabel);
+      setLocationLookupLoading(false);
+      return;
+    }
+
+    if (selectedRecord.lat === null || selectedRecord.lng === null) {
+      setSelectedLocationLabel("");
+      setLocationLookupLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const resolveCurrentLocation = async () => {
+      setLocationLookupLoading(true);
+
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${selectedRecord.lat}&lon=${selectedRecord.lng}&zoom=17&addressdetails=1&accept-language=en`,
+          {
+            headers: {
+              Accept: "application/json",
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Reverse geocode failed");
+        }
+
+        const payload = await response.json();
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setSelectedLocationLabel(buildReverseGeocodeLocationName(payload));
+      } catch (err: any) {
+        if (!isAbortLikeError(err)) {
+          setSelectedLocationLabel("");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLocationLookupLoading(false);
+        }
+      }
+    };
+
+    void resolveCurrentLocation();
 
     return () => controller.abort();
-  }, [selectedRecord?.routeId]);
-
-  const hasAppliedTripDateRange = Boolean(
-    appliedFromDateTime && appliedToDateTime
-  );
+  }, [
+    selectedRecord?.routeId,
+    selectedRecord?.lat,
+    selectedRecord?.lng,
+    selectedInlineLocationLabel,
+  ]);
 
   if (loading && !records.length) {
     return (
-      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
-        <div className={`rounded-[24px] p-5 sm:rounded-[32px] sm:p-8 ${pageCardClass}`}>
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 sm:h-14 sm:w-14">
-              <RefreshCw className="h-6 w-6 animate-spin text-slate-500" />
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
-                IOT/PUM Dashboard
-              </p>
-              <h1 className="mt-2 text-xl font-black text-slate-900 sm:text-2xl">
-                Equipment tracking feed load ho raha hai
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!loading && !records.length) {
-    return (
-      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
-        <div className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 sm:h-16 sm:w-16">
-            <AlertCircle className="h-7 w-7 text-slate-500" />
-          </div>
-          <h1 className="mt-6 text-xl font-black text-slate-900 sm:text-2xl">
-            Live location data available nahi hai
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
-            {error || "Equipment tracking API ne abhi koi IOT/PUM record return nahi kiya."}
-          </p>
-          <button
-            onClick={() => loadTrackingData()}
-            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Feed
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (equipmentId && !selectedRecord) {
-    return (
-      <div className="space-y-2 py-0 sm:space-y-6 sm:py-2">
-        <div className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 sm:h-16 sm:w-16">
-            <AlertCircle className="h-7 w-7 text-slate-500" />
-          </div>
-          <h1 className="mt-6 text-xl font-black text-slate-900 sm:text-2xl">
-            Requested IOT equipment feed me nahi mila
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
-            Equipment shayad inactive hai ya IOT/PUM filter ke bahar hai.
-          </p>
-          <button
-            onClick={() => navigate("/iot/dashboard")}
-            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back To IOT
-          </button>
+      <div className="flex min-h-screen items-center justify-center text-black">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-10 w-10 animate-spin text-blue-500" />
+          <p className="text-sm font-black uppercase tracking-widest text-black/40">Initializing IOT System...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 px-2 py-1.5 sm:space-y-6 sm:px-0 sm:py-2">
-      <section className="space-y-2 px-0 py-0 sm:overflow-hidden sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_36%),linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] sm:p-6 sm:shadow-sm">
-        <div className="flex flex-col gap-2 sm:gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-1.5 sm:space-y-3">
-            {equipmentId ? (
-              <button
-                onClick={() => navigate("/iot/dashboard")}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm transition hover:bg-slate-50 sm:gap-2 sm:px-4 sm:py-2 sm:text-xs sm:tracking-[0.18em]"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Back To IOT
-              </button>
-            ) : null}
-
-            <div className="space-y-1 sm:space-y-2">
-              <h1 className="break-words text-[1.32rem] font-black leading-tight tracking-tight text-slate-900 sm:text-3xl">
-                IOT/PUM
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-1.5 p-0 sm:rounded-[28px] sm:border sm:border-slate-200 sm:bg-white/90 sm:gap-3 sm:p-5 sm:shadow-sm xl:grid-cols-[minmax(0,1.55fr)_220px_220px_auto_auto] xl:items-end">
-          <EquipmentSelectField
-            value={selectedEquipmentRouteId}
-            onChange={(nextValue) => {
-              setSelectedEquipmentRouteId(nextValue);
-              setTripError("");
-            }}
-            options={equipmentOptions}
-          />
-
-          <DateTimePickerField
-            label="From"
-            value={fromDateTime}
-            onChange={(nextValue) => {
-              setFromDateTime(nextValue);
-              setTripError("");
-            }}
-          />
-
-          <DateTimePickerField
-            label="To"
-            value={toDateTime}
-            onChange={(nextValue) => {
-              setToDateTime(nextValue);
-              setTripError("");
-            }}
-          />
-
-          <button
-            onClick={handleFetchSelectedEquipmentDetails}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-[12px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm sm:tracking-[0.18em]"
-            disabled={!selectedEquipmentRouteId}
-          >
-            <Search className="h-4 w-4" />
-            Get Details
-          </button>
-
-          <button
-            onClick={handleResetTripFilters}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[12px] font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm sm:tracking-[0.18em]"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Reset
-          </button>
-        </div>
-
-        {error ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-            {error}
-          </div>
-        ) : null}
-
-        {tripError ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-            {tripError}
-          </div>
-        ) : null}
-      </section>
-
-      {!equipmentId ? (
-        <>
-          <section className="hidden sm:grid sm:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-5">
-            <OverviewStatCard
-              toneKey="total"
-              label="All"
-              value={formatNumber(filteredRecords.length)}
-              caption="Visible IOT/PUM fleet"
-            />
-
-            {statusSummaryOrder.map((key) => (
-              <OverviewStatCard
-                key={key}
-                toneKey={key}
-                label={statusMeta[key].label}
-                value={formatNumber(displaySummary[key])}
-                caption="Live snapshot"
-              />
-            ))}
-          </section>
-
-          {filteredRecords.length === 0 ? (
-            <section className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 sm:h-16 sm:w-16">
-                <Search className="h-6 w-6 text-slate-500" />
-              </div>
-              <h2 className="mt-6 text-xl font-black text-slate-900 sm:text-2xl">
-                No equipment found
-              </h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
-                Live feed me abhi koi IOT/PUM equipment available nahi hai.
-              </p>
-            </section>
-          ) : (
-            <section className="space-y-2 sm:space-y-4">
-              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 sm:text-2xl">
-                    IoT Live Monitoring
-                  </h2>
-                </div>
-                <p className="text-[13px] font-semibold text-slate-500 sm:text-sm">
-                  {formatNumber(filteredRecords.length)} equipments
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-4">
-                {filteredRecords.map((record, index) => (
-                  <Link
-                    key={record.routeId}
-                    to={`/iot/dashboard/${encodeURIComponent(record.routeId)}`}
-                    className={`group flex h-full flex-col rounded-[16px] p-2 ${getEquipmentCardPaletteClass(index)} sm:rounded-[28px] sm:p-5`}
-                  >
-                    <div className="flex min-h-[68px] flex-col gap-1 sm:min-h-[88px] sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-[0.95rem] font-black leading-tight text-white sm:text-xl">
-                          {getRecordTitle(record)}
-                        </p>
-                        <p className="mt-0.5 text-[10px] font-semibold text-white/80 sm:mt-1 sm:text-sm">
-                          {getRecordSubtitle(record)}
-                        </p>
-                      </div>
-                      <div className="flex sm:block">
-                        <StatusBadge
-                          statusKey={record.statusKey}
-                          label={record.statusLabel}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-2 grid flex-1 grid-cols-3 content-start gap-1.5 sm:mt-5 sm:gap-3">
-                      <MetricTile
-                        label="Speed"
-                        value={formatSpeed(record.speed)}
-                        tone="amber"
-                        icon={<Gauge className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
-                        valueClassName="text-[15px] sm:text-base"
-                      />
-                      <MetricTile
-                        label="Ignition"
-                        value={record.ignitionOn ? "ON" : "OFF"}
-                        tone="emerald"
-                        icon={
-                          record.ignitionOn ? (
-                            <Wifi className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
-                          ) : (
-                            <WifiOff className="h-3.5 w-3.5 text-white/50 sm:h-4 sm:w-4" />
-                          )
-                        }
-                        valueClassName="text-[15px] sm:text-base"
-                      />
-                      <MetricTile
-                        label="Heading"
-                        value={formatHeading(record.direction)}
-                        tone="sky"
-                        icon={<Navigation className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
-                        valueClassName="text-[15px] sm:text-base"
-                      />
-                      <MetricTile
-                        label="Last Update"
-                        value={formatRelativeTime(record.lastUpdate)}
-                        subtitle={formatDateTime(record.lastUpdate)}
-                        tone="slate"
-                        icon={<Clock3 className="h-4 w-4 text-white/70" />}
-                        className="col-span-3"
-                        valueClassName="text-[15px] sm:text-base"
-                      />
-                    </div>
-                  </Link>
+  <div className="min-h-screen bg-[#f7f8fc] px-2.5 pb-16 pt-4 text-black md:px-10 md:pb-32 md:pt-8">
+      {/* Equipment Selector */}
+      {!equipmentId && (
+        <div className="mb-8 flex flex-col gap-3 md:mb-12 md:flex-row md:items-center md:gap-4">
+          <div className="flex-1">
+            <Select value={selectedEquipmentRouteId} onValueChange={(val) => {
+              setSelectedEquipmentRouteId(val);
+              navigate(`/iot/dashboard/${encodeURIComponent(val)}`);
+            }}>
+              <SelectTrigger className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm backdrop-blur-xl focus:ring-0 md:h-14 md:rounded-2xl md:text-sm">
+                <SelectValue placeholder="Select Equipment GPS" />
+              </SelectTrigger>
+              <SelectContent className="border border-slate-200 bg-white text-slate-800 shadow-xl">
+                {equipmentOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs focus:bg-slate-100 focus:text-slate-900 md:text-sm">
+                    {opt.label}
+                  </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              </div>
-            </section>
-          )}
-        </>
-      ) : selectedRecord ? (
-        <>
-          <section className="space-y-2 sm:space-y-4">
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Trip Report Window
-                </p>
-                <h2 className="mt-1 text-lg font-black text-slate-900 sm:mt-2 sm:text-2xl">
-                  {hasAppliedTripDateRange
-                    ? `${formatDateInputPreview(appliedFromDateTime)} to ${formatDateInputPreview(appliedToDateTime)}`
-                    : "Select a date range"}
-                </h2>
-              </div>
-              <div className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 shadow-sm sm:px-3 sm:text-[10px] sm:tracking-[0.18em]">
-                {tripLoading
-                  ? "Loading trip report"
-                  : tripRecords.length
-                    ? `${formatNumber(tripRecords.length)} segments`
-                    : tripLoaded
-                      ? "No segments found"
-                      : "Waiting for fetch"}
-              </div>
-            </div>
+          <button onClick={() => loadTrackingData()} className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-95 md:h-14 md:w-14 md:rounded-2xl">
+            <RefreshCw className="h-5 w-5 md:h-6 md:w-6" />
+          </button>
+        </div>
+      )}
 
-            <div className="grid grid-cols-3 gap-x-2 gap-y-2 sm:gap-3 xl:grid-cols-[2.2fr_1.05fr_1.05fr_1fr_0.95fr]">
-              <div className={`col-span-2 xl:col-span-1 ${tripWindowMetaCardClassByKey.wide}`}>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
-                  Equipment Name
-                </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-xl">
-                  {getRecordTitle(selectedRecord)}
-                </p>
-              </div>
-              <div className={tripWindowMetaCardClassByKey.sky}>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
-                  Type
-                </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
-                  {selectedRecord.equipment.equipmentType || "--"}
-                </p>
-              </div>
-              <div className={tripWindowMetaCardClassByKey.amber}>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
-                  Door No
-                </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
-                  {selectedRecord.equipment.doorNumber ||
-                    selectedRecord.registrationNo ||
-                    "--"}
-                </p>
-              </div>
-              <div className={tripWindowMetaCardClassByKey.emerald}>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
-                  Category
-                </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
-                  {selectedRecord.equipment.equipmentCategory || "--"}
-                </p>
-              </div>
-              <div className={tripWindowMetaCardClassByKey.slate}>
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
-                  GPS ID
-                </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
-                  {selectedRecord.deviceId ||
-                    selectedRecord.equipment.gpsEquipmentId ||
-                    "--"}
-                </p>
-              </div>
-            </div>
-          </section>
+      {selectedRecord ? (
+        <div className="mx-auto max-w-full space-y-4 rounded-[28px] bg-white p-4 shadow-[0_24px_60px_rgba(148,163,184,0.22)] md:space-y-8 md:rounded-[32px] md:border md:border-slate-200 md:p-6">
+          <EquipmentDetailView
+            record={selectedRecord}
+            isSingle={true}
+            onBack={() => navigate("/iot/dashboard")}
+            tripSummary={tripSummary}
+            latestTripRecord={latestTripRecord}
+            currentTime={currentTime}
+            resolvedLocationLabel={selectedLocationLabel}
+            locationLookupLoading={locationLookupLoading}
+          />
+        </div>
+      ) : (
+        <div className="mx-auto max-w-full space-y-8 md:space-y-20">
+          {records.map((r) => (
+            <EquipmentDetailView key={r.routeId} record={r} currentTime={currentTime} />
+          ))}
+        </div>
+      )}
 
-          <section className="grid grid-cols-3 gap-x-2 gap-y-2 sm:gap-3 xl:grid-cols-6">
-            <div className={tripSummaryCardClassByKey.total}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                Total Distance
-              </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
-                {formatTripDistance(tripSummary.totalDistance)}
-              </p>
-            </div>
-
-            <div className={tripSummaryCardClassByKey.emerald}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                Average Speed
-              </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
-                {formatTripAverageSpeed(tripSummary.averageSpeed)}
-              </p>
-            </div>
-
-            <div className={tripSummaryCardClassByKey.violet}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                Working Hours
-              </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
-                {formatDurationHms(tripSummary.totalDurationSeconds)}
-              </p>
-            </div>
-
-            <div className={tripSummaryCardClassByKey.amber}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                Moving Count
-              </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
-                {formatNumber(tripSummary.movingCount)}
-              </p>
-            </div>
-
-            <div className={tripSummaryCardClassByKey.sky}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                Start Time
-              </p>
-              <p className="mt-1 break-words text-[10px] font-black leading-4 text-white sm:mt-3 sm:text-xl sm:leading-tight">
-                {formatDateTime(tripSummary.startTime)}
-              </p>
-            </div>
-
-            <div className={tripSummaryCardClassByKey.slate}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
-                End Time
-              </p>
-              <p className="mt-1 break-words text-[10px] font-black leading-4 text-white sm:mt-3 sm:text-xl sm:leading-tight">
-                {formatDateTime(tripSummary.endTime)}
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-3 rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#312e81_0%,#1e1b4b_100%)] p-3 shadow-xl sm:space-y-4 sm:rounded-[32px] sm:p-5 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:24px_24px] relative overflow-hidden">
-            <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/60">
-                  Current Snapshot
-                </p>
-                <h2 className="mt-2 text-xl font-black text-white sm:text-2xl">
-                  Selected IOT equipment feed
-                </h2>
-              </div>
-              <p className="inline-flex self-start rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-md sm:self-auto">
-                {formatRelativeTime(selectedRecord.lastUpdate)}
-              </p>
-            </div>
-
-            <div className="relative z-10 grid grid-cols-3 gap-2.5 sm:gap-3 lg:grid-cols-4">
-              <MetricTile
-                label="Speed"
-                value={formatSpeed(selectedRecord.speed)}
-                tone="amber"
-                icon={<Gauge className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
-              />
-              <MetricTile
-                label="Ignition"
-                value={selectedRecord.ignitionOn ? "ON" : "OFF"}
-                tone="emerald"
-                icon={
-                  selectedRecord.ignitionOn ? (
-                    <Wifi className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
-                  ) : (
-                    <WifiOff className="h-3.5 w-3.5 text-white/50 sm:h-4 sm:w-4" />
-                  )
-                }
-              />
-              <MetricTile
-                label="Heading"
-                value={formatHeading(selectedRecord.direction)}
-                tone="sky"
-                icon={<Navigation className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
-              />
-              <MetricTile
-                label="Last Update"
-                value={formatRelativeTime(selectedRecord.lastUpdate)}
-                subtitle={formatDateTime(selectedRecord.lastUpdate)}
-                tone="slate"
-                icon={<Clock3 className="h-4 w-4 text-white/70" />}
-                className="col-span-3 lg:col-span-1"
-              />
-            </div>
-          </section>
-
-
-          <section className="space-y-2 p-0 sm:space-y-4 sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-[linear-gradient(rgba(255,255,255,0.52)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.52)_1px,transparent_1px),radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.99)_0%,rgba(248,250,252,0.98)_60%,rgba(239,246,255,0.94)_100%)] sm:[background-size:24px_24px,24px_24px,auto,auto] sm:p-5 sm:shadow-sm">
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Trip Segments
-                </p>
-                <h2 className="mt-1 text-lg font-black text-slate-900 sm:mt-2 sm:text-2xl">
-                  Date range movement breakdown
-                </h2>
-              </div>
-              <p className="text-xs font-semibold text-slate-500 sm:text-sm">
-                {tripLoading
-                  ? "Fetching trip report..."
-                  : tripRecords.length
-                    ? `${formatNumber(tripRecords.length)} timeline rows`
-                    : tripLoaded
-                      ? "Selected range me data nahi mila"
-                      : "Preparing request"}
-              </p>
-            </div>
-
-            {tripLoading ? (
-              <div className="flex min-h-[120px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-white/80 px-4 py-7 text-center sm:min-h-[160px] sm:rounded-[24px] sm:px-6 sm:py-10">
-                <div className="space-y-3">
-                  <RefreshCw className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-500">
-                    Trip report load ho raha hai.
-                  </p>
-                </div>
-              </div>
-            ) : tripRecords.length ? (
-              <>
-                <div className="grid gap-1.5 md:hidden">
-                  {tripRecords.map((tripRecord, index) => {
-                    const tripStatusKey = resolveTripStatusKey(tripRecord);
-
-                    return (
-                      <div
-                        key={`${tripRecord.tripId}-${tripRecord.gpsDataId}`}
-                        className={`rounded-[16px] border px-3 py-3 shadow-sm ${tripMobileCardClassByKey[tripStatusKey]}`}
-                      >
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Voyage no
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-black leading-4 text-white">
-                              {index + 1}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Vehicle
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {getRecordTitle(selectedRecord)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Start Time
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripTableDateTime(tripRecord.startDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              End Time
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripTableDateTime(tripRecord.endDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Time Covered
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripTableDuration(tripRecord.diffSeconds)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Distance
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripTableDistance(tripRecord.distance)}
-                            </p>
-                          </div>
-                          <div className="col-span-2 border-t border-white/20 pt-2">
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              Start Location
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripLocation(tripRecord.startLocation)}
-                            </p>
-                          </div>
-                          <div className="col-span-2">
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
-                              End Location
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
-                              {formatTripLocation(tripRecord.endLocation)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="hidden overflow-x-auto rounded-[24px] border border-slate-200 bg-white md:block">
-                  <table className="min-w-[1280px] w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Voyage no
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Vehicle
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Start Time
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          End Time
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Start Location
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          End Location
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Time Covered
-                        </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Distance
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {tripRecords.map((tripRecord, index) => (
-                        <tr key={`${tripRecord.tripId}-${tripRecord.gpsDataId}`} className="bg-white">
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {index + 1}
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {getRecordTitle(selectedRecord)}
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {formatTripTableDateTime(tripRecord.startDate)}
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {formatTripTableDateTime(tripRecord.endDate)}
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
-                            <div className="max-w-[260px] whitespace-normal">
-                              {formatTripLocation(tripRecord.startLocation)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
-                            <div className="max-w-[260px] whitespace-normal">
-                              {formatTripLocation(tripRecord.endLocation)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {formatTripTableDuration(tripRecord.diffSeconds)}
-                          </td>
-                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                            {formatTripTableDistance(tripRecord.distance)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-[24px] border border-dashed border-slate-300 bg-white/80 px-6 py-10 text-center">
-                <p className="text-lg font-black text-slate-900">
-                  Selected date range me trip data nahi mila
-                </p>
-                <p className="mt-2 text-sm font-medium text-slate-500">
-                  Equipment aur From/To change karke dubara Get Details karo.
-                </p>
-              </div>
-            )}
-          </section>
-        </>
-      ) : null}
     </div>
   );
 }
