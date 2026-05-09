@@ -316,6 +316,7 @@ export default function App() {
             {/* IoT Routes */}
             <Route path="/iot" element={<RouteGuard><Navigate to="/iot/dashboard" replace /></RouteGuard>} />
             <Route path="/iot/dashboard" element={<RouteGuard><IotDashboard /></RouteGuard>} />
+            <Route path="/iot/dashboard/:equipmentId" element={<RouteGuard><IotDashboard /></RouteGuard>} />
 
             {/* Project Routes */}
             <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />

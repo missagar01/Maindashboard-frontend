@@ -280,6 +280,9 @@ export const getEquipmentTripReport = async (
   params: EquipmentTripReportParams,
   signal?: AbortSignal
 ): Promise<EquipmentTripReportResponse> => {
+  const combinedFrom = `${params.dateFrom} ${params.timePickerFrom}`.trim();
+  const combinedTo = `${params.dateTo} ${params.timePickerTo}`.trim();
+
   const response = await transportApiRequest(
     "entity/equipment-master/get-equipment-trip-report",
     {
@@ -289,6 +292,19 @@ export const getEquipmentTripReport = async (
         date_to: params.dateTo,
         time_picker_from: params.timePickerFrom,
         time_picker_to: params.timePickerTo,
+        // Variants to ensure backend picks up the filter
+        from_date: params.dateFrom,
+        to_date: params.dateTo,
+        from_time: params.timePickerFrom,
+        to_time: params.timePickerTo,
+        start_time: params.timePickerFrom,
+        end_time: params.timePickerTo,
+        datetime_from: combinedFrom,
+        datetime_to: combinedTo,
+        from_datetime: combinedFrom,
+        to_datetime: combinedTo,
+        date_time_from: combinedFrom,
+        date_time_to: combinedTo,
       },
       signal,
     }

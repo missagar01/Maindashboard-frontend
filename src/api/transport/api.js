@@ -1,8 +1,7 @@
 import axios from "axios";
 
 const TRANSPORT_API_BASE_URL = String(
-  import.meta.env.VITE_TRANSPORT_API_BASE_URL ||
-    "https://triofleet-backend.trieon.in/hita/api"
+  import.meta.env.VITE_TRANSPORT_API_BASE_URL
 )
   .trim()
   .replace(/\/+$/, "");

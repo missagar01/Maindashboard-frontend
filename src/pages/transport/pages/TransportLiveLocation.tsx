@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   Activity,
@@ -71,29 +71,30 @@ const statusMeta: Record<
 > = {
   moving: {
     label: "Moving",
-    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm",
     markerColor: "#059669",
     summaryTone: "from-emerald-500 to-teal-500",
   },
   stopped: {
     label: "Stopped",
-    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700 shadow-sm",
     markerColor: "#d97706",
     summaryTone: "from-amber-500 to-orange-500",
   },
   idling: {
     label: "Idling",
-    badgeClassName: "border-sky-200 bg-sky-50 text-sky-700",
+    badgeClassName: "border-sky-200 bg-sky-50 text-sky-700 shadow-sm",
     markerColor: "#0284c7",
     summaryTone: "from-sky-500 to-blue-500",
   },
   unreachable: {
     label: "Offline",
-    badgeClassName: "border-slate-200 bg-slate-100 text-slate-700",
+    badgeClassName: "border-slate-200 bg-slate-100 text-slate-700 shadow-sm",
     markerColor: "#475569",
     summaryTone: "from-slate-500 to-slate-700",
   },
 };
+
 
 const formatNumber = (value: number) => numberFormatter.format(Number(value || 0));
 
@@ -155,9 +156,68 @@ const toDateInputValue = (date: Date) =>
     date.getDate()
   )}`;
 
-const buildDefaultFromDate = () => "";
+const toDateTimeInputValue = (date: Date) =>
+  `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(
+    date.getDate()
+  )}T${padNumber(date.getHours())}:${padNumber(date.getMinutes())}:${padNumber(
+    date.getSeconds()
+  )}`;
 
-const buildDefaultToDate = () => "";
+const normalizeTimeInputValue = (value: string) => {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    return "00:00:00";
+  }
+
+  const [hours = "00", minutes = "00", seconds = "00"] = normalized.split(":");
+  return `${padNumber(Number(hours) || 0)}:${padNumber(
+    Number(minutes) || 0
+  )}:${padNumber(Number(seconds) || 0)}`;
+};
+
+const parseLocalDateTimeValue = (value: string) => {
+  const [datePart, rawTimePart = "00:00:00"] = String(value || "").split("T");
+  const parsedDate = parseDateInputValue(datePart);
+
+  if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const [hours, minutes, seconds] = normalizeTimeInputValue(rawTimePart)
+    .split(":")
+    .map((segment) => Number(segment));
+
+  return new Date(
+    parsedDate.getFullYear(),
+    parsedDate.getMonth(),
+    parsedDate.getDate(),
+    hours || 0,
+    minutes || 0,
+    seconds || 0
+  );
+};
+
+const parseTripReportDateTime = (value: string | null) => {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = parseLocalDateTimeValue(normalized.replace(" ", "T"));
+  if (!parsed || Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.getTime();
+};
+
+const buildDefaultFromDate = () =>
+  `${toDateInputValue(new Date())}T00:00:00`;
+
+const buildDefaultToDate = () => toDateTimeInputValue(new Date());
+
 
 const parseDateInputValue = (value: string) => {
   const [year, month, day] = String(value || "")
@@ -184,10 +244,39 @@ const formatTripDistance = (value: number) => `${value.toFixed(2)} Km`;
 
 const formatTripAverageSpeed = (value: number) => `${value.toFixed(2)} Kmph`;
 
+const formatTripTableDateTime = (value: string | null) => {
+  if (!value) return "--";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return `${parsed.getFullYear()}-${padNumber(parsed.getMonth() + 1)}-${padNumber(
+    parsed.getDate()
+  )} ${padNumber(parsed.getHours())}:${padNumber(
+    parsed.getMinutes()
+  )}:${padNumber(parsed.getSeconds())}`;
+};
+
+const formatTripTableDuration = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
+  const days = Math.floor(safeSeconds / 86400);
+  const hours = Math.floor((safeSeconds % 86400) / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  return `${days}d ${hours}h ${minutes}m ${remainingSeconds}s`;
+};
+
+const formatTripTableDistance = (value: number) =>
+  value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d*[1-9])0$/, "$1");
+
 const formatDateInputPreview = (value: string) => {
-  const parsed = parseDateInputValue(value);
+  const [datePart, timePart] = value.split("T");
+  const parsed = parseDateInputValue(datePart);
   if (!parsed || Number.isNaN(parsed.getTime())) return "No date selected";
-  return dateFormatter.format(parsed);
+
+  const dateStr = dateFormatter.format(parsed);
+  return timePart ? `${dateStr} ${timePart}` : dateStr;
 };
 
 interface EquipmentTripSummary {
@@ -232,7 +321,7 @@ const buildEquipmentTripSummary = (
     movingDurationSeconds > 0
       ? totalDistance / (movingDurationSeconds / 3600)
       : movingRecords.reduce((sum, record) => sum + record.averageSpeed, 0) /
-          Math.max(1, movingRecords.length);
+      Math.max(1, movingRecords.length);
 
   return {
     totalDistance,
@@ -433,45 +522,78 @@ const statusSummaryOrder: EquipmentTrackingStatusKey[] = [
 ];
 
 const pageCardClass =
-  "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50/40 shadow-sm";
+  "border border-white/20 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_40%),linear-gradient(145deg,rgba(15,23,42,0.02)_0%,rgba(248,250,252,1)_60%,rgba(241,245,249,1)_100%)] [background-size:24px_24px,24px_24px,auto,auto] shadow-[0_8px_30px_rgb(0,0,0,0.04)]";
 
 const insetCardClass =
-  "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 shadow-sm";
+  "border border-slate-200 bg-slate-50/50 shadow-inner backdrop-blur-sm";
 
-const latestSignalCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
-  moving:
-    "border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50 to-teal-100/65 shadow-sm",
-  stopped:
-    "border border-amber-200/80 bg-gradient-to-br from-white via-amber-50 to-orange-100/65 shadow-sm",
-  idling:
-    "border border-sky-200/80 bg-gradient-to-br from-white via-sky-50 to-blue-100/65 shadow-sm",
-  unreachable:
-    "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-200/75 shadow-sm",
-};
+const equipmentCardPaletteClasses = [
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#4f46e5_0%,#312e81_100%)] shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(79,70,229,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#10b981_0%,#064e3b_100%)] shadow-[0_20px_40px_rgba(16,185,129,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(16,185,129,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f59e0b_0%,#78350f_100%)] shadow-[0_20px_40px_rgba(245,158,11,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(245,158,11,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#ec4899_0%,#831843_100%)] shadow-[0_20px_40px_rgba(236,72,153,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(236,72,153,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#3b82f6_0%,#1e3a8a_100%)] shadow-[0_20px_40px_rgba(59,130,246,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(59,130,246,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#8b5cf6_0%,#4c1d95_100%)] shadow-[0_20px_40px_rgba(139,92,246,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(139,92,246,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f97316_0%,#7c2d12_100%)] shadow-[0_20px_40px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(249,115,22,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#06b6d4_0%,#164e63_100%)] shadow-[0_20px_40px_rgba(6,182,212,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(6,182,212,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#6366f1_0%,#312e81_100%)] shadow-[0_20px_40px_rgba(99,102,241,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(99,102,241,0.4)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+] as const;
 
-const equipmentGridCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
-  moving:
-    "border border-emerald-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(236,253,245,0.98)_48%,rgba(209,250,229,0.92)_100%)] shadow-sm",
-  stopped:
-    "border border-amber-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(255,251,235,0.98)_48%,rgba(254,215,170,0.88)_100%)] shadow-sm",
-  idling:
-    "border border-sky-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(240,249,255,0.98)_48%,rgba(191,219,254,0.9)_100%)] shadow-sm",
-  unreachable:
-    "border border-slate-200 bg-[linear-gradient(145deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_48%,rgba(226,232,240,0.94)_100%)] shadow-sm",
-};
+const getEquipmentCardPaletteClass = (index: number) =>
+  equipmentCardPaletteClasses[index % equipmentCardPaletteClasses.length];
 
 const summaryCardClassByKey: Record<EquipmentTrackingStatusKey | "total", string> = {
   total:
-    "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-indigo-50/55 shadow-sm",
+    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#6366f1_0%,#4338ca_100%)] shadow-[0_20px_50px_rgba(99,102,241,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(99,102,241,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
   moving:
-    "border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-teal-100/70 shadow-sm",
+    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#10b981_0%,#065f46_100%)] shadow-[0_20px_50px_rgba(16,185,129,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(16,185,129,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
   stopped:
-    "border border-amber-200/70 bg-gradient-to-br from-white via-amber-50 to-orange-100/70 shadow-sm",
+    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#f59e0b_0%,#b45309_100%)] shadow-[0_20px_50px_rgba(245,158,11,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(245,158,11,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
   idling:
-    "border border-sky-200/70 bg-gradient-to-br from-white via-sky-50 to-blue-100/70 shadow-sm",
+    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#0ea5e9_0%,#1e40af_100%)] shadow-[0_20px_50px_rgba(14,165,233,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(14,165,233,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
   unreachable:
-    "border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-200/70 shadow-sm",
+    "relative overflow-hidden border border-white/20 bg-[linear-gradient(135deg,#64748b_0%,#334155_100%)] shadow-[0_20px_50px_rgba(100,116,139,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(100,116,139,0.5)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] before:[background-size:24px_24px]",
 };
+
+const tripWindowMetaCardClassByKey = {
+  wide:
+    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#312e81_0%,#1e1b4b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(30,27,75,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  sky:
+    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#be185d_0%,#831843_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(190,24,93,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  emerald:
+    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#0f766e_0%,#134e4a_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(15,118,110,0.45)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  amber:
+    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#c2410c_0%,#7c2d12_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(194,65,12,0.45)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  slate:
+    "relative flex min-h-[80px] flex-col justify-center overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#334155_0%,#0f172a_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(15,23,42,0.5)] sm:min-h-[96px] sm:rounded-[20px] sm:px-4 sm:py-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+} as const;
+
+const tripSummaryCardClassByKey = {
+  total:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#6d28d9_0%,#4c1d95_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(109,40,217,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  emerald:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#047857_0%,#064e3b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(4,120,87,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  sky:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#0369a1_0%,#0c4a6e_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(3,105,161,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  violet:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#a21caf_0%,#701a75_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(162,28,175,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  amber:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#b45309_0%,#78350f_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(180,83,9,0.45)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+  slate:
+    "relative overflow-hidden rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#3f3f46_0%,#18181b_100%)] px-3 py-3 shadow-[0_18px_36px_-12px_rgba(24,24,27,0.5)] sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] before:[background-size:24px_24px]",
+} as const;
+
+const tripMobileCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
+  moving:
+    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#059669_0%,#065f46_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
+  stopped:
+    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#d97706_0%,#92400e_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
+  idling:
+    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#0284c7_0%,#075985_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
+  unreachable:
+    "relative overflow-hidden border-white/20 bg-[linear-gradient(135deg,#475569_0%,#1e293b_100%)] shadow-lg before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:20px_20px]",
+};
+
 
 const tripTableRowClassByKey: Record<EquipmentTrackingStatusKey, string> = {
   moving: "bg-emerald-50/75",
@@ -480,16 +602,6 @@ const tripTableRowClassByKey: Record<EquipmentTrackingStatusKey, string> = {
   unreachable: "bg-slate-100/90",
 };
 
-const tripMobileCardClassByKey: Record<EquipmentTrackingStatusKey, string> = {
-  moving:
-    "border-emerald-200/80 bg-[linear-gradient(135deg,rgba(240,253,244,0.98)_0%,rgba(220,252,231,0.94)_45%,rgba(255,255,255,0.98)_100%)]",
-  stopped:
-    "border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.98)_0%,rgba(254,243,199,0.92)_45%,rgba(255,255,255,0.98)_100%)]",
-  idling:
-    "border-sky-200/80 bg-[linear-gradient(135deg,rgba(240,249,255,0.98)_0%,rgba(219,234,254,0.94)_45%,rgba(255,255,255,0.98)_100%)]",
-  unreachable:
-    "border-slate-200 bg-[linear-gradient(135deg,rgba(248,250,252,0.98)_0%,rgba(226,232,240,0.92)_45%,rgba(255,255,255,0.98)_100%)]",
-};
 
 const RecenterMapView = ({
   center,
@@ -510,15 +622,62 @@ const RecenterMapView = ({
 const StatusBadge = ({
   statusKey,
   label,
+  variant = "solid",
 }: {
   statusKey: EquipmentTrackingStatusKey;
   label?: string;
+  variant?: "solid" | "glass";
 }) => (
   <span
-    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.2em] ${statusMeta[statusKey].badgeClassName}`}
+    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.2em] ${variant === "glass"
+      ? "border-white/20 bg-white/10 text-white backdrop-blur-md shadow-sm"
+      : statusMeta[statusKey].badgeClassName
+      }`}
   >
     {label || statusMeta[statusKey].label}
   </span>
+);
+
+const MetricTile = ({
+  label,
+  value,
+  subtitle,
+  icon,
+  className = "",
+  valueClassName = "",
+}: {
+  label: string;
+  value: string;
+  subtitle?: string;
+  icon: ReactNode;
+  tone?: string;
+  className?: string;
+  valueClassName?: string;
+}) => (
+  <div
+    className={`relative h-full min-h-[64px] overflow-hidden rounded-[14px] border border-white/20 bg-white/10 px-2 py-1.5 backdrop-blur-md sm:min-h-[84px] sm:rounded-xl sm:px-3 ${className}`}
+  >
+    <div className="flex items-start justify-between gap-2">
+      <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/60 sm:text-[9px] sm:tracking-[0.18em]">
+        {label}
+      </p>
+      <div
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-7 sm:w-7`}
+      >
+        {icon}
+      </div>
+    </div>
+    <p
+      className={`mt-1.5 text-[13px] font-black leading-tight text-white sm:mt-2 sm:text-base ${valueClassName}`}
+    >
+      {value}
+    </p>
+    {subtitle ? (
+      <p className="mt-0.5 text-[10px] font-semibold text-white/70 sm:mt-1 sm:text-xs">
+        {subtitle}
+      </p>
+    ) : null}
+  </div>
 );
 
 const FilterSelect = ({
@@ -542,6 +701,7 @@ const FilterSelect = ({
     ))}
   </select>
 );
+
 
 const EquipmentSelectField = ({
   value,
@@ -581,7 +741,7 @@ const EquipmentSelectField = ({
   </label>
 );
 
-const DatePickerField = ({
+const DateTimePickerField = ({
   label,
   value,
   onChange,
@@ -591,7 +751,9 @@ const DatePickerField = ({
   onChange: (nextValue: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const selectedDate = value ? parseDateInputValue(value) : null;
+  const [datePart, timePart] = value.split("T");
+  const selectedDate = datePart ? parseDateInputValue(datePart) : null;
+  const selectedTime = normalizeTimeInputValue(timePart);
 
   return (
     <label className="block">
@@ -608,7 +770,7 @@ const DatePickerField = ({
               {selectedDate ? (
                 formatDateInputPreview(value)
               ) : (
-                <span className="text-slate-400">Select date</span>
+                <span className="text-slate-400">Select date & time</span>
               )}
             </span>
             <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
@@ -620,13 +782,30 @@ const DatePickerField = ({
           sideOffset={6}
           className="z-[10001] w-[calc(100vw-1.5rem)] max-w-[20rem] rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl"
         >
+          <div className="p-3 border-b border-slate-100">
+            <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+              Select Time
+            </span>
+            <input
+              type="time"
+              step="1"
+              value={selectedTime}
+              onChange={(e) => {
+                const newTime = normalizeTimeInputValue(e.target.value);
+                onChange(`${datePart || toDateInputValue(new Date())}T${newTime}`);
+              }}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-300"
+            />
+          </div>
           <CalendarComponent
             mode="single"
             selected={selectedDate || undefined}
             onSelect={(nextDate) => {
-              onChange(nextDate ? toDateInputValue(nextDate) : "");
-              if (nextDate) {
-                setOpen(false);
+              const d = nextDate ? toDateInputValue(nextDate) : "";
+              if (d) {
+                onChange(`${d}T${selectedTime}`);
+              } else {
+                onChange("");
               }
             }}
             initialFocus
@@ -647,12 +826,12 @@ const DatePickerField = ({
             <button
               type="button"
               onClick={() => {
-                onChange(toDateInputValue(new Date()));
+                onChange(toDateTimeInputValue(new Date()));
                 setOpen(false);
               }}
               className="rounded-lg px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-sky-600 transition hover:bg-sky-50 hover:text-sky-700"
             >
-              Today
+              Now
             </button>
           </div>
         </PopoverContent>
@@ -738,6 +917,7 @@ const EquipmentMap = ({
               <StatusBadge
                 statusKey={record.statusKey}
                 label={record.statusLabel}
+                variant="glass"
               />
               <p className="text-[11px] text-slate-600 sm:text-xs">
                 Last update: {formatDateTime(record.lastUpdate)}
@@ -935,9 +1115,8 @@ export default function TransportLiveLocation() {
           getRecordTitle(left).localeCompare(getRecordTitle(right))
         )
         .map((record) => ({
-          label: `${getRecordTitle(record)}${
-            record.deviceId ? ` (${record.deviceId})` : ""
-          }`,
+          label: `${getRecordTitle(record)}${record.deviceId ? ` (${record.deviceId})` : ""
+            }`,
           value: record.routeId,
         })),
     [records]
@@ -964,8 +1143,12 @@ export default function TransportLiveLocation() {
     toValue?: string;
     signal?: AbortSignal;
   }) => {
-    const normalizedFromDate = String(fromValue || "").trim();
-    const normalizedToDate = String(toValue || "").trim();
+    const [dateFrom, rawTimeFrom] = String(fromValue || "").split("T");
+    const [dateTo, rawTimeTo] = String(toValue || "").split("T");
+    const timeFrom = normalizeTimeInputValue(rawTimeFrom);
+    const timeTo = normalizeTimeInputValue(rawTimeTo);
+    const rangeStartDate = parseLocalDateTimeValue(`${dateFrom}T${timeFrom}`);
+    const rangeEndDate = parseLocalDateTimeValue(`${dateTo}T${timeTo}`);
 
     if (!record.deviceId) {
       setTripRecords([]);
@@ -974,16 +1157,28 @@ export default function TransportLiveLocation() {
       return;
     }
 
-    if (!normalizedFromDate || !normalizedToDate) {
+    if (!dateFrom || !dateTo) {
       setTripRecords([]);
       setTripError("From aur To date select karo.");
       setTripLoaded(true);
       return;
     }
 
-    if (normalizedFromDate > normalizedToDate) {
+    if (
+      !rangeStartDate ||
+      !rangeEndDate ||
+      Number.isNaN(rangeStartDate.getTime()) ||
+      Number.isNaN(rangeEndDate.getTime())
+    ) {
       setTripRecords([]);
-      setTripError("From date, To date se bada nahi ho sakta.");
+      setTripError("Valid date aur time select karo.");
+      setTripLoaded(true);
+      return;
+    }
+
+    if (rangeStartDate.getTime() > rangeEndDate.getTime()) {
+      setTripRecords([]);
+      setTripError("From datetime, To datetime se bada nahi ho sakta.");
       setTripLoaded(true);
       return;
     }
@@ -997,15 +1192,38 @@ export default function TransportLiveLocation() {
       const response = await getEquipmentTripReport(
         {
           deviceId: record.deviceId,
-          dateFrom: normalizedFromDate,
-          dateTo: normalizedToDate,
-          timePickerFrom: TRIP_REPORT_START_TIME,
-          timePickerTo: TRIP_REPORT_END_TIME,
+          dateFrom,
+          dateTo,
+          timePickerFrom: timeFrom || TRIP_REPORT_START_TIME,
+          timePickerTo: timeTo || TRIP_REPORT_END_TIME,
         },
         signal
       );
 
-      setTripRecords(response.records);
+      const filterStart = rangeStartDate.getTime();
+      const filterEnd = rangeEndDate.getTime();
+
+      const finalRecords = (response.records || []).filter((r) => {
+        const segmentStart =
+          parseTripReportDateTime(r.startDate) ??
+          parseTripReportDateTime(r.movingStartDate);
+        const segmentEnd =
+          parseTripReportDateTime(r.endDate) ??
+          parseTripReportDateTime(r.movingEndDate) ??
+          segmentStart;
+
+        if (segmentStart === null && segmentEnd === null) {
+          return true;
+        }
+
+        const safeSegmentStart = segmentStart ?? segmentEnd ?? filterStart;
+        const safeSegmentEnd = segmentEnd ?? segmentStart ?? filterEnd;
+
+        // Keep only rows that overlap the selected datetime window.
+        return safeSegmentEnd >= filterStart && safeSegmentStart <= filterEnd;
+      });
+
+      setTripRecords(finalRecords);
       setTripError("");
     } catch (err: any) {
       if (isAbortLikeError(err)) {
@@ -1039,7 +1257,11 @@ export default function TransportLiveLocation() {
       return;
     }
 
-    void loadTripReport({ record: selectedEquipmentOptionRecord });
+    void loadTripReport({
+      record: selectedEquipmentOptionRecord,
+      fromValue: fromDateTime,
+      toValue: toDateTime,
+    });
   };
 
   const handleResetTripFilters = () => {
@@ -1130,19 +1352,17 @@ export default function TransportLiveLocation() {
       return;
     }
 
-    if (!fromDateTime || !toDateTime) {
-      setTripRecords([]);
-      setTripError("");
-      setTripLoading(false);
-      setTripLoaded(false);
-      setAppliedFromDateTime(fromDateTime);
-      setAppliedToDateTime(toDateTime);
-      return;
-    }
+    const freshFrom = buildDefaultFromDate();
+    const freshTo = buildDefaultToDate();
+
+    setFromDateTime(freshFrom);
+    setToDateTime(freshTo);
 
     const controller = new AbortController();
     void loadTripReport({
       record: selectedRecord,
+      fromValue: freshFrom,
+      toValue: freshTo,
       signal: controller.signal,
     });
 
@@ -1247,7 +1467,7 @@ export default function TransportLiveLocation() {
               </button>
             ) : null}
 
-            
+
 
             <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
               {selectedRecord ? (
@@ -1258,7 +1478,7 @@ export default function TransportLiveLocation() {
               ) : (
                 statusSummaryOrder.map((key) => (
                   <StatusBadge key={key} statusKey={key} />
-                  ))
+                ))
               )}
 
               <span className="col-span-full inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 shadow-sm sm:col-auto sm:justify-start sm:gap-2 sm:px-4 sm:py-2 sm:text-xs sm:tracking-[0.16em]">
@@ -1270,7 +1490,7 @@ export default function TransportLiveLocation() {
 
         </div>
 
-        <div className="mt-2 grid gap-2 p-0 sm:mt-6 sm:rounded-[28px] sm:border sm:border-slate-200 sm:bg-white/90 sm:gap-3 sm:p-5 sm:shadow-sm xl:grid-cols-[minmax(0,1.55fr)_220px_220px_auto_auto] xl:items-end">
+        <div className="mt-1 grid gap-1.5 p-0 sm:mt-6 sm:rounded-[28px] sm:border sm:border-slate-200 sm:bg-white/90 sm:gap-3 sm:p-5 sm:shadow-sm xl:grid-cols-[minmax(0,1.55fr)_220px_220px_auto_auto] xl:items-end">
           <EquipmentSelectField
             value={selectedEquipmentRouteId}
             onChange={(nextValue) => {
@@ -1280,7 +1500,7 @@ export default function TransportLiveLocation() {
             options={equipmentOptions}
           />
 
-          <DatePickerField
+          <DateTimePickerField
             label="From"
             value={fromDateTime}
             onChange={(nextValue) => {
@@ -1289,7 +1509,7 @@ export default function TransportLiveLocation() {
             }}
           />
 
-          <DatePickerField
+          <DateTimePickerField
             label="To"
             value={toDateTime}
             onChange={(nextValue) => {
@@ -1332,45 +1552,51 @@ export default function TransportLiveLocation() {
 
       {!equipmentId ? (
         <>
-          <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-            <div className={`rounded-[20px] p-3 sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey.total}`}>
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
-                Visible Equipments
-              </p>
-              <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
-                {formatNumber(filteredRecords.length)}
-              </p>
-              <p className="mt-1 text-xs font-medium leading-5 text-slate-500 sm:mt-2 sm:text-sm">
-                {hasActiveFilters
-                  ? "Active filters ke baad visible fleet"
-                  : apiSummary.total > records.length
-                    ? `${formatNumber(apiSummary.total)} total feed records`
-                    : "Current feed me available equipments"}
-              </p>
+          <section className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-5">
+            <div className={`h-full min-h-[96px] rounded-[14px] p-2 sm:min-h-[170px] sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey.total}`}>
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-1.5">
+                  <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-[0.12em] text-white shadow-sm backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
+                    All
+                  </span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-8 sm:w-8">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white sm:h-2.5 sm:w-2.5" />
+                  </span>
+                </div>
+                <p className="mt-2 text-2xl font-black leading-none text-white sm:mt-4 sm:text-3xl">
+                  {formatNumber(filteredRecords.length)}
+                </p>
+                <span className="mt-2 inline-flex self-start rounded-full bg-white/10 px-2 py-0.5 text-[8px] font-bold text-white/90 shadow-sm backdrop-blur-md sm:mt-4 sm:px-3 sm:py-1 sm:text-[11px]">
+                  Visible Fleet
+                </span>
+              </div>
             </div>
 
             {statusSummaryOrder.map((key) => (
               <div
                 key={key}
-                className={`rounded-[20px] p-3 sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey[key]}`}
+                className={`h-full min-h-[96px] rounded-[14px] p-2 sm:min-h-[170px] sm:rounded-[24px] sm:p-5 ${summaryCardClassByKey[key]}`}
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
-                    {statusMeta[key].label}
+                <div className="relative z-10 flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-[0.12em] text-white shadow-sm backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
+                      {statusMeta[key].label}
+                    </span>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-8 sm:w-8">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white sm:h-2.5 sm:w-2.5" />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-2xl font-black leading-none text-white sm:mt-4 sm:text-3xl">
+                    {formatNumber(displaySummary[key])}
                   </p>
-                  <div
-                    className={`h-3.5 w-3.5 rounded-full bg-gradient-to-br ${statusMeta[key].summaryTone}`}
-                  />
+                  <span className="mt-2 inline-flex self-start rounded-full bg-white/10 px-2 py-0.5 text-[8px] font-bold text-white/90 shadow-sm backdrop-blur-md sm:mt-4 sm:px-3 sm:py-1 sm:text-[11px]">
+                    Live Snapshot
+                  </span>
                 </div>
-                <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
-                  {formatNumber(displaySummary[key])}
-                </p>
-                <p className="mt-1 text-xs font-medium leading-5 text-slate-500 sm:mt-2 sm:text-sm">
-                  Live feed snapshot
-                </p>
               </div>
             ))}
           </section>
+
 
           {filteredRecords.length === 0 ? (
             <section className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white via-slate-50 to-slate-100/90 px-5 py-12 text-center shadow-sm sm:rounded-[32px] sm:px-6 sm:py-16">
@@ -1396,7 +1622,7 @@ export default function TransportLiveLocation() {
             </section>
           ) : (
             <>
-              <section className={`space-y-3 rounded-[22px] p-3 sm:space-y-4 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
+              <section className={`space-y-2 rounded-[22px] p-2 sm:space-y-4 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -1415,20 +1641,20 @@ export default function TransportLiveLocation() {
                 </div>
 
                 <div className="grid gap-3 lg:grid-cols-2">
-                  {latestSignalRecords.map((record) => (
+                  {latestSignalRecords.map((record, index) => (
                     <Link
                       key={record.routeId}
                       to={`/transport/live-location/${encodeURIComponent(record.routeId)}`}
-                      className={`flex flex-col gap-3 rounded-[22px] px-4 py-4 transition hover:border-slate-300 hover:brightness-[0.99] sm:flex-row sm:items-start sm:justify-between sm:rounded-[24px] ${latestSignalCardClassByKey[record.statusKey]}`}
+                      className={`flex flex-col gap-3 rounded-[22px] px-4 py-4 transition hover:-translate-y-1 sm:flex-row sm:items-start sm:justify-between sm:rounded-[24px] ${getEquipmentCardPaletteClass(index)}`}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-900">
+                        <p className="break-words text-sm font-black text-white">
                           {getRecordTitle(record)}
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                        <p className="mt-1 text-xs font-semibold text-white/80">
                           {getRecordSubtitle(record)}
                         </p>
-                        <p className="mt-2 text-xs font-medium text-slate-500">
+                        <p className="mt-2 text-xs font-medium text-white/60">
                           {formatRelativeTime(record.lastUpdate)}
                         </p>
                       </div>
@@ -1436,14 +1662,16 @@ export default function TransportLiveLocation() {
                         <StatusBadge
                           statusKey={record.statusKey}
                           label={record.statusLabel}
+                          variant="glass"
                         />
-                        <p className="text-xs font-semibold text-slate-500 sm:mt-3">
+                        <p className="text-xs font-black text-white sm:mt-3">
                           {formatSpeed(record.speed)}
                         </p>
                       </div>
                     </Link>
                   ))}
                 </div>
+
               </section>
 
               <section className="space-y-3 sm:space-y-4">
@@ -1461,65 +1689,72 @@ export default function TransportLiveLocation() {
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {filteredRecords.map((record) => (
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredRecords.map((record, index) => (
                     <Link
                       key={record.routeId}
                       to={`/transport/live-location/${encodeURIComponent(record.routeId)}`}
-                      className={`group rounded-[20px] p-3 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:rounded-[28px] sm:p-5 ${equipmentGridCardClassByKey[record.statusKey]}`}
+                      className={`group flex h-full flex-col rounded-[16px] p-2 ${getEquipmentCardPaletteClass(index)} sm:rounded-[28px] sm:p-5`}
                     >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                        <div className="min-w-0">
-                          <p className="truncate text-lg font-black leading-tight text-slate-900 sm:text-xl">
+                      <div className="flex min-h-[68px] flex-col gap-1 sm:min-h-[88px] sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-[0.95rem] font-black leading-tight text-white sm:text-xl">
                             {getRecordTitle(record)}
                           </p>
-                          <p className="mt-1 text-sm font-semibold text-slate-600">
+                          <p className="mt-0.5 text-[10px] font-semibold text-white/80 sm:mt-1 sm:text-sm">
                             {getRecordSubtitle(record)}
                           </p>
                         </div>
-                        <StatusBadge
-                          statusKey={record.statusKey}
-                          label={record.statusLabel}
+                        <div className="flex sm:block">
+                          <StatusBadge
+                            statusKey={record.statusKey}
+                            label={record.statusLabel}
+                            variant="glass"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-2 grid flex-1 grid-cols-2 content-start gap-1.5 sm:mt-5 sm:gap-3">
+                        <MetricTile
+                          label="Speed"
+                          value={formatSpeed(record.speed)}
+                          tone="amber"
+                          icon={<Gauge className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                          valueClassName="text-[15px] sm:text-base"
+                        />
+                        <MetricTile
+                          label="Ignition"
+                          value={record.ignitionOn ? "ON" : "OFF"}
+                          tone="emerald"
+                          icon={
+                            record.ignitionOn ? (
+                              <Wifi className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
+                            ) : (
+                              <WifiOff className="h-3.5 w-3.5 text-white/50 sm:h-4 sm:w-4" />
+                            )
+                          }
+                          valueClassName="text-[15px] sm:text-base"
+                        />
+                        <MetricTile
+                          label="Coordinates"
+                          value={formatCoordinates(record)}
+                          tone="sky"
+                          icon={<MapPinned className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                          className="col-span-2"
+                          valueClassName="text-[13px] sm:text-[14px]"
                         />
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
-                        <div className="rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                            Speed
-                          </p>
-                          <p className="mt-1 text-base font-black text-slate-900 sm:mt-2 sm:text-base">
-                            {formatSpeed(record.speed)}
-                          </p>
-                        </div>
-                        <div className="rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                            Ignition
-                          </p>
-                          <p className="mt-1 text-base font-black text-slate-900 sm:mt-2 sm:text-base">
-                            {record.ignitionOn ? "ON" : "OFF"}
-                          </p>
-                        </div>
-                        <div className="col-span-2 rounded-[18px] bg-white/75 px-3 py-2 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                            Coordinates
-                          </p>
-                          <p className="mt-1 text-[0.95rem] font-semibold leading-5 text-slate-700 sm:mt-2 sm:text-sm">
-                            {formatCoordinates(record)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-white/70 pt-2.5 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:border-slate-100 sm:pt-4">
+                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-white/20 pt-2.5 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-4">
                         <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/60 sm:text-[10px] sm:tracking-[0.18em]">
                             Last Update
                           </p>
-                          <p className="mt-1 text-[0.95rem] font-semibold leading-5 text-slate-700 sm:text-sm">
+                          <p className="mt-1 text-[13px] font-semibold text-white sm:text-sm">
                             {formatRelativeTime(record.lastUpdate)}
                           </p>
                         </div>
-                        <span className="self-start text-[0.95rem] font-black leading-5 text-slate-900 group-hover:text-slate-700 sm:self-auto sm:text-sm">
+                        <span className="self-start text-[13px] font-black uppercase tracking-[0.1em] text-white group-hover:underline sm:self-auto sm:text-sm">
                           Open Tracking
                         </span>
                       </div>
@@ -1532,8 +1767,8 @@ export default function TransportLiveLocation() {
         </>
       ) : selectedRecord ? (
         <>
-          <section className="space-y-2.5 p-0 sm:space-y-4 sm:rounded-[32px] sm:border sm:border-slate-200 sm:bg-gradient-to-br sm:from-white sm:via-slate-50 sm:to-sky-50/40 sm:p-5 sm:shadow-sm">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <section className="space-y-2 sm:space-y-4">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
                   Trip Report Window
@@ -1544,7 +1779,7 @@ export default function TransportLiveLocation() {
                     : "Select a date range"}
                 </h2>
               </div>
-              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 sm:px-3 sm:text-[10px] sm:tracking-[0.18em]">
+              <div className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 shadow-sm sm:px-3 sm:text-[10px] sm:tracking-[0.18em]">
                 {tripLoading
                   ? "Loading trip report"
                   : tripRecords.length
@@ -1555,46 +1790,46 @@ export default function TransportLiveLocation() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-5">
-              <div className="col-span-2 border-b border-slate-200/80 pb-2 sm:col-span-2 sm:rounded-[18px] sm:border sm:border-slate-200 sm:bg-white/85 sm:px-4 sm:py-4 sm:shadow-sm">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-2 sm:gap-3 xl:grid-cols-[2.2fr_1.05fr_1.05fr_1fr_0.95fr]">
+              <div className={`col-span-2 xl:col-span-1 ${tripWindowMetaCardClassByKey.wide}`}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
                   Equipment Name
                 </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-slate-900 sm:mt-2 sm:text-xl">
+                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-xl">
                   {getRecordTitle(selectedRecord)}
                 </p>
               </div>
-              <div className="border-b border-slate-200/80 pb-2 sm:rounded-[18px] sm:border sm:border-slate-200 sm:bg-white/85 sm:px-4 sm:py-4 sm:shadow-sm">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+              <div className={tripWindowMetaCardClassByKey.sky}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
                   Type
                 </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-slate-900 sm:mt-2 sm:text-lg">
+                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
                   {selectedRecord.equipment.equipmentType || "--"}
                 </p>
               </div>
-              <div className="border-b border-slate-200/80 pb-2 sm:col-span-1 sm:rounded-[18px] sm:border sm:border-slate-200 sm:bg-white/85 sm:px-4 sm:py-4 sm:shadow-sm">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+              <div className={tripWindowMetaCardClassByKey.amber}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
                   Door No
                 </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-slate-900 sm:mt-2 sm:text-lg">
+                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
                   {selectedRecord.equipment.doorNumber ||
                     selectedRecord.registrationNo ||
                     "--"}
                 </p>
               </div>
-              <div className="border-b border-slate-200/80 pb-2 sm:rounded-[18px] sm:border sm:border-slate-200 sm:bg-white/85 sm:px-4 sm:py-4 sm:shadow-sm">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+              <div className={tripWindowMetaCardClassByKey.emerald}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
                   Category
                 </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-slate-900 sm:mt-2 sm:text-lg">
+                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
                   {selectedRecord.equipment.equipmentCategory || "--"}
                 </p>
               </div>
-              <div className="border-b border-slate-200/80 pb-2 sm:rounded-[18px] sm:border sm:border-slate-200 sm:bg-white/85 sm:px-4 sm:py-4 sm:shadow-sm xl:col-start-5">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+              <div className={tripWindowMetaCardClassByKey.slate}>
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/75 sm:text-[10px] sm:tracking-[0.18em]">
                   GPS ID
                 </p>
-                <p className="mt-1 text-[15px] font-black leading-tight text-slate-900 sm:mt-2 sm:text-lg">
+                <p className="mt-1 text-[15px] font-black leading-tight text-white sm:mt-2 sm:text-lg">
                   {selectedRecord.deviceId ||
                     selectedRecord.equipment.gpsEquipmentId ||
                     "--"}
@@ -1603,57 +1838,57 @@ export default function TransportLiveLocation() {
             </div>
           </section>
 
-          <section className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-6">
-            <div className="border-b border-slate-200/80 pb-2 sm:rounded-[24px] sm:border sm:border-slate-200 sm:bg-gradient-to-br sm:from-white sm:via-slate-50 sm:to-indigo-50/55 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+          <section className="grid grid-cols-3 gap-x-2 gap-y-2 sm:gap-3 xl:grid-cols-6">
+            <div className={tripSummaryCardClassByKey.total}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 Total Distance
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-3xl">
+              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
                 {formatTripDistance(tripSummary.totalDistance)}
               </p>
             </div>
 
-            <div className="border-b border-slate-200/80 pb-2 sm:rounded-[24px] sm:border sm:border-emerald-200/70 sm:bg-gradient-to-br sm:from-white sm:via-emerald-50 sm:to-teal-100/70 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className={tripSummaryCardClassByKey.emerald}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 Average Speed
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-3xl">
+              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
                 {formatTripAverageSpeed(tripSummary.averageSpeed)}
               </p>
             </div>
 
-            <div className="border-b border-slate-200/80 pb-2 sm:rounded-[24px] sm:border sm:border-sky-200/70 sm:bg-gradient-to-br sm:from-white sm:via-sky-50 sm:to-blue-100/70 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className={tripSummaryCardClassByKey.violet}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 Working Hours
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-3xl">
+              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
                 {formatDurationHms(tripSummary.totalDurationSeconds)}
               </p>
             </div>
 
-            <div className="border-b border-slate-200/80 pb-2 sm:rounded-[24px] sm:border sm:border-emerald-200/70 sm:bg-gradient-to-br sm:from-white sm:via-emerald-50 sm:to-teal-100/70 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className={tripSummaryCardClassByKey.amber}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 Moving Count
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-3xl">
+              <p className="mt-1 text-[14px] font-black leading-tight text-white sm:mt-3 sm:text-3xl">
                 {formatNumber(tripSummary.movingCount)}
               </p>
             </div>
 
-            <div className="col-span-2 border-b border-slate-200/80 pb-2 sm:col-span-1 sm:rounded-[24px] sm:border sm:border-slate-200 sm:bg-gradient-to-br sm:from-white sm:via-slate-50 sm:to-indigo-50/55 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className={tripSummaryCardClassByKey.sky}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 Start Time
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-xl">
+              <p className="mt-1 break-words text-[10px] font-black leading-4 text-white sm:mt-3 sm:text-xl sm:leading-tight">
                 {formatDateTime(tripSummary.startTime)}
               </p>
             </div>
 
-            <div className="col-span-2 border-b border-slate-200/80 pb-2 sm:col-span-1 sm:rounded-[24px] sm:border sm:border-slate-200 sm:bg-gradient-to-br sm:from-white sm:via-slate-50 sm:to-indigo-50/55 sm:p-5 sm:shadow-sm">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.2em]">
+            <div className={tripSummaryCardClassByKey.slate}>
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/75 sm:text-[10px] sm:tracking-[0.2em]">
                 End Time
               </p>
-              <p className="mt-1 text-[14px] font-black leading-tight text-slate-900 sm:mt-3 sm:text-xl">
+              <p className="mt-1 break-words text-[10px] font-black leading-4 text-white sm:mt-3 sm:text-xl sm:leading-tight">
                 {formatDateTime(tripSummary.endTime)}
               </p>
             </div>
@@ -1691,78 +1926,77 @@ export default function TransportLiveLocation() {
               </div>
             ) : tripRecords.length ? (
               <>
-                <div className="grid gap-1 md:hidden">
-                  {tripRecords.map((tripRecord) => {
+                <div className="grid gap-1.5 md:hidden">
+                  {tripRecords.map((tripRecord, index) => {
                     const tripStatusKey = resolveTripStatusKey(tripRecord);
 
                     return (
                       <div
                         key={`${tripRecord.tripId}-${tripRecord.gpsDataId}`}
-                        className={`rounded-[14px] border px-2 py-2 shadow-none ${tripMobileCardClassByKey[tripStatusKey]}`}
+                        className={`rounded-[16px] border px-3 py-3 shadow-sm ${tripMobileCardClassByKey[tripStatusKey]}`}
                       >
-                        <div className="flex flex-col gap-2">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <StatusBadge
-                                statusKey={tripStatusKey}
-                                label={
-                                  tripRecord.vehicleStatus ||
-                                  statusMeta[tripStatusKey].label
-                                }
-                              />
-                              <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-slate-500">
-                                Trip #{tripRecord.tripId || "--"}
-                              </span>
-                            </div>
-                            <p className="text-[11px] font-semibold leading-4 text-slate-700">
-                              {formatDateTime(tripRecord.startDate)} to{" "}
-                              {formatDateTime(tripRecord.endDate)}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              Voyage no
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-black leading-4 text-white">
+                              {index + 1}
                             </p>
                           </div>
-
-                          <div className="grid grid-cols-3 gap-x-2 gap-y-1 border-t border-white/60 pt-2">
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-400">
-                                Distance
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-black leading-4 text-slate-900">
-                                {formatTripDistance(tripRecord.distance)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-400">
-                                Avg Speed
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-black leading-4 text-slate-900">
-                                {formatTripAverageSpeed(tripRecord.averageSpeed)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-400">
-                                Duration
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-black leading-4 text-slate-900">
-                                {tripRecord.timeInterval ||
-                                  formatDurationHms(tripRecord.diffSeconds)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 space-y-1.5 border-t border-white/60 pt-2">
                           <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-400">
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              Vehicle
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
+                              {getRecordTitle(selectedRecord)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              Start Time
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
+                              {formatTripTableDateTime(tripRecord.startDate)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              End Time
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
+                              {formatTripTableDateTime(tripRecord.endDate)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              Time Covered
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
+                              {formatTripTableDuration(tripRecord.diffSeconds)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
+                              Distance
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
+                              {formatTripTableDistance(tripRecord.distance)}
+                            </p>
+                          </div>
+                          <div className="col-span-2 border-t border-white/20 pt-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
                               Start Location
                             </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-700">
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
                               {formatTripLocation(tripRecord.startLocation)}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-400">
+                          <div className="col-span-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/60">
                               End Location
                             </p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-700">
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-white">
                               {formatTripLocation(tripRecord.endLocation)}
                             </p>
                           </div>
@@ -1770,17 +2004,18 @@ export default function TransportLiveLocation() {
                       </div>
                     );
                   })}
+
                 </div>
 
                 <div className="hidden overflow-x-auto rounded-[24px] border border-slate-200 bg-white md:block">
-                  <table className="min-w-[1180px] w-full divide-y divide-slate-200">
+                  <table className="min-w-[1280px] w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Status
+                          Voyage no
                         </th>
                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Trip ID
+                          Vehicle
                         </th>
                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
                           Start Time
@@ -1794,67 +2029,50 @@ export default function TransportLiveLocation() {
                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
                           End Location
                         </th>
-                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          Time Covered
+                        </th>
+                        <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
                           Distance
-                        </th>
-                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Avg Speed
-                        </th>
-                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Duration
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {tripRecords.map((tripRecord) => {
-                        const tripStatusKey = resolveTripStatusKey(tripRecord);
-
-                        return (
-                          <tr
-                            key={`${tripRecord.tripId}-${tripRecord.gpsDataId}`}
-                            className={tripTableRowClassByKey[tripStatusKey]}
-                          >
-                            <td className="px-4 py-3 align-top">
-                              <StatusBadge
-                                statusKey={tripStatusKey}
-                                label={
-                                  tripRecord.vehicleStatus ||
-                                  statusMeta[tripStatusKey].label
-                                }
-                              />
-                            </td>
-                            <td className="px-4 py-3 align-top text-sm font-black text-slate-900">
-                              {tripRecord.tripId || "--"}
-                            </td>
-                            <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                              {formatDateTime(tripRecord.startDate)}
-                            </td>
-                            <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
-                              {formatDateTime(tripRecord.endDate)}
-                            </td>
-                            <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
-                              <div className="max-w-[260px] whitespace-normal">
-                                {formatTripLocation(tripRecord.startLocation)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
-                              <div className="max-w-[260px] whitespace-normal">
-                                {formatTripLocation(tripRecord.endLocation)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-top text-right text-sm font-black text-slate-900">
-                              {formatTripDistance(tripRecord.distance)}
-                            </td>
-                            <td className="px-4 py-3 align-top text-right text-sm font-black text-slate-900">
-                              {formatTripAverageSpeed(tripRecord.averageSpeed)}
-                            </td>
-                            <td className="px-4 py-3 align-top text-right text-sm font-black text-slate-900">
-                              {tripRecord.timeInterval ||
-                                formatDurationHms(tripRecord.diffSeconds)}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {tripRecords.map((tripRecord, index) => (
+                        <tr
+                          key={`${tripRecord.tripId}-${tripRecord.gpsDataId}`}
+                          className="bg-white"
+                        >
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {getRecordTitle(selectedRecord)}
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {formatTripTableDateTime(tripRecord.startDate)}
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {formatTripTableDateTime(tripRecord.endDate)}
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
+                            <div className="max-w-[260px] whitespace-normal">
+                              {formatTripLocation(tripRecord.startLocation)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold leading-6 text-slate-700">
+                            <div className="max-w-[260px] whitespace-normal">
+                              {formatTripLocation(tripRecord.endLocation)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {formatTripTableDuration(tripRecord.diffSeconds)}
+                          </td>
+                          <td className="px-4 py-3 align-top text-sm font-semibold text-slate-700">
+                            {formatTripTableDistance(tripRecord.distance)}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -1873,7 +2091,7 @@ export default function TransportLiveLocation() {
 
           <section className="grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_420px] xl:gap-6">
             <div className={`min-w-0 space-y-3 rounded-[20px] p-3 sm:space-y-4 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative z-10 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.22em]">
                     Location Map
@@ -1890,11 +2108,10 @@ export default function TransportLiveLocation() {
                   }
                   target="_blank"
                   rel="noreferrer"
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-black uppercase tracking-[0.14em] sm:w-auto sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm sm:tracking-[0.18em] ${
-                    hasCoordinates(selectedRecord)
-                      ? "bg-slate-900 text-white transition hover:bg-slate-800"
-                      : "cursor-not-allowed bg-slate-100 text-slate-400"
-                  }`}
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-black uppercase tracking-[0.14em] sm:w-auto sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm sm:tracking-[0.18em] ${hasCoordinates(selectedRecord)
+                    ? "bg-slate-900 text-white transition hover:bg-slate-800"
+                    : "cursor-not-allowed bg-slate-100 text-slate-400"
+                    }`}
                   onClick={(event) => {
                     if (!hasCoordinates(selectedRecord)) {
                       event.preventDefault();
@@ -1925,129 +2142,105 @@ export default function TransportLiveLocation() {
               />
             </div>
 
-            <div className="min-w-0 space-y-3 sm:space-y-4">
-              <div className={`rounded-[20px] p-3 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 sm:h-12 sm:w-12 sm:rounded-2xl">
-                    <Truck className="h-4 w-4 text-slate-600 sm:h-5 sm:w-5" />
+            <div className="min-w-0 space-y-2 sm:space-y-3">
+              <div className="space-y-2.5 rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#312e81_0%,#1e1b4b_100%)] p-2.5 shadow-xl sm:space-y-3 sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:24px_24px] relative overflow-hidden">
+                <div className="relative z-10 flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 shadow-sm ring-1 ring-white/30 backdrop-blur-md sm:h-10 sm:w-10 sm:rounded-xl">
+                    <Truck className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
+                    <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/60 sm:text-[9px] sm:tracking-[0.18em]">
                       Equipment Snapshot
                     </p>
-                    <p className="mt-1 text-base font-black text-slate-900 sm:text-lg">
+                    <p className="mt-0.5 text-[15px] font-black text-white sm:text-[17px]">
                       {selectedRecord.equipment.doorNumber || selectedRecord.registrationNo || "Door number unavailable"}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2.5 sm:mt-5 sm:grid-cols-2 sm:gap-3">
-                  <div className="rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                      Serial
-                    </p>
-                    <p className="mt-1.5 text-[13px] font-semibold text-slate-700 sm:mt-2 sm:text-sm">
-                      {selectedRecord.serial || "--"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                      Device ID
-                    </p>
-                    <p className="mt-1.5 text-[13px] font-semibold text-slate-700 sm:mt-2 sm:text-sm">
-                      {selectedRecord.deviceId || "--"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:col-span-2 sm:rounded-2xl sm:px-4 sm:py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px] sm:tracking-[0.18em]">
-                      Last heartbeat
-                    </p>
-                    <p className="mt-1.5 text-[13px] font-semibold text-slate-700 sm:mt-2 sm:text-sm">
-                      {formatDateTime(selectedRecord.lastUpdate)}
-                    </p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">
-                      {formatRelativeTime(selectedRecord.lastUpdate)}
-                    </p>
-                  </div>
+                <div className="relative z-10 mt-2 grid gap-2 sm:mt-3.5 sm:grid-cols-2 sm:gap-2">
+                  <MetricTile
+                    label="Serial"
+                    value={selectedRecord.serial || "--"}
+                    tone="slate"
+                    icon={<Activity className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Device ID"
+                    value={selectedRecord.deviceId || "--"}
+                    tone="slate"
+                    icon={<Wifi className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Last Heartbeat"
+                    value={formatDateTime(selectedRecord.lastUpdate)}
+                    subtitle={formatRelativeTime(selectedRecord.lastUpdate)}
+                    tone="slate"
+                    icon={<Clock3 className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                    className="sm:col-span-2"
+                  />
                 </div>
               </div>
 
-              <div className={`rounded-[20px] p-3 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.22em]">
+              <div className="space-y-2.5 rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#047857_0%,#064e3b_100%)] p-2.5 shadow-xl sm:space-y-3 sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:24px_24px] relative overflow-hidden">
+                <p className="relative z-10 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 sm:text-[9px] sm:tracking-[0.22em]">
                   Telemetry
                 </p>
-                <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
-                  <div className="flex items-center justify-between rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      <Gauge className="h-3.5 w-3.5 text-slate-500 sm:h-4 sm:w-4" />
-                      <span className="text-[13px] font-semibold text-slate-600 sm:text-sm">Speed</span>
-                    </div>
-                    <span className="text-[13px] font-black text-slate-900 sm:text-sm">
-                      {formatSpeed(selectedRecord.speed)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      {selectedRecord.ignitionOn ? (
-                        <Wifi className="h-3.5 w-3.5 text-emerald-500 sm:h-4 sm:w-4" />
-                      ) : (
-                        <WifiOff className="h-3.5 w-3.5 text-slate-500 sm:h-4 sm:w-4" />
-                      )}
-                      <span className="text-[13px] font-semibold text-slate-600 sm:text-sm">Ignition</span>
-                    </div>
-                    <span className="text-[13px] font-black text-slate-900 sm:text-sm">
-                      {selectedRecord.ignitionOn ? "ON" : "OFF"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      <Fuel className="h-3.5 w-3.5 text-slate-500 sm:h-4 sm:w-4" />
-                      <span className="text-[13px] font-semibold text-slate-600 sm:text-sm">Fuel Level</span>
-                    </div>
-                    <span className="text-[13px] font-black text-slate-900 sm:text-sm">
-                      {formatFuelLevel(selectedRecord.fuelLevel)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      <Navigation className="h-3.5 w-3.5 text-slate-500 sm:h-4 sm:w-4" />
-                      <span className="text-[13px] font-semibold text-slate-600 sm:text-sm">Heading</span>
-                    </div>
-                    <span className="text-[13px] font-black text-slate-900 sm:text-sm">
-                      {formatHeading(selectedRecord.direction)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-white/75 px-3 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      <Activity className="h-3.5 w-3.5 text-slate-500 sm:h-4 sm:w-4" />
-                      <span className="text-[13px] font-semibold text-slate-600 sm:text-sm">Parking</span>
-                    </div>
-                    <span className="text-[13px] font-black text-slate-900 sm:text-sm">
-                      {formatParkingDuration(selectedRecord.parkingSeconds)}
-                    </span>
-                  </div>
+                <div className="relative z-10 mt-2 grid gap-2 sm:mt-3 sm:grid-cols-2 sm:gap-2">
+                  <MetricTile
+                    label="Speed"
+                    value={formatSpeed(selectedRecord.speed)}
+                    tone="amber"
+                    icon={<Gauge className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Ignition"
+                    value={selectedRecord.ignitionOn ? "ON" : "OFF"}
+                    tone="emerald"
+                    icon={selectedRecord.ignitionOn ? <Wifi className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" /> : <WifiOff className="h-3.5 w-3.5 text-white/50 sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Fuel Level"
+                    value={formatFuelLevel(selectedRecord.fuelLevel)}
+                    tone="amber"
+                    icon={<Fuel className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Heading"
+                    value={formatHeading(selectedRecord.direction)}
+                    tone="sky"
+                    icon={<Navigation className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                  />
+                  <MetricTile
+                    label="Parking"
+                    value={formatParkingDuration(selectedRecord.parkingSeconds)}
+                    tone="slate"
+                    icon={<Activity className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
+                    className="sm:col-span-2"
+                  />
                 </div>
               </div>
 
-              <div className={`rounded-[20px] p-3 sm:rounded-[32px] sm:p-5 ${pageCardClass}`}>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[10px] sm:tracking-[0.22em]">
+              <div className="space-y-2.5 rounded-[18px] border border-white/20 bg-[linear-gradient(135deg,#c2410c_0%,#7c2d12_100%)] p-2.5 shadow-xl sm:space-y-3 sm:rounded-[24px] sm:p-4 before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] before:[background-size:24px_24px] relative overflow-hidden">
+                <p className="relative z-10 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 sm:text-[9px] sm:tracking-[0.22em]">
                   Coordinates
                 </p>
-                <p className="mt-2 text-base font-black text-slate-900 sm:mt-3 sm:text-lg">
+                <p className="relative z-10 mt-1 text-[15px] font-black text-white sm:mt-2 sm:text-[17px]">
                   {formatCoordinates(selectedRecord)}
                 </p>
-                <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:mt-4 sm:text-[10px] sm:tracking-[0.18em]">
-                  Location Name
+                <p className="relative z-10 mt-2.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/60 sm:mt-3 sm:text-[9px] sm:tracking-[0.18em]">
+                  Resolved Location
                 </p>
-                <p className="mt-1.5 text-[13px] font-semibold leading-5 text-slate-700 sm:mt-2 sm:text-sm sm:leading-6">
+                <p className="relative z-10 mt-1.5 text-[13px] font-semibold leading-5 text-white sm:mt-2 sm:text-sm sm:leading-6">
                   {selectedLocationLabel}
                 </p>
-                <p className="mt-1.5 text-[12px] font-medium text-slate-500 sm:mt-2 sm:text-sm">
+                <p className="relative z-10 mt-1.5 text-[12px] font-medium text-white/80 sm:mt-2 sm:text-sm">
                   Distance today: {selectedRecord.distance.toFixed(1)} km
                 </p>
               </div>
             </div>
           </section>
+
 
         </>
       ) : null}
