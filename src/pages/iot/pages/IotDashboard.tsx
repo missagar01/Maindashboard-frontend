@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
 import {
   AlertCircle,
-  ArrowLeft,
   Clock3,
   Gauge,
   RefreshCw,
@@ -26,13 +24,6 @@ import {
   type EquipmentTripReportRecord,
   type EquipmentTrackingRecord,
 } from "../../../api/transport/trackingApi";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../O2D/ui/select";
 
 const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
@@ -41,6 +32,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+
+const TRIP_REPORT_START_TIME = "00:00:00";
 
 const formatRelativeTime = (value: string | null) => {
   if (!value) return "No recent update";
@@ -124,21 +117,18 @@ const parseTripReportDateTime = (value: string | null) => {
     return null;
   }
 
-  const directParsed = new Date(normalized);
-  if (!Number.isNaN(directParsed.getTime())) {
-    return directParsed.getTime();
-  }
-
-  const localParsed = parseLocalDateTimeValue(normalized.replace(" ", "T"));
-  if (!localParsed || Number.isNaN(localParsed.getTime())) {
+  const parsed = parseLocalDateTimeValue(normalized.replace(" ", "T"));
+  if (!parsed || Number.isNaN(parsed.getTime())) {
     return null;
   }
 
-  return localParsed.getTime();
+  return parsed.getTime();
 };
 
-const buildDefaultFromDate = () =>
-  `${toDateInputValue(new Date())}T00:00:00`;
+const buildDefaultFromDate = (date: Date = new Date()) =>
+  `${toDateInputValue(date)}T${TRIP_REPORT_START_TIME}`;
+
+const buildDefaultToDate = (date: Date = new Date()) => toDateTimeInputValue(date);
 
 const parseDateInputValue = (value: string) => {
   const [year, month, day] = String(value || "")
@@ -154,10 +144,18 @@ const parseDateInputValue = (value: string) => {
 
 const formatTripDistance = (value: number) => `${value.toFixed(2)} Km`;
 
+const formatDuration = (totalSeconds: number) => {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${h}:${padNumber(m)}:${padNumber(s)}`;
+};
+
 interface EquipmentTripSummary {
   totalDistance: number;
   averageSpeed: number;
   totalDurationSeconds: number;
+  movingDurationSeconds: number;
   movingCount: number;
   startTime: string | null;
   endTime: string | null;
@@ -171,6 +169,7 @@ const buildEquipmentTripSummary = (
       totalDistance: 0,
       averageSpeed: 0,
       totalDurationSeconds: 0,
+      movingDurationSeconds: 0,
       movingCount: 0,
       startTime: null,
       endTime: null,
@@ -202,6 +201,7 @@ const buildEquipmentTripSummary = (
     totalDistance,
     averageSpeed: Number.isFinite(averageSpeed) ? averageSpeed : 0,
     totalDurationSeconds,
+    movingDurationSeconds,
     movingCount: movingRecords.length,
     startTime: records[0]?.startDate || null,
     endTime: records[records.length - 1]?.endDate || null,
@@ -432,7 +432,7 @@ const isAbortLikeError = (error: any) => {
 };
 
 // UI Components for the new Premium Theme
-const GlassCard = ({
+const DarkGlassCard = ({
   children,
   className = "",
   onClick,
@@ -443,18 +443,125 @@ const GlassCard = ({
 }) => (
   <div
     onClick={onClick}
-    className={`relative overflow-hidden rounded-[16px] border border-slate-200/90 bg-white/70 shadow-[0_18px_48px_rgba(148,163,184,0.22)] backdrop-blur-xl md:rounded-[24px] ${className}`}
+    className={`relative overflow-hidden rounded-[16px] shadow-xl md:rounded-[24px] text-white ${className}`}
   >
-    {children}
+    <div className="relative z-10 h-full w-full">
+      {children}
+    </div>
   </div>
 );
+
+const DarkGridCard = ({
+  label,
+  value,
+  bgClass = "bg-slate-800",
+  className = "",
+}: {
+  label: string;
+  value: ReactNode;
+  bgClass?: string;
+  className?: string;
+}) => (
+  <div
+    className={`relative overflow-hidden rounded-xl p-3 shadow-xl md:rounded-2xl md:p-5 ${bgClass} text-white ${className}`}
+  >
+    <div className="relative z-10 flex flex-col h-full justify-between">
+      <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-white/70 mb-1.5 md:mb-2">{label}</p>
+      <div className="text-sm font-black leading-tight drop-shadow-md md:text-[1.35rem]">{value}</div>
+    </div>
+  </div>
+);
+
+const TripReportWindow = ({
+  record,
+  tripSummary,
+  tripRecords,
+  currentTime
+}: {
+  record: EquipmentTrackingRecord;
+  tripSummary?: EquipmentTripSummary | null;
+  tripRecords: EquipmentTripReportRecord[];
+  currentTime?: Date;
+}) => {
+  const startTimeLabel = tripSummary?.startTime 
+    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(tripSummary.startTime))
+    : "--";
+    
+  const endTimeLabel = tripSummary?.endTime 
+    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(tripSummary.endTime))
+    : "--";
+  const summaryCards = [
+    
+    {
+      label: "Door No",
+      value: record.equipment.doorNumber || "N/A",
+      bgClass: "bg-gradient-to-br from-[#b45309] to-[#78350f]",
+    },
+    {
+      label: "Category",
+      value: record.equipment.equipmentCategory || "N/A",
+      bgClass: "bg-gradient-to-br from-[#0f766e] to-[#134e4a]",
+    },
+    {
+      label: "GPS ID",
+      value: record.deviceId || "N/A",
+      bgClass: "bg-gradient-to-br from-[#334155] to-[#0f172a]",
+    },
+    {
+      label: "Total Distance",
+      value: tripSummary ? formatTripDistance(tripSummary.totalDistance) : "0.00 Km",
+      bgClass: "bg-gradient-to-br from-[#7e22ce] to-[#581c87]",
+    },
+    {
+      label: "Average Speed",
+      value: tripSummary ? `${tripSummary.averageSpeed.toFixed(2)} Kmph` : "0.00 Kmph",
+      bgClass: "bg-gradient-to-br from-[#047857] to-[#064e3b]",
+    },
+    {
+      label: "Working Hours",
+      value: formatDuration(tripSummary?.movingDurationSeconds || 0),
+      bgClass: "bg-gradient-to-br from-[#a21caf] to-[#701a75]",
+    },
+    {
+      label: "Moving Count",
+      value: tripSummary?.movingCount || 0,
+      bgClass: "bg-gradient-to-br from-[#c2410c] to-[#7c2d12]",
+    },
+    {
+      label: "Start Time",
+      value: startTimeLabel,
+      bgClass: "bg-gradient-to-br from-[#1d4ed8] to-[#1e3a8a]",
+    },
+    {
+      label: "End Time",
+      value: endTimeLabel,
+      bgClass: "bg-gradient-to-br from-[#334155] to-[#020617]",
+    },
+  ];
+
+  return (
+    <div className="w-full">
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-6">
+        {summaryCards.map((card) => (
+          <DarkGridCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            bgClass={card.bgClass}
+            className="min-h-[92px] md:min-h-[116px]"
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const MetricTile = ({
   label,
   value,
   unit = "",
   icon: Icon,
-  colorClass = "text-blue-400",
+  colorClass = "text-white",
   bgClass = "",
 }: {
   label: string;
@@ -464,16 +571,18 @@ const MetricTile = ({
   colorClass?: string;
   bgClass?: string;
 }) => (
-  <GlassCard className={`flex h-full min-h-[98px] flex-col items-center justify-between border-slate-200/80 px-1.5 py-2.5 md:min-h-[184px] md:px-2 md:py-7 ${bgClass}`}>
-    <p className="text-[7px] font-black uppercase tracking-[0.14em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">{label}</p>
-    <div className="my-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/45 shadow-inner md:my-2 md:h-14 md:w-14">
-      <Icon className={`h-4 w-4 md:h-7 md:w-7 ${colorClass}`} />
+  <DarkGlassCard className={`flex h-full min-h-[88px] flex-col items-center justify-between px-1.5 py-2 md:min-h-[156px] md:px-2 md:py-5 ${bgClass}`}>
+    <div className="flex flex-col items-center w-full h-full justify-between">
+      <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/70 md:text-[10px] md:tracking-[0.2em]">{label}</p>
+      <div className="my-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 shadow-inner md:my-2 md:h-14 md:w-14">
+        <Icon className={`h-4 w-4 md:h-7 md:w-7 ${colorClass}`} />
+      </div>
+      <div className="flex flex-col items-center">
+        <span className={`text-[1.45rem] font-black leading-none md:text-3xl ${colorClass}`}>{value}</span>
+        {unit && <span className="mt-0.5 text-[7px] font-bold uppercase tracking-[0.14em] text-white/50 md:mt-1 md:text-[10px] md:tracking-widest">{unit}</span>}
+      </div>
     </div>
-    <div className="flex flex-col items-center">
-      <span className={`text-[1.45rem] font-black leading-none md:text-3xl ${colorClass}`}>{value}</span>
-      {unit && <span className="mt-0.5 text-[7px] font-bold uppercase tracking-[0.14em] text-slate-500 md:mt-1 md:text-[10px] md:tracking-widest">{unit}</span>}
-    </div>
-  </GlassCard>
+  </DarkGlassCard>
 );
 
 const DetailStatCard = ({
@@ -481,9 +590,10 @@ const DetailStatCard = ({
   value,
   unit = "",
   icon: Icon,
-  colorClass = "text-blue-400",
+  colorClass = "text-white",
   subtitle = "",
   bgClass = "",
+  className = "",
 }: {
   label: string;
   value: string | number;
@@ -492,42 +602,41 @@ const DetailStatCard = ({
   colorClass?: string;
   subtitle?: string;
   bgClass?: string;
+  className?: string;
 }) => (
-  <GlassCard className={`h-full min-h-[100px] border-slate-200/80 p-3 md:min-h-[176px] md:p-6 ${bgClass}`}>
-    <div className="flex items-start gap-2 md:gap-4">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/45 shadow-inner md:h-12 md:w-12 md:rounded-2xl">
+  <DarkGlassCard className={`h-full min-h-[88px] p-3 md:min-h-[148px] md:p-5 ${bgClass} ${className}`}>
+    <div className="flex h-full flex-col items-center justify-center text-center">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 shadow-inner md:h-12 md:w-12 md:rounded-2xl">
         <Icon className={`h-4 w-4 md:h-6 md:w-6 ${colorClass}`} />
       </div>
-      <div className="flex-1">
-        <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.18em]">{label}</p>
-        <div className="mt-0.5 flex items-baseline gap-1">
+      <div className="mt-2 flex w-full flex-col items-center">
+        <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[10px] md:tracking-[0.18em]">{label}</p>
+        <div className="mt-0.5 flex items-baseline justify-center gap-1">
           <span className={`text-base font-black md:text-2xl ${colorClass}`}>{value}</span>
-          {unit && <span className="text-[7px] font-bold text-slate-500 md:text-[10px]">{unit}</span>}
+          {unit && <span className="text-[7px] font-bold text-white/60 md:text-[10px]">{unit}</span>}
         </div>
-        {subtitle && <p className="mt-1 text-[7px] font-bold uppercase tracking-[0.12em] text-slate-500 md:mt-2 md:text-[9px] md:tracking-widest">{subtitle}</p>}
+        {subtitle && <p className="mt-1 max-w-[8rem] text-[7px] font-bold uppercase tracking-[0.12em] text-white/50 md:mt-2 md:text-[9px] md:tracking-widest">{subtitle}</p>}
       </div>
     </div>
-  </GlassCard>
+  </DarkGlassCard>
 );
 
 const EquipmentDetailView = ({
   record,
-  isSingle = false,
-  onBack,
+  showTripSummary = false,
   tripSummary,
   latestTripRecord,
+  tripRecords = [],
   currentTime,
   resolvedLocationLabel,
-  locationLookupLoading = false,
 }: {
   record: EquipmentTrackingRecord;
-  isSingle?: boolean;
-  onBack?: () => void;
+  showTripSummary?: boolean;
   tripSummary?: EquipmentTripSummary | null;
   latestTripRecord?: EquipmentTripReportRecord | null;
+  tripRecords?: EquipmentTripReportRecord[];
   currentTime?: Date;
   resolvedLocationLabel?: string;
-  locationLookupLoading?: boolean;
 }) => {
   const runHours = normalizeRecordText(record.raw?.odo) || "0";
   const voltage = normalizeRecordText(record.raw?.analog_voltage) || "0";
@@ -571,15 +680,10 @@ const EquipmentDetailView = ({
     : "";
   
   return (
-    <div className={`space-y-4 md:space-y-8 ${!isSingle ? "mb-10 border-b border-slate-200 pb-10 md:mb-20 md:pb-20" : ""}`}>
+    <div className="space-y-4 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3 md:gap-5">
-          {isSingle && (
-            <button onClick={onBack} className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all hover:bg-slate-50 md:mt-1 md:h-12 md:w-12">
-              <ArrowLeft className="h-4 w-4 text-slate-700 md:h-5 md:w-5" />
-            </button>
-          )}
           <div>
             <h1 className="text-[1.7rem] font-black leading-none tracking-tight text-slate-900 md:text-4xl">
               {getRecordTitle(record)}
@@ -607,48 +711,54 @@ const EquipmentDetailView = ({
         </div>
       </div>
 
-      {/* Row 1: Core Metrics */}
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-5">
-        <MetricTile label="Speed" value={record.speed.toFixed(0)} unit="km/h" icon={Gauge} colorClass="text-blue-600" bgClass="bg-gradient-to-br from-blue-100 via-blue-50 to-indigo-100" />
-        <MetricTile label="Ignition" value={record.ignitionOn ? "ON" : "OFF"} icon={Power} colorClass="text-emerald-600" bgClass="bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100" />
-        <MetricTile label="Heading" value={record.direction?.toFixed(0) || "0"} unit="deg" icon={Compass} colorClass="text-purple-600" bgClass="bg-gradient-to-br from-violet-100 via-fuchsia-50 to-purple-100" />
-        <MetricTile label="Odometer" value={runHours} unit="km" icon={Hourglass} colorClass="text-amber-600" bgClass="bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100" />
-        <MetricTile label="Voltage" value={voltage} unit="V" icon={Zap} colorClass="text-cyan-600" bgClass="bg-gradient-to-br from-cyan-100 via-sky-50 to-blue-100" />
-      </div>
+      {showTripSummary && (
+        <TripReportWindow
+          record={record}
+          tripSummary={tripSummary}
+          tripRecords={tripRecords}
+          currentTime={currentTime}
+        />
+      )}
 
-      {/* Row 2: Pump Metrics */}
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-5">
-        <GlassCard className="col-span-3 flex items-center gap-2.5 border-slate-200/80 p-3 md:col-span-2 md:min-h-[176px] md:gap-6 md:p-8 bg-gradient-to-br from-indigo-100 via-indigo-50 to-sky-100">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white/55 shadow-inner md:h-20 md:w-20 md:rounded-[24px]">
-            <Droplets className={`h-7 w-7 md:h-10 md:w-10 ${record.ignitionOn ? 'text-blue-600 fill-blue-600/10' : 'text-slate-300'}`} />
-          </div>
-          <div>
-            <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">
-              <span className="md:hidden">Current Status</span>
-              <span className="hidden md:inline">Pump Status</span>
-            </p>
-            <p className={`mt-0.5 text-lg font-black md:mt-2 md:text-3xl ${pumpStatusColor}`}>{pumpStatus}</p>
-            <p className="mt-1.5 text-[8px] font-bold text-slate-500 md:mt-4 md:text-[10px]">Since: {pumpStatusSince}</p>
-            <p className="mt-1 text-[8px] font-bold text-slate-500 md:mt-2 md:text-[10px]">Reg No: {registrationNo}</p>
-          </div>
-        </GlassCard>
-        <DetailStatCard label="Temperature" value={temperature} unit="C" icon={Thermometer} colorClass="text-rose-600" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-rose-100 via-pink-50 to-red-100" />
-        <DetailStatCard label="Humidity" value={humidity} unit="%" icon={Droplets} colorClass="text-sky-600" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-sky-100 via-cyan-50 to-blue-100" />
+      {/* Row 1: Compact Metrics */}
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-4 md:gap-4 xl:grid-cols-8">
+        <MetricTile label="Speed" value={record.speed.toFixed(0)} unit="km/h" icon={Gauge} colorClass="text-white" bgClass="bg-gradient-to-br from-[#1e40af] to-[#1e3a8a]" />
+        <MetricTile label="Ignition" value={record.ignitionOn ? "ON" : "OFF"} icon={Power} colorClass={record.ignitionOn ? "text-emerald-300" : "text-white/60"} bgClass="bg-gradient-to-br from-[#047857] to-[#064e3b]" />
+        <MetricTile label="Heading" value={record.direction?.toFixed(0) || "0"} unit="deg" icon={Compass} colorClass="text-white" bgClass="bg-gradient-to-br from-[#7e22ce] to-[#581c87]" />
+        <MetricTile label="Odometer" value={runHours} unit="km" icon={Hourglass} colorClass="text-white" bgClass="bg-gradient-to-br from-[#b45309] to-[#78350f]" />
+        <MetricTile label="Voltage" value={voltage} unit="V" icon={Zap} colorClass="text-white" bgClass="bg-gradient-to-br from-[#0369a1] to-[#0c4a6e]" />
+        <DetailStatCard label="Temperature" value={temperature} unit="C" icon={Thermometer} colorClass="text-white" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-[#be123c] to-[#881337]" />
+        <DetailStatCard label="Humidity" value={humidity} unit="%" icon={Droplets} colorClass="text-white" subtitle="Live Sensor Feed" bgClass="bg-gradient-to-br from-[#0f766e] to-[#134e4a]" />
         <DetailStatCard
           label="Fuel Level"
           value={fuelLevelValue === null ? "--" : Number(fuelLevelValue).toFixed(0)}
           unit="%"
           icon={Battery}
-          colorClass="text-amber-600"
+          colorClass="text-white"
           subtitle={`Selected Range: ${selectedTripDistance}`}
-          bgClass="bg-gradient-to-br from-orange-100 via-amber-50 to-rose-100"
+          bgClass="bg-gradient-to-br from-[#c2410c] to-[#7c2d12]"
         />
       </div>
 
-      {/* Row 3: Systems & Diagnostics */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-5">
-        <GlassCard className="col-span-2 p-3 md:col-span-1 md:p-8 bg-gradient-to-br from-slate-100 via-slate-50 to-zinc-100">
-          <p className="mb-3 text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:mb-8 md:text-[10px] md:tracking-[0.2em]">
+      {/* Row 2: Status + Diagnostics */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.25fr_0.95fr_1.05fr] md:items-stretch md:gap-5">
+        <DarkGlassCard className="flex h-full w-full items-center gap-2.5 p-3 md:gap-5 md:p-6 bg-gradient-to-br from-[#4338ca] to-[#312e81]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white/20 shadow-inner md:h-20 md:w-20 md:rounded-[24px]">
+            <Droplets className={`h-7 w-7 md:h-10 md:w-10 ${record.ignitionOn ? 'text-blue-300' : 'text-white/40'}`} />
+          </div>
+          <div>
+            <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[10px] md:tracking-[0.2em]">
+              <span className="md:hidden">Current Status</span>
+              <span className="hidden md:inline">Pump Status</span>
+            </p>
+            <p className={`mt-0.5 text-lg font-black md:mt-2 md:text-3xl ${record.ignitionOn ? "text-white" : "text-white/60"}`}>{pumpStatus}</p>
+            <p className="mt-1.5 text-[8px] font-bold text-white/60 md:mt-4 md:text-[10px]">Since: {pumpStatusSince}</p>
+            <p className="mt-1 text-[8px] font-bold text-white/60 md:mt-2 md:text-[10px]">Reg No: {registrationNo}</p>
+          </div>
+        </DarkGlassCard>
+
+        <DarkGlassCard className="h-full p-3 md:p-8 bg-gradient-to-br from-[#334155] to-[#0f172a]">
+          <p className="mb-3 text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:mb-8 md:text-[10px] md:tracking-[0.2em]">
             <span className="md:hidden">System Diagnostics</span>
             <span className="hidden md:inline">System Status</span>
           </p>
@@ -657,38 +767,37 @@ const EquipmentDetailView = ({
               { label: "GPS Fix", status: record.lat ? "LOCKED" : "NO FIX", ok: !!record.lat },
               { label: "Connectivity", status: record.statusKey !== 'unreachable' ? "STABLE" : "OFFLINE", ok: record.statusKey !== 'unreachable' },
               { label: "Power", status: record.ignitionOn ? "ACTIVE" : "STANDBY", ok: true },
-              { label: "Hardware", status: record.serial ? "VERIFIED" : "ERROR", ok: !!record.serial },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full ${item.ok ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}`} />
-                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-700 md:text-[11px] md:tracking-widest">{item.label}</span>
+                  <div className={`h-2 w-2 rounded-full ${item.ok ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}`} />
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-white/90 md:text-[11px] md:tracking-widest">{item.label}</span>
                 </div>
-                <span className={`text-[8px] font-black uppercase tracking-[0.1em] md:text-[10px] md:tracking-widest ${item.ok ? 'text-emerald-600' : 'text-rose-500'}`}>{item.status}</span>
+                <span className={`text-[8px] font-black uppercase tracking-[0.1em] md:text-[10px] md:tracking-widest ${item.ok ? 'text-emerald-400' : 'text-rose-400'}`}>{item.status}</span>
               </div>
             ))}
           </div>
-        </GlassCard>
+        </DarkGlassCard>
 
-        <GlassCard className="col-span-2 p-3 md:col-span-1 md:p-6 bg-gradient-to-br from-violet-100 via-fuchsia-50 to-sky-100">
+        <DarkGlassCard className="h-full p-3 md:p-6 bg-gradient-to-br from-[#a21caf] to-[#701a75]">
           <div className="mb-2.5 flex items-center justify-between gap-2 md:mb-4">
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-blue-600" />
-              <span className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[10px] md:tracking-[0.2em]">Location</span>
+              <MapPin className="h-4 w-4 text-white" />
+              <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[10px] md:tracking-[0.2em]">Location</span>
             </div>
             {hasMapCoordinates ? (
               <a
                 href={mapOpenUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/75 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-slate-600 transition hover:bg-white hover:text-slate-900 md:px-3 md:text-[9px]"
+                className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/20 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-white transition hover:bg-black/40 md:px-3 md:text-[9px]"
               >
-                <MapPin className="h-3 w-3 text-rose-500" />
+                <MapPin className="h-3 w-3 text-rose-400" />
                 Open Map
               </a>
             ) : null}
           </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-[18px] bg-white/55 ring-1 ring-slate-200 md:aspect-video md:rounded-[20px]">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-[18px] bg-white/10 ring-1 ring-white/20 md:aspect-video md:rounded-[20px]">
             {hasMapCoordinates ? (
               <>
                 <iframe
@@ -705,36 +814,35 @@ const EquipmentDetailView = ({
               </>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                <MapIcon className="h-16 w-16 text-violet-300" />
+                <MapIcon className="h-16 w-16 text-white" />
               </div>
             )}
           </div>
           <div className="mt-2.5 hidden space-y-2.5 md:mt-6 md:block md:space-y-4">
             <div>
-              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">
+              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[9px] md:tracking-widest">
                 Current Location
               </p>
-              <p className="mt-1 text-[9px] font-bold leading-4 text-slate-700 md:text-[11px] md:leading-5">
+              <p className="mt-1 text-[9px] font-bold leading-4 text-white md:text-[11px] md:leading-5">
                 {locationLabel}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <div>
-                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">Lat</p>
-                <p className="text-[9px] font-bold text-slate-700 uppercase md:text-[11px]">
+                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[9px] md:tracking-widest">Lat</p>
+                <p className="text-[9px] font-bold text-white uppercase md:text-[11px]">
                   {formatCoordinateLabel(record.lat, "lat")}
                 </p>
               </div>
               <div>
-                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-slate-500 md:text-[9px] md:tracking-widest">Long</p>
-                <p className="text-[9px] font-bold text-slate-700 uppercase md:text-[11px]">
+                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/70 md:text-[9px] md:tracking-widest">Long</p>
+                <p className="text-[9px] font-bold text-white uppercase md:text-[11px]">
                   {formatCoordinateLabel(record.lng, "lng")}
                 </p>
               </div>
             </div>
           </div>
-        </GlassCard>
-      
+        </DarkGlassCard>
       </div>
 
     </div>
@@ -742,17 +850,15 @@ const EquipmentDetailView = ({
 };
 
 export default function IOTDashbaord() {
-  const navigate = useNavigate();
-  const { equipmentId } = useParams();
-
   const [records, setRecords] = useState<EquipmentTrackingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [selectedLocationLabel, setSelectedLocationLabel] = useState("");
-  const [locationLookupLoading, setLocationLookupLoading] = useState(false);
-  
-  const [selectedEquipmentRouteId, setSelectedEquipmentRouteId] = useState(() => equipmentId || "");
-  const [tripRecords, setTripRecords] = useState<EquipmentTripReportRecord[]>([]);
+  const [resolvedLocationLabels, setResolvedLocationLabels] = useState<
+    Record<string, string>
+  >({});
+  const [tripRecordsByRouteId, setTripRecordsByRouteId] = useState<
+    Record<string, EquipmentTripReportRecord[]>
+  >({});
 
   // Update clock every minute
   useEffect(() => {
@@ -781,34 +887,6 @@ export default function IOTDashbaord() {
     return () => controller.abort();
   }, []);
 
-  const selectedRecord = useMemo(
-    () => equipmentId ? records.find((r) => r.routeId === equipmentId) || null : null,
-    [equipmentId, records]
-  );
-
-  const equipmentOptions = useMemo(
-    () => [...records].sort((a, b) => getRecordTitle(a).localeCompare(getRecordTitle(b))).map((r) => ({
-      label: `${getRecordTitle(r)}${r.deviceId ? ` (${r.deviceId})` : ""}`,
-      value: r.routeId,
-    })),
-    [records]
-  );
-
-  const tripSummary = useMemo(
-    () => buildEquipmentTripSummary(tripRecords),
-    [tripRecords]
-  );
-
-  const latestTripRecord = useMemo(
-    () => tripRecords[tripRecords.length - 1] || null,
-    [tripRecords]
-  );
-  const selectedInlineLocationLabel = useMemo(
-    () =>
-      selectedRecord ? getTripOrInlineLocationLabel(selectedRecord, latestTripRecord) : "",
-    [selectedRecord, latestTripRecord]
-  );
-
   const loadTripReport = async ({ record, fromValue, toValue, signal }: { record: EquipmentTrackingRecord; fromValue: string; toValue: string; signal?: AbortSignal }) => {
     const [dateFrom, rawTimeFrom] = fromValue.split("T");
     const [dateTo, rawTimeTo] = toValue.split("T");
@@ -818,8 +896,7 @@ export default function IOTDashbaord() {
     const rangeEndDate = parseLocalDateTimeValue(`${dateTo}T${timeTo}`);
 
     if (!record.deviceId || !dateFrom || !dateTo || !rangeStartDate || !rangeEndDate) {
-      setTripRecords([]);
-      return;
+      return [];
     }
 
     try {
@@ -827,7 +904,7 @@ export default function IOTDashbaord() {
         deviceId: record.deviceId,
         dateFrom,
         dateTo,
-        timePickerFrom: timeFrom,
+        timePickerFrom: timeFrom || TRIP_REPORT_START_TIME,
         timePickerTo: timeTo,
       }, signal);
 
@@ -851,99 +928,111 @@ export default function IOTDashbaord() {
         return safeSegmentEnd >= filterStart && safeSegmentStart <= filterEnd;
       });
 
-      setTripRecords(filteredTripRecords);
+      return filteredTripRecords;
     } catch (err: any) {
       if (!isAbortLikeError(err)) {
-        setTripRecords([]);
+        return [];
       }
     }
+
+    return [];
   };
 
   useEffect(() => {
-    if (!selectedRecord) {
-      setTripRecords([]);
+    if (!records.length) {
+      setTripRecordsByRouteId({});
       return;
     }
 
-    const nextFromDateTime = buildDefaultFromDate();
-    const nextToDateTime = toDateTimeInputValue(currentTime);
-
-    const controller = new AbortController();
-    loadTripReport({
-      record: selectedRecord,
-      fromValue: nextFromDateTime,
-      toValue: nextToDateTime,
-      signal: controller.signal,
-    });
-    return () => controller.abort();
-  }, [selectedRecord?.routeId, currentTime]);
-
-  useEffect(() => {
-    if (!selectedRecord) {
-      setSelectedLocationLabel("");
-      setLocationLookupLoading(false);
-      return;
-    }
-
-    if (selectedInlineLocationLabel) {
-      setSelectedLocationLabel(selectedInlineLocationLabel);
-      setLocationLookupLoading(false);
-      return;
-    }
-
-    if (selectedRecord.lat === null || selectedRecord.lng === null) {
-      setSelectedLocationLabel("");
-      setLocationLookupLoading(false);
-      return;
-    }
+    const nextFromDateTime = buildDefaultFromDate(currentTime);
+    const nextToDateTime = buildDefaultToDate(currentTime);
 
     const controller = new AbortController();
 
-    const resolveCurrentLocation = async () => {
-      setLocationLookupLoading(true);
-
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${selectedRecord.lat}&lon=${selectedRecord.lng}&zoom=17&addressdetails=1&accept-language=en`,
-          {
-            headers: {
-              Accept: "application/json",
-            },
+    const loadAllTripReports = async () => {
+      const tripEntries = await Promise.all(
+        records.map(async (record) => [
+          record.routeId,
+          await loadTripReport({
+            record,
+            fromValue: nextFromDateTime,
+            toValue: nextToDateTime,
             signal: controller.signal,
-          }
-        );
+          }),
+        ] as const)
+      );
 
-        if (!response.ok) {
-          throw new Error("Reverse geocode failed");
-        }
-
-        const payload = await response.json();
-
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setSelectedLocationLabel(buildReverseGeocodeLocationName(payload));
-      } catch (err: any) {
-        if (!isAbortLikeError(err)) {
-          setSelectedLocationLabel("");
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLocationLookupLoading(false);
-        }
+      if (!controller.signal.aborted) {
+        setTripRecordsByRouteId(Object.fromEntries(tripEntries));
       }
     };
 
-    void resolveCurrentLocation();
+    void loadAllTripReports();
 
     return () => controller.abort();
-  }, [
-    selectedRecord?.routeId,
-    selectedRecord?.lat,
-    selectedRecord?.lng,
-    selectedInlineLocationLabel,
-  ]);
+  }, [currentTime, records]);
+
+  useEffect(() => {
+    if (!records.length) {
+      setResolvedLocationLabels({});
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const resolveCurrentLocations = async () => {
+      const lookupCandidates = records.filter((record) => {
+        const hasInlineLocation = getTripOrInlineLocationLabel(record);
+        return !hasInlineLocation && record.lat !== null && record.lng !== null;
+      });
+
+      if (!lookupCandidates.length) {
+        setResolvedLocationLabels({});
+        return;
+      }
+
+      const results = await Promise.all(
+        lookupCandidates.map(async (record) => {
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${record.lat}&lon=${record.lng}&zoom=17&addressdetails=1&accept-language=en`,
+              {
+                headers: {
+                  Accept: "application/json",
+                },
+                signal: controller.signal,
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error("Reverse geocode failed");
+            }
+
+            const payload = await response.json();
+            return [record.routeId, buildReverseGeocodeLocationName(payload)] as const;
+          } catch (err: any) {
+            if (isAbortLikeError(err)) {
+              return null;
+            }
+
+            return [record.routeId, ""] as const;
+          }
+        })
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setResolvedLocationLabels(
+        Object.fromEntries(results.filter(Boolean) as [string, string][])
+      );
+    };
+
+    void resolveCurrentLocations();
+
+    return () => controller.abort();
+  }, [records]);
 
   if (loading && !records.length) {
     return (
@@ -958,51 +1047,53 @@ export default function IOTDashbaord() {
 
   return (
   <div className="min-h-screen bg-[#f7f8fc] px-2.5 pb-16 pt-4 text-black md:px-10 md:pb-32 md:pt-8">
-      {/* Equipment Selector */}
-      {!equipmentId && (
-        <div className="mb-8 flex flex-col gap-3 md:mb-12 md:flex-row md:items-center md:gap-4">
-          <div className="flex-1">
-            <Select value={selectedEquipmentRouteId} onValueChange={(val) => {
-              setSelectedEquipmentRouteId(val);
-              navigate(`/iot/dashboard/${encodeURIComponent(val)}`);
-            }}>
-              <SelectTrigger className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm backdrop-blur-xl focus:ring-0 md:h-14 md:rounded-2xl md:text-sm">
-                <SelectValue placeholder="Select Equipment GPS" />
-              </SelectTrigger>
-              <SelectContent className="border border-slate-200 bg-white text-slate-800 shadow-xl">
-                {equipmentOptions.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs focus:bg-slate-100 focus:text-slate-900 md:text-sm">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    
 
-          <button onClick={() => loadTrackingData()} className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-95 md:h-14 md:w-14 md:rounded-2xl">
-            <RefreshCw className="h-5 w-5 md:h-6 md:w-6" />
-          </button>
-        </div>
-      )}
+      {records.length ? (
+        <div className="mx-auto max-w-full space-y-8 md:space-y-10">
+          {records.map((record) => {
+            const recordTripRecords = tripRecordsByRouteId[record.routeId] || [];
+            const recordTripSummary = buildEquipmentTripSummary(recordTripRecords);
+            const recordLatestTripRecord =
+              recordTripRecords[recordTripRecords.length - 1] || null;
 
-      {selectedRecord ? (
-        <div className="mx-auto max-w-full space-y-4 rounded-[28px] bg-white p-4 shadow-[0_24px_60px_rgba(148,163,184,0.22)] md:space-y-8 md:rounded-[32px] md:border md:border-slate-200 md:p-6">
-          <EquipmentDetailView
-            record={selectedRecord}
-            isSingle={true}
-            onBack={() => navigate("/iot/dashboard")}
-            tripSummary={tripSummary}
-            latestTripRecord={latestTripRecord}
-            currentTime={currentTime}
-            resolvedLocationLabel={selectedLocationLabel}
-            locationLookupLoading={locationLookupLoading}
-          />
+            return (
+              <div
+                key={record.routeId}
+                className="space-y-4 md:space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Device Overview
+                  </p>
+                  <div className="inline-flex items-center rounded-full bg-slate-100 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">
+                    Live Summary
+                  </div>
+                </div>
+
+                <EquipmentDetailView
+                  record={record}
+                  showTripSummary={true}
+                  tripSummary={recordTripSummary}
+                  latestTripRecord={recordLatestTripRecord}
+                  tripRecords={recordTripRecords}
+                  currentTime={currentTime}
+                  resolvedLocationLabel={resolvedLocationLabels[record.routeId]}
+                />
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div className="mx-auto max-w-full space-y-8 md:space-y-20">
-          {records.map((r) => (
-            <EquipmentDetailView key={r.routeId} record={r} currentTime={currentTime} />
-          ))}
+        <div className="mx-auto flex min-h-[220px] max-w-full items-center justify-center rounded-[28px] bg-white p-6 text-center shadow-[0_24px_60px_rgba(148,163,184,0.18)] md:rounded-[32px]">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.24em] text-slate-400">
+              No Equipment Data
+            </p>
+            <p className="mt-2 text-base font-bold text-slate-700">
+              Equipment records are not available right now.
+            </p>
+          </div>
         </div>
       )}
 
