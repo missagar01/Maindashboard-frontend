@@ -1203,19 +1203,10 @@ export default function IOTDashbaord() {
               Filters
             </p>
 
-            {isSingleDeviceView ? (
-              <button
-                type="button"
-                onClick={handleBackToAllDevices}
-                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 transition hover:bg-slate-100"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Back
-              </button>
-            ) : null}
+           
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_minmax(210px,240px)_minmax(210px,240px)_140px] xl:items-end">
+          <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_minmax(210px,240px)_minmax(210px,240px)_minmax(220px,280px)] xl:items-end">
             <label className="flex min-w-0 flex-col gap-1.5">
               <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 Device
@@ -1273,13 +1264,30 @@ export default function IOTDashbaord() {
               />
             </label>
 
-            <button
-              type="button"
-              onClick={handleApplyFilters}
-              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-slate-700"
+            <div
+              className={`grid gap-3 ${
+                isSingleDeviceView ? "grid-cols-2" : "grid-cols-1"
+              }`}
             >
-              Apply
-            </button>
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-slate-700"
+              >
+                Apply
+              </button>
+
+              {isSingleDeviceView ? (
+                <button
+                  type="button"
+                  onClick={handleBackToAllDevices}
+                  className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-300 bg-slate-200 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-slate-700 transition hover:bg-slate-300"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Back
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {filterError ? (
