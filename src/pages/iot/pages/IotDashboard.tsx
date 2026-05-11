@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
+  ChevronLeft,
   Clock3,
   Gauge,
   RefreshCw,
@@ -34,6 +35,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
 });
 
 const TRIP_REPORT_START_TIME = "00:00:00";
+const ALL_DEVICES_FILTER = "__all_devices__";
 
 const formatRelativeTime = (value: string | null) => {
   if (!value) return "No recent update";
@@ -129,6 +131,20 @@ const buildDefaultFromDate = (date: Date = new Date()) =>
   `${toDateInputValue(date)}T${TRIP_REPORT_START_TIME}`;
 
 const buildDefaultToDate = (date: Date = new Date()) => toDateTimeInputValue(date);
+
+interface DashboardFilters {
+  selectedRouteId: string;
+  fromValue: string;
+  toValue: string;
+}
+
+const buildDefaultDashboardFilters = (
+  date: Date = new Date()
+): DashboardFilters => ({
+  selectedRouteId: ALL_DEVICES_FILTER,
+  fromValue: buildDefaultFromDate(date),
+  toValue: buildDefaultToDate(date),
+});
 
 const parseDateInputValue = (value: string) => {
   const [year, month, day] = String(value || "")
@@ -325,6 +341,27 @@ const getRecordSubtitle = (record: EquipmentTrackingRecord) =>
     .filter(Boolean)
     .join(" / ") || "Equipment";
 
+const buildDeviceFilterLabel = (record: EquipmentTrackingRecord) => {
+  const title = normalizeRecordText(getRecordTitle(record));
+  const fallbackMeta =
+    normalizeRecordText(record.equipment.doorNumber) ||
+    normalizeRecordText(record.registrationNo) ||
+    normalizeRecordText(record.deviceId);
+
+  if (!title) {
+    return fallbackMeta || "Unnamed equipment";
+  }
+
+  if (
+    fallbackMeta &&
+    !title.toUpperCase().includes(fallbackMeta.toUpperCase())
+  ) {
+    return `${title} | ${fallbackMeta}`;
+  }
+
+  return title;
+};
+
 const getRecordSearchText = (record: EquipmentTrackingRecord) =>
   [
     ...getRecordNameCandidates(record),
@@ -429,6 +466,24 @@ const isAbortLikeError = (error: any) => {
     message.includes("aborted") ||
     message.includes("canceled")
   );
+};
+
+const getDashboardFilterValidationError = ({
+  fromValue,
+  toValue,
+}: DashboardFilters) => {
+  const fromDate = parseLocalDateTimeValue(fromValue);
+  const toDate = parseLocalDateTimeValue(toValue);
+
+  if (!fromDate || !toDate) {
+    return "Select a valid from and to date.";
+  }
+
+  if (fromDate.getTime() > toDate.getTime()) {
+    return "From date must be earlier than to date.";
+  }
+
+  return "";
 };
 
 // UI Components for the new Premium Theme
@@ -669,8 +724,8 @@ const EquipmentDetailView = ({
   const inlineLocationLabel = getTripOrInlineLocationLabel(record, latestTripRecord);
   const locationLabel =
     resolvedLocationLabel ||
-    inlineLocationLabel 
-    
+    inlineLocationLabel ||
+    "Location unavailable";
   const hasMapCoordinates = record.lat !== null && record.lng !== null;
   const mapEmbedUrl = hasMapCoordinates
     ? buildGoogleMapEmbedUrl(record.lat, record.lng)
@@ -853,12 +908,44 @@ export default function IOTDashbaord() {
   const [records, setRecords] = useState<EquipmentTrackingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [filterValues, setFilterValues] = useState<DashboardFilters>(() =>
+    buildDefaultDashboardFilters(new Date())
+  );
+  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(() =>
+    buildDefaultDashboardFilters(new Date())
+  );
+  const [filterError, setFilterError] = useState("");
   const [resolvedLocationLabels, setResolvedLocationLabels] = useState<
     Record<string, string>
   >({});
   const [tripRecordsByRouteId, setTripRecordsByRouteId] = useState<
     Record<string, EquipmentTripReportRecord[]>
   >({});
+  const deviceOptions = useMemo(
+    () =>
+      [...records]
+        .sort((left, right) =>
+          buildDeviceFilterLabel(left).localeCompare(buildDeviceFilterLabel(right))
+        )
+        .map((record) => ({
+          value: record.routeId,
+          label: buildDeviceFilterLabel(record),
+        })),
+    [records]
+  );
+  const filteredRecords = useMemo(() => {
+    if (appliedFilters.selectedRouteId === ALL_DEVICES_FILTER) {
+      return records;
+    }
+
+    return records.filter(
+      (record) => record.routeId === appliedFilters.selectedRouteId
+    );
+  }, [appliedFilters.selectedRouteId, records]);
+  const isSingleDeviceView =
+    appliedFilters.selectedRouteId !== ALL_DEVICES_FILTER;
+  const selectedDisplayDate =
+    parseLocalDateTimeValue(appliedFilters.toValue) || currentTime;
 
   // Update clock every minute
   useEffect(() => {
@@ -886,6 +973,30 @@ export default function IOTDashbaord() {
     loadTrackingData({ signal: controller.signal });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const knownRouteIds = new Set(records.map((record) => record.routeId));
+
+    if (
+      filterValues.selectedRouteId !== ALL_DEVICES_FILTER &&
+      !knownRouteIds.has(filterValues.selectedRouteId)
+    ) {
+      setFilterValues((current) => ({
+        ...current,
+        selectedRouteId: ALL_DEVICES_FILTER,
+      }));
+    }
+
+    if (
+      appliedFilters.selectedRouteId !== ALL_DEVICES_FILTER &&
+      !knownRouteIds.has(appliedFilters.selectedRouteId)
+    ) {
+      setAppliedFilters((current) => ({
+        ...current,
+        selectedRouteId: ALL_DEVICES_FILTER,
+      }));
+    }
+  }, [appliedFilters.selectedRouteId, filterValues.selectedRouteId, records]);
 
   const loadTripReport = async ({ record, fromValue, toValue, signal }: { record: EquipmentTrackingRecord; fromValue: string; toValue: string; signal?: AbortSignal }) => {
     const [dateFrom, rawTimeFrom] = fromValue.split("T");
@@ -938,25 +1049,56 @@ export default function IOTDashbaord() {
     return [];
   };
 
-  useEffect(() => {
-    if (!records.length) {
-      setTripRecordsByRouteId({});
+  const handleFilterValueChange = (
+    key: keyof DashboardFilters,
+    value: string
+  ) => {
+    setFilterValues((current) => ({
+      ...current,
+      [key]: value,
+    }));
+
+    if (filterError) {
+      setFilterError("");
+    }
+  };
+
+  const handleApplyFilters = () => {
+    const validationError = getDashboardFilterValidationError(filterValues);
+
+    if (validationError) {
+      setFilterError(validationError);
       return;
     }
 
-    const nextFromDateTime = buildDefaultFromDate(currentTime);
-    const nextToDateTime = buildDefaultToDate(currentTime);
+    setFilterError("");
+    setAppliedFilters(filterValues);
+  };
+
+  const handleBackToAllDevices = () => {
+    const nextFilters = buildDefaultDashboardFilters(new Date());
+
+    setFilterError("");
+    setFilterValues(nextFilters);
+    setAppliedFilters(nextFilters);
+  };
+
+  useEffect(() => {
+    if (!filteredRecords.length) {
+      setTripRecordsByRouteId({});
+      return;
+    }
 
     const controller = new AbortController();
 
     const loadAllTripReports = async () => {
       const tripEntries = await Promise.all(
-        records.map(async (record) => [
+        filteredRecords.map(async (record) => [
           record.routeId,
           await loadTripReport({
             record,
-            fromValue: nextFromDateTime,
-            toValue: nextToDateTime,
+            fromValue: appliedFilters.fromValue,
+            toValue: appliedFilters.toValue,
             signal: controller.signal,
           }),
         ] as const)
@@ -970,10 +1112,10 @@ export default function IOTDashbaord() {
     void loadAllTripReports();
 
     return () => controller.abort();
-  }, [currentTime, records]);
+  }, [appliedFilters.fromValue, appliedFilters.toValue, filteredRecords]);
 
   useEffect(() => {
-    if (!records.length) {
+    if (!filteredRecords.length) {
       setResolvedLocationLabels({});
       return;
     }
@@ -981,8 +1123,15 @@ export default function IOTDashbaord() {
     const controller = new AbortController();
 
     const resolveCurrentLocations = async () => {
-      const lookupCandidates = records.filter((record) => {
-        const hasInlineLocation = getTripOrInlineLocationLabel(record);
+      const lookupCandidates = filteredRecords.filter((record) => {
+        const latestTripRecord =
+          tripRecordsByRouteId[record.routeId]?.[
+            tripRecordsByRouteId[record.routeId].length - 1
+          ] || null;
+        const hasInlineLocation = getTripOrInlineLocationLabel(
+          record,
+          latestTripRecord
+        );
         return !hasInlineLocation && record.lat !== null && record.lng !== null;
       });
 
@@ -1032,7 +1181,7 @@ export default function IOTDashbaord() {
     void resolveCurrentLocations();
 
     return () => controller.abort();
-  }, [records]);
+  }, [filteredRecords, tripRecordsByRouteId]);
 
   if (loading && !records.length) {
     return (
@@ -1047,11 +1196,104 @@ export default function IOTDashbaord() {
 
   return (
   <div className="min-h-screen bg-[#f7f8fc] px-2.5 pb-16 pt-4 text-black md:px-10 md:pb-32 md:pt-8">
-    
+      <div className="mx-auto mb-6 max-w-full rounded-[24px] border border-slate-200/80 bg-white p-3 shadow-[0_20px_45px_rgba(15,23,42,0.08)] md:mb-8 md:rounded-[32px] md:p-6">
+        <div className="space-y-3 md:space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              Filters
+            </p>
 
-      {records.length ? (
+            {isSingleDeviceView ? (
+              <button
+                type="button"
+                onClick={handleBackToAllDevices}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 transition hover:bg-slate-100"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_minmax(210px,240px)_minmax(210px,240px)_140px] xl:items-end">
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                Device
+              </span>
+              <select
+                value={filterValues.selectedRouteId}
+                onChange={(event) =>
+                  handleFilterValueChange("selectedRouteId", event.target.value)
+                }
+                className="h-11 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white"
+                title={
+                  filterValues.selectedRouteId === ALL_DEVICES_FILTER
+                    ? "All devices"
+                    : deviceOptions.find(
+                        (option) => option.value === filterValues.selectedRouteId
+                      )?.label || ""
+                }
+              >
+                <option value={ALL_DEVICES_FILTER}>All devices</option>
+                {deviceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                From Date
+              </span>
+              <input
+                type="datetime-local"
+                step={1}
+                value={filterValues.fromValue}
+                onChange={(event) =>
+                  handleFilterValueChange("fromValue", event.target.value)
+                }
+                className="h-11 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white"
+              />
+            </label>
+
+            <label className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                To Date
+              </span>
+              <input
+                type="datetime-local"
+                step={1}
+                value={filterValues.toValue}
+                onChange={(event) =>
+                  handleFilterValueChange("toValue", event.target.value)
+                }
+                className="h-11 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-slate-700"
+            >
+              Apply
+            </button>
+          </div>
+
+          {filterError ? (
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-rose-600">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {filterError}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {filteredRecords.length ? (
         <div className="mx-auto max-w-full space-y-8 md:space-y-10">
-          {records.map((record) => {
+          {filteredRecords.map((record) => {
             const recordTripRecords = tripRecordsByRouteId[record.routeId] || [];
             const recordTripSummary = buildEquipmentTripSummary(recordTripRecords);
             const recordLatestTripRecord =
@@ -1077,7 +1319,7 @@ export default function IOTDashbaord() {
                   tripSummary={recordTripSummary}
                   latestTripRecord={recordLatestTripRecord}
                   tripRecords={recordTripRecords}
-                  currentTime={currentTime}
+                  currentTime={selectedDisplayDate}
                   resolvedLocationLabel={resolvedLocationLabels[record.routeId]}
                 />
               </div>
@@ -1088,10 +1330,10 @@ export default function IOTDashbaord() {
         <div className="mx-auto flex min-h-[220px] max-w-full items-center justify-center rounded-[28px] bg-white p-6 text-center shadow-[0_24px_60px_rgba(148,163,184,0.18)] md:rounded-[32px]">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.24em] text-slate-400">
-              No Equipment Data
+              No Matching Equipment
             </p>
             <p className="mt-2 text-base font-bold text-slate-700">
-              Equipment records are not available right now.
+              Try a different device or date range.
             </p>
           </div>
         </div>
