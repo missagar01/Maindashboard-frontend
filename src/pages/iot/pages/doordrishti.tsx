@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CalendarDays,
+  Clock3,
   MapPin,
   RefreshCw,
   Search,
@@ -32,6 +33,8 @@ type DoordrishtiFilters = {
   dateFrom: string;
   dateTo: string;
 };
+
+type DoordrishtiRangePreset = "today" | "weekly" | "monthly" | "custom";
 
 type DoordrishtiDeviceOption = {
   value: string;
@@ -78,11 +81,38 @@ const getTodayDateValue = (date: Date = new Date()) =>
     date.getDate()
   )}`;
 
-const buildDefaultFilters = (date: Date = new Date()): DoordrishtiFilters => ({
-  deviceId: DEFAULT_DEVICE_ID,
-  dateFrom: getTodayDateValue(date),
-  dateTo: getTodayDateValue(date),
-});
+const DOORDRISHTI_RANGE_PRESET_OPTIONS: Array<{
+  label: string;
+  preset: Exclude<DoordrishtiRangePreset, "custom">;
+}> = [
+  { label: "Today", preset: "today" },
+  { label: "Weekly", preset: "weekly" },
+  { label: "Monthly", preset: "monthly" },
+];
+
+const buildFiltersForPreset = (
+  preset: Exclude<DoordrishtiRangePreset, "custom">,
+  date: Date = new Date(),
+  deviceId: string = DEFAULT_DEVICE_ID
+): DoordrishtiFilters => {
+  const endDate = new Date(date);
+  const startDate = new Date(date);
+
+  if (preset === "weekly") {
+    startDate.setDate(startDate.getDate() - 6);
+  } else if (preset === "monthly") {
+    startDate.setDate(startDate.getDate() - 29);
+  }
+
+  return {
+    deviceId,
+    dateFrom: getTodayDateValue(startDate),
+    dateTo: getTodayDateValue(endDate),
+  };
+};
+
+const buildDefaultFilters = (date: Date = new Date()): DoordrishtiFilters =>
+  buildFiltersForPreset("today", date);
 
 const safeString = (value: unknown) => String(value ?? "").trim();
 
@@ -284,6 +314,8 @@ const flattenTripRows = (response: DoordrishtiResponse | null): DoordrishtiTripR
 };
 
 export default function DoordrishtiPage() {
+  const [selectedRangePreset, setSelectedRangePreset] =
+    useState<DoordrishtiRangePreset>("today");
   const [filterValues, setFilterValues] = useState<DoordrishtiFilters>(() =>
     buildDefaultFilters(new Date())
   );
@@ -454,6 +486,10 @@ export default function DoordrishtiPage() {
   );
 
   const handleInputChange = (key: keyof DoordrishtiFilters, value: string) => {
+    if (key === "dateFrom" || key === "dateTo") {
+      setSelectedRangePreset("custom");
+    }
+
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -464,23 +500,44 @@ export default function DoordrishtiPage() {
     }
   };
 
-  const handleApplyFilters = () => {
-    if (!filterValues.deviceId) {
+  const applyFilters = (nextFilters: DoordrishtiFilters) => {
+    if (!nextFilters.deviceId) {
       setError("Please select a device.");
-      return;
+      return false;
     }
 
-    if (!filterValues.dateFrom || !filterValues.dateTo) {
+    if (!nextFilters.dateFrom || !nextFilters.dateTo) {
       setError("From date and to date both are required.");
-      return;
+      return false;
     }
 
-    if (filterValues.dateFrom > filterValues.dateTo) {
+    if (nextFilters.dateFrom > nextFilters.dateTo) {
       setError("From date cannot be greater than to date.");
-      return;
+      return false;
     }
 
-    setAppliedFilters(filterValues);
+    setError("");
+    setFilterValues(nextFilters);
+    setAppliedFilters(nextFilters);
+    return true;
+  };
+
+  const handleApplyFilters = () => {
+    applyFilters(filterValues);
+  };
+
+  const handleRangePresetSelect = (
+    preset: Exclude<DoordrishtiRangePreset, "custom">
+  ) => {
+    const nextFilters = buildFiltersForPreset(
+      preset,
+      new Date(),
+      filterValues.deviceId || DEFAULT_DEVICE_ID
+    );
+
+    if (applyFilters(nextFilters)) {
+      setSelectedRangePreset(preset);
+    }
   };
 
   return (
@@ -492,6 +549,30 @@ export default function DoordrishtiPage() {
               <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900 md:mt-2 md:text-3xl">
                 Trip Report
               </h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="hidden items-center gap-1 rounded-full bg-slate-100 px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 md:inline-flex">
+                <Clock3 className="h-3.5 w-3.5" />
+                Quick Range
+              </div>
+              {DOORDRISHTI_RANGE_PRESET_OPTIONS.map((option) => {
+                const isActive = selectedRangePreset === option.preset;
+
+                return (
+                  <button
+                    key={option.preset}
+                    type="button"
+                    onClick={() => handleRangePresetSelect(option.preset)}
+                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -805,4 +886,3 @@ export default function DoordrishtiPage() {
     </div>
   );
 }
-

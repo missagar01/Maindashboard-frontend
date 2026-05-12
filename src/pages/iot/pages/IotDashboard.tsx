@@ -65,11 +65,6 @@ const formatDateTime = (value: string | null) => {
 
 const padNumber = (value: number) => String(value).padStart(2, "0");
 
-const toDateInputValue = (date: Date) =>
-  `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(
-    date.getDate()
-  )}`;
-
 const toDateTimeInputValue = (date: Date) =>
   `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(
     date.getDate()
@@ -127,24 +122,51 @@ const parseTripReportDateTime = (value: string | null) => {
   return parsed.getTime();
 };
 
-const buildDefaultFromDate = (date: Date = new Date()) =>
-  `${toDateInputValue(date)}T${TRIP_REPORT_START_TIME}`;
-
-const buildDefaultToDate = (date: Date = new Date()) => toDateTimeInputValue(date);
-
 interface DashboardFilters {
   selectedRouteId: string;
   fromValue: string;
   toValue: string;
 }
 
+type DashboardRangePreset = "today" | "weekly" | "monthly" | "custom";
+
+const DASHBOARD_RANGE_PRESET_OPTIONS: Array<{
+  label: string;
+  preset: Exclude<DashboardRangePreset, "custom">;
+}> = [
+  { label: "Today", preset: "today" },
+  { label: "Weekly", preset: "weekly" },
+  { label: "Monthly", preset: "monthly" },
+];
+
+const buildDashboardFiltersForPreset = (
+  preset: Exclude<DashboardRangePreset, "custom">,
+  date: Date = new Date(),
+  selectedRouteId: string = ALL_DEVICES_FILTER
+): DashboardFilters => {
+  const endDate = new Date(date);
+  const startDate = new Date(date);
+
+  if (preset === "today") {
+    startDate.setHours(0, 0, 0, 0);
+  } else if (preset === "weekly") {
+    startDate.setDate(startDate.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    startDate.setDate(startDate.getDate() - 29);
+    startDate.setHours(0, 0, 0, 0);
+  }
+
+  return {
+    selectedRouteId,
+    fromValue: toDateTimeInputValue(startDate),
+    toValue: toDateTimeInputValue(endDate),
+  };
+};
+
 const buildDefaultDashboardFilters = (
   date: Date = new Date()
-): DashboardFilters => ({
-  selectedRouteId: ALL_DEVICES_FILTER,
-  fromValue: buildDefaultFromDate(date),
-  toValue: buildDefaultToDate(date),
-});
+): DashboardFilters => buildDashboardFiltersForPreset("today", date);
 
 const parseDateInputValue = (value: string) => {
   const [year, month, day] = String(value || "")
@@ -1298,6 +1320,8 @@ export default function IOTDashbaord() {
   const [records, setRecords] = useState<EquipmentTrackingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedRangePreset, setSelectedRangePreset] =
+    useState<DashboardRangePreset>("today");
   const [filterValues, setFilterValues] = useState<DashboardFilters>(() =>
     buildDefaultDashboardFilters(new Date())
   );
@@ -1443,6 +1467,10 @@ export default function IOTDashbaord() {
     key: keyof DashboardFilters,
     value: string
   ) => {
+    if (key === "fromValue" || key === "toValue") {
+      setSelectedRangePreset("custom");
+    }
+
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -1453,22 +1481,43 @@ export default function IOTDashbaord() {
     }
   };
 
-  const handleApplyFilters = () => {
-    const validationError = getDashboardFilterValidationError(filterValues);
+  const applyDashboardFilters = (nextFilters: DashboardFilters) => {
+    const validationError = getDashboardFilterValidationError(nextFilters);
 
     if (validationError) {
       setFilterError(validationError);
-      return;
+      return false;
     }
 
     setFilterError("");
-    setAppliedFilters(filterValues);
+    setFilterValues(nextFilters);
+    setAppliedFilters(nextFilters);
+    return true;
+  };
+
+  const handleApplyFilters = () => {
+    applyDashboardFilters(filterValues);
+  };
+
+  const handleRangePresetSelect = (
+    preset: Exclude<DashboardRangePreset, "custom">
+  ) => {
+    const nextFilters = buildDashboardFiltersForPreset(
+      preset,
+      new Date(),
+      filterValues.selectedRouteId
+    );
+
+    if (applyDashboardFilters(nextFilters)) {
+      setSelectedRangePreset(preset);
+    }
   };
 
   const handleBackToAllDevices = () => {
     const nextFilters = buildDefaultDashboardFilters(new Date());
 
     setFilterError("");
+    setSelectedRangePreset("today");
     setFilterValues(nextFilters);
     setAppliedFilters(nextFilters);
   };
@@ -1592,8 +1641,30 @@ export default function IOTDashbaord() {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
               Filters
             </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="hidden items-center gap-1 rounded-full bg-slate-100 px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 md:inline-flex">
+                <Clock3 className="h-3.5 w-3.5" />
+                Quick Range
+              </div>
+              {DASHBOARD_RANGE_PRESET_OPTIONS.map((option) => {
+                const isActive = selectedRangePreset === option.preset;
 
-           
+                return (
+                  <button
+                    key={option.preset}
+                    type="button"
+                    onClick={() => handleRangePresetSelect(option.preset)}
+                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid gap-3 xl:grid-cols-[minmax(220px,280px)_minmax(210px,240px)_minmax(210px,240px)_minmax(220px,280px)] xl:items-end">
