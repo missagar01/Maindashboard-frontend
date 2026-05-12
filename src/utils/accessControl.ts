@@ -225,6 +225,10 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "IOT Dashboard": "/iot/dashboard",
   "IoT Module": "/iot/dashboard",
   "IOT Module": "/iot/dashboard",
+  Doordrishti: "/iot/doordrishti",
+  "Doordrishti Alerts": "/iot/doordrishti",
+  "IoT Doordrishti": "/iot/doordrishti",
+  "IOT Doordrishti": "/iot/doordrishti",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -765,6 +769,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
   if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
+  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");

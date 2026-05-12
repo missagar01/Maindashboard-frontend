@@ -562,41 +562,11 @@ const TripReportWindow = ({
       value: record.deviceId || "N/A",
       bgClass: "bg-gradient-to-br from-[#334155] to-[#0f172a]",
     },
-    {
-      label: "Total Distance",
-      value: tripSummary ? formatTripDistance(tripSummary.totalDistance) : "0.00 Km",
-      bgClass: "bg-gradient-to-br from-[#7e22ce] to-[#581c87]",
-    },
-    {
-      label: "Average Speed",
-      value: tripSummary ? `${tripSummary.averageSpeed.toFixed(2)} Kmph` : "0.00 Kmph",
-      bgClass: "bg-gradient-to-br from-[#047857] to-[#064e3b]",
-    },
-    {
-      label: "Working Hours",
-      value: formatDuration(tripSummary?.movingDurationSeconds || 0),
-      bgClass: "bg-gradient-to-br from-[#a21caf] to-[#701a75]",
-    },
-    {
-      label: "Moving Count",
-      value: tripSummary?.movingCount || 0,
-      bgClass: "bg-gradient-to-br from-[#c2410c] to-[#7c2d12]",
-    },
-    {
-      label: "Start Time",
-      value: startTimeLabel,
-      bgClass: "bg-gradient-to-br from-[#1d4ed8] to-[#1e3a8a]",
-    },
-    {
-      label: "End Time",
-      value: endTimeLabel,
-      bgClass: "bg-gradient-to-br from-[#334155] to-[#020617]",
-    },
   ];
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-3">
         {summaryCards.map((card) => (
           <DarkGridCard
             key={card.label}
@@ -901,6 +871,426 @@ const EquipmentDetailView = ({
       </div>
 
     </div>
+  );
+};
+
+const DOORDRISHTI_API_URL = "https://doordrishti.co/report_trip_ignition_result.php";
+const DEFAULT_USER_NAME = "sagarpipe@doordrishti.com";
+const DEFAULT_HASH_KEY = "AMICGJOBSWLVIQJG";
+
+type DoordrishtiTripData = {
+  device_id?: string;
+  gps_data_id?: string;
+  start_date?: string;
+  start_location?: string;
+  end_date?: string;
+  end_date_gps_data_id?: string;
+  registration_no?: string;
+  end_location?: string;
+  distance?: number | string;
+  trip_diffrence?: string;
+};
+
+type DoordrishtiResponse = {
+  result?: number | string;
+  version?: string;
+  message?: string;
+  data?: DoordrishtiTripData[];
+};
+
+type DoordrishtiTripRow = {
+  deviceId: string;
+  gpsDataId: string;
+  startDate: string;
+  startLocation: string;
+  endDate: string;
+  endDateGpsDataId: string;
+  registrationNo: string;
+  endLocation: string;
+  distance: number;
+  tripDifference: string;
+};
+
+const safeString = (value: unknown) => String(value ?? "").trim();
+const safeNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const MOBILE_TRIP_CARD_GRADIENTS = [
+  "from-sky-100 via-cyan-50 to-white",
+  "from-emerald-100 via-green-50 to-white",
+  "from-violet-100 via-purple-50 to-white",
+  "from-amber-100 via-yellow-50 to-white",
+  "from-rose-100 via-pink-50 to-white",
+  "from-indigo-100 via-blue-50 to-white",
+];
+
+const buildDoordrishtiUrl = (
+  deviceId: string,
+  dateFrom: string,
+  dateTo: string
+) => {
+  const searchParams = new URLSearchParams({
+    device_id: deviceId,
+    date_from: dateFrom,
+    date_to: dateTo,
+    time_picker_from: "00:00:00",
+    time_picker_to: "23:59:59",
+    order_by: "0",
+    order_type: "0",
+    action: "report_trip_json",
+    user_name: DEFAULT_USER_NAME,
+    hash_key: DEFAULT_HASH_KEY,
+    rand: String(Math.floor(Date.now() / 1000)),
+  });
+
+  return `${DOORDRISHTI_API_URL}?${searchParams.toString()}`;
+};
+
+const flattenTripRows = (response: DoordrishtiResponse | null): DoordrishtiTripRow[] => {
+  const items = response?.data || [];
+
+  return items
+    .map((item) => ({
+      deviceId: safeString(item.device_id),
+      gpsDataId: safeString(item.gps_data_id),
+      startDate: safeString(item.start_date),
+      startLocation: safeString(item.start_location),
+      endDate: safeString(item.end_date),
+      endDateGpsDataId: safeString(item.end_date_gps_data_id),
+      registrationNo: safeString(item.registration_no),
+      endLocation: safeString(item.end_location),
+      distance: safeNumber(item.distance) || 0,
+      tripDifference: safeString(item.trip_diffrence),
+    }))
+    .filter(
+      (item) =>
+        item.registrationNo &&
+        item.startDate &&
+        item.endDate &&
+        item.startLocation &&
+        item.endLocation &&
+        item.tripDifference
+    );
+};
+
+const DoordrishtiTripTimeline = ({
+  deviceId,
+  dateFrom,
+  dateTo,
+}: {
+  deviceId: string;
+  dateFrom: string;
+  dateTo: string;
+}) => {
+  const [responseData, setResponseData] = useState<DoordrishtiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadTrips = async () => {
+      setLoading(true);
+
+      try {
+        const response = await fetch(buildDoordrishtiUrl(deviceId, dateFrom, dateTo), {
+          method: "GET",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload: DoordrishtiResponse = await response.json();
+
+        if (String(payload?.result) !== "0") {
+          throw new Error(payload?.message || "Unable to load Doordrishti trips.");
+        }
+
+        setResponseData(payload);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setResponseData(null);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (deviceId && dateFrom && dateTo) {
+      void loadTrips();
+    }
+
+    return () => controller.abort();
+  }, [deviceId, dateFrom, dateTo]);
+
+  const tripRows = useMemo(() => flattenTripRows(responseData), [responseData]);
+
+  const summary = useMemo(() => {
+    const totalTrips = tripRows.length;
+    const totalDistance = tripRows.reduce((sum, trip) => sum + trip.distance, 0);
+    const uniqueVehicles = new Set(
+      tripRows.map((item) => item.registrationNo).filter(Boolean)
+    ).size;
+
+    return {
+      totalTrips,
+      totalDistance: totalDistance.toFixed(2),
+      totalVehicles: uniqueVehicles,
+      dateRangeLabel: `${dateFrom} TO ${dateTo}`,
+    };
+  }, [tripRows, dateFrom, dateTo]);
+
+  const summaryMetricCards = useMemo(
+    () => [
+      {
+        label: "Total Trips",
+        value: summary.totalTrips,
+        bgClass: "from-[#222b3f] to-[#161c2d]",
+      },
+      {
+        label: "Total Distance (Km)",
+        value: summary.totalDistance,
+        bgClass: "from-[#047857] to-[#064e3b]",
+      },
+      {
+        label: "Vehicles",
+        value: summary.totalVehicles,
+        bgClass: "from-[#2563eb] to-[#3730a3]",
+      },
+    ],
+    [summary]
+  );
+
+  if (loading) {
+    return (
+      <div className="mt-6 flex min-h-[280px] items-center justify-center rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
+        <div className="flex items-center gap-3 text-slate-500">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-bold">Fetching Doordrishti trip data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tripRows.length) {
+    return (
+      <div className="mt-6 flex min-h-[260px] items-center justify-center rounded-[24px] border border-slate-200 bg-white px-6 text-center shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+            No Trips Found
+          </p>
+          <p className="mt-2 text-base font-bold text-slate-700">
+            Selected device aur date range ke liye koi trip available nahi hai.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <section className="mt-6 grid grid-cols-3 gap-2 md:gap-4 xl:grid-cols-3">
+        {summaryMetricCards.map((item) => (
+          <div
+            key={item.label}
+            className={`rounded-[16px] bg-gradient-to-br ${item.bgClass} p-3 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)] md:rounded-[20px] md:p-5`}
+          >
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/90 md:text-[11px] md:tracking-[0.18em]">
+              {item.label}
+            </p>
+            <p className="mt-1.5 text-xl font-black tracking-tight leading-none drop-shadow-md md:mt-3 md:text-[1.7rem]">
+              {item.value}
+            </p>
+            <p className="mt-1.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white/80 md:mt-2 md:text-[10px]">
+              {summary.dateRangeLabel}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] md:rounded-[28px]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-2.5 py-2.5 md:gap-3 md:px-6 md:py-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+            Doordrishti Trip Timeline
+          </p>
+          <h2 className="mt-0.5 text-base font-black text-slate-900 md:mt-1 md:text-lg">
+            {dateFrom} to {dateTo}
+          </h2>
+        </div>
+        <div className="rounded-full bg-slate-100 px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">
+          {tripRows.length} Records
+        </div>
+      </div>
+
+      <div className="md:hidden">
+        <div className="space-y-0">
+          {tripRows.map((item, index) => {
+            const mobileGradientClass =
+              MOBILE_TRIP_CARD_GRADIENTS[
+                index % MOBILE_TRIP_CARD_GRADIENTS.length
+              ] || MOBILE_TRIP_CARD_GRADIENTS[0];
+
+            return (
+              <div
+                key={`mobile-${item.gpsDataId || index}`}
+                className={`border-b border-slate-200 bg-gradient-to-r ${mobileGradientClass} px-2 py-2 last:border-b-0`}
+              >
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
+                      Voyage #{index + 1}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                      Vehicle: {item.registrationNo || "--"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <div className="rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                      Start Time
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-black leading-snug text-slate-900">
+                      {item.startDate || "--"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                      End Time
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-black leading-snug text-slate-900">
+                      {item.endDate || "--"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                      Time Covered
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-black leading-snug text-slate-900">
+                      {item.tripDifference || "--"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                      Distance
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-black leading-snug text-slate-900">
+                      {item.distance !== null ? item.distance : "--"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-1.5 rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                    Start Location
+                  </p>
+                  <div className="mt-0.5 flex items-start gap-1.5 text-[11px] font-bold leading-snug text-slate-700">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+                    <span>{item.startLocation || "--"}</span>
+                  </div>
+                </div>
+
+                <div className="mt-1.5 rounded-xl bg-white/85 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                    End Location
+                  </p>
+                  <div className="mt-0.5 flex items-start gap-1.5 text-[11px] font-bold leading-snug text-slate-700">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+                    <span>{item.endLocation || "--"}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50">
+            <tr>
+              {[
+                "Voyage no",
+                "Vehicle",
+                "Start Time",
+                "End Time",
+                "Time Covered",
+                "Distance",
+                "Start Location",
+                "End Location",
+              ].map((label) => (
+                <th
+                  key={label}
+                  className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.16em] text-slate-500 md:px-6"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {tripRows.map((item, index) => {
+              return (
+                <tr key={item.gpsDataId || index} className="hover:bg-slate-50/50 transition">
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-black text-slate-900">
+                      {index + 1}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-black text-slate-900">
+                      {item.registrationNo || "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-bold text-slate-700">
+                      {item.startDate || "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-bold text-slate-700">
+                      {item.endDate || "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-bold text-slate-700">
+                      {item.tripDifference || "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-bold text-slate-700">
+                      {item.distance !== null ? item.distance : "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-medium text-slate-600 max-w-xs truncate" title={item.startLocation}>
+                      {item.startLocation || "--"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="text-sm font-medium text-slate-600 max-w-xs truncate" title={item.endLocation}>
+                      {item.endLocation || "--"}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </>
   );
 };
 
@@ -1330,6 +1720,14 @@ export default function IOTDashbaord() {
                   currentTime={selectedDisplayDate}
                   resolvedLocationLabel={resolvedLocationLabels[record.routeId]}
                 />
+
+                {isSingleDeviceView && record.deviceId ? (
+                  <DoordrishtiTripTimeline
+                    deviceId={record.deviceId}
+                    dateFrom={appliedFilters.fromValue.split("T")[0]}
+                    dateTo={appliedFilters.toValue.split("T")[0]}
+                  />
+                ) : null}
               </div>
             );
           })}

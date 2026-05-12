@@ -307,6 +307,7 @@ const iotSection: SidebarSection = {
   icon: Cpu,
   nodes: [
     { kind: "link", key: "iot-dashboard", name: "Dashboard", path: "/iot/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "iot-doordrishti", name: "Doordrishti", path: "/iot/doordrishti", icon: Search },
   ],
 };
 
