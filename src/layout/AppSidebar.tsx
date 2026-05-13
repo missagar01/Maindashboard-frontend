@@ -297,6 +297,7 @@ const transportSection: SidebarSection = {
     { kind: "link", key: "transport-takeover", name: "Takeover", path: "/transport/takeover", icon: TimerReset },
     { kind: "link", key: "transport-handover", name: "Handover", path: "/transport/handover", icon: ArrowLeftRight },
     { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
+    { kind: "link", key: "transport-lr-bilty-register", name: "LR Bilty Register", path: "/transport/lr-bilty-register", icon: Receipt },
   ],
 };
 

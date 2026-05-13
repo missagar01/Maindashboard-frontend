@@ -105,6 +105,7 @@ import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation
 import TransportTakeover from "./pages/transport/pages/TransportTakeover";
 import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
+import TransportLrBiltyRegister from "./pages/transport/pages/TransportLrBiltyRegister";
 import DoordrishtiPage from "./pages/iot/pages/doordrishti";
 
 // Document module pages
@@ -312,6 +313,7 @@ export default function App() {
             <Route path="/transport/takeover" element={<RouteGuard><TransportTakeover /></RouteGuard>} />
             <Route path="/transport/handover" element={<RouteGuard><TransportHandover /></RouteGuard>} />
             <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
+            <Route path="/transport/lr-bilty-register" element={<RouteGuard><TransportLrBiltyRegister /></RouteGuard>} />
 
             {/* IoT Routes */}
             <Route path="/iot" element={<RouteGuard><Navigate to="/iot/doordrishti" replace /></RouteGuard>} />

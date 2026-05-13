@@ -72,6 +72,8 @@ const TRANSPORT_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   handover: "/transport/handover",
   transportreports: "/transport/reports",
   reports: "/transport/reports",
+  transportlrbiltyregister: "/transport/lr-bilty-register",
+  lrbiltyregister: "/transport/lr-bilty-register",
 };
 
 const CHECKLIST_LEGACY_PATH_ROUTE_MAP: Record<string, string> = {
@@ -221,6 +223,8 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Handover: "/transport/handover",
   "Handover Summary": "/transport/handover",
   "Transport Reports": "/transport/reports",
+  "Transport LR Bilty Register": "/transport/lr-bilty-register",
+  "LR Bilty Register": "/transport/lr-bilty-register",
   "IoT Dashboard": "/iot/dashboard",
   "IOT Dashboard": "/iot/dashboard",
   "IoT Module": "/iot/dashboard",

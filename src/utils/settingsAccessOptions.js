@@ -213,6 +213,11 @@ export const PAGE_ROUTES = {
       "Transport Reports",
       "Reports",
     ]),
+    createPageOption("Transport LR Bilty Register", "LR Bilty Register", "/transport/lr-bilty-register", [
+      "/transport/lr-bilty-register",
+      "Transport LR Bilty Register",
+      "LR Bilty Register",
+    ]),
   ],
   SUBSCRIPTION: [
     createPageOption("Document Dashboard", "Document Dashboard", "/document/dashboard", ["/document/dashboard"]),
