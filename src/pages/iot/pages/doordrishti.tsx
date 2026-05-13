@@ -806,15 +806,15 @@ export default function DoordrishtiPage() {
           {summaryMetricCards.map((item) => (
             <div
               key={item.label}
-              className={`rounded-[18px] bg-gradient-to-br ${item.bgClass} p-3 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)] md:rounded-[24px] md:p-5`}
+              className={`rounded-[18px] bg-gradient-to-br ${item.bgClass} p-2.5 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)] md:rounded-[24px] md:p-5`}
             >
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.45)] md:text-[11px] md:tracking-[0.18em]">
+              <p className="text-[9px] font-black uppercase tracking-[0.12em] text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.45)] md:text-[11px] md:tracking-[0.18em]">
                 {item.label}
               </p>
-              <p className="mt-2 text-[1.7rem] font-black tracking-tight leading-none drop-shadow-[0_2px_4px_rgba(15,23,42,0.35)] md:mt-4 md:text-3xl">
+              <p className="mt-1.5 whitespace-nowrap text-[1.05rem] font-black tracking-tight leading-[1.05] drop-shadow-[0_2px_4px_rgba(15,23,42,0.35)] sm:text-[1.2rem] md:mt-4 md:text-3xl">
                 {item.value}
               </p>
-              <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.1em] leading-snug text-white/90 drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)] md:mt-2 md:text-xs md:tracking-[0.16em]">
+              <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.08em] leading-snug text-white/90 drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)] md:mt-2 md:text-xs md:tracking-[0.16em]">
                 {item.meta}
               </p>
             </div>
