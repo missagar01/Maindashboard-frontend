@@ -601,20 +601,22 @@ export default function DoordrishtiPage() {
   const summaryMetricCards = useMemo(
     () => [
       {
-        label: "On Time",
+        label: "ON Time",
         value: summary.totalRunningLabel,
         bgClass: "from-blue-600 to-indigo-800",
         meta: summary.dateRangeLabel,
+        badge: `${summary.totalTrips} Trips`,
       },
-
       {
-        label: "Off Time",
+        label: "OFF Time",
         value: summary.totalIdleLabel,
         bgClass: "from-emerald-600 to-emerald-800",
-        meta: "IOT PUMP",
-      }, {
+        meta: summary.dateRangeLabel,
+        badge: `${summary.totalTrips} Trips`,
+      },
+      {
         label: "Total Time",
-        value: summary.totalElapsedLabel,
+        value: summary.totalRunningLabel,
         bgClass: "from-slate-900 to-slate-700",
         meta: summary.firstStartDate && summary.lastEndDate ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}` : "No trips found",
       },
@@ -811,11 +813,18 @@ export default function DoordrishtiPage() {
           {summaryMetricCards.map((item) => (
             <div
               key={item.label}
-              className={`rounded-[18px] bg-gradient-to-br ${item.bgClass} p-2.5 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)] md:rounded-[24px] md:p-5`}
+              className={`relative rounded-[18px] bg-gradient-to-br ${item.bgClass} p-2.5 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)] md:rounded-[24px] md:p-5`}
             >
-              <p className="text-[9px] font-black uppercase tracking-[0.12em] text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.45)] md:text-[11px] md:tracking-[0.18em]">
-                {item.label}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.45)] md:text-[11px] md:tracking-[0.18em]">
+                  {item.label}
+                </p>
+                {item.badge && (
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
               <p className="mt-1.5 whitespace-nowrap text-[1.05rem] font-black tracking-tight leading-[1.05] drop-shadow-[0_2px_4px_rgba(15,23,42,0.35)] sm:text-[1.2rem] md:mt-4 md:text-3xl">
                 {item.value}
               </p>
