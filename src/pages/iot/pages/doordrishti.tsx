@@ -616,7 +616,7 @@ export default function DoordrishtiPage() {
       },
       {
         label: "Total Time",
-        value: summary.totalRunningLabel,
+        value: summary.totalElapsedLabel,
         bgClass: "from-slate-900 to-slate-700",
         meta: summary.firstStartDate && summary.lastEndDate ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}` : "No trips found",
       },
