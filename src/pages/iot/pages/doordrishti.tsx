@@ -421,12 +421,7 @@ export default function DoordrishtiPage() {
   const [appliedFilters, setAppliedFilters] = useState<DoordrishtiFilters>(() =>
     buildDefaultFilters(new Date())
   );
-  const [deviceOptions, setDeviceOptions] = useState<DoordrishtiDeviceOption[]>([
-    {
-      value: DEFAULT_DEVICE_ID,
-      label: `Device ${DEFAULT_DEVICE_ID}`,
-    },
-  ]);
+  const [deviceOptions, setDeviceOptions] = useState<DoordrishtiDeviceOption[]>([]);
   const [deviceOptionsLoading, setDeviceOptionsLoading] = useState(false);
   const [responseData, setResponseData] = useState<DoordrishtiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -455,12 +450,6 @@ export default function DoordrishtiPage() {
             });
           });
 
-        if (!uniqueOptions.has(DEFAULT_DEVICE_ID)) {
-          uniqueOptions.set(DEFAULT_DEVICE_ID, {
-            value: DEFAULT_DEVICE_ID,
-            label: `Device ${DEFAULT_DEVICE_ID}`,
-          });
-        }
 
         const nextOptions = [...uniqueOptions.values()].sort((left, right) =>
           left.label.localeCompare(right.label)
@@ -478,12 +467,7 @@ export default function DoordrishtiPage() {
         }
       } catch {
         if (!cancelled) {
-          setDeviceOptions([
-            {
-              value: DEFAULT_DEVICE_ID,
-              label: `Device ${DEFAULT_DEVICE_ID}`,
-            },
-          ]);
+          setDeviceOptions([]);
         }
       } finally {
         if (!cancelled) {
