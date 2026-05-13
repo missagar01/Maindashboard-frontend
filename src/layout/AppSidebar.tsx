@@ -236,7 +236,7 @@ const hrmsSection: SidebarSection = {
     { kind: "link", key: "hrms-leave-request", name: "Leave Request", path: "/hrfms/leave-request", icon: FileText },
     { kind: "link", key: "hrms-leave-approvals", name: "Leave Approvals", path: "/hrfms/leave-approvals", icon: BadgeCheck },
     { kind: "link", key: "hrms-hr-approvals", name: "HR Approvals", path: "/hrfms/leave-hr-approvals", icon: BadgeCheck },
-   
+
     { kind: "link", key: "hrms-plant-visitor", name: "Plant Visitor", path: "/hrfms/plant-visitor", icon: ShieldCheck },
     { kind: "link", key: "hrms-plant-visitor-list", name: "Plant Visitor List", path: "/hrfms/plant-visitorlist", icon: Files },
     { kind: "link", key: "hrms-gatepass-apply", name: "Gate Pass Apply", path: "/hrfms/gatepass-apply", icon: ShieldCheck },
@@ -251,16 +251,16 @@ const storeSection: SidebarSection = {
   key: "store", title: "Store and Purchase", caption: "Material Operations", icon: ShoppingCart,
   nodes: [
     { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
-   { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
+    { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
     { kind: "link", key: "store-pending-gate-entry", name: "Pending Gate Entry", path: "/store/pending-gate-entry", icon: Truck },
-  //  { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
+    //  { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
     { kind: "link", key: "store-indent", name: "Indent", path: "/store/approve-indent", icon: FileText },
-        { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
+    { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
     { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
     { kind: "link", key: "store-create-indent", name: "Create Indent", path: "/store/user-indent", icon: FileText },
 
-         { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/store-issue", icon: ClipboardList },
-            
+    { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/store-issue", icon: ClipboardList },
+
     { kind: "link", key: "store-item-issue", name: "Item Issue", path: "/store/item-issue", icon: ClipboardList },
     { kind: "link", key: "store-inventory", name: "Inventory", path: "/store/inventory", icon: Boxes },
     { kind: "link", key: "store-returnable", name: "Returnable", path: "/store/returnable", icon: RefreshCw },
@@ -269,11 +269,11 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-approve-indent-gm", name: "Approve Indent GM", path: "/store/approve-indent-gm", icon: BadgeCheck },
     { kind: "link", key: "store-purchase-order", name: "Purchase Order", path: "/store/pending-indents", icon: ShoppingCart },
     { kind: "link", key: "store-pending-pos", name: "Pending POs", path: "/store/pending-pos", icon: Receipt },
- 
+
 
     { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
     { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
-   
+
     // { kind: "link", key: "store-grn-admin", name: "Store GRN Admin Approval", path: "/store/store-grn-admin", icon: BadgeCheck },
 
     { kind: "link", key: "store-grn-gm", name: "Store GRN GM Approval", path: "/store/store-grn-gm", icon: BadgeCheck },
@@ -306,7 +306,6 @@ const iotSection: SidebarSection = {
   caption: "Live Device Monitoring",
   icon: Cpu,
   nodes: [
-    { kind: "link", key: "iot-dashboard", name: "Dashboard", path: "/iot/dashboard", icon: LayoutDashboard },
     { kind: "link", key: "iot-doordrishti", name: "Doordrishti", path: "/iot/doordrishti", icon: Search },
   ],
 };

@@ -72,6 +72,7 @@ type DoordrishtiTripRow = {
   endLocation: string;
   distance: number;
   tripDifference: string;
+  timeCoveredSeconds: number;
 };
 
 const padNumber = (value: number) => String(value).padStart(2, "0");
@@ -140,6 +141,103 @@ const hasIotPumpKeyword = (value: unknown) => {
 const safeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatSecondsToDuration = (totalSeconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${padNumber(hours)}h ${padNumber(minutes)}m ${padNumber(seconds)}s`;
+};
+
+const formatClockTime = (value: string) => {
+  const timeMatch = safeString(value).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+
+  if (!timeMatch) {
+    return "--";
+  }
+
+  const [, hours, minutes, seconds = "00"] = timeMatch;
+
+  return `${padNumber(Number(hours))}h ${padNumber(Number(minutes))}m ${padNumber(
+    Number(seconds)
+  )}s`;
+};
+
+const getDateTimestamp = (value: string) => {
+  const normalizedValue = safeString(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const timestamp = Date.parse(normalizedValue.replace(" ", "T"));
+
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const parseDurationToSeconds = (value: string) => {
+  const normalizedValue = safeString(value);
+
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const normalizedLowerValue = normalizedValue.toLowerCase();
+  let totalSeconds = 0;
+  let matchedUnit = false;
+
+  for (const match of normalizedLowerValue.matchAll(
+    /(\d+)\s*(days?|d|hours?|hrs?|hr|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)\b/g
+  )) {
+    const amount = Number(match[1]);
+    const unit = match[2];
+
+    if (!Number.isFinite(amount)) {
+      continue;
+    }
+
+    matchedUnit = true;
+
+    if (unit.startsWith("d")) {
+      totalSeconds += amount * 24 * 60 * 60;
+      continue;
+    }
+
+    if (unit.startsWith("h")) {
+      totalSeconds += amount * 60 * 60;
+      continue;
+    }
+
+    if (unit.startsWith("m")) {
+      totalSeconds += amount * 60;
+      continue;
+    }
+
+    totalSeconds += amount;
+  }
+
+  if (matchedUnit) {
+    return totalSeconds;
+  }
+
+  const timeMatch = normalizedLowerValue.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+
+  if (timeMatch) {
+    const [, first, second, third] = timeMatch;
+
+    if (third !== undefined) {
+      return Number(first) * 60 * 60 + Number(second) * 60 + Number(third);
+    }
+
+    return Number(first) * 60 * 60 + Number(second) * 60;
+  }
+
+  const numericValue = Number(normalizedLowerValue);
+
+  return Number.isFinite(numericValue) ? numericValue : 0;
 };
 
 const MOBILE_TRIP_CARD_GRADIENTS = [
@@ -301,6 +399,7 @@ const flattenTripRows = (response: DoordrishtiResponse | null): DoordrishtiTripR
       endLocation: safeString(item.end_location),
       distance: safeNumber(item.distance) || 0,
       tripDifference: safeString(item.trip_diffrence),
+      timeCoveredSeconds: parseDurationToSeconds(safeString(item.trip_diffrence)),
     }))
     .filter(
       (item) =>
@@ -451,36 +550,77 @@ export default function DoordrishtiPage() {
 
   const summary = useMemo(() => {
     const totalTrips = tripRows.length;
-    const totalDistance = tripRows.reduce((sum, trip) => sum + trip.distance, 0);
-    const uniqueVehicles = new Set(
-      tripRows.map((item) => item.registrationNo).filter(Boolean)
-    ).size;
+    const totalRunningSeconds = tripRows.reduce(
+      (sum, trip) => sum + trip.timeCoveredSeconds,
+      0
+    );
+    let firstStartDate = "";
+    let firstStartTimestamp = Number.POSITIVE_INFINITY;
+    let lastEndDate = "";
+    let lastEndTimestamp = Number.NEGATIVE_INFINITY;
+
+    tripRows.forEach((trip) => {
+      const startTimestamp = getDateTimestamp(trip.startDate);
+
+      if (startTimestamp !== null && startTimestamp < firstStartTimestamp) {
+        firstStartTimestamp = startTimestamp;
+        firstStartDate = trip.startDate;
+      } else if (!firstStartDate && trip.startDate) {
+        firstStartDate = trip.startDate;
+      }
+
+      const endTimestamp = getDateTimestamp(trip.endDate);
+
+      if (endTimestamp !== null && endTimestamp > lastEndTimestamp) {
+        lastEndTimestamp = endTimestamp;
+        lastEndDate = trip.endDate;
+      } else if (!lastEndDate && trip.endDate) {
+        lastEndDate = trip.endDate;
+      }
+    });
+
+    let totalElapsedSeconds = 0;
+    let totalIdleSeconds = 0;
+
+    if (firstStartTimestamp !== Number.POSITIVE_INFINITY && lastEndTimestamp !== Number.NEGATIVE_INFINITY) {
+        totalElapsedSeconds = Math.max(0, Math.floor((lastEndTimestamp - firstStartTimestamp) / 1000));
+        totalIdleSeconds = Math.max(0, totalElapsedSeconds - totalRunningSeconds);
+    }
 
     return {
       totalTrips,
-      totalDistance: totalDistance.toFixed(2),
-      totalVehicles: uniqueVehicles,
+      firstStartDate,
+      firstStartTimeLabel: formatClockTime(firstStartDate),
+      lastEndDate,
+      lastEndTimeLabel: formatClockTime(lastEndDate),
+      totalRunningLabel: formatSecondsToDuration(totalRunningSeconds),
+      totalElapsedLabel: formatSecondsToDuration(totalElapsedSeconds),
+      totalIdleLabel: formatSecondsToDuration(totalIdleSeconds),
       dateRangeLabel: `${appliedFilters.dateFrom} to ${appliedFilters.dateTo}`,
     };
   }, [tripRows, appliedFilters]);
 
   const summaryMetricCards = useMemo(
     () => [
-      {
-        label: "Total Trips",
-        value: summary.totalTrips,
-        bgClass: "from-slate-900 to-slate-700",
-      },
-      {
-        label: "Total Distance (Km)",
-        value: summary.totalDistance,
-        bgClass: "from-emerald-600 to-emerald-800",
-      },
-      {
-        label: "Vehicles",
-        value: summary.totalVehicles,
+       {
+        label: "On Time",
+        value: summary.totalRunningLabel,
         bgClass: "from-blue-600 to-indigo-800",
+        meta: summary.dateRangeLabel,
       },
+      
+      {
+        label: "Off Time",
+        value: summary.totalIdleLabel,
+        bgClass: "from-emerald-600 to-emerald-800",
+        meta: "IOT PUMP",
+      },{
+        label: "Total Time",
+        value: summary.totalElapsedLabel,
+        bgClass: "from-slate-900 to-slate-700",
+        meta: summary.firstStartDate && summary.lastEndDate ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}` : "No trips found",
+      },
+     
     ],
     [summary]
   );
@@ -675,7 +815,7 @@ export default function DoordrishtiPage() {
                 {item.value}
               </p>
               <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.1em] leading-snug text-white/90 drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)] md:mt-2 md:text-xs md:tracking-[0.16em]">
-                {summary.dateRangeLabel}
+                {item.meta}
               </p>
             </div>
           ))}

@@ -61,7 +61,7 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
   {
     key: "iot",
     label: "IOT",
-    path: "/iot/dashboard",
+    path: "/iot/doordrishti",
     aliases: ["iot", "iote", "internetofthings", "telemetry", "smartfactory", "device-monitoring"],
   },
   {
@@ -112,7 +112,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
   { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
-  { key: "iot", label: "IOT", path: "/iot/dashboard" },
+  { key: "iot", label: "IOT", path: "/iot/doordrishti" },
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
   { key: "project", label: "PROJECT", path: "/project/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
