@@ -5,24 +5,48 @@ const BASE_URL = "/api/checklist/tasks";
 // =========================
 // FETCH CHECKLIST (PAGINATED)
 // =========================
-export const fetchChecklistData = async (page = 0, pageSize = 50, nameFilter = "") => {
-  const res = await axiosInstance.post(`${BASE_URL}/checklist`, { page, pageSize, nameFilter });
+export const fetchChecklistData = async (
+  page = 0,
+  pageSize = 50,
+  nameFilter = ""
+) => {
+  const res = await axiosInstance.post(`${BASE_URL}/checklist`, {
+    page,
+    pageSize,
+    nameFilter,
+  });
   return res.data;
 };
 
 // =========================
 // FETCH DELEGATION
 // =========================
-export const fetchDelegationData = async (page = 0, pageSize = 50, nameFilter = "") => {
-  const res = await axiosInstance.post(`${BASE_URL}/delegation`, { page, pageSize, nameFilter });
+export const fetchDelegationData = async (
+  page = 0,
+  pageSize = 50,
+  nameFilter = ""
+) => {
+  const res = await axiosInstance.post(`${BASE_URL}/delegation`, {
+    page,
+    pageSize,
+    nameFilter,
+  });
   return res.data;
 };
 
 // =========================
 // FETCH MAINTENANCE
 // =========================
-export const fetchMaintenanceData = async (page = 0, pageSize = 50, nameFilter = "") => {
-  const res = await axiosInstance.post(`${BASE_URL}/maintenance`, { page, pageSize, nameFilter });
+export const fetchMaintenanceData = async (
+  page = 0,
+  pageSize = 50,
+  nameFilter = ""
+) => {
+  const res = await axiosInstance.post(`${BASE_URL}/maintenance`, {
+    page,
+    pageSize,
+    nameFilter,
+  });
   return res.data;
 };
 

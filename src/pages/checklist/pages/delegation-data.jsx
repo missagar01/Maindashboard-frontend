@@ -23,10 +23,6 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
   
   const { delegationTasks, loading } = quickTaskState || {};
 
-  useEffect(() => {
-    fetchUniqueDelegationTaskDataAction();
-  }, []);
-
  // Handle checkbox selection
   const handleCheckboxChange = (taskId) => {
     if (selectedTasks.includes(taskId)) {
@@ -57,7 +53,12 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
       setSelectedTasks([])
       setSuccessMessage("Tasks deleted successfully")
       // Refresh the task list
-      fetchUniqueDelegationTaskDataAction();
+      fetchUniqueDelegationTaskDataAction({
+        page: 0,
+        pageSize: 50,
+        nameFilter,
+        searchTerm,
+      });
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -130,19 +131,18 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
   //   }
   // }, [userRole, username, isInitialized])
 
-  useEffect(() => {
-    if (isInitialized) {
-     // fetchData()
-     fetchUniqueDelegationTaskDataAction();
-    }
-  }, [fetchUniqueDelegationTaskDataAction, isInitialized])
-
   const filteredTasks = useMemo(() => {
     let filtered = delegationTasks;
     
-    filtered = filtered.filter(task =>
-  task.task_description?.toLowerCase().includes(searchTerm.toLowerCase())
-);
+    const query = searchTerm.toLowerCase();
+
+    filtered = filtered.filter((task) =>
+      !searchTerm ||
+      task.task_description?.toLowerCase().includes(query) ||
+      task.department?.toLowerCase().includes(query) ||
+      task.name?.toLowerCase().includes(query) ||
+      task.given_by?.toLowerCase().includes(query)
+    );
 
     
     if (nameFilter) {
@@ -178,7 +178,14 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, setNameFilter, set
         <div className="mt-4 bg-red-50 p-4 rounded-md text-red-800 text-center">
           {error}{" "}
           <button 
-            onClick={fetchData} 
+            onClick={() =>
+              fetchUniqueDelegationTaskDataAction({
+                page: 0,
+                pageSize: 50,
+                nameFilter,
+                searchTerm,
+              })
+            } 
             className="underline ml-2 hover:text-red-600"
           >
             Try again

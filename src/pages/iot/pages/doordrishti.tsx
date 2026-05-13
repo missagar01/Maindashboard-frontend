@@ -86,10 +86,10 @@ const DOORDRISHTI_RANGE_PRESET_OPTIONS: Array<{
   label: string;
   preset: Exclude<DoordrishtiRangePreset, "custom">;
 }> = [
-  { label: "Today", preset: "today" },
-  { label: "Weekly", preset: "weekly" },
-  { label: "Monthly", preset: "monthly" },
-];
+    { label: "Today", preset: "today" },
+    { label: "Weekly", preset: "weekly" },
+    { label: "Monthly", preset: "monthly" },
+  ];
 
 const buildFiltersForPreset = (
   preset: Exclude<DoordrishtiRangePreset, "custom">,
@@ -582,10 +582,24 @@ export default function DoordrishtiPage() {
     let totalElapsedSeconds = 0;
     let totalIdleSeconds = 0;
 
-    if (firstStartTimestamp !== Number.POSITIVE_INFINITY && lastEndTimestamp !== Number.NEGATIVE_INFINITY) {
-        totalElapsedSeconds = Math.max(0, Math.floor((lastEndTimestamp - firstStartTimestamp) / 1000));
-        totalIdleSeconds = Math.max(0, totalElapsedSeconds - totalRunningSeconds);
+    // totalElapsedSeconds will be calculated after totalIdleSeconds
+
+    const sortedTrips = [...tripRows].sort((a, b) => {
+      const timeA = getDateTimestamp(a.startDate) || 0;
+      const timeB = getDateTimestamp(b.startDate) || 0;
+      return timeA - timeB;
+    });
+
+    for (let i = 1; i < sortedTrips.length; i++) {
+      const prevEnd = getDateTimestamp(sortedTrips[i - 1].endDate);
+      const nextStart = getDateTimestamp(sortedTrips[i].startDate);
+
+      if (prevEnd !== null && nextStart !== null && nextStart > prevEnd) {
+        totalIdleSeconds += Math.floor((nextStart - prevEnd) / 1000);
+      }
     }
+
+    totalElapsedSeconds = totalRunningSeconds + totalIdleSeconds;
 
     return {
       totalTrips,
@@ -602,25 +616,25 @@ export default function DoordrishtiPage() {
 
   const summaryMetricCards = useMemo(
     () => [
-       {
+      {
         label: "On Time",
         value: summary.totalRunningLabel,
         bgClass: "from-blue-600 to-indigo-800",
         meta: summary.dateRangeLabel,
       },
-      
+
       {
         label: "Off Time",
         value: summary.totalIdleLabel,
         bgClass: "from-emerald-600 to-emerald-800",
         meta: "IOT PUMP",
-      },{
+      }, {
         label: "Total Time",
         value: summary.totalElapsedLabel,
         bgClass: "from-slate-900 to-slate-700",
         meta: summary.firstStartDate && summary.lastEndDate ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}` : "No trips found",
       },
-     
+
     ],
     [summary]
   );
@@ -680,6 +694,14 @@ export default function DoordrishtiPage() {
     }
   };
 
+  const getDeviceDisplayName = (deviceId: string, fallback: string) => {
+    const opt = deviceOptions.find((o) => o.value === deviceId);
+    if (opt && opt.label) {
+      return opt.label.split(" | ")[0];
+    }
+    return fallback || "--";
+  };
+
   return (
     <div className="min-h-screen bg-[#f7f8fc] px-1.5 pb-2 pt-1.5 text-slate-900 md:px-8 md:pb-16 md:pt-8">
       <div className="mx-auto max-w-[1600px] space-y-2 md:space-y-6">
@@ -703,11 +725,10 @@ export default function DoordrishtiPage() {
                     key={option.preset}
                     type="button"
                     onClick={() => handleRangePresetSelect(option.preset)}
-                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${
-                      isActive
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
-                    }`}
+                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${isActive
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                      }`}
                   >
                     {option.label}
                   </button>
@@ -867,7 +888,7 @@ export default function DoordrishtiPage() {
                               Voyage #{index + 1}
                             </p>
                             <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-                              Vehicle: {item.registrationNo || "--"}
+                              Vehicle: {getDeviceDisplayName(item.deviceId, item.registrationNo)}
                             </p>
                           </div>
                         </div>
@@ -969,7 +990,7 @@ export default function DoordrishtiPage() {
                           </td>
                           <td className="px-4 py-4 md:px-6">
                             <div className="text-sm font-black text-slate-900">
-                              {item.registrationNo || "--"}
+                              {getDeviceDisplayName(item.deviceId, item.registrationNo)}
                             </div>
                           </td>
                           <td className="px-4 py-4 md:px-6">

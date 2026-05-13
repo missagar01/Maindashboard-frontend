@@ -65,63 +65,33 @@ export default function QuickTask() {
     maintenanceHasMore,
   } = quickTaskState;
 
+  const allNames = [...new Set([
+    ...users.map((user) => typeof user?.user_name === "string" ? user.user_name.trim() : ""),
+    ...quickTask.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+    ...delegationTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+    ...maintenanceTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : "")
+  ])]
+    .filter((name) => name && typeof name === "string" && name.trim() !== "")
+    .sort();
+
+  const appliedNameFilter = nameFilter ? (allNames.find(
+    (name) => name.toLowerCase() === nameFilter.trim().toLowerCase()
+  ) || nameFilter.trim()) : "";
+
   useEffect(() => {
     fetchQuickTaskUsers();
     resetQuickTaskChecklistPagination();
-    fetchUniqueChecklistTaskData({ page: 0, pageSize: 50, nameFilter: "" });
+    fetchUniqueChecklistTaskData({ page: 0, pageSize: 50000, nameFilter: "" });
   }, []);
 
-  // Add this new function
+  // Infinite scroll has been removed
   const handleScroll = useCallback(() => {
-    if (!tableContainerRef.current || loading) return;
+    // Scroll handling removed
+  }, []);
 
-    const { scrollTop, scrollHeight, clientHeight } = tableContainerRef.current;
-
-    // Check if scrolled near bottom (within 100px)
-    if (scrollHeight - scrollTop - clientHeight < 100) {
-      if (activeTab === "checklist" && checklistHasMore) {
-        fetchUniqueChecklistTaskData({
-          page: checklistPage,
-          pageSize: 50,
-          nameFilter,
-          append: true,
-        });
-      } else if (activeTab === "delegation" && delegationHasMore) {
-        fetchUniqueDelegationTaskData({
-          page: delegationPage,
-          pageSize: 50,
-          nameFilter,
-          append: true,
-        });
-      } else if (activeTab === "maintenance" && maintenanceHasMore) {
-        fetchUniqueMaintenanceTaskData({
-          page: maintenancePage,
-          pageSize: 50,
-          nameFilter,
-          append: true,
-        });
-      }
-    }
-  }, [
-    loading,
-    activeTab,
-    checklistHasMore,
-    delegationHasMore,
-    maintenanceHasMore,
-    checklistPage,
-    delegationPage,
-    maintenancePage,
-    nameFilter,
-  ]);
-
-  // Add scroll listener
   useEffect(() => {
-    const container = tableContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
-  }, [handleScroll]);
+    // Scroll listener removed
+  }, []);
 
   // Edit functionality - Open modal with pre-filled data
   const handleEditClick = (task) => {
@@ -320,7 +290,7 @@ export default function QuickTask() {
       resetQuickTaskChecklistPagination();
       fetchUniqueChecklistTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: name,
         append: false,
       });
@@ -328,7 +298,7 @@ export default function QuickTask() {
       resetQuickTaskMaintenancePagination();
       fetchUniqueMaintenanceTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: name,
         append: false,
       });
@@ -336,13 +306,13 @@ export default function QuickTask() {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: name,
         append: false,
       });
     }
 
-    setDropdownOpen({ ...dropdownOpen, name: false });
+    setDropdownOpen((previous) => ({ ...previous, name: false }));
   };
 
   const handleFrequencyFilterSelect = (freq) => {
@@ -357,7 +327,7 @@ export default function QuickTask() {
       resetQuickTaskChecklistPagination();
       fetchUniqueChecklistTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: "",
         append: false,
       });
@@ -365,7 +335,7 @@ export default function QuickTask() {
       resetQuickTaskMaintenancePagination();
       fetchUniqueMaintenanceTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: "",
         append: false,
       });
@@ -373,13 +343,13 @@ export default function QuickTask() {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
         page: 0,
-        pageSize: 50,
+        pageSize: 50000,
         nameFilter: "",
         append: false,
       });
     }
 
-    setDropdownOpen({ ...dropdownOpen, name: false });
+    setDropdownOpen((previous) => ({ ...previous, name: false }));
   };
 
   const clearFrequencyFilter = () => {
@@ -387,10 +357,7 @@ export default function QuickTask() {
     setDropdownOpen({ ...dropdownOpen, frequency: false });
   };
 
-  // FIXED: Added proper null/undefined checks and string validation
-  const allNames = [...new Set(users.map((user) => user.user_name))]
-    .filter((name) => name && typeof name === "string" && name.trim() !== "")
-    .sort();
+  // FIXED: Moved allNames definition to top to correctly calculate appliedNameFilter
 
   // Keep allFrequencies as is (or modify if you want to fetch frequencies from elsewhere)
   const allFrequencies = [
@@ -407,6 +374,12 @@ export default function QuickTask() {
   const filteredChecklistTasks = quickTask
     .filter((task) => {
       if (!task) return false;
+
+      const nameFilterPass =
+        !appliedNameFilter ||
+        (task.name &&
+          task.name.trim().toLowerCase() ===
+          appliedNameFilter.trim().toLowerCase());
 
       const freqFilterPass =
         !freqFilter ||
@@ -427,7 +400,7 @@ export default function QuickTask() {
         (task.given_by &&
           task.given_by.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      return freqFilterPass && searchTermPass;
+      return nameFilterPass && freqFilterPass && searchTermPass;
     })
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -450,6 +423,12 @@ export default function QuickTask() {
   const filteredMaintenanceTasks = maintenanceTasks
     .filter((task) => {
       if (!task) return false;
+
+      const nameFilterPass =
+        !appliedNameFilter ||
+        (task.name &&
+          task.name.trim().toLowerCase() ===
+          appliedNameFilter.trim().toLowerCase());
 
       const freqFilterPass =
         !freqFilter ||
@@ -476,7 +455,7 @@ export default function QuickTask() {
         (task.priority &&
           task.priority.toLowerCase().includes(query));
 
-      return freqFilterPass && searchTermPass;
+      return nameFilterPass && freqFilterPass && searchTermPass;
     })
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -523,10 +502,10 @@ export default function QuickTask() {
             </h1>
             <p className="text-gray-500 text-xs md:text-sm mt-0.5">
               {activeTab === "checklist"
-                ? `Managing ${quickTask.length} checklist items`
+                ? `Managing ${filteredChecklistTasks.length} checklist items`
                 : activeTab === "delegation"
                   ? "Managing delegation tasks"
-                  : `Managing ${maintenanceTasks.length} maintenance items`}
+                  : `Managing ${filteredMaintenanceTasks.length} maintenance items`}
             </p>
           </div>
         </div>
@@ -546,7 +525,7 @@ export default function QuickTask() {
                 fetchUniqueChecklistTaskData({
                   page: 0,
                   pageSize: 50,
-                  nameFilter,
+                  nameFilter: appliedNameFilter,
                 });
               }}
             >
@@ -564,8 +543,8 @@ export default function QuickTask() {
                 resetQuickTaskDelegationPagination();
                 fetchUniqueDelegationTaskData({
                   page: 0,
-                  pageSize: 50,
-                  nameFilter,
+                  pageSize: 50000,
+                  nameFilter: appliedNameFilter,
                 });
               }}
             >
@@ -583,8 +562,8 @@ export default function QuickTask() {
                 resetQuickTaskMaintenancePagination();
                 fetchUniqueMaintenanceTaskData({
                   page: 0,
-                  pageSize: 50,
-                  nameFilter,
+                  pageSize: 50000,
+                  nameFilter: appliedNameFilter,
                 });
               }}
             >
@@ -629,21 +608,35 @@ export default function QuickTask() {
 
                         if (typedName === "") {
                           clearNameFilter();
-                        } else if (allNames.includes(typedName)) {
-                          handleNameFilterSelect(typedName);
+                        } else {
+                          const exactName = allNames.find(
+                            (name) =>
+                              name.toLowerCase() === typedName.trim().toLowerCase()
+                          );
+
+                          if (exactName) {
+                            handleNameFilterSelect(exactName);
+                          }
                         }
                       }}
                       onFocus={() => setDropdownOpen(prev => ({ ...prev, name: true }))}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
+                          const exactName = allNames.find(
+                            (name) =>
+                              name.toLowerCase() === nameFilter.trim().toLowerCase()
+                          );
+
                           if (nameFilter === "") {
                             clearNameFilter();
+                          } else if (exactName) {
+                            handleNameFilterSelect(exactName);
                           } else {
-                            handleNameFilterSelect(nameFilter);
+                            handleNameFilterSelect(nameFilter.trim());
                           }
                         }
                       }}
-                      className={`w-full sm:w-44 pl-9 pr-8 py-2 border rounded-xl text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-100 ${nameFilter ? 'border-red-200 bg-red-50/30 text-red-600' : 'border-gray-200 bg-white text-gray-600'}`}
+                      className={`w-full sm:w-44 pl-9 pr-8 py-2 border rounded-xl text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-red-100 ${appliedNameFilter ? 'border-red-200 bg-red-50/30 text-red-600' : 'border-gray-200 bg-white text-gray-600'}`}
                     />
 
                     {nameFilter && (
@@ -666,14 +659,14 @@ export default function QuickTask() {
                     <div className="absolute z-[50] mt-2 w-full sm:w-64 rounded-xl bg-white shadow-2xl border border-gray-100 max-h-60 overflow-auto top-full right-0 p-1 animate-in fade-in slide-in-from-top-2 duration-200">
                       <button
                         onClick={clearNameFilter}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold mb-1 transition-all ${!nameFilter ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold mb-1 transition-all ${!appliedNameFilter ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                       >
                         All Staff Members
                       </button>
                       {allNames
                         .filter(name =>
                           !nameFilter ||
-                          name.toLowerCase().includes(nameFilter.toLowerCase())
+                          name.toLowerCase().includes(nameFilter.trim().toLowerCase())
                         )
                         .map((name) => (
                           <button
@@ -682,14 +675,14 @@ export default function QuickTask() {
                               handleNameFilterSelect(name);
                               setDropdownOpen({ ...dropdownOpen, name: false });
                             }}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${nameFilter === name ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${appliedNameFilter === name ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                           >
                             {name}
-                            {nameFilter === name && <div className="w-1.5 h-1.5 rounded-full bg-red-600" />}
+                            {appliedNameFilter === name && <div className="w-1.5 h-1.5 rounded-full bg-red-600" />}
                           </button>
                         ))}
                       {allNames.filter(name =>
-                        name.toLowerCase().includes(nameFilter.toLowerCase())
+                        name.toLowerCase().includes(nameFilter.trim().toLowerCase())
                       ).length === 0 && (
                           <div className="px-3 py-4 text-center text-gray-400 text-[10px] italic">
                             No members found
@@ -761,11 +754,23 @@ export default function QuickTask() {
           <button
             onClick={() => {
               if (activeTab === "checklist") {
-                fetchUniqueChecklistTaskData({ page: 0, pageSize: 50, nameFilter });
+                fetchUniqueChecklistTaskData({
+                  page: 0,
+                  pageSize: 50000,
+                  nameFilter: appliedNameFilter,
+                });
               } else if (activeTab === "maintenance") {
-                fetchUniqueMaintenanceTaskData({ page: 0, pageSize: 50, nameFilter });
+                fetchUniqueMaintenanceTaskData({
+                  page: 0,
+                  pageSize: 50000,
+                  nameFilter: appliedNameFilter,
+                });
               } else {
-                fetchUniqueDelegationTaskData({ page: 0, pageSize: 50, nameFilter });
+                fetchUniqueDelegationTaskData({
+                  page: 0,
+                  pageSize: 50000,
+                  nameFilter: appliedNameFilter,
+                });
               }
             }}
             className="underline ml-2 hover:text-red-600"
@@ -1117,11 +1122,11 @@ export default function QuickTask() {
                           <div className="flex flex-col items-center gap-2">
                             <Filter size={24} className="opacity-20" />
                             <span>
-                              {!nameFilter
-                                ? "Please select a doer from the filter above"
-                                : searchTerm || freqFilter
-                                  ? "No tasks matching your search filters"
-                                  : "No tasks found for this doer"
+                              {searchTerm || freqFilter
+                                ? "No tasks matching your search filters"
+                                : appliedNameFilter
+                                  ? "No tasks found for this doer"
+                                  : "No checklist tasks found"
                               }
                             </span>
                           </div>
@@ -1263,11 +1268,11 @@ export default function QuickTask() {
                           <div className="flex flex-col items-center gap-2">
                             <Filter size={24} className="opacity-20" />
                             <span>
-                              {!nameFilter
-                                ? "Please select a doer from the filter above"
-                                : searchTerm || freqFilter
-                                  ? "No maintenance tasks matching your search filters"
-                                  : "No maintenance tasks found for this doer"
+                              {searchTerm || freqFilter
+                                ? "No maintenance tasks matching your search filters"
+                                : appliedNameFilter
+                                  ? "No maintenance tasks found for this doer"
+                                  : "No maintenance tasks found"
                               }
                             </span>
                           </div>

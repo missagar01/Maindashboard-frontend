@@ -421,7 +421,11 @@ export const useChecklistCompatibility = () => {
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
-      const result = await quickTaskApi.fetchChecklistData(page, pageSize, nameFilter);
+      const result = await quickTaskApi.fetchChecklistData(
+        page,
+        pageSize,
+        nameFilter
+      );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;
 
@@ -453,7 +457,11 @@ export const useChecklistCompatibility = () => {
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
-      const result = await quickTaskApi.fetchDelegationData(page, pageSize, nameFilter);
+      const result = await quickTaskApi.fetchDelegationData(
+        page,
+        pageSize,
+        nameFilter
+      );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;
 
@@ -485,7 +493,11 @@ export const useChecklistCompatibility = () => {
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
-      const result = await quickTaskApi.fetchMaintenanceData(page, pageSize, nameFilter);
+      const result = await quickTaskApi.fetchMaintenanceData(
+        page,
+        pageSize,
+        nameFilter
+      );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;
 
