@@ -180,7 +180,7 @@ const AppHeader: React.FC = () => {
     if (allowedPageRoutes.some((route) => route.startsWith("/iot"))) {
       pushNavItem(
         resolvePortalNavItem("iot"),
-        getFirstAllowedPathForModule("/iot", user) || "/iot/dashboard"
+        getFirstAllowedPathForModule("/iot", user) || "/iot/doordrishti"
       );
     }
     if (allowedPageRoutes.some((route) => route.startsWith("/project"))) {

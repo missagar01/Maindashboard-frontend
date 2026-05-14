@@ -28,6 +28,7 @@ import {
   Warehouse,
   Navigation,
   Cpu,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -308,6 +309,7 @@ const iotSection: SidebarSection = {
   icon: Cpu,
   nodes: [
     { kind: "link", key: "iot-doordrishti", name: "Doordrishti", path: "/iot/doordrishti", icon: Search },
+    { kind: "link", key: "iot-pum", name: "IotProgressReport", path: "/iot/pum", icon: Activity },
   ],
 };
 

@@ -107,6 +107,8 @@ import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
 import TransportLrBiltyRegister from "./pages/transport/pages/TransportLrBiltyRegister";
 import DoordrishtiPage from "./pages/iot/pages/doordrishti";
+import IotPumPage from './pages/iot/pages/iotpum';
+
 
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
@@ -150,6 +152,7 @@ import DPRForm from "./pages/project/components/DPRForm";
 import MaterialInventory from "./pages/project/components/MaterialInventory";
 import BOQBuilder from "./pages/project/components/BOQBuilder";
 import UserManagement from "./pages/project/components/UserManagement";
+
 
 const ChecklistLegacyParamRedirect = ({ basePath }: { basePath: string }) => {
   const params = useParams();
@@ -318,7 +321,7 @@ export default function App() {
             {/* IoT Routes */}
             <Route path="/iot" element={<RouteGuard><Navigate to="/iot/doordrishti" replace /></RouteGuard>} />
             <Route path="/iot/doordrishti" element={<RouteGuard><DoordrishtiPage /></RouteGuard>} />
-
+            <Route path="/iot/pum" element={<RouteGuard><IotPumPage /></RouteGuard>} />
             {/* Project Routes */}
             <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />
             <Route path="/project/dashboard" element={<RouteGuard><ProjectDashboardPage /></RouteGuard>} />

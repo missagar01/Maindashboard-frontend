@@ -225,14 +225,17 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Transport Reports": "/transport/reports",
   "Transport LR Bilty Register": "/transport/lr-bilty-register",
   "LR Bilty Register": "/transport/lr-bilty-register",
-  "IoT Dashboard": "/iot/dashboard",
-  "IOT Dashboard": "/iot/dashboard",
-  "IoT Module": "/iot/dashboard",
-  "IOT Module": "/iot/dashboard",
+  "IoT Dashboard": "/iot/doordrishti",
+  "IOT Dashboard": "/iot/doordrishti",
+  "IoT Module": "/iot/doordrishti",
+  "IOT Module": "/iot/doordrishti",
   Doordrishti: "/iot/doordrishti",
   "Doordrishti Alerts": "/iot/doordrishti",
   "IoT Doordrishti": "/iot/doordrishti",
   "IOT Doordrishti": "/iot/doordrishti",
+  PUM: "/iot/pum",
+  "IoT PUM": "/iot/pum",
+  "IOT PUM": "/iot/pum",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -676,7 +679,7 @@ const normalizePageEntryToRoute = (
     if (hasHrfms) return "/hrfms/dashboard";
     if (hasStore) return "/store/dashboard";
     if (hasTransport) return "/transport/dashboard";
-    if (hasIot) return "/iot/dashboard";
+    if (hasIot) return "/iot/doordrishti";
     if (hasProject) return "/project/dashboard";
     if (hasDocument) return "/document/dashboard";
     if (hasChecklist) return "/checklist";
@@ -710,7 +713,7 @@ const normalizePageEntryToRoute = (
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
     if (normalized === "/transport") return "/transport/dashboard";
-    if (normalized === "/iot") return "/iot/dashboard";
+    if (normalized === "/iot") return "/iot/doordrishti";
     if (normalized === "/project") return "/project/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
     if (normalized === "/gatepass") return "/gatepass/approvals";
@@ -772,8 +775,8 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
   if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
-  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
+  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");
