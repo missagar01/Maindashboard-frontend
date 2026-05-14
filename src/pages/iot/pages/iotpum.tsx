@@ -492,19 +492,13 @@ const buildPumpProgressSummary = ({
       chartValue: totalIdleSeconds,
     },
     {
-      key: "no-data",
-      label: "Total Time",
-      valueLabel: formatSecondsToDuration(totalPossibleSeconds),
-      dotClass: "bg-slate-300",
-      ringColor: "#94a3b8",
-      chartValue: noDataSeconds,
-    },
-    {
       key: "captured",
-      label: "Captured",
+      label: "Total Time",
       valueLabel: formatSecondsToDuration(totalElapsedSeconds),
       dotClass: "bg-slate-900",
     },
+
+
   ];
 
   const hasData = totalElapsedSeconds > 0 || totalTrips > 0;
