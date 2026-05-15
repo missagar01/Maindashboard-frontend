@@ -15,7 +15,7 @@ const globalWindow = globalThis as typeof globalThis & {
 };
 
 if (import.meta.env.PROD && !globalWindow.__PRODUCTION_CONSOLE_MUTED__) {
-  const noop = () => {};
+  const noop = () => { };
   const methods = ["log", "info", "warn", "error", "debug", "trace"] as const;
   const browserConsole = window.console as unknown as Record<string, (...args: unknown[]) => void>;
 
@@ -41,3 +41,6 @@ createRoot(rootElement).render(
     </ThemeProvider>
   </StrictMode>
 );
+
+
+
