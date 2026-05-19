@@ -299,8 +299,8 @@ const transportSection: SidebarSection = {
     { kind: "link", key: "transport-handover", name: "Handover", path: "/transport/handover", icon: ArrowLeftRight },
     { kind: "link", key: "transport-reports", name: "Reports", path: "/transport/reports", icon: ClipboardList },
     { kind: "link", key: "transport-lr-bilty-register", name: "LR Bilty Register", path: "/transport/lr-bilty-register", icon: Receipt },
-    { kind: "link", key: "transport-do-dpo-report", name: "DO / DPO Report", path: "/transport/do-dpo-report", icon: FileText },
-    { kind: "link", key: "transport-inward-lr-report", name: "Inward LR Report", path: "/transport/inward-lr-report", icon: FileText },
+    { kind: "link", key: "transport-do-dpo-report", name: "DO / PO Report", path: "/transport/do-dpo-report", icon: FileText },
+    { kind: "link", key: "transport-inward-lr-report", name: "Inward  Report", path: "/transport/inward-lr-report", icon: FileText },
     { kind: "link", key: "transport-outward-lr-report", name: "Outward Report", path: "/transport/outward-lr-report", icon: Receipt },
   ],
 };
