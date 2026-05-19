@@ -9,9 +9,13 @@ import type {
   AnalyticsBreakdownItem,
   AnalyticsTrendPoint,
   HandoverEfficiencyPoint,
+  HandoverListRecord,
+  HandoverListResult,
   HandoverSummary,
   HandoverTopEmployee,
   FrequentSwitcher,
+  TakeoverListRecord,
+  TakeoverListResult,
   TakeoverRecentRecord,
   TakeoverSummary,
 } from "../../pages/transport/analyticsTypes";
@@ -141,6 +145,41 @@ const mapHandoverEfficiencyTrend = (items: any[]): HandoverEfficiencyPoint[] =>
       ),
     }))
     .filter((item) => item.month !== "Unknown");
+
+const mapHandoverList = (items: any[]): HandoverListRecord[] =>
+  items.map((item) => ({
+    id: toSafeString(
+      item?.id ?? item?.vehicle_handover_id ?? item?.value,
+      `handover-${Math.random().toString(36).slice(2)}`
+    ),
+    vehicleHandoverCode: toSafeString(
+      item?.vehicle_handover_code ?? item?.label,
+      "Not available"
+    ),
+    branchName: toSafeString(item?.branch_name, "Not available"),
+    vehicleHandoverDate: toSafeString(item?.vehicle_handover_date, ""),
+    handoverDriverName: toSafeString(item?.handOverByDriver_name, "Not available"),
+    handoverVehicleNo: toSafeString(item?.handover_vehicle_no, "Not available"),
+    handoverEmployeeName: toSafeString(item?.handOverByEmployee_name, "Not available"),
+    takeOverCompleted: Boolean(item?.takeOver_completed),
+  }));
+
+const mapTakeoverList = (items: any[]): TakeoverListRecord[] =>
+  items.map((item) => ({
+    id: toSafeString(
+      item?.id ?? item?.vehicle_takeover_id ?? item?.value,
+      `takeover-${Math.random().toString(36).slice(2)}`
+    ),
+    vehicleTakeoverCode: toSafeString(
+      item?.vehicle_takeover_code ?? item?.label,
+      "Not available"
+    ),
+    branchName: toSafeString(item?.branch_name, "Not available"),
+    vehicleTakeoverDate: toSafeString(item?.vehicle_takeover_date, ""),
+    takeOverToDriverName: toSafeString(item?.takeOverToDriver_name, "Not available"),
+    takeOverVehicleNo: toSafeString(item?.takeOver_vehicle_no, "Not available"),
+    takeOverToEmployeeName: toSafeString(item?.takeOverToEmployee_name, "Not available"),
+  }));
 
 const normalizeTakeoverSummary = (response: any): TakeoverSummary => {
   const payload = unwrapPayload(response);
@@ -298,4 +337,80 @@ export const getHandoverSummary = async (
   return normalizeHandoverSummary(response);
 };
 
+export const getHandoverRegister = async (
+  options: AnalyticsRequestOptions = {}
+): Promise<HandoverListResult> => {
+  const { signal } = options;
 
+  const response = await transportApiRequest(
+    "entity/vehicleHandOverTakeOver/get-optimized-vehicle-handover-list",
+    {
+      signal,
+      params: {
+        page: 1,
+        limit: 50,
+        "visible_columns[vehicle_handover_code]": true,
+        "visible_columns[branch_name]": true,
+        "visible_columns[vehicle_handover_date]": true,
+        "visible_columns[handOverByDriver_name]": true,
+        "visible_columns[handover_vehicle_no]": true,
+        "visible_columns[handOverByEmployee_name]": true,
+        "visible_columns[filter]": true,
+        "visible_columns[rowSelection]": true,
+        "visible_columns[index]": true,
+      },
+    }
+  );
+
+  const records = mapHandoverList(toArray(response?.data?.data));
+  const totalCount = toSafeNumber(
+    response?.data?.count ??
+      response?.data?.paginationMetadata?.total ??
+      response?.data?.paginationMetadata?.totalRecords ??
+      records.length
+  );
+
+  return {
+    records,
+    totalCount,
+  };
+};
+
+export const getTakeoverRegister = async (
+  options: AnalyticsRequestOptions = {}
+): Promise<TakeoverListResult> => {
+  const { signal } = options;
+
+  const response = await transportApiRequest(
+    "entity/vehicleHandOverTakeOver/get-optimized-vehicle-takeover-list",
+    {
+      signal,
+      params: {
+        page: 1,
+        limit: 500,
+        "visible_columns[vehicle_takeover_code]": true,
+        "visible_columns[branch_name]": true,
+        "visible_columns[vehicle_takeover_date]": true,
+        "visible_columns[takeOverToDriver_name]": true,
+        "visible_columns[takeOver_vehicle_no]": true,
+        "visible_columns[takeOverToEmployee_name]": true,
+        "visible_columns[filter]": true,
+        "visible_columns[rowSelection]": true,
+        "visible_columns[index]": true,
+      },
+    }
+  );
+
+  const records = mapTakeoverList(toArray(response?.data?.data));
+  const totalCount = toSafeNumber(
+    response?.data?.count ??
+      response?.data?.paginationMetadata?.total ??
+      response?.data?.paginationMetadata?.totalRecords ??
+      records.length
+  );
+
+  return {
+    records,
+    totalCount,
+  };
+};

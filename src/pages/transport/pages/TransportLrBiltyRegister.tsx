@@ -38,16 +38,38 @@ const safeText = (value: unknown, fallback = "--") => {
   return normalized || fallback;
 };
 
+const padDateSegment = (value: number) => String(value).padStart(2, "0");
+
+const getDateKey = (value: unknown) => {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) return "";
+
+  const isoDateMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) {
+    return isoDateMatch[1];
+  }
+
+  const parsedDate = new Date(rawValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return `${parsedDate.getFullYear()}-${padDateSegment(
+    parsedDate.getMonth() + 1
+  )}-${padDateSegment(parsedDate.getDate())}`;
+};
+
 const formatDate = (value: unknown) => {
   const rawValue = String(value ?? "").trim();
   if (!rawValue) return "--";
 
-  const parsedDate = new Date(rawValue);
-  if (Number.isNaN(parsedDate.getTime())) {
+  const dateKey = getDateKey(rawValue);
+  if (!dateKey) {
     return rawValue;
   }
 
-  return dateFormatter.format(parsedDate);
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return dateFormatter.format(new Date(year, month - 1, day));
 };
 
 const formatQuantity = (value: unknown) => {
@@ -81,13 +103,49 @@ const searchableValues = (record: LrBiltyRegisterRecord) => [
   record.item_name,
 ];
 
+const isAbortLikeError = (error: unknown) => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const errorName = String((error as { name?: unknown }).name || "");
+  return errorName === "CanceledError" || errorName === "AbortError";
+};
+
+const getLoadErrorMessage = (error: unknown) => {
+  if (error && typeof error === "object") {
+    const typedError = error as {
+      message?: unknown;
+      response?: {
+        data?: {
+          message?: unknown;
+        };
+      };
+    };
+
+    const responseMessage = typedError.response?.data?.message;
+    if (typeof responseMessage === "string" && responseMessage.trim()) {
+      return responseMessage;
+    }
+
+    if (typeof typedError.message === "string" && typedError.message.trim()) {
+      return typedError.message;
+    }
+  }
+
+  return "LR Bilty Register data load nahi ho paya.";
+};
+
 export default function TransportLrBiltyRegister() {
   const [records, setRecords] = useState<LrBiltyRegisterRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const isFetching = loading || refreshing;
+  const hasDateFilter = Boolean(fromDate || toDate);
 
   const loadRecords = async (signal?: AbortSignal, showRefreshing = false) => {
     if (showRefreshing) {
@@ -101,16 +159,12 @@ export default function TransportLrBiltyRegister() {
     try {
       const response = await fetchLrBiltyRegisterReport({}, signal);
       setRecords(Array.isArray(response.records) ? response.records : []);
-    } catch (loadError: any) {
-      if (loadError?.name === "CanceledError" || loadError?.name === "AbortError") {
+    } catch (loadError: unknown) {
+      if (isAbortLikeError(loadError)) {
         return;
       }
 
-      setError(
-        loadError?.response?.data?.message ||
-          loadError?.message ||
-          "LR Bilty Register data load nahi ho paya."
-      );
+      setError(getLoadErrorMessage(loadError));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -126,16 +180,27 @@ export default function TransportLrBiltyRegister() {
 
   const filteredRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      return records;
-    }
 
-    return records.filter((record) =>
-      searchableValues(record).some((value) =>
+    return records.filter((record) => {
+      const recordDate = getDateKey(record.lr_bilty_date);
+
+      if (fromDate && (!recordDate || recordDate < fromDate)) {
+        return false;
+      }
+
+      if (toDate && (!recordDate || recordDate > toDate)) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return searchableValues(record).some((value) =>
         String(value ?? "").toLowerCase().includes(query)
-      )
-    );
-  }, [records, searchTerm]);
+      );
+    });
+  }, [fromDate, records, searchTerm, toDate]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -154,7 +219,7 @@ export default function TransportLrBiltyRegister() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-end">
               <div className="relative min-w-0 sm:w-[320px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -165,6 +230,47 @@ export default function TransportLrBiltyRegister() {
                   className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-sky-400"
                 />
               </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    From Date
+                  </span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    max={toDate || undefined}
+                    onChange={(event) => setFromDate(event.target.value)}
+                    className="mt-1 w-full bg-transparent text-sm font-semibold text-slate-700 outline-none [color-scheme:light]"
+                  />
+                </label>
+
+                <label className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    To Date
+                  </span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    min={fromDate || undefined}
+                    onChange={(event) => setToDate(event.target.value)}
+                    className="mt-1 w-full bg-transparent text-sm font-semibold text-slate-700 outline-none [color-scheme:light]"
+                  />
+                </label>
+              </div>
+
+              {hasDateFilter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Clear Dates
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -182,6 +288,15 @@ export default function TransportLrBiltyRegister() {
             <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               Fetching live report data...
+            </div>
+          ) : null}
+
+          {hasDateFilter ? (
+            <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-violet-700">
+              <span>Date Filter</span>
+              <span className="text-xs font-semibold normal-case tracking-normal text-violet-900">
+                {fromDate ? formatDate(fromDate) : "Start"} - {toDate ? formatDate(toDate) : "End"}
+              </span>
             </div>
           ) : null}
 
@@ -295,7 +410,7 @@ export default function TransportLrBiltyRegister() {
                         colSpan={11}
                         className="px-4 py-16 text-center text-sm font-semibold text-slate-500"
                       >
-                        Search ke hisaab se koi record nahi mila.
+                        Search ya date filter ke hisaab se koi record nahi mila.
                       </td>
                     </tr>
                   ) : (

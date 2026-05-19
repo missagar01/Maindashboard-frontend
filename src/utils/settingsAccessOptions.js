@@ -219,6 +219,24 @@ export const PAGE_ROUTES = {
       "Transport LR Bilty Register",
       "LR Bilty Register",
     ]),
+    createPageOption("Transport DO DPO Report", "DO / DPO Report", "/transport/do-dpo-report", [
+      "/transport/do-dpo-report",
+      "Transport DO DPO Report",
+      "DO / DPO Report",
+      "DO / PO Report",
+    ]),
+    createPageOption("Transport Inward LR Report", "Inward LR Report", "/transport/inward-lr-report", [
+      "/transport/inward-lr-report",
+      "Transport Inward LR Report",
+      "Inward LR Report",
+      "Inward Report",
+    ]),
+    createPageOption("Transport Outward LR Report", "Outward LR Report", "/transport/outward-lr-report", [
+      "/transport/outward-lr-report",
+      "Transport Outward LR Report",
+      "Outward LR Report",
+      "Outward Report",
+    ]),
   ],
   IOT: [
     createPageOption("Doordrishti", "Doordrishti", "/iot/doordrishti", [

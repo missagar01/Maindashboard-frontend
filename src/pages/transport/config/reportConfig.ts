@@ -20,6 +20,7 @@ export type ReportCategoryId =
 
 export type ReportServiceKey =
   | "lrBilty"
+  | "loadingOrderRegister"
   | "pumpWiseDieselAdvance"
   | "vehicleWiseDieselAdvance"
   | "maintenanceRequests"
@@ -28,6 +29,7 @@ export type ReportServiceKey =
 
 export type ReportStatsKind =
   | "lr"
+  | "loadingOrder"
   | "diesel"
   | "maintenance"
   | "allowance"
@@ -126,6 +128,7 @@ export interface ReportConfig {
 
 export const transportReportEndpoints: Record<ReportServiceKey, string> = {
   lrBilty: "/reports/lr-bilty-register",
+  loadingOrderRegister: "/reports/loading-order-register",
   pumpWiseDieselAdvance: "/reports/pump-wise-diesel-advance",
   vehicleWiseDieselAdvance: "/reports/vehicle-wise-diesel-advance",
   maintenanceRequests: "/fleets/get-maintenance-requests",
@@ -176,14 +179,33 @@ const buildDateRangeFilter = (
   dateKeys: { from, to },
 });
 
+const formatDateForFilter = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
 const buildRecentDateDefaults = (days = 30, from = "fromDate", to = "toDate") => {
   const toDate = new Date();
   const fromDate = new Date(toDate);
   fromDate.setDate(toDate.getDate() - (days - 1));
 
   return {
-    [from]: fromDate.toISOString().slice(0, 10),
-    [to]: toDate.toISOString().slice(0, 10),
+    [from]: formatDateForFilter(fromDate),
+    [to]: formatDateForFilter(toDate),
+  };
+};
+
+const buildCurrentMonthDateDefaults = (from = "fromDate", to = "toDate") => {
+  const now = new Date();
+  const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  return {
+    [from]: formatDateForFilter(fromDate),
+    [to]: formatDateForFilter(toDate),
   };
 };
 
@@ -276,6 +298,79 @@ const lrDrilldownRules: ReportDrilldownRule[] = [
 ];
 
 const lrDefaultSort = [{ id: "lr_bilty_date", desc: true }];
+
+const loadingOrderDateFilter = buildDateRangeFilter("Date Range", "fromDate", "toDate", true);
+
+const loadingOrderColumns: ReportColumn[] = [
+  {
+    key: "loading_order_code",
+    label: "DO / PO No",
+    sortable: true,
+    sourceKeys: ["loading_order_code", "label"],
+  },
+  {
+    key: "loading_order_date",
+    label: "Order Date",
+    type: "date",
+    sortable: true,
+  },
+  {
+    key: "branch_name",
+    label: "Branch",
+    sortable: true,
+  },
+  {
+    key: "item_name",
+    label: "Item",
+    sortable: true,
+  },
+  {
+    key: "quantity",
+    label: "Quantity",
+    type: "number",
+    align: "right",
+    sortable: true,
+  },
+  {
+    key: "remaining_quantity",
+    label: "Remaining Qty",
+    type: "number",
+    align: "right",
+    sortable: true,
+  },
+  {
+    key: "consignor_name",
+    label: "Consignor",
+    sortable: true,
+  },
+  {
+    key: "consignee_name",
+    label: "Consignee",
+    sortable: true,
+  },
+  {
+    key: "source_location_name",
+    label: "Source",
+    sortable: true,
+  },
+  {
+    key: "destination_location_name",
+    label: "Destination",
+    sortable: true,
+  },
+];
+
+const loadingOrderDrilldownRules: ReportDrilldownRule[] = [
+  { key: "loading_order_code", label: "DO / PO", filterType: "string" },
+  { key: "branch_name", label: "Branch", filterType: "string" },
+  { key: "item_name", label: "Item", filterType: "string" },
+  { key: "consignor_name", label: "Consignor", filterType: "string" },
+  { key: "consignee_name", label: "Consignee", filterType: "string" },
+  { key: "source_location_name", label: "Source", filterType: "string" },
+  { key: "destination_location_name", label: "Destination", filterType: "string" },
+];
+
+const loadingOrderDefaultSort = [{ id: "loading_order_date", desc: true }];
 
 const vehicleWiseFuelColumns: ReportColumn[] = [
   {
@@ -525,6 +620,70 @@ export const reportCategories: ReportCategoryConfig[] = [
 ];
 
 export const reportsMasterConfig: ReportConfig[] = [
+  {
+    id: "do-po-register",
+    title: "DO / DPO Report",
+    description: "Current-month loading order register with quantity, party, and route visibility.",
+    category: "material",
+    icon: ClipboardList,
+    color: "bg-sky-500",
+    endpoint: transportReportEndpoints.loadingOrderRegister,
+    serviceKey: "loadingOrderRegister",
+    rowPrimaryKey: "loading_order_id",
+    statsKind: "loadingOrder",
+    searchPlaceholder: "Search DO / PO, item, branch, or party",
+    defaultFilters: buildCurrentMonthDateDefaults(),
+    defaultSort: loadingOrderDefaultSort,
+    filters: [
+      loadingOrderDateFilter,
+      {
+        key: "loading_order_code",
+        label: "DO / PO No",
+        type: "string",
+        placeholder: "Enter DO / PO number",
+      },
+      { key: "branch_name", label: "Branch", type: "string", placeholder: "Search branch" },
+      { key: "item_name", label: "Item", type: "string", placeholder: "Search item" },
+      {
+        key: "consignor_name",
+        label: "Consignor",
+        type: "string",
+        placeholder: "Search consignor",
+      },
+      {
+        key: "consignee_name",
+        label: "Consignee",
+        type: "string",
+        placeholder: "Search consignee",
+      },
+      {
+        key: "source_location_name",
+        label: "Source",
+        type: "string",
+        placeholder: "Search source",
+      },
+      {
+        key: "destination_location_name",
+        label: "Destination",
+        type: "string",
+        placeholder: "Search destination",
+      },
+      {
+        key: "quantity",
+        label: "Quantity",
+        type: "decimal",
+        defaultOperation: "gte",
+      },
+      {
+        key: "remaining_quantity",
+        label: "Remaining Qty",
+        type: "decimal",
+        defaultOperation: "gte",
+      },
+    ],
+    columns: loadingOrderColumns,
+    drilldownRules: loadingOrderDrilldownRules,
+  },
   {
     id: "material-details-loading-unloading",
     title: "Material Details (Loading - Unloading)",

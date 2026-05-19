@@ -57,6 +57,22 @@ const sumByKeys = (records: any[], keys: string[]) =>
 
 const buildStats = (config: ReportConfig, records: any[], totalCount: number) => {
   switch (config.statsKind) {
+    case "loadingOrder": {
+      const totalQuantity = sumByKeys(records, ["quantity"]);
+      const remainingQuantity = sumByKeys(records, ["remaining_quantity"]);
+      const branches = uniqueCount(records, ["branch_name", "branch_code"]);
+      const consignors = uniqueCount(records, ["consignor_name"]);
+      const consignees = uniqueCount(records, ["consignee_name"]);
+
+      return [
+        { label: "Total Orders", value: numberFormatter.format(totalCount || records.length) },
+        { label: "Total Quantity", value: numberFormatter.format(totalQuantity) },
+        { label: "Remaining Qty", value: numberFormatter.format(remainingQuantity) },
+        { label: "Branches", value: numberFormatter.format(branches) },
+        { label: "Consignors", value: numberFormatter.format(consignors) },
+        { label: "Consignees", value: numberFormatter.format(consignees) },
+      ];
+    }
     case "diesel": {
       const totalDiesel = sumByKeys(records, ["total_diesel", "totals", "diesel_qty"]);
       const vehicles = uniqueCount(records, ["vehicle_no", "vehicle", "vehicle_name"]);
@@ -128,6 +144,7 @@ const buildStats = (config: ReportConfig, records: any[], totalCount: number) =>
         "lr_bilty_qty",
         "received_quantity",
         "loading_order_qty",
+        "quantity",
       ]);
       const vehicles = uniqueCount(records, ["vehicle_no"]);
       const drivers = uniqueCount(records, ["driver_name", "lr_bilty_driver_name"]);
@@ -172,6 +189,28 @@ export default function TransportReports() {
     () => reportsMasterConfig.find((report) => report.id === selectedReportId) || null,
     [selectedReportId]
   );
+
+  const reportFilterPanelConfig = useMemo(() => {
+    if (!activeReport) {
+      return null;
+    }
+
+    return {
+      ...activeReport,
+      filters: activeReport.filters.filter((field) => field.type === "date-range"),
+    };
+  }, [activeReport]);
+
+  const rowDetailsConfig = useMemo(() => {
+    if (!activeReport) {
+      return null;
+    }
+
+    return {
+      ...activeReport,
+      drilldownRules: [],
+    };
+  }, [activeReport]);
 
   const requestFilters = useMemo(
     () => ({
@@ -353,45 +392,6 @@ export default function TransportReports() {
     [activeReport, tableData, totalCount]
   );
 
-  const handleDrilldown = (sourceKey: string, value: any) => {
-    if (!activeReport) {
-      return;
-    }
-
-    const rule = activeReport.drilldownRules.find((item) => item.key === sourceKey);
-    if (!rule) {
-      return;
-    }
-
-    const filterKey = rule.filterKey || sourceKey;
-    const nextFilter: Record<string, any> = {};
-
-    if (rule.filterType === "multi-select") {
-      nextFilter[filterKey] = {
-        value: [value],
-        filter_type: "multi-select",
-      };
-    } else if (rule.filterType === "boolean") {
-      nextFilter[filterKey] = {
-        value: Boolean(value),
-        filter_type: "boolean",
-      };
-    } else {
-      nextFilter[filterKey] = {
-        value: String(value),
-        filter_type: rule.filterType || "string",
-      };
-    }
-
-    setSelectedRecord(null);
-    setActiveFilters((previous) => ({
-      ...(activeReport.defaultFilters || {}),
-      ...previous,
-      ...nextFilter,
-    }));
-    setPage(1);
-  };
-
   const filteredCategories = useMemo(
     () =>
       reportCategories.filter((category) =>
@@ -535,18 +535,20 @@ export default function TransportReports() {
               ))}
             </div>
 
-            <ReportFilterPanel
-              config={activeReport}
-              loading={loading}
-              onApply={(filters) => {
-                setPage(1);
-                setActiveFilters(filters);
-              }}
-              onClear={() => {
-                setPage(1);
-                setActiveFilters({ ...(activeReport.defaultFilters || {}) });
-              }}
-            />
+            {reportFilterPanelConfig ? (
+              <ReportFilterPanel
+                config={reportFilterPanelConfig}
+                loading={loading}
+                onApply={(filters) => {
+                  setPage(1);
+                  setActiveFilters(filters);
+                }}
+                onClear={() => {
+                  setPage(1);
+                  setActiveFilters({ ...(activeReport.defaultFilters || {}) });
+                }}
+              />
+            ) : null}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full sm:max-w-sm">
@@ -609,10 +611,10 @@ export default function TransportReports() {
       </div>
 
       <ReportRowDetailsDrawer
-        config={activeReport}
+        config={rowDetailsConfig}
         record={selectedRecord}
         onClose={() => setSelectedRecord(null)}
-        onDrilldown={handleDrilldown}
+        onDrilldown={() => undefined}
       />
     </div>
   );

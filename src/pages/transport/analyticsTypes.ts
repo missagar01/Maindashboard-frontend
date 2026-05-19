@@ -16,6 +16,21 @@ export interface TakeoverRecentRecord {
   processedBy: string;
 }
 
+export interface TakeoverListRecord {
+  id: string;
+  vehicleTakeoverCode: string;
+  branchName: string;
+  vehicleTakeoverDate: string;
+  takeOverToDriverName: string;
+  takeOverVehicleNo: string;
+  takeOverToEmployeeName: string;
+}
+
+export interface TakeoverListResult {
+  records: TakeoverListRecord[];
+  totalCount: number;
+}
+
 export interface HandoverTopEmployee {
   employeeName: string;
   handoverCount: number;
@@ -31,6 +46,22 @@ export interface HandoverEfficiencyPoint {
   month: string;
   totalHandovers: number;
   avgIdleTimeHours: number;
+}
+
+export interface HandoverListRecord {
+  id: string;
+  vehicleHandoverCode: string;
+  branchName: string;
+  vehicleHandoverDate: string;
+  handoverDriverName: string;
+  handoverVehicleNo: string;
+  handoverEmployeeName: string;
+  takeOverCompleted: boolean;
+}
+
+export interface HandoverListResult {
+  records: HandoverListRecord[];
+  totalCount: number;
 }
 
 export interface TakeoverSummary {
@@ -52,5 +83,3 @@ export interface HandoverSummary {
   frequentSwitchers: FrequentSwitcher[];
   handoverEfficiencyTrend: HandoverEfficiencyPoint[];
 }
-
-

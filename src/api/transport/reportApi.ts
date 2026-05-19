@@ -2,12 +2,60 @@ import { transportApiRequest } from "./api";
 
 export const transportReportEndpoints = {
   lrBilty: "reports/lr-bilty-register",
+  loadingOrderRegister: "reports/loading-order-register",
   pumpWiseDieselAdvance: "reports/pump-wise-diesel-advance",
   vehicleWiseDieselAdvance: "reports/vehicle-wise-diesel-advance",
   maintenanceRequests: "fleets/get-maintenance-requests",
   optimizedAdvanceList: "process/get-optimized-advance-list",
   vehicleStatuary: "reports/vehicle-statuary",
 };
+
+const loadingOrderRegisterVisibleColumns = {
+  "visible_columns[loading_order_code]": true,
+  "visible_columns[loading_order_date]": true,
+  "visible_columns[branch_name]": true,
+  "visible_columns[loading_order_effective_from]": true,
+  "visible_columns[loading_order_effective_till]": true,
+  "visible_columns[party_ref_no]": true,
+  "visible_columns[party_ref_date]": true,
+  "visible_columns[remaining_quantity]": true,
+  "visible_columns[quantity]": true,
+  "visible_columns[consignor_name]": true,
+  "visible_columns[consignee_name]": true,
+  "visible_columns[source_location_name]": true,
+  "visible_columns[destination_location_name]": true,
+  "visible_columns[bill_to_name]": true,
+  "visible_columns[lifter_name]": true,
+  "visible_columns[item_name]": true,
+  "visible_columns[loading_order_remarks]": true,
+  "visible_columns[rowSelection]": true,
+  "visible_columns[index]": true,
+  "visible_columns[filter]": true,
+} as const;
+
+const lrBiltyMovementVisibleColumns = {
+  "visible_columns[lr_bilty_code]": true,
+  "visible_columns[lr_bilty_date]": true,
+  "visible_columns[branch_name]": true,
+  "visible_columns[loading_order_type]": true,
+  "visible_columns[placement_code]": true,
+  "visible_columns[loading_order_code]": true,
+  "visible_columns[gp_tp_number]": true,
+  "visible_columns[bill_to_name]": true,
+  "visible_columns[vehicle_no]": true,
+  "visible_columns[transporter_name]": true,
+  "visible_columns[consignor_name]": true,
+  "visible_columns[consignee_name]": true,
+  "visible_columns[item_name]": true,
+  "visible_columns[lr_bilty_qty]": true,
+  "visible_columns[received_quantity]": true,
+  "visible_columns[shortage_qty]": true,
+  "visible_columns[driver_name]": true,
+  "visible_columns[lr_bilty_created_at]": true,
+  "visible_columns[rowSelection]": true,
+  "visible_columns[index]": true,
+  "visible_columns[filter]": true,
+} as const;
 
 const isEmptyValue = (value: unknown) =>
   value === undefined ||
@@ -32,12 +80,29 @@ const normalizeFiltersForEndpoint = (
     nextFilters.endDate = dateTo;
   }
 
+  const isLrBiltyMovementRequest =
+    serviceKey === "lrBilty" &&
+    ["INWARD", "OUTWARD"].includes(String(nextFilters.loadingOrderType || "").toUpperCase());
+
+  if (isLrBiltyMovementRequest) {
+    Object.assign(nextFilters, lrBiltyMovementVisibleColumns);
+    nextFilters.loadingOrderType = String(nextFilters.loadingOrderType).toUpperCase();
+    nextFilters["dateRange[filter_type]"] = "date-range";
+    delete nextFilters.startDate;
+    delete nextFilters.endDate;
+  }
+
   // Handle LR Bilty field-specific date requirement
-  if (serviceKey === "lrBilty" && dateFrom) {
+  if (serviceKey === "lrBilty" && dateFrom && !isLrBiltyMovementRequest) {
     nextFilters.lr_bilty_date = {
       value: [dateFrom, dateTo],
       filter_type: "date-range",
     };
+  }
+
+  if (serviceKey === "loadingOrderRegister") {
+    Object.assign(nextFilters, loadingOrderRegisterVisibleColumns);
+    nextFilters["dateRange[filter_type]"] = "date-range";
   }
 
   return nextFilters;
@@ -162,6 +227,11 @@ const requestTransportReport = async (
 export const getLrBiltyRegister = (filters: Record<string, any> = {}, signal?: AbortSignal) =>
   requestTransportReport("lrBilty", filters, signal);
 
+export const getLoadingOrderRegister = (
+  filters: Record<string, any> = {},
+  signal?: AbortSignal
+) => requestTransportReport("loadingOrderRegister", filters, signal);
+
 export const getPumpWiseDieselAdvance = (
   filters: Record<string, any> = {},
   signal?: AbortSignal
@@ -195,6 +265,8 @@ export const getTransportReportData = (
   switch (serviceKey) {
     case "lrBilty":
       return getLrBiltyRegister(filters, signal);
+    case "loadingOrderRegister":
+      return getLoadingOrderRegister(filters, signal);
     case "pumpWiseDieselAdvance":
       return getPumpWiseDieselAdvance(filters, signal);
     case "vehicleWiseDieselAdvance":
@@ -209,5 +281,3 @@ export const getTransportReportData = (
       return Promise.reject(new Error(`Unsupported transport report: ${serviceKey}`));
   }
 };
-
-

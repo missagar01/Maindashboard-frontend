@@ -253,8 +253,8 @@ export function ReportFilterPanel({
   };
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-4 py-3 sm:px-5">
+    <div className="rounded-[20px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-3 py-2.5 sm:px-5 sm:py-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -267,7 +267,7 @@ export function ReportFilterPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 px-3 py-3 sm:px-5 sm:py-4 md:grid-cols-2 xl:grid-cols-4">
         {config.filters.map((field) => {
           const draftValue = drafts[field.key];
 
@@ -285,7 +285,7 @@ export function ReportFilterPanel({
               </div>
 
               {field.type === "date-range" ? (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                     <Calendar className="h-4 w-4 text-indigo-500" />
                     <input
@@ -434,8 +434,8 @@ export function ReportFilterPanel({
         })}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <p className="text-xs font-medium text-slate-500">
+      <div className="flex flex-col gap-3 border-t border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <p className="text-xs font-medium leading-5 text-slate-500">
           {missingRequiredFilters
             ? "Required date filters fill karo."
             : "Filters transport API contract ke hisaab se bheje jayenge."}

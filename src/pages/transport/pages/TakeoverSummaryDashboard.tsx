@@ -21,6 +21,7 @@ import {
   formatNumber,
 } from "../analyticsFormatters";
 import type {
+  TakeoverListResult,
   TakeoverRecentRecord,
   TakeoverSummary,
 } from "../analyticsTypes";
@@ -45,11 +46,19 @@ export const TakeoverSummaryDashboard = ({
   loading,
   error,
   onRetry,
+  takeoverRegister,
+  takeoverRegisterLoading,
+  takeoverRegisterError,
+  onRetryTakeoverRegister,
 }: {
   data: TakeoverSummary | null;
   loading: boolean;
   error: string;
   onRetry: () => void;
+  takeoverRegister: TakeoverListResult | null;
+  takeoverRegisterLoading: boolean;
+  takeoverRegisterError: string;
+  onRetryTakeoverRegister: () => void;
 }) => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -93,6 +102,58 @@ export const TakeoverSummaryDashboard = ({
         header: "Processed By",
         cell: (row) => (
           <span className="text-slate-600 font-medium">{row.processedBy}</span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const takeoverRegisterColumns = useMemo<
+    AnalyticsTableColumn<TakeoverListResult["records"][number]>[]
+  >(
+    () => [
+      {
+        key: "vehicleTakeoverCode",
+        header: "Takeover No",
+        cell: (row) => (
+          <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            {row.vehicleTakeoverCode}
+          </span>
+        ),
+      },
+      {
+        key: "branchName",
+        header: "Branch",
+        cell: (row) => <span className="font-semibold text-slate-700">{row.branchName}</span>,
+      },
+      {
+        key: "vehicleTakeoverDate",
+        header: "Takeover Date",
+        cell: (row) => (
+          <span className="text-slate-500 font-medium">{formatDate(row.vehicleTakeoverDate)}</span>
+        ),
+      },
+      {
+        key: "takeOverToDriverName",
+        header: "Takeover Driver",
+        cell: (row) => (
+          <span className="font-semibold text-slate-700">{row.takeOverToDriverName}</span>
+        ),
+      },
+      {
+        key: "takeOverVehicleNo",
+        header: "Vehicle No",
+        cell: (row) => (
+          <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-700">
+            {row.takeOverVehicleNo}
+          </span>
+        ),
+      },
+      {
+        key: "takeOverToEmployeeName",
+        header: "Employee",
+        cell: (row) => (
+          <span className="text-slate-600 font-medium">{row.takeOverToEmployeeName}</span>
         ),
       },
     ],
@@ -284,6 +345,29 @@ export const TakeoverSummaryDashboard = ({
         emptyDescription="The recent takeover table will populate once records are returned from the summary API."
         flushOnMobile
       />
+
+      {takeoverRegisterLoading && !takeoverRegister ? (
+        <AnalyticsTableSkeleton rows={6} />
+      ) : takeoverRegisterError && !takeoverRegister ? (
+        <AnalyticsErrorState
+          title="Takeover register unavailable"
+          description={takeoverRegisterError}
+          onRetry={onRetryTakeoverRegister}
+        />
+      ) : (
+        <AnalyticsResponsiveTable
+          variant="flat"
+          title="Vehicle Takeover Register"
+          subtitle={`Latest ${formatNumber(
+            takeoverRegister?.totalCount || takeoverRegister?.records.length || 0
+          )} takeover entries from the operational register.`}
+          columns={takeoverRegisterColumns}
+          rows={takeoverRegister?.records || []}
+          emptyTitle="No takeover register entries found"
+          emptyDescription="The takeover register table will populate once rows are returned from the vehicle takeover API."
+          flushOnMobile
+        />
+      )}
     </div>
 
   );

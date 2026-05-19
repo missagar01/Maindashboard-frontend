@@ -106,6 +106,9 @@ import TransportTakeover from "./pages/transport/pages/TransportTakeover";
 import TransportHandover from "./pages/transport/pages/TransportHandover";
 import TransportReports from "./pages/transport/pages/TransportReports";
 import TransportLrBiltyRegister from "./pages/transport/pages/TransportLrBiltyRegister";
+import TransportDoDpoReport from "./pages/transport/pages/TransportDoDpoReport";
+import TransportInwardLrReport from "./pages/transport/pages/TransportInwardLrReport";
+import TransportOutwardLrReport from "./pages/transport/pages/TransportOutwardLrReport";
 import DoordrishtiPage from "./pages/iot/pages/doordrishti";
 import IotPumPage from './pages/iot/pages/iotpum';
 
@@ -317,6 +320,9 @@ export default function App() {
             <Route path="/transport/handover" element={<RouteGuard><TransportHandover /></RouteGuard>} />
             <Route path="/transport/reports" element={<RouteGuard><TransportReports /></RouteGuard>} />
             <Route path="/transport/lr-bilty-register" element={<RouteGuard><TransportLrBiltyRegister /></RouteGuard>} />
+            <Route path="/transport/do-dpo-report" element={<RouteGuard><TransportDoDpoReport /></RouteGuard>} />
+            <Route path="/transport/inward-lr-report" element={<RouteGuard><TransportInwardLrReport /></RouteGuard>} />
+            <Route path="/transport/outward-lr-report" element={<RouteGuard><TransportOutwardLrReport /></RouteGuard>} />
 
             {/* IoT Routes */}
             <Route path="/iot" element={<RouteGuard><Navigate to="/iot/doordrishti" replace /></RouteGuard>} />

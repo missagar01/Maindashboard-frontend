@@ -20,9 +20,11 @@ import {
 import {
   formatNumber,
   formatPercent,
+  formatDate,
 } from "../analyticsFormatters";
 import type {
   FrequentSwitcher,
+  HandoverListResult,
   HandoverSummary,
 } from "../analyticsTypes";
 import { AnalyticsChartContainer } from "../components/AnalyticsChartContainer";
@@ -44,11 +46,19 @@ export const HandoverSummaryDashboard = ({
   loading,
   error,
   onRetry,
+  handoverRegister,
+  handoverRegisterLoading,
+  handoverRegisterError,
+  onRetryHandoverRegister,
 }: {
   data: HandoverSummary | null;
   loading: boolean;
   error: string;
   onRetry: () => void;
+  handoverRegister: HandoverListResult | null;
+  handoverRegisterLoading: boolean;
+  handoverRegisterError: string;
+  onRetryHandoverRegister: () => void;
 }) => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -85,6 +95,58 @@ export const HandoverSummaryDashboard = ({
         header: "Last Driver",
         cell: (row) => (
           <span className="font-semibold text-slate-700">{row.lastDriver}</span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const handoverRegisterColumns = useMemo<
+    AnalyticsTableColumn<HandoverListResult["records"][number]>[]
+  >(
+    () => [
+      {
+        key: "vehicleHandoverCode",
+        header: "Handover No",
+        cell: (row) => (
+          <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            {row.vehicleHandoverCode}
+          </span>
+        ),
+      },
+      {
+        key: "branchName",
+        header: "Branch",
+        cell: (row) => <span className="font-semibold text-slate-700">{row.branchName}</span>,
+      },
+      {
+        key: "vehicleHandoverDate",
+        header: "Handover Date",
+        cell: (row) => (
+          <span className="text-slate-500 font-medium">{formatDate(row.vehicleHandoverDate)}</span>
+        ),
+      },
+      {
+        key: "handoverDriverName",
+        header: "Handover Driver",
+        cell: (row) => (
+          <span className="font-semibold text-slate-700">{row.handoverDriverName}</span>
+        ),
+      },
+      {
+        key: "handoverVehicleNo",
+        header: "Vehicle No",
+        cell: (row) => (
+          <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-700">
+            {row.handoverVehicleNo}
+          </span>
+        ),
+      },
+      {
+        key: "handoverEmployeeName",
+        header: "Employee",
+        cell: (row) => (
+          <span className="text-slate-600 font-medium">{row.handoverEmployeeName}</span>
         ),
       },
     ],
@@ -358,6 +420,27 @@ export const HandoverSummaryDashboard = ({
           )}
         </AnalyticsChartContainer>
       </div>
+
+      {handoverRegisterLoading && !handoverRegister ? (
+        <AnalyticsTableSkeleton rows={6} />
+      ) : handoverRegisterError && !handoverRegister ? (
+        <AnalyticsErrorState
+          title="Handover register unavailable"
+          description={handoverRegisterError}
+          onRetry={onRetryHandoverRegister}
+        />
+      ) : (
+        <AnalyticsResponsiveTable
+          variant="flat"
+          title="Vehicle Handover Register"
+          subtitle={`Latest ${formatNumber(handoverRegister?.records.length || 0)} handover entries from the operational register.`}
+          columns={handoverRegisterColumns}
+          rows={handoverRegister?.records || []}
+          emptyTitle="No handover register entries found"
+          emptyDescription="The handover register table will populate once rows are returned from the vehicle handover API."
+          flushOnMobile
+        />
+      )}
     </div>
 
   );

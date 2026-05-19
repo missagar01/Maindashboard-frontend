@@ -88,10 +88,11 @@ const renderCellValue = (record: any, column: ReportColumn) => {
   if (column.type === "boolean") {
     return (
       <span
-        className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${Boolean(rawValue)
-          ? "border-rose-100 bg-rose-50 text-rose-600"
-          : "border-emerald-100 bg-emerald-50 text-emerald-600"
-          }`}
+        className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+          Boolean(rawValue)
+            ? "border-rose-100 bg-rose-50 text-rose-600"
+            : "border-emerald-100 bg-emerald-50 text-emerald-600"
+        }`}
       >
         {Boolean(rawValue) ? "Yes" : "No"}
       </span>
@@ -141,29 +142,32 @@ export function ReportTable({
                 return (
                   <th
                     key={column.key}
-                    className={`px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 ${column.align === "right"
-                      ? "text-right"
-                      : column.align === "center"
-                        ? "text-center"
-                        : "text-left"
-                      }`}
+                    className={`px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 ${
+                      column.align === "right"
+                        ? "text-right"
+                        : column.align === "center"
+                          ? "text-center"
+                          : "text-left"
+                    }`}
                   >
                     <button
                       type="button"
                       disabled={!column.sortable}
                       onClick={() => column.sortable && onSortChange?.(resolvedSortKey)}
-                      className={`inline-flex items-center gap-1.5 ${column.sortable ? "transition hover:text-indigo-600" : "cursor-default"
-                        }`}
+                      className={`inline-flex items-center gap-1.5 ${
+                        column.sortable ? "transition hover:text-indigo-600" : "cursor-default"
+                      }`}
                     >
                       <span>{column.label}</span>
                       {column.sortable ? (
                         <ChevronUp
-                          className={`h-3.5 w-3.5 transition ${isSorted
-                            ? activeSort?.desc
-                              ? "rotate-180 text-indigo-600"
-                              : "text-indigo-600"
-                            : "text-slate-300"
-                            }`}
+                          className={`h-3.5 w-3.5 transition ${
+                            isSorted
+                              ? activeSort?.desc
+                                ? "rotate-180 text-indigo-600"
+                                : "text-indigo-600"
+                              : "text-slate-300"
+                          }`}
                         />
                       ) : null}
                     </button>
@@ -195,12 +199,13 @@ export function ReportTable({
                   {config.columns.map((column) => (
                     <td
                       key={`${getRowKey(config, record, index)}-${column.key}`}
-                      className={`px-4 py-3.5 ${column.align === "right"
-                        ? "text-right"
-                        : column.align === "center"
-                          ? "text-center"
-                          : "text-left"
-                        }`}
+                      className={`px-4 py-3.5 ${
+                        column.align === "right"
+                          ? "text-right"
+                          : column.align === "center"
+                            ? "text-center"
+                            : "text-left"
+                      }`}
                     >
                       {renderCellValue(record, column)}
                     </td>
@@ -212,9 +217,9 @@ export function ReportTable({
         </table>
       </div>
 
-      <div className="space-y-4 bg-slate-50/80 py-4 lg:hidden">
+      <div className="space-y-2.5 bg-transparent py-2 lg:hidden">
         {data.length === 0 ? (
-          <div className="mx-4 py-20 text-center bg-white rounded-[24px] border border-slate-100 shadow-sm">
+          <div className="rounded-[20px] border border-slate-100 bg-white px-4 py-16 text-center shadow-sm">
             <FileText className="mx-auto h-12 w-12 text-slate-200" />
             <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-slate-400">
               No Records Found
@@ -223,28 +228,24 @@ export function ReportTable({
         ) : (
           data.map((record, index) => {
             const primaryColumn = config.columns[0];
-            const statusColumn =
-              config.columns.find((item) => item.type === "status") || config.columns[0];
-
-            const colorName = config.color.split("-")[1] || "indigo";
+            const statusColumn = config.columns.find((item) => item.type === "status") || null;
 
             return (
               <button
                 key={getRowKey(config, record, index)}
                 type="button"
                 onClick={() => onRowClick?.(record)}
-                className="group relative block w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] active:scale-[0.97]"
+                className="group relative block w-full overflow-hidden rounded-[20px] border border-slate-200 bg-white p-3.5 text-left shadow-[0_6px_18px_rgb(0,0,0,0.04)] transition-all hover:shadow-[0_8px_24px_rgb(0,0,0,0.07)] active:scale-[0.985]"
               >
-                {/* Dynamic Category Accent */}
-                <div className={`absolute left-0 top-0 h-full w-1.5 ${config.color}`} />
+                <div className={`absolute left-0 top-0 h-full w-1 ${config.color}`} />
 
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                <div className="mb-3 flex items-start justify-between gap-2.5">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-black text-white shadow-lg">
                       {index + 1}
                     </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[15px] font-black tracking-tight text-slate-900">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[14px] font-black tracking-tight text-slate-900">
                         {renderCellValue(record, primaryColumn)}
                       </div>
                       <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
@@ -252,31 +253,32 @@ export function ReportTable({
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0 transform transition-transform group-hover:scale-105">
-                    {renderCellValue(record, statusColumn)}
-                  </div>
+                  {statusColumn ? (
+                    <div className="shrink-0 transform transition-transform group-hover:scale-105">
+                      {renderCellValue(record, statusColumn)}
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                   {config.columns.slice(1).map((column) => (
                     <div
                       key={`${getRowKey(config, record, index)}-${column.key}-mobile`}
                       className="min-w-0"
                     >
-                      <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        <span className={`h-1 w-1 rounded-full bg-${colorName}-400`} />
+                      <p className="text-[8px] font-black uppercase tracking-[0.18em] text-slate-400">
                         {column.label}
                       </p>
-                      <div className="mt-1 truncate text-xs font-bold text-slate-700">
+                      <div className="mt-0.5 break-words text-[11px] font-bold leading-4 text-slate-700">
                         {renderCellValue(record, column)}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4 flex items-center justify-end border-t border-slate-50 pt-3">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">
-                    Tap To View Details →
+                <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-2.5">
+                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-indigo-500">
+                    View Details
                   </span>
                 </div>
               </button>
@@ -297,11 +299,7 @@ export function ReportTable({
             </div>
           ) : (
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-              {hasMore
-                ? "Scroll For More"
-                : data.length > 0
-                  ? "All Loaded"
-                  : "No Data"}
+              {hasMore ? "Scroll For More" : data.length > 0 ? "All Loaded" : "No Data"}
             </p>
           )}
         </div>
