@@ -61,11 +61,21 @@ export default function UnifiedTaskTable({
         startDate: "",
         endDate: "",
     });
+    const [hasManualSourceSelection, setHasManualSourceSelection] = useState(false);
 
     const loggedInUser = localStorage.getItem("user-name") || "";
     const isUserRole = userRole?.toLowerCase() === "user";
     const isAdmin = userRole?.toLowerCase() === "admin";
     const tableContainerRef = useRef(null);
+    const normalizeDepartmentToken = useCallback(
+        (value) =>
+            String(value || "")
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, " ")
+                .replace(/[^a-z0-9]+/g, ""),
+        []
+    );
 
 
     // 🔍 1. Filter tasks by IDENTITY/ROLE (Identity-based visibility)
@@ -74,6 +84,9 @@ export default function UnifiedTaskTable({
         const normalizedRole = (userRole || localStorage.getItem("role") || "").toLowerCase();
         const normalizedLoggedInUser = loggedInUser.trim().toLowerCase();
         const userAccess1 = localStorage.getItem("user_access1") || userData?.user_access1 || "";
+        const userAccess = localStorage.getItem("user_access") || userData?.user_access || "";
+        const verifyAccessDept =
+            localStorage.getItem("verify_access_dept") || userData?.verify_access_dept || "";
 
         return tasks.filter(task => {
             // ADMIN has full visibility
@@ -94,11 +107,30 @@ export default function UnifiedTaskTable({
                         localStorage.getItem("department"),
                         userData?.department,
                         ...userAccess1.split(','),
-                        ...(localStorage.getItem("verify_access_dept") || userData?.verify_access_dept || "").split(',')
+                        ...userAccess.split(','),
+                        ...verifyAccessDept.split(',')
                     ].map(d => d?.trim().toLowerCase()).filter(Boolean);
 
-                    const taskDept = (task.department || "").trim().toLowerCase();
-                    const hasDeptAccess = userDepts.some(d => taskDept.includes(d) || d.includes(taskDept));
+                    const taskDept = (
+                        task.department ||
+                        task.originalData?.department ||
+                        ""
+                    ).trim().toLowerCase();
+                    const taskDeptToken = normalizeDepartmentToken(taskDept);
+                    const hasDeptAccess = userDepts.some((departmentValue) => {
+                        const normalizedDepartment = String(departmentValue || "").trim().toLowerCase();
+                        const normalizedDepartmentToken = normalizeDepartmentToken(normalizedDepartment);
+
+                        return (
+                            (normalizedDepartment &&
+                                (taskDept.includes(normalizedDepartment) ||
+                                    normalizedDepartment.includes(taskDept))) ||
+                            (normalizedDepartmentToken &&
+                                taskDeptToken &&
+                                (taskDeptToken.includes(normalizedDepartmentToken) ||
+                                    normalizedDepartmentToken.includes(taskDeptToken)))
+                        );
+                    });
 
                     if (hasDeptAccess) {
                         // User has department access, show all housekeeping data for these departments
@@ -124,7 +156,7 @@ export default function UnifiedTaskTable({
 
             return true;
         });
-    }, [tasks, userRole, loggedInUser]);
+    }, [tasks, userRole, loggedInUser, normalizeDepartmentToken, userData]);
 
     // 📊 2. Calculate adjusted counts for each tab
     const systemCounts = useMemo(() => {
@@ -163,6 +195,14 @@ export default function UnifiedTaskTable({
 
         return counts;
     }, [filters.status, tasks, userVisibleTasks, pendingTotals, checklistHistoryTotal, maintenanceHistoryTotal, housekeepingHistoryTotal]);
+
+    const selectedSystemTotal = useMemo(() => {
+        if (filters.sourceSystem) {
+            return systemCounts[filters.sourceSystem] || 0;
+        }
+
+        return Object.values(systemCounts).reduce((total, count) => total + Number(count || 0), 0);
+    }, [filters.sourceSystem, systemCounts]);
 
     // Compute active options based on selected source system
     const { departmentOptions, assignedToOptions } = useMemo(() => {
@@ -214,6 +254,36 @@ export default function UnifiedTaskTable({
             onStatusChange(filters.status);
         }
     }, [filters.status, onStatusChange]);
+
+    useEffect(() => {
+        if (hasManualSourceSelection) {
+            return;
+        }
+
+        const sourceOrder = ["checklist", "maintenance", "housekeeping"];
+        const currentSourceHasVisibleTasks = filters.sourceSystem
+            ? (systemCounts[filters.sourceSystem] || 0) > 0
+            : false;
+
+        if (currentSourceHasVisibleTasks) {
+            return;
+        }
+
+        const firstAvailableSource = sourceOrder.find(
+            (source) => (systemCounts[source] || 0) > 0
+        );
+
+        if (!firstAvailableSource || firstAvailableSource === filters.sourceSystem) {
+            return;
+        }
+
+        setFilters((previous) => ({
+            ...previous,
+            sourceSystem: firstAvailableSource,
+            department: "",
+            assignedTo: "",
+        }));
+    }, [filters.sourceSystem, hasManualSourceSelection, systemCounts]);
 
     // Handle scroll for infinite loading - improved detection
     const handleScroll = useCallback(() => {
@@ -350,6 +420,14 @@ export default function UnifiedTaskTable({
     const hasFilters = useMemo(() => {
         return Object.values(filters).some(v => v);
     }, [filters]);
+
+    const handleFiltersChange = useCallback((nextFilters) => {
+        if (nextFilters.sourceSystem !== filters.sourceSystem) {
+            setHasManualSourceSelection(true);
+        }
+
+        setFilters(nextFilters);
+    }, [filters.sourceSystem]);
 
     // Handlers
     const handleSelectItem = useCallback((id, isChecked) => {
@@ -665,7 +743,7 @@ export default function UnifiedTaskTable({
             {/* Filter Bar - Simplified */}
             <TaskFilterBar
                 filters={filters}
-                onFiltersChange={setFilters}
+                onFiltersChange={handleFiltersChange}
                 housekeepingDepartments={housekeepingDepartments}
                 departmentOptions={departmentOptions}
                 assignedToOptions={assignedToOptions}
@@ -707,7 +785,7 @@ export default function UnifiedTaskTable({
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0 flex items-center justify-between">
                             <p className="text-blue-600 font-medium text-[11px] sm:text-sm">
-                                Showing {displayTasks.length} of {totalCount || displayTasks.length} tasks
+                                Showing {displayTasks.length} of {selectedSystemTotal || displayTasks.length} tasks
                             </p>
 
                             <div className="sm:hidden flex items-center bg-white/50 px-2 py-1 rounded-md border border-blue-100 shadow-sm">
@@ -851,7 +929,9 @@ export default function UnifiedTaskTable({
                     <div className="bg-gray-50 border-t border-gray-200 px-2 sm:px-4 py-2 sm:py-3 sticky bottom-0 z-10">
                         {(() => {
                             const activePage = pendingPages[filters.sourceSystem] || 1;
-                            const activeTotal = pendingTotals[filters.sourceSystem] || 0;
+                            const activeTotal = filters.sourceSystem
+                                ? (systemCounts[filters.sourceSystem] || pendingTotals[filters.sourceSystem] || 0)
+                                : selectedSystemTotal;
                             const isPending = filters.status === "Pending";
 
                             return (
