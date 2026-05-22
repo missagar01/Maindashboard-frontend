@@ -93,14 +93,14 @@ const formatPercent = (value: number | null | undefined) => {
 
 const getConnectionTone = (status: string | undefined) => {
   if (status === 'connected' || status === 'ready') {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+    return 'border-emerald-500/20 bg-emerald-50 text-emerald-700';
   }
 
   if (status === 'connecting') {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+    return 'border-amber-500/20 bg-amber-50 text-amber-700';
   }
 
-  return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
+  return 'border-rose-500/20 bg-rose-50 text-rose-700';
 };
 
 const getStatusTone = (status: string) => {
@@ -117,18 +117,38 @@ const getStatusTone = (status: string) => {
 
 const buildMetricCardClass = (variant: 'energy' | 'power' | 'pf' | 'runtime') => {
   if (variant === 'energy') {
-    return 'from-[#14305c] via-[#1f5ea8] to-[#0c1a30]';
+    return {
+      bg: 'from-sky-50 via-sky-50/50 to-white border-sky-200/60',
+      label: 'text-sky-600/90',
+      value: 'text-sky-900',
+      meta: 'text-sky-700/80',
+    };
   }
 
   if (variant === 'power') {
-    return 'from-[#2d1c5b] via-[#5b2bf5] to-[#1f113c]';
+    return {
+      bg: 'from-indigo-50 via-indigo-50/50 to-white border-indigo-200/60',
+      label: 'text-indigo-600/90',
+      value: 'text-indigo-900',
+      meta: 'text-indigo-700/80',
+    };
   }
 
   if (variant === 'pf') {
-    return 'from-[#0f3d38] via-[#0d7b68] to-[#07201d]';
+    return {
+      bg: 'from-emerald-50 via-emerald-50/50 to-white border-emerald-200/60',
+      label: 'text-emerald-600/90',
+      value: 'text-emerald-900',
+      meta: 'text-emerald-700/80',
+    };
   }
 
-  return 'from-[#4b260c] via-[#d95b06] to-[#3b1608]';
+  return {
+    bg: 'from-amber-50 via-amber-50/50 to-white border-amber-200/60',
+    label: 'text-amber-600/90',
+    value: 'text-amber-900',
+    meta: 'text-amber-700/80',
+  };
 };
 
 export function TextileMESDashboard({ summary, live, isLiveMode = false }: TextileMESDashboardProps) {
@@ -288,10 +308,10 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
 
   if (!selectedPeriod) {
     return (
-      <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-6 py-14 text-center">
-          <p className="text-lg font-bold text-slate-700">Summary data is not available yet.</p>
-          <p className="mt-2 text-sm text-slate-500">
+      <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+        <div className="rounded-lg sm:rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 sm:px-6 sm:py-14 text-center">
+          <p className="text-base sm:text-lg font-bold text-slate-700">Summary data is not available yet.</p>
+          <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
             The dashboard will populate automatically after PostgreSQL receives the first 30-minute summary row.
           </p>
         </div>
@@ -300,104 +320,91 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_28%),linear-gradient(135deg,#0f172a_0%,#111827_52%,#020617_100%)] p-5 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-4">
-            <div>
-              <span className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-200/80">Director Summary Dashboard</span>
-             
-            </div>
+    <div className="space-y-3 sm:space-y-6">
+      <section className="overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_50%,#e0f2fe_100%)] p-3 sm:p-5 text-slate-800 shadow-[0_12px_36px_rgba(0,0,0,0.03)]">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2 sm:space-y-4">
+              <div>
+                <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.24em] text-blue-600">Director Summary Dashboard</span>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={summaryTab}
-                onChange={(event) => handleTabChange(event.target.value as SummaryRange)}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold uppercase tracking-wider text-white outline-none transition hover:border-cyan-400"
-              >
-                <option value="day" className="bg-slate-950 text-white">
-                  Current Day
-                </option>
-                <option value="week" className="bg-slate-950 text-white">
-                  Current Week
-                </option>
-                <option value="month" className="bg-slate-950 text-white">
-                  Current Month
-                </option>
-              </select>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <select
+                  value={summaryTab}
+                  onChange={(event) => handleTabChange(event.target.value as SummaryRange)}
+                  className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 outline-none transition hover:border-blue-400 shadow-sm"
+                >
+                  <option value="day" className="bg-white text-slate-800">
+                    Current Day
+                  </option>
+                  <option value="week" className="bg-white text-slate-800">
+                    Current Week
+                  </option>
+                  <option value="month" className="bg-white text-slate-800">
+                    Current Month
+                  </option>
+                </select>
 
-              <span className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wider ${getConnectionTone(connectionStatus)}`}>
-                <span className="h-2 w-2 rounded-full bg-current" />
-                {connectionStatus}
-              </span>
-
-              {selectedPeriod?.lastSummaryTime && (
-                <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Last Summary:</span>
-                  <span className="font-mono">{formatDateTime(selectedPeriod.lastSummaryTime)}</span>
+                <span className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-black uppercase tracking-wider ${getConnectionTone(connectionStatus)}`}>
+                  <span className="h-2 w-2 rounded-full bg-current animate-pulse" />
+                  {connectionStatus}
                 </span>
-              )}
-
-              {selectedPeriod?.nextSummaryTime && (
-                <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Next Expected:</span>
-                  <span className="font-mono">{formatDateTime(selectedPeriod.nextSummaryTime)}</span>
-                </span>
-              )}
-
+              </div>
             </div>
           </div>
 
-         
+          {/* Metric cards styled beautifully inside the main card */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4 mt-1 sm:mt-2">
+            {headlineCards.map((card) => {
+              const colors = buildMetricCardClass(card.variant);
+              return (
+                <article
+                  key={card.label}
+                  className={`overflow-hidden rounded-xl border bg-gradient-to-br ${colors.bg} p-2.5 sm:p-4 shadow-sm`}
+                >
+                  <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] sm:tracking-[0.2em] ${colors.label}`}>{card.label}</p>
+                  <p className={`mt-1 sm:mt-2 text-[14px] sm:text-xl md:text-2xl font-black tracking-tight ${colors.value}`}>{card.value}</p>
+                  <p className={`mt-0.5 sm:mt-1.5 text-[9px] sm:text-xs font-semibold ${colors.meta}`}>{card.meta}</p>
+                </article>
+              );
+            })}
+          </div>
         </div>
-
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        {headlineCards.map((card) => (
-          <article
-            key={card.label}
-            className={`overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/5 bg-gradient-to-br ${buildMetricCardClass(card.variant)} p-4 sm:p-5 text-white shadow-[0_18px_44px_rgba(15,23,42,0.18)]`}
-          >
-            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.16em] sm:tracking-[0.24em] text-white/65">{card.label}</p>
-            <p className="mt-2 sm:mt-4 text-xl sm:text-2xl md:text-3xl font-black tracking-tight">{card.value}</p>
-            <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs font-semibold text-white/75">{card.meta}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-12">
-        <article className="overflow-hidden rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f5f7fb_45%,#eef2ff_100%)] p-5 shadow-sm xl:col-span-12">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
+      <section className="grid gap-4 sm:gap-6 xl:grid-cols-12">
+        <article className="overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f5f7fb_45%,#eef2ff_100%)] p-3 sm:p-5 shadow-sm xl:col-span-12">
+          <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 sm:pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-blue-600">Trend Overview</p>
-              <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">
+              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-blue-600">Trend Overview</p>
+              <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900">
                 {summaryTab === 'day' ? '30-Minute Business Trend' : summaryTab === 'week' ? 'Daily Trend Summary' : 'Weekly Trend Summary'}
               </h2>
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider">
-              <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-blue-700">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
+            <div className="flex flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                 Interval Energy
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-violet-700">
-                <span className="h-2 w-2 rounded-full bg-violet-500" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-violet-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
                 Average Power
               </span>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          <div className="mt-3 sm:mt-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 items-stretch">
             {/* Left side: Profile panels */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:col-span-5">
               {metricPanels.map((panel) => (
-                <div key={panel.title} className={`rounded-2xl border border-slate-200 bg-gradient-to-br ${panel.accent} p-4 shadow-sm`}>
-                  <h3 className="text-sm font-black text-slate-900">{panel.title}</h3>
-                  <div className="mt-3 space-y-2">
+                <div key={panel.title} className={`rounded-xl border border-slate-200 bg-gradient-to-br ${panel.accent} p-2.5 sm:p-4 shadow-sm`}>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">{panel.title}</h3>
+                  <div className="mt-2 sm:mt-3 space-y-1.5 sm:space-y-2">
                     {panel.values.map((item) => (
-                      <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2">
-                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">{item.label}</span>
+                      <div key={item.label} className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-2 py-1 sm:px-3 sm:py-1.5">
+                        <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">{item.label}</span>
                         <span className="text-xs sm:text-sm font-black text-slate-900">{item.value}</span>
                       </div>
                     ))}
@@ -407,14 +414,14 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
             </div>
 
             {/* Right side: SVG Chart on white background */}
-            <div className="lg:col-span-7 relative flex flex-col justify-between rounded-[26px] border border-slate-100 bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] min-h-[340px]" onMouseLeave={() => setHoveredPointIndex(null)}>
+            <div className="lg:col-span-7 relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-slate-100 bg-white p-2 sm:p-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)] min-h-[250px] sm:min-h-[320px]" onMouseLeave={() => setHoveredPointIndex(null)}>
               {chartGeometry ? (
                 <div className="flex flex-col h-full justify-between">
                   <div className="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
                     <span>Energy Consumption (kWh)</span>
                     <span>Average Power (kW)</span>
                   </div>
-                  <svg className="h-[280px] w-full" viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}>
+                  <svg className="h-[180px] sm:h-[240px] md:h-[280px] w-full" viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}>
                     <defs>
                       <linearGradient id="director-energy-bar" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.9" />
@@ -616,9 +623,9 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
 
                   {/* Detailed point panel below chart */}
                   {activePoint && (
-                    <div className="mt-4 border-t border-slate-100 pt-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                    <div className="mt-3 border-t border-slate-100 pt-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-100 pb-1.5 mb-1.5">
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500">
                           Selected Interval Details: <span className="text-blue-600 font-mono">{activePoint.label}</span>
                         </span>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
@@ -629,25 +636,25 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
                           {activePoint.status}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Energy</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-center">
+                        <div className="rounded-lg sm:rounded-xl bg-slate-50 p-1.5 sm:p-2 border border-slate-100">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">Energy</p>
                           <p className="text-xs sm:text-sm font-black text-slate-800 mt-0.5">{formatValue(activePoint.totalEnergy, 'kWh')}</p>
                         </div>
-                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Avg Power</p>
+                        <div className="rounded-lg sm:rounded-xl bg-slate-50 p-1.5 sm:p-2 border border-slate-100">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">Avg Power</p>
                           <p className="text-xs sm:text-sm font-black text-slate-800 mt-0.5">{formatValue(activePoint.averagePower, 'kW')}</p>
                         </div>
-                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Voltage</p>
+                        <div className="rounded-lg sm:rounded-xl bg-slate-50 p-1.5 sm:p-2 border border-slate-100">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">Voltage</p>
                           <p className="text-xs sm:text-sm font-black text-slate-800 mt-0.5">{formatValue(activePoint.averageVoltage, 'V', 1)}</p>
                         </div>
-                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Current</p>
+                        <div className="rounded-lg sm:rounded-xl bg-slate-50 p-1.5 sm:p-2 border border-slate-100">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">Current</p>
                           <p className="text-xs sm:text-sm font-black text-slate-800 mt-0.5">{formatValue(activePoint.averageCurrent, 'A', 2)}</p>
                         </div>
-                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100 col-span-2 sm:col-span-1">
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Power Factor</p>
+                        <div className="rounded-lg sm:rounded-xl bg-slate-50 p-1.5 sm:p-2 border border-slate-100 col-span-2 sm:col-span-1">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-400">Power Factor</p>
                           <p className="text-xs sm:text-sm font-black text-slate-800 mt-0.5">{formatValue(activePoint.averagePf, '', 2)}</p>
                         </div>
                       </div>
@@ -655,7 +662,7 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
                   )}
                 </div>
               ) : (
-                <div className="flex h-[280px] items-center justify-center rounded-[22px] border border-dashed border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-400">
+                <div className="flex h-[200px] sm:h-[280px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-400">
                   No trend points available for the selected range.
                 </div>
               )}
@@ -664,61 +671,61 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
         </article>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-12">
-        <article className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm xl:col-span-7">
-          <div className="flex items-end justify-between gap-4 border-b border-slate-200 pb-4">
+      <section className="grid gap-4 sm:gap-6 xl:grid-cols-12">
+        <article className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm xl:col-span-7">
+          <div className="flex items-end justify-between gap-4 border-b border-slate-200 pb-3 sm:pb-4">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-600">Device Summary</p>
-              <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">Device-Wise Performance</h2>
-              <p className="mt-2 text-sm text-slate-500">Each card is computed from PostgreSQL summary rows only.</p>
+              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-emerald-600">Device Summary</p>
+              <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900">Device-Wise Performance</h2>
+              <p className="mt-1 text-xs sm:text-sm text-slate-500">Each card is computed from PostgreSQL summary rows only.</p>
             </div>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-600">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-600">
               {selectedPeriod.devices.length} devices
             </span>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:gap-4 md:grid-cols-2">
             {selectedPeriod.devices.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm font-medium text-slate-500 md:col-span-2">
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-medium text-slate-500 md:col-span-2">
                 No device summaries are available in this interval.
               </div>
             ) : (
               selectedPeriod.devices.map((device) => (
-                <div key={device.name} className="rounded-[26px] border border-slate-200 bg-[linear-gradient(135deg,#f8fafc_0%,#ffffff_40%,#ecfeff_100%)] p-4">
-                  <div className="flex items-start justify-between gap-4">
+                <div key={device.name} className="rounded-xl border border-slate-200/80 bg-[linear-gradient(135deg,#f8fafc_0%,#ffffff_40%,#f0f9ff_100%)] p-2.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-black text-slate-900">{device.name}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">Last seen {formatDateTime(device.lastSeenAt)}</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-slate-500">Last seen {formatDateTime(device.lastSeenAt)}</p>
                     </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${getStatusTone(device.status)}`}>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${getStatusTone(device.status)}`}>
                       {device.status}
                     </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-slate-950 px-3 py-3 text-white">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Energy</p>
-                      <p className="mt-1 text-lg font-black">{formatValue(device.totalEnergy, 'kWh')}</p>
+                  <div className="mt-3.5 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg sm:rounded-xl bg-sky-50 border border-sky-100/70 px-3 py-2 text-sky-950">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-sky-600">Total Energy</p>
+                      <p className="mt-0.5 text-base sm:text-lg font-black">{formatValue(device.totalEnergy, 'kWh')}</p>
                     </div>
-                    <div className="rounded-2xl bg-slate-950 px-3 py-3 text-white">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Average Power</p>
-                      <p className="mt-1 text-lg font-black">{formatValue(device.averagePower, 'kW')}</p>
+                    <div className="rounded-lg sm:rounded-xl bg-indigo-50 border border-indigo-100/70 px-3 py-2 text-indigo-950">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Average Power</p>
+                      <p className="mt-0.5 text-base sm:text-lg font-black">{formatValue(device.averagePower, 'kW')}</p>
                     </div>
-                    <div className="rounded-2xl bg-white px-3 py-3">
+                    <div className="rounded-lg sm:rounded-xl bg-slate-50/50 border border-slate-100 px-3 py-2">
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Average Voltage</p>
-                      <p className="mt-1 text-sm font-black text-slate-900">{formatValue(device.averageVoltage, 'V', 1)}</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-900">{formatValue(device.averageVoltage, 'V', 1)}</p>
                     </div>
-                    <div className="rounded-2xl bg-white px-3 py-3">
+                    <div className="rounded-lg sm:rounded-xl bg-slate-50/50 border border-slate-100 px-3 py-2">
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Average Current</p>
-                      <p className="mt-1 text-sm font-black text-slate-900">{formatValue(device.averageCurrent, 'A', 2)}</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-900">{formatValue(device.averageCurrent, 'A', 2)}</p>
                     </div>
-                    <div className="rounded-2xl bg-white px-3 py-3">
+                    <div className="rounded-lg sm:rounded-xl bg-slate-50/50 border border-slate-100 px-3 py-2">
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Power Factor</p>
-                      <p className="mt-1 text-sm font-black text-slate-900">{formatValue(device.powerFactor, '', 2)}</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-900">{formatValue(device.powerFactor, '', 2)}</p>
                     </div>
-                    <div className="rounded-2xl bg-white px-3 py-3">
+                    <div className="rounded-lg sm:rounded-xl bg-slate-50/50 border border-slate-100 px-3 py-2">
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Running Time</p>
-                      <p className="mt-1 text-sm font-black text-slate-900">{formatDuration(device.runningTimeSeconds)}</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-900">{formatDuration(device.runningTimeSeconds)}</p>
                     </div>
                   </div>
                 </div>
@@ -727,51 +734,50 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
           </div>
         </article>
 
-        <article className="rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_38%,#fef2f2_100%)] p-5 shadow-sm xl:col-span-5">
-          <div className="flex items-end justify-between gap-4 border-b border-slate-200 pb-4">
+        <article className="rounded-xl sm:rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_38%,#fef2f2_100%)] p-3 sm:p-5 shadow-sm xl:col-span-5">
+          <div className="flex items-end justify-between gap-4 border-b border-slate-200 pb-3 sm:pb-4">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-rose-600">Alert Summary</p>
-            
+              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-rose-600">Alert Summary</p>
             </div>
-            <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-rose-700">
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-rose-700">
               {selectedPeriod.totalAlerts} total
             </span>
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-2.5 sm:space-y-3">
             {selectedPeriod.alertItems.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-slate-300 bg-white px-5 py-10 text-center text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-medium text-slate-500">
                 No alert thresholds were breached in this range.
               </div>
             ) : (
               selectedPeriod.alertItems.map((alert) => (
                 <div
                   key={`${alert.type}-${alert.machine}-${alert.time}`}
-                  className={`rounded-[24px] border p-4 ${
+                  className={`rounded-xl border p-2.5 sm:p-3.5 ${
                     alert.severity === 'Critical'
-                      ? 'border-rose-200 bg-white shadow-[0_14px_30px_rgba(244,63,94,0.08)]'
-                      : 'border-amber-200 bg-white shadow-[0_14px_30px_rgba(245,158,11,0.08)]'
+                      ? 'border-rose-200 bg-white shadow-[0_10px_20px_rgba(244,63,94,0.04)]'
+                      : 'border-amber-200 bg-white shadow-[0_10px_20px_rgba(245,158,11,0.04)]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
+                      <div className="flex items-center gap-1.5">
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
                           alert.severity === 'Critical'
                             ? 'border-rose-200 bg-rose-50 text-rose-700'
                             : 'border-amber-200 bg-amber-50 text-amber-700'
                         }`}>
                           {alert.severity}
                         </span>
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">{alert.type}</span>
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400">{alert.type}</span>
                       </div>
-                      <p className="mt-3 text-base font-black text-slate-900">{alert.title}</p>
-                      <p className="mt-1 text-sm text-slate-500">{alert.machine}</p>
+                      <p className="mt-2 text-sm sm:text-base font-black text-slate-900 leading-snug">{alert.title}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{alert.machine}</p>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-sm font-black text-slate-900">{alert.value}</p>
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">{alert.time}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs sm:text-sm font-black text-slate-900">{alert.value}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{alert.time}</p>
                     </div>
                   </div>
                 </div>
