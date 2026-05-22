@@ -121,10 +121,10 @@ const DOORDRISHTI_RANGE_PRESET_OPTIONS: Array<{
   label: string;
   preset: Exclude<DoordrishtiRangePreset, "custom">;
 }> = [
-    { label: "Today", preset: "today" },
-    { label: "Weekly", preset: "weekly" },
-    { label: "Monthly", preset: "monthly" },
-  ];
+  { label: "Today", preset: "today" },
+  { label: "Weekly", preset: "weekly" },
+  { label: "Monthly", preset: "monthly" },
+];
 
 const buildFiltersForPreset = (
   preset: Exclude<DoordrishtiRangePreset, "custom">,
@@ -497,8 +497,6 @@ const buildPumpProgressSummary = ({
       valueLabel: formatSecondsToDuration(totalElapsedSeconds),
       dotClass: "bg-slate-900",
     },
-
-
   ];
 
   const hasData = totalElapsedSeconds > 0 || totalTrips > 0;
@@ -561,7 +559,6 @@ const ProgressRing = ({
 
   return (
     <div className="relative flex h-[100px] w-[100px] shrink-0 items-center justify-center sm:h-[130px] sm:w-[130px]">
-      {/* Background Glow */}
       <div className="absolute h-3/4 w-3/4 rounded-full bg-slate-50/50 blur-xl transition-all group-hover:bg-slate-100/50" />
 
       <svg
@@ -588,7 +585,7 @@ const ProgressRing = ({
           </span>
           <div className="flex items-baseline">
             <span className="bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-[18px] font-black tracking-tight text-transparent sm:text-[22px]">
-              {scoreLabel.replace('%', '')}
+              {scoreLabel.replace("%", "")}
             </span>
             <span className="ml-0.5 text-[10px] font-black text-slate-400 sm:text-[11px]">%</span>
           </div>
@@ -598,25 +595,13 @@ const ProgressRing = ({
   );
 };
 
-const MetricIcon = ({ metricKey }: { metricKey: string }) => {
-  switch (metricKey) {
-    case "running": return <Clock3 className="h-3.5 w-3.5 text-emerald-500" />;
-    case "idle": return <Activity className="h-3.5 w-3.5 text-amber-500" />;
-    case "no-data": return <AlertCircle className="h-3.5 w-3.5 text-slate-400" />;
-    case "captured": return <LayoutGrid className="h-3.5 w-3.5 text-slate-600" />;
-    default: return null;
-  }
-};
-
 const PumpSummaryCard = ({
   summary,
-  isAggregate = false,
 }: {
   summary: PumpProgressSummary;
   isAggregate?: boolean;
 }) => (
   <article className="group relative overflow-hidden rounded-[24px] border border-slate-100 bg-white p-2.5 shadow-sm transition-all duration-300 hover:shadow-md sm:p-4">
-    {/* Top Section: Title and Badges */}
     <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-3 sm:gap-6">
       <h2 className="truncate text-[16px] font-black uppercase tracking-tight text-slate-900 sm:text-[22px]">
         {formatDeviceHeading(summary.deviceName)}
@@ -635,7 +620,6 @@ const PumpSummaryCard = ({
       </div>
     </div>
 
-    {/* Content Section: Ring and Metrics side-by-side even on mobile */}
     <div className="mt-3 flex items-center justify-between gap-3 sm:mt-5 sm:gap-6">
       <div className="shrink-0 scale-90 sm:scale-100">
         <ProgressRing scoreLabel={summary.scoreLabel} segments={summary.ringMetrics} />
@@ -935,10 +919,11 @@ export default function IotPumPage() {
                     key={option.preset}
                     type="button"
                     onClick={() => handleRangePresetSelect(option.preset)}
-                    className={`h-10 rounded-2xl border px-5 text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 sm:h-11 ${isActive
-                      ? "border-slate-900 bg-slate-900 text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]"
-                      : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
-                      }`}
+                    className={`h-10 rounded-2xl border px-5 text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 sm:h-11 ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]"
+                        : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
+                    }`}
                   >
                     {option.label}
                   </button>

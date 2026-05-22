@@ -242,8 +242,10 @@ export const PAGE_ROUTES = {
     createPageOption("Doordrishti", "Doordrishti", "/iot/doordrishti", [
       "/iot",
       "/iot/doordrishti",
+      "Doordrishti",
       "IoT Dashboard",
       "IOT Dashboard",
+      "IoT Live Dashboard",
       "IoT Module",
       "IOT Module",
       "IoT Doordrishti",
@@ -252,9 +254,19 @@ export const PAGE_ROUTES = {
     createPageOption("PUM", "PUM", "/iot/pum", [
       "/iot/pum",
       "PUM",
+      "Telemetry Feed",
       "IoT PUM",
       "IOT PUM",
+      "IoT Telemetry",
+      "IOT Telemetry",
+      "IoT Telemetry Feed",
       "IoT Pump Progress",
+    ]),
+    createPageOption("IoTApiDashboard", "IoT API Dashboard", "/iot/dashboard", [
+      "/iot/dashboard",
+      "IoT API Dashboard",
+      "IOT API Dashboard",
+      "Backend IoT Dashboard",
     ]),
   ],
   SUBSCRIPTION: [

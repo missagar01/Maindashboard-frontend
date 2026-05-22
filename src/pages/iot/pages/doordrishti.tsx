@@ -86,10 +86,10 @@ const DOORDRISHTI_RANGE_PRESET_OPTIONS: Array<{
   label: string;
   preset: Exclude<DoordrishtiRangePreset, "custom">;
 }> = [
-    { label: "Today", preset: "today" },
-    { label: "Weekly", preset: "weekly" },
-    { label: "Monthly", preset: "monthly" },
-  ];
+  { label: "Today", preset: "today" },
+  { label: "Weekly", preset: "weekly" },
+  { label: "Monthly", preset: "monthly" },
+];
 
 const buildFiltersForPreset = (
   preset: Exclude<DoordrishtiRangePreset, "custom">,
@@ -450,7 +450,6 @@ export default function DoordrishtiPage() {
             });
           });
 
-
         const nextOptions = [...uniqueOptions.values()].sort((left, right) =>
           left.label.localeCompare(right.label)
         );
@@ -566,8 +565,6 @@ export default function DoordrishtiPage() {
     let totalElapsedSeconds = 0;
     let totalIdleSeconds = 0;
 
-    // totalElapsedSeconds will be calculated after totalIdleSeconds
-
     const sortedTrips = [...tripRows].sort((a, b) => {
       const timeA = getDateTimestamp(a.startDate) || 0;
       const timeB = getDateTimestamp(b.startDate) || 0;
@@ -618,9 +615,11 @@ export default function DoordrishtiPage() {
         label: "Total Time",
         value: summary.totalElapsedLabel,
         bgClass: "from-slate-900 to-slate-700",
-        meta: summary.firstStartDate && summary.lastEndDate ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}` : "No trips found",
+        meta:
+          summary.firstStartDate && summary.lastEndDate
+            ? `${summary.firstStartDate.split(" ")[0]} to ${summary.lastEndDate.split(" ")[0]}`
+            : "No trips found",
       },
-
     ],
     [summary]
   );
@@ -711,10 +710,11 @@ export default function DoordrishtiPage() {
                     key={option.preset}
                     type="button"
                     onClick={() => handleRangePresetSelect(option.preset)}
-                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${isActive
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
-                      }`}
+                    className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-[10px] font-black uppercase tracking-[0.14em] transition md:h-11 ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                    }`}
                   >
                     {option.label}
                   </button>
@@ -846,12 +846,9 @@ export default function DoordrishtiPage() {
               </h2>
             </div>
             <div className="rounded-full bg-slate-100 px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">
-              {loading
-                ? "Loading..."
-                : `${summary.totalTrips} Records`}
+              {loading ? "Loading..." : `${summary.totalTrips} Records`}
             </div>
           </div>
-
 
           {loading ? (
             <div className="flex min-h-[280px] items-center justify-center">
@@ -867,7 +864,7 @@ export default function DoordrishtiPage() {
                   {tripRows.map((item, index) => {
                     const mobileGradientClass =
                       MOBILE_TRIP_CARD_GRADIENTS[
-                      index % MOBILE_TRIP_CARD_GRADIENTS.length
+                        index % MOBILE_TRIP_CARD_GRADIENTS.length
                       ] || MOBILE_TRIP_CARD_GRADIENTS[0];
 
                     return (

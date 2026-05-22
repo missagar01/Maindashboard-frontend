@@ -251,6 +251,8 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Outword Report": "/transport/outward-lr-report",
   "IoT Dashboard": "/iot/doordrishti",
   "IOT Dashboard": "/iot/doordrishti",
+  "IoT Live Dashboard": "/iot/doordrishti",
+  "IOT Live Dashboard": "/iot/doordrishti",
   "IoT Module": "/iot/doordrishti",
   "IOT Module": "/iot/doordrishti",
   Doordrishti: "/iot/doordrishti",
@@ -260,6 +262,14 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   PUM: "/iot/pum",
   "IoT PUM": "/iot/pum",
   "IOT PUM": "/iot/pum",
+  "Telemetry Feed": "/iot/pum",
+  "IoT Telemetry": "/iot/pum",
+  "IOT Telemetry": "/iot/pum",
+  "IoT Telemetry Feed": "/iot/pum",
+  "IOT Telemetry Feed": "/iot/pum",
+  "IoT API Dashboard": "/iot/dashboard",
+  "IOT API Dashboard": "/iot/dashboard",
+  "Backend IoT Dashboard": "/iot/dashboard",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -738,6 +748,7 @@ const normalizePageEntryToRoute = (
     if (normalized === "/store") return "/store/dashboard";
     if (normalized === "/transport") return "/transport/dashboard";
     if (normalized === "/iot") return "/iot/doordrishti";
+    if (normalized === "/iot/dashboard") return "/iot/dashboard";
     if (normalized === "/project") return "/project/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
     if (normalized === "/gatepass") return "/gatepass/approvals";
@@ -801,6 +812,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
+  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");
