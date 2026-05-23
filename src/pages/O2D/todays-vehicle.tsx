@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   Download,
-  Hash,
   Loader2,
   RefreshCw,
   Search,
   Truck,
-  Users,
 } from "lucide-react";
 import * as o2dAPI from "../../api/o2dAPI";
 import * as XLSX from "xlsx";
@@ -99,15 +97,17 @@ export function TodaysVehiclePage() {
   }, [rows, search]);
 
   const stats = useMemo(() => {
-    const totalQty = filteredRows.reduce((sum, row) => sum + row.qtyOrder, 0);
-    const uniqueStaff = new Set(filteredRows.map((row) => row.staffName).filter(Boolean)).size;
-    const uniqueParties = new Set(filteredRows.map((row) => row.partyName).filter(Boolean)).size;
+    const itemTotals = filteredRows.reduce<Record<string, number>>((acc, row) => {
+      const key = row.itemGroup || "Unknown Item";
+      acc[key] = (acc[key] || 0) + row.qtyOrder;
+      return acc;
+    }, {});
 
     return {
       totalVehicles: filteredRows.length,
-      totalQty,
-      uniqueStaff,
-      uniqueParties,
+      itemSummaries: Object.entries(itemTotals)
+        .map(([itemGroup, qty]) => ({ itemGroup, qty }))
+        .sort((a, b) => b.qty - a.qty),
     };
   }, [filteredRows]);
 
@@ -171,35 +171,33 @@ export function TodaysVehiclePage() {
             </div>
             <div className="mt-4 text-2xl font-black text-slate-900 sm:text-3xl">{stats.totalVehicles}</div>
           </div>
-          <div className="min-w-0 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
-                Total Qty
-              </span>
-              <Hash className="h-4 w-4 text-emerald-600 sm:h-5 sm:w-5" />
+          {stats.itemSummaries.map((item, index) => (
+            <div
+              key={item.itemGroup}
+              className="min-w-0 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+                  {item.itemGroup}
+                </span>
+                <Boxes
+                  className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                    index % 3 === 0
+                      ? "text-amber-600"
+                      : index % 3 === 1
+                        ? "text-emerald-600"
+                        : "text-violet-600"
+                  }`}
+                />
+              </div>
+              <div className="mt-4 text-2xl font-black text-slate-900 sm:text-3xl">
+                {formatQuantity(item.qty)}
+              </div>
+              <div className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Item Wise Qty
+              </div>
             </div>
-            <div className="mt-4 text-2xl font-black text-slate-900 sm:text-3xl">
-              {formatQuantity(stats.totalQty)}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
-                Staff Count
-              </span>
-              <Users className="h-4 w-4 text-violet-600 sm:h-5 sm:w-5" />
-            </div>
-            <div className="mt-4 text-2xl font-black text-slate-900 sm:text-3xl">{stats.uniqueStaff}</div>
-          </div>
-          <div className="min-w-0 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
-                Party Count
-              </span>
-              <Boxes className="h-4 w-4 text-amber-600 sm:h-5 sm:w-5" />
-            </div>
-            <div className="mt-4 text-2xl font-black text-slate-900 sm:text-3xl">{stats.uniqueParties}</div>
-          </div>
+          ))}
         </section>
 
         <section className="rounded-[28px] border border-slate-200 bg-white/90 shadow-sm">
