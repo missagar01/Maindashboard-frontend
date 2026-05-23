@@ -20,6 +20,7 @@ type VehicleRow = {
   orderVrno: string;
   staffName: string;
   partyName: string;
+  truckNo: string;
   qtyOrder: number;
   itemGroup: string;
 };
@@ -31,6 +32,7 @@ const normalizeRow = (row: VehicleApiRow): VehicleRow => ({
   orderVrno: String(getField(row, "order_vrno") || "").trim(),
   staffName: String(getField(row, "our_staff_name") || "").trim(),
   partyName: String(getField(row, "party_name") || "").trim(),
+  truckNo: String(getField(row, "truckno") || "").trim(),
   qtyOrder: Number(getField(row, "qtyorder") || 0),
   itemGroup: String(getField(row, "item_group") || "").trim(),
 });
@@ -89,7 +91,7 @@ export function TodaysVehiclePage() {
     if (!term) return rows;
 
     return rows.filter((row) =>
-      [row.orderVrno, row.staffName, row.partyName, row.itemGroup]
+      [row.orderVrno, row.staffName, row.partyName, row.truckNo, row.itemGroup]
         .join(" ")
         .toLowerCase()
         .includes(term)
@@ -117,6 +119,7 @@ export function TodaysVehiclePage() {
       "Order No": row.orderVrno || "-",
       "Our Staff Name": row.staffName || "-",
       "Party Name": row.partyName || "-",
+      "Truck No": row.truckNo || "-",
       "Qty Order": Number(row.qtyOrder || 0),
       "Item Group": row.itemGroup || "-",
     }));
@@ -127,6 +130,7 @@ export function TodaysVehiclePage() {
       { wch: 18 },
       { wch: 24 },
       { wch: 36 },
+      { wch: 18 },
       { wch: 14 },
       { wch: 18 },
     ];
@@ -214,7 +218,7 @@ export function TodaysVehiclePage() {
                     type="text"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search order, staff, party, item..."
+                    placeholder="Search order, staff, party, truck, item..."
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:bg-white"
                   />
                 </div>
@@ -305,6 +309,14 @@ export function TodaysVehiclePage() {
                           {row.partyName || "-"}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                          Truck No
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-sky-700">
+                          {row.truckNo || "-"}
+                        </div>
+                      </div>
                       <div className="sm:col-span-2">
                         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                           Item Group
@@ -335,6 +347,9 @@ export function TodaysVehiclePage() {
                         Party Name
                       </th>
                       <th className="px-6 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                        Truck No
+                      </th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                         Qty Order
                       </th>
                       <th className="px-6 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
@@ -359,6 +374,9 @@ export function TodaysVehiclePage() {
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">
                           {row.partyName || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold uppercase tracking-[0.12em] text-sky-700">
+                          {row.truckNo || "-"}
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">
                           {formatQuantity(row.qtyOrder)}
