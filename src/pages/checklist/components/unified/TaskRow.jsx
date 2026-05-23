@@ -47,6 +47,8 @@ const TaskRow = memo(function TaskRow({
   const normalizedRole = userRole?.toLowerCase();
   const isUserRole = normalizedRole === "user";
   const isAdminRole = normalizedRole === "admin";
+  const canVerifyHousekeeping = localStorage.getItem('page_access')?.includes('housekeeping-verify');
+  const housekeepingPendingPreviewStatus = isSelected && rowData.status ? rowData.status : "Pending";
   const isHousekeepingPendingEditable =
     task.sourceSystem === "housekeeping" &&
     !isCompleted &&
@@ -54,7 +56,7 @@ const TaskRow = memo(function TaskRow({
       task.originalData?.attachment !== "confirmed" &&
       task.confirmedByHOD !== "Confirmed" &&
       task.confirmedByHOD !== "confirmed") ||
-      localStorage.getItem('page_access')?.includes('housekeeping-verify'));
+      canVerifyHousekeeping);
   const shouldShowChecklistRemarkInput =
     isUserRole && task.sourceSystem === "checklist" && !isCompleted;
 
@@ -173,9 +175,9 @@ const TaskRow = memo(function TaskRow({
               type="checkbox"
               className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${(task.sourceSystem === "housekeeping" &&
                 (userRole?.toLowerCase() === "user"
-                  ? (task.originalData?.attachment === "confirmed" ||
-                    task.confirmedByHOD === "Confirmed" ||
-                    task.confirmedByHOD === "confirmed") && !localStorage.getItem('page_access')?.includes('housekeeping-verify')
+                ? (task.originalData?.attachment === "confirmed" ||
+                  task.confirmedByHOD === "Confirmed" ||
+                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
                   : task.originalData?.attachment !== "confirmed" &&
                   task.confirmedByHOD !== "Confirmed" &&
                   task.confirmedByHOD !== "confirmed"))
@@ -189,7 +191,7 @@ const TaskRow = memo(function TaskRow({
                 (userRole?.toLowerCase() === "user"
                   ? (task.originalData?.attachment === "confirmed" ||
                     task.confirmedByHOD === "Confirmed" ||
-                    task.confirmedByHOD === "confirmed") && !localStorage.getItem('page_access')?.includes('housekeeping-verify')
+                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
                   : task.originalData?.attachment !== "confirmed" &&
                   task.confirmedByHOD !== "Confirmed" &&
                   task.confirmedByHOD !== "confirmed")
@@ -292,10 +294,16 @@ const TaskRow = memo(function TaskRow({
               <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
                 ✅ {task.originalStatus || "Yes"}
               </span>
-            ) : (isAdminRole || localStorage.getItem('page_access')?.includes('housekeeping-verify')) ? (
-              <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-                ✅ {rowData.status || "Yes"}
-              </span>
+            ) : (isAdminRole || canVerifyHousekeeping) ? (
+              isSelected && rowData.status ? (
+                <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                  ✅ {rowData.status}
+                </span>
+              ) : (
+                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                  Pending
+                </span>
+              )
             ) : (
               <span className="text-gray-500 text-xs">Waiting Confirm</span>
             )}
@@ -347,7 +355,7 @@ const TaskRow = memo(function TaskRow({
               (userRole?.toLowerCase() === "user"
                 ? (task.originalData?.attachment === "confirmed" ||
                   task.confirmedByHOD === "Confirmed" ||
-                  task.confirmedByHOD === "confirmed") && !localStorage.getItem('page_access')?.includes('housekeeping-verify')
+                  task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
                 : task.originalData?.attachment !== "confirmed" &&
                 task.confirmedByHOD !== "Confirmed" &&
                 task.confirmedByHOD !== "confirmed")) ||
@@ -363,7 +371,7 @@ const TaskRow = memo(function TaskRow({
                 (userRole?.toLowerCase() === "user"
                   ? (task.originalData?.attachment === "confirmed" ||
                     task.confirmedByHOD === "Confirmed" ||
-                    task.confirmedByHOD === "confirmed") && !localStorage.getItem('page_access')?.includes('housekeeping-verify')
+                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
                   : task.originalData?.attachment !== "confirmed" &&
                   task.confirmedByHOD !== "Confirmed" &&
                   task.confirmedByHOD !== "confirmed")) ||
@@ -515,10 +523,16 @@ const TaskRow = memo(function TaskRow({
             </span>
           ) : isUserRole ? (
             task.sourceSystem === 'housekeeping' ? (
-              (isAdminRole || localStorage.getItem('page_access')?.includes('housekeeping-verify')) ? (
-                <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-                  ✅ {rowData.status || "Yes"}
-                </span>
+              (isAdminRole || canVerifyHousekeeping) ? (
+                isSelected && rowData.status ? (
+                  <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                    ✅ {rowData.status}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                    {housekeepingPendingPreviewStatus}
+                  </span>
+                )
               ) : (
                 <span className="text-gray-500 text-xs text-center block">Waiting Confirm</span>
               )
@@ -534,10 +548,16 @@ const TaskRow = memo(function TaskRow({
                 <option value="No">No / नहीं</option>
               </select>
             )
-          ) : (isAdminRole || localStorage.getItem('page_access')?.includes('housekeeping-verify')) && task.sourceSystem === 'housekeeping' ? (
-            <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-              ✅ {rowData.status || "Yes"}
-            </span>
+          ) : (isAdminRole || canVerifyHousekeeping) && task.sourceSystem === 'housekeeping' ? (
+            isSelected && rowData.status ? (
+              <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                ✅ {rowData.status}
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                {housekeepingPendingPreviewStatus}
+              </span>
+            )
           ) : (
             <span className={`text-xs font-medium ${(task.originalData?.status?.toLowerCase() === 'yes' || task.originalStatus?.toLowerCase() === 'yes')
               ? 'text-green-600'
@@ -627,15 +647,17 @@ export const TaskCard = memo(function TaskCard({
   const normalizedRole = userRole?.toLowerCase();
   const isUserRole = normalizedRole === "user";
   const isAdminRole = normalizedRole === "admin";
+  const canVerifyHousekeeping = localStorage.getItem('page_access')?.includes('housekeeping-verify');
+  const housekeepingPendingPreviewStatus = isSelected && rowData.status ? rowData.status : "Pending";
 
   const isHousekeepingPendingEditable =
-    isUserRole &&
     task.sourceSystem === "housekeeping" &&
     !isCompleted &&
-    (task.originalData?.attachment !== "confirmed" &&
+    ((isUserRole &&
+      task.originalData?.attachment !== "confirmed" &&
       task.confirmedByHOD !== "Confirmed" &&
       task.confirmedByHOD !== "confirmed") ||
-    localStorage.getItem('page_access')?.includes('housekeeping-verify');
+      canVerifyHousekeeping);
 
   const shouldShowChecklistRemarkInput =
     isUserRole && task.sourceSystem === "checklist" && !isCompleted;
@@ -667,7 +689,7 @@ export const TaskCard = memo(function TaskCard({
       (isUserRole
         ? (task.originalData?.attachment === "confirmed" ||
           task.confirmedByHOD === "Confirmed" ||
-          task.confirmedByHOD === "confirmed") && !localStorage.getItem('page_access')?.includes('housekeeping-verify')
+          task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
         : task.originalData?.attachment !== "confirmed" &&
         task.confirmedByHOD !== "Confirmed" &&
         task.confirmedByHOD !== "confirmed")) ||
@@ -868,11 +890,17 @@ export const TaskCard = memo(function TaskCard({
                 </p>
               ) : isUserRole || (isAdminRole && task.sourceSystem === "maintenance") ? (
                 task.sourceSystem === "housekeeping" ? (
-                  (isAdminRole || localStorage.getItem('page_access')?.includes('housekeeping-verify')) ? (
+                  (isAdminRole || canVerifyHousekeeping) ? (
                     <div className="mt-0.5">
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100 uppercase inline-flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" /> {rowData.status || "Yes"}
-                      </span>
+                      {isSelected && rowData.status ? (
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100 uppercase inline-flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" /> {rowData.status}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-black rounded-md border border-amber-100 uppercase inline-flex items-center gap-1">
+                          Pending
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <p className="text-[11px] font-bold text-gray-500 uppercase mt-0.5">Waiting Confirm</p>
@@ -889,11 +917,17 @@ export const TaskCard = memo(function TaskCard({
                     <option value="No">No / नहीं</option>
                   </select>
                 )
-              ) : (isAdminRole || localStorage.getItem('page_access')?.includes('housekeeping-verify')) && task.sourceSystem === "housekeeping" ? (
+              ) : (isAdminRole || canVerifyHousekeeping) && task.sourceSystem === "housekeeping" ? (
                 <div className="mt-0.5">
-                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100 uppercase inline-flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" /> {rowData.status || "Yes"}
-                  </span>
+                  {isSelected && rowData.status ? (
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100 uppercase inline-flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" /> {rowData.status}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-black rounded-md border border-amber-100 uppercase inline-flex items-center gap-1">
+                      Pending
+                    </span>
+                  )}
                 </div>
               ) : (
                 <p className="text-[11px] font-bold text-gray-500 uppercase mt-0.5">
