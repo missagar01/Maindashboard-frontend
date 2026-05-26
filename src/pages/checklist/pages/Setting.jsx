@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 // import { Plus, User, Building, X, Save, Edit, Trash2, Settings, Search, ChevronDown, Calendar, RefreshCw } from 'lucide-react';
 import {
     Plus,
@@ -45,6 +45,7 @@ const Setting = () => {
     const [showPasswords, setShowPasswords] = useState({}); // Track which passwords are visibl
     const [showModalPassword, setShowModalPassword] = useState(false);
     const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+    const [showUserAccess1Dropdown, setShowUserAccess1Dropdown] = useState(false);
     const [updateMessage, setUpdateMessage] = useState({ type: "", text: "" }); // Success/Error message
     const [isUpdating, setIsUpdating] = useState(false); // Loading state for update
     const [deptUpdateMessage, setDeptUpdateMessage] = useState({ type: "", text: "" }); // Department success/error message
@@ -52,6 +53,8 @@ const Setting = () => {
     const [verifyAccessValue, setVerifyAccessValue] = useState("");
     const [verifyAccessDepts, setVerifyAccessDepts] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
+    const deptDropdownRef = useRef(null);
+    const userAccess1DropdownRef = useRef(null);
 
     const { settingState, fetchSettingsData, createSettingDepartment, createSettingUser, deleteSettingUser, updateSettingDepartment, updateSettingUser, fetchSettingUserDetails, fetchSettingDepartmentDetails } = useAuth();
     const { settingUserData: userData, settingDepartment: department, settingDepartmentsOnly: departmentsOnly, settingGivenBy: givenBy, settingLoading: loading, settingError: error } = settingState;
@@ -92,6 +95,8 @@ const Setting = () => {
     const handleAddButtonClick = () => {
         if (activeTab === "users") {
             resetUserForm();
+            setShowUserAccess1Dropdown(false);
+            setShowDeptDropdown(false);
             setIsUpdating(false); // Reset updating state when opening add form
             setUpdateMessage({ type: "", text: "" }); // Clear any previous messages
             setShowUserModal(true);
@@ -141,7 +146,7 @@ const Setting = () => {
         givenBy: "",
         role: "user",
         status: "active",
-        user_access1: "", // Text input for multiple comma-separated values
+        user_access1: [],
         systemAccess: [],
         pageAccess: [],
         division: "", // Added division field
@@ -169,6 +174,38 @@ const Setting = () => {
         () => getPageOptionGroupsForSystems(userForm.systemAccess),
         [userForm.systemAccess]
     );
+
+    const normalizeAccessEntries = (value) => {
+        const source = Array.isArray(value)
+            ? value
+            : typeof value === "string"
+                ? value.split(",")
+                : [];
+
+        return [...new Set(
+            source
+                .map((item) =>
+                    typeof item === "string" ? item.trim() : String(item || "").trim()
+                )
+                .filter(Boolean)
+        )];
+    };
+
+    const selectedUserAccess1Values = useMemo(
+        () => normalizeAccessEntries(userForm.user_access1),
+        [userForm.user_access1]
+    );
+
+    const userAccess1Options = useMemo(() => {
+        return [...new Set(
+            [
+                ...(Array.isArray(userData)
+                    ? userData.flatMap((user) => normalizeAccessEntries(user?.user_access1))
+                    : []),
+                ...selectedUserAccess1Values,
+            ]
+        )].sort((left, right) => left.localeCompare(right));
+    }, [userData, selectedUserAccess1Values]);
 
     const buildAccessPayload = () => {
         const normalizedSystems = normalizeSystemAccessEntries(userForm.systemAccess);
@@ -591,6 +628,20 @@ const Setting = () => {
         }
     };
 
+    const toggleUserAccess1Option = (accessValue) => {
+        setUserForm((prev) => {
+            const currentValues = normalizeAccessEntries(prev.user_access1);
+            const nextValues = currentValues.includes(accessValue)
+                ? currentValues.filter((item) => item !== accessValue)
+                : [...currentValues, accessValue];
+
+            return {
+                ...prev,
+                user_access1: nextValues,
+            };
+        });
+    };
+
     const toggleSystemAccessOption = (option) => {
         const normalizedOption = normalizeSystemName(option) || option;
         setUserForm((prev) => {
@@ -675,8 +726,20 @@ const Setting = () => {
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (showDeptDropdown && !event.target.closest(".relative")) {
+            if (
+                showDeptDropdown &&
+                deptDropdownRef.current &&
+                !deptDropdownRef.current.contains(event.target)
+            ) {
                 setShowDeptDropdown(false);
+            }
+
+            if (
+                showUserAccess1Dropdown &&
+                userAccess1DropdownRef.current &&
+                !userAccess1DropdownRef.current.contains(event.target)
+            ) {
+                setShowUserAccess1Dropdown(false);
             }
         };
 
@@ -684,7 +747,7 @@ const Setting = () => {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [showDeptDropdown]);
+    }, [showDeptDropdown, showUserAccess1Dropdown]);
 
     const handleEditUser = (userId) => {
         if (!Array.isArray(userData)) {
@@ -731,15 +794,15 @@ const Setting = () => {
             givenBy: user.givenBy || "",
             role: user.role || "user",
             status: user.status || "active",
-            user_access1: user.user_access1 !== null && user.user_access1 !== undefined
-                ? String(user.user_access1)
-                : "", // Ensure it's always a string
+            user_access1: normalizeAccessEntries(user.user_access1),
             systemAccess: systemAccessArray,
             pageAccess: pageAccessArray,
             division: user.division || "", // Populating division field
         });
         setCurrentUserId(userId);
         setIsEditing(true);
+        setShowUserAccess1Dropdown(false);
+        setShowDeptDropdown(false);
         setIsUpdating(false); // Reset updating state when opening edit form
         setUpdateMessage({ type: "", text: "" }); // Clear any previous messages
         setShowUserModal(true);
@@ -770,7 +833,7 @@ const Setting = () => {
             givenBy: "",
             role: "user",
             status: "active",
-            user_access1: "", // Reset user_access1 to empty string
+            user_access1: [],
             systemAccess: [],
             pageAccess: [],
             division: "", // Resetting division field
@@ -778,6 +841,8 @@ const Setting = () => {
         setIsEditing(false);
         setCurrentUserId(null);
         setIsUpdating(false); // Reset updating state when resetting form
+        setShowUserAccess1Dropdown(false);
+        setShowDeptDropdown(false);
         setUpdateMessage({ type: "", text: "" }); // Clear messages
         setVerifyAccessValue("");
         setVerifyAccessDepts([]);
@@ -1788,20 +1853,119 @@ const Setting = () => {
                                                     htmlFor="user_access1"
                                                     className="block text-sm font-medium text-gray-700 mb-1"
                                                 >
-                                                    User Access 1 (Comma-separated values)
+                                                    User Access 1
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    name="user_access1"
-                                                    id="user_access1"
-                                                    value={userForm.user_access1}
-                                                    onChange={handleUserInputChange}
-                                                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    placeholder="Enter values separated by commas (e.g., value1, value2, value3)"
-                                                />
+                                                <div className="relative mt-1" ref={userAccess1DropdownRef}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setShowUserAccess1Dropdown(!showUserAccess1Dropdown)
+                                                        }
+                                                        className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-left focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                                    >
+                                                        <div className="flex justify-between items-center gap-3">
+                                                            <span className="block truncate">
+                                                                {selectedUserAccess1Values.length === 0
+                                                                    ? "Select User Access 1"
+                                                                    : `${selectedUserAccess1Values.length} user access item(s) selected`}
+                                                            </span>
+                                                            <ChevronDown
+                                                                size={16}
+                                                                className={`text-gray-400 transition-transform ${showUserAccess1Dropdown ? "rotate-180" : ""
+                                                                    }`}
+                                                            />
+                                                        </div>
+                                                    </button>
+
+                                                    {showUserAccess1Dropdown && (
+                                                        <div className="absolute z-50 mt-1 w-full bg-white shadow-lg border border-gray-300 rounded-md max-h-60 overflow-y-auto">
+                                                            <div className="p-2">
+                                                                <div className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        id="selectAllUserAccess1"
+                                                                        checked={
+                                                                            selectedUserAccess1Values.length === userAccess1Options.length &&
+                                                                            userAccess1Options.length > 0
+                                                                        }
+                                                                        onChange={(e) => {
+                                                                            setUserForm((prev) => ({
+                                                                                ...prev,
+                                                                                user_access1: e.target.checked ? userAccess1Options : [],
+                                                                            }));
+                                                                        }}
+                                                                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                    />
+                                                                    <label
+                                                                        htmlFor="selectAllUserAccess1"
+                                                                        className="ml-3 text-sm text-gray-700 cursor-pointer"
+                                                                    >
+                                                                        Select All
+                                                                    </label>
+                                                                </div>
+
+                                                                <div className="border-t border-gray-200 my-2"></div>
+
+                                                                {userAccess1Options.map((accessValue, index) => (
+                                                                    <div
+                                                                        key={`${accessValue}-${index}`}
+                                                                        className="flex items-start p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`user-access1-${index}`}
+                                                                            checked={selectedUserAccess1Values.includes(accessValue)}
+                                                                            onChange={() => toggleUserAccess1Option(accessValue)}
+                                                                            className="mt-0.5 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                        />
+                                                                        <label
+                                                                            htmlFor={`user-access1-${index}`}
+                                                                            className="ml-3 text-sm text-gray-700 cursor-pointer break-words"
+                                                                        >
+                                                                            {accessValue}
+                                                                        </label>
+                                                                    </div>
+                                                                ))}
+
+                                                                {userAccess1Options.length === 0 && (
+                                                                    <div className="p-3 text-center text-sm text-gray-500">
+                                                                        No user access options available
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="mt-2">
+                                                    <p className="text-xs font-medium text-gray-700 mb-1">
+                                                        Selected User Access 1:
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selectedUserAccess1Values.length > 0 ? (
+                                                            selectedUserAccess1Values.map((accessValue) => (
+                                                                <span
+                                                                    key={accessValue}
+                                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                                >
+                                                                    {accessValue}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleUserAccess1Option(accessValue)}
+                                                                        className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                                                                    >
+                                                                        <X size={12} />
+                                                                    </button>
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500">
+                                                                No user access selected
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                                 <p className="mt-1 text-xs text-gray-500">
-                                                    Enter multiple values separated by commas. Database
-                                                    supports long text.
+                                                    Existing `user_access1` items from users table are shown here.
                                                 </p>
                                             </div>
 
@@ -1816,7 +1980,7 @@ const Setting = () => {
                                                 </label>
 
                                                 {/* Dropdown trigger button */}
-                                                <div className="relative mt-1">
+                                                <div className="relative mt-1" ref={deptDropdownRef}>
                                                     <button
                                                         type="button"
                                                         onClick={() =>
