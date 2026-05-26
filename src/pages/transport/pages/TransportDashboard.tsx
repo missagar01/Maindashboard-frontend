@@ -51,6 +51,10 @@ import {
   AnalyticsEmptyState,
   AnalyticsErrorState
 } from "../components/AnalyticsStates";
+import { fetchEquipmentShiftChangeList } from "../../../api/transport/equipmentShiftChangeApi";
+import { fetchEquipmentHandoverList } from "../../../api/transport/equipmentHandoverApi";
+import { fetchEquipmentTakeoverList } from "../../../api/transport/equipmentTakeoverApi";
+import { fetchPodRegisterReport } from "../../../api/transport/podRegisterApi";
 
 type TransportLrBiltyRecord = Record<string, any>;
 
@@ -92,6 +96,12 @@ export default function TransportDashboard() {
   const [errorBilty, setErrorBilty] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
 
+  const [shiftChangeCount, setShiftChangeCount] = useState<number | null>(null);
+  const [equipmentHandoverCount, setEquipmentHandoverCount] = useState<number | null>(null);
+  const [equipmentTakeoverCount, setEquipmentTakeoverCount] = useState<number | null>(null);
+  const [podRegisterCount, setPodRegisterCount] = useState<number | null>(null);
+  const [loadingNewApis, setLoadingNewApis] = useState(true);
+
   const fetchBiltyData = async () => {
     try {
       setLoadingBilty(true);
@@ -105,8 +115,32 @@ export default function TransportDashboard() {
     }
   };
 
+  const fetchNewApisData = async (signal?: AbortSignal) => {
+    try {
+      setLoadingNewApis(true);
+      const [shiftChangeRes, equipHandoverRes, equipTakeoverRes, podRegisterRes] = await Promise.all([
+        fetchEquipmentShiftChangeList({}, signal).catch(() => ({ records: [], total: 0 })),
+        fetchEquipmentHandoverList({}, signal).catch(() => ({ records: [], total: 0 })),
+        fetchEquipmentTakeoverList({}, signal).catch(() => ({ records: [], total: 0 })),
+        fetchPodRegisterReport({}, signal).catch(() => ({ records: [], total: 0 })),
+      ]);
+
+      setShiftChangeCount(shiftChangeRes.records.length || shiftChangeRes.total || 0);
+      setEquipmentHandoverCount(equipHandoverRes.records.length || equipHandoverRes.total || 0);
+      setEquipmentTakeoverCount(equipTakeoverRes.records.length || equipTakeoverRes.total || 0);
+      setPodRegisterCount(podRegisterRes.records.length || podRegisterRes.total || 0);
+    } catch (err) {
+      console.error("Failed to fetch new APIs data", err);
+    } finally {
+      setLoadingNewApis(false);
+    }
+  };
+
   useEffect(() => {
+    const controller = new AbortController();
     fetchBiltyData();
+    fetchNewApisData(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const branchOptions = useMemo(() => {
@@ -167,41 +201,82 @@ export default function TransportDashboard() {
         <div className="flex items-center gap-2">
           <SelectField value={selectedBranch} onChange={setSelectedBranch} options={branchOptions} />
           <button
-            onClick={() => { fetchBiltyData(); takeover.retry(); handover.retry(); }}
+            onClick={() => {
+              fetchBiltyData();
+              fetchNewApisData();
+              takeover.retry();
+              handover.retry();
+            }}
             className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition shadow-sm"
           >
-            <RefreshCw className={`h-4 w-4 text-slate-500 ${(loadingBilty || takeover.loading || handover.loading) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 text-slate-500 ${(loadingBilty || loadingNewApis || takeover.loading || handover.loading) ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* KPI Command Center */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 px-1">
-        <AnalyticsKpiCard
-          label="Takeover"
-          value={formatNumber(takeover.data?.takeoversThisMonth ?? 0)}
-          tone="blue"
-        />
-        <AnalyticsKpiCard
-          label="Handover"
-          value={formatNumber(handover.data?.handoversThisMonth ?? 0)}
-          tone="emerald"
-        />
-        <AnalyticsKpiCard
-          label="Bilty"
-          value={formatNumber(filteredRecords.length)}
-          tone="violet"
-        />
-        <AnalyticsKpiCard
-          label="Deductions"
-          value={formatCurrency(takeover.data?.totalDeductionsThisMonth ?? 0)}
-          tone="amber"
-        />
-        <AnalyticsKpiCard
-          label="Avg Duration"
-          value={`${takeover.data?.avgAssignmentDurationDays ?? 0} Days`}
-          tone="slate"
-        />
+      {/* Operations Command Center */}
+      <div className="space-y-3">
+        <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5 text-indigo-500" />
+          Core Operational Analytics
+        </h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 px-1">
+          <AnalyticsKpiCard
+            label="Takeover"
+            value={formatNumber(takeover.data?.takeoversThisMonth ?? 0)}
+            tone="blue"
+          />
+          <AnalyticsKpiCard
+            label="Handover"
+            value={formatNumber(handover.data?.handoversThisMonth ?? 0)}
+            tone="emerald"
+          />
+          <AnalyticsKpiCard
+            label="Bilty"
+            value={formatNumber(filteredRecords.length)}
+            tone="violet"
+          />
+          <AnalyticsKpiCard
+            label="Deductions"
+            value={formatCurrency(takeover.data?.totalDeductionsThisMonth ?? 0)}
+            tone="amber"
+          />
+          <AnalyticsKpiCard
+            label="Avg Duration"
+            value={`${takeover.data?.avgAssignmentDurationDays ?? 0} Days`}
+            tone="slate"
+          />
+        </div>
+      </div>
+
+      {/* Equipment & Shift Operations Control */}
+      <div className="space-y-3">
+        <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1.5">
+          <Truck className="h-3.5 w-3.5 text-indigo-500" />
+          Equipment & Shift Handover Control
+        </h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 px-1">
+          <AnalyticsKpiCard
+            label="Equipment Shift Changes"
+            value={loadingNewApis ? "..." : formatNumber(shiftChangeCount ?? 0)}
+            tone="violet"
+          />
+          <AnalyticsKpiCard
+            label="Equipment Handovers"
+            value={loadingNewApis ? "..." : formatNumber(equipmentHandoverCount ?? 0)}
+            tone="emerald"
+          />
+          <AnalyticsKpiCard
+            label="Equipment Takeovers"
+            value={loadingNewApis ? "..." : formatNumber(equipmentTakeoverCount ?? 0)}
+            tone="blue"
+          />
+          <AnalyticsKpiCard
+            label="Prepared PODs"
+            value={loadingNewApis ? "..." : formatNumber(podRegisterCount ?? 0)}
+            tone="rose"
+          />
+        </div>
       </div>
 
       {/* Primary Visual Row */}

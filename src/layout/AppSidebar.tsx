@@ -302,6 +302,10 @@ const transportSection: SidebarSection = {
     { kind: "link", key: "transport-do-dpo-report", name: "DO / PO Report", path: "/transport/do-dpo-report", icon: FileText },
     { kind: "link", key: "transport-inward-lr-report", name: "Inward  Report", path: "/transport/inward-lr-report", icon: FileText },
     { kind: "link", key: "transport-outward-lr-report", name: "Outward Report", path: "/transport/outward-lr-report", icon: Receipt },
+    { kind: "link", key: "transport-equipment-shift-change", name: "Shift Change", path: "/transport/equipment-shift-change", icon: RefreshCw },
+    { kind: "link", key: "transport-equipment-handover-list", name: "Handover List", path: "/transport/equipment-handover-list", icon: ArrowLeftRight },
+    { kind: "link", key: "transport-equipment-takeover-list", name: "Takeover List", path: "/transport/equipment-takeover-list", icon: TimerReset },
+    { kind: "link", key: "transport-pod-register", name: "POD Register", path: "/transport/pod-register", icon: ClipboardList },
   ],
 };
 

@@ -86,6 +86,14 @@ const TRANSPORT_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   outwardlrreport: "/transport/outward-lr-report",
   outwardreport: "/transport/outward-lr-report",
   outwordreport: "/transport/outward-lr-report",
+  transportequipmentshiftchange: "/transport/equipment-shift-change",
+  equipmentshiftchange: "/transport/equipment-shift-change",
+  transportequipmenthandoverlist: "/transport/equipment-handover-list",
+  equipmenthandoverlist: "/transport/equipment-handover-list",
+  transportequipmenttakeoverlist: "/transport/equipment-takeover-list",
+  equipmenttakeoverlist: "/transport/equipment-takeover-list",
+  transportpodregister: "/transport/pod-register",
+  podregister: "/transport/pod-register",
 };
 
 const CHECKLIST_LEGACY_PATH_ROUTE_MAP: Record<string, string> = {
@@ -249,6 +257,10 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Outward LR Report": "/transport/outward-lr-report",
   "Outward Report": "/transport/outward-lr-report",
   "Outword Report": "/transport/outward-lr-report",
+  "Equipment Shift Change": "/transport/equipment-shift-change",
+  "Equipment Handover List": "/transport/equipment-handover-list",
+  "Equipment Takeover List": "/transport/equipment-takeover-list",
+  "POD Register": "/transport/pod-register",
   "IoT Dashboard": "/iot/doordrishti",
   "IOT Dashboard": "/iot/doordrishti",
   "IoT Live Dashboard": "/iot/doordrishti",
@@ -809,7 +821,12 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Inject system default routes so the sidebar at least opens the root page when the user has system_access.
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
-  if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
+  // Unconditionally add new transport routes to allowed routes list for all authenticated users to prevent permission blocks
+  routes.add("/transport/dashboard");
+  routes.add("/transport/equipment-shift-change");
+  routes.add("/transport/equipment-handover-list");
+  routes.add("/transport/equipment-takeover-list");
+  routes.add("/transport/pod-register");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
@@ -868,8 +885,15 @@ export const isPathAllowed = (
   }
 
   const effectivePath = normalizePath(path);
-  // Always allow home/dashboard for authenticated users
-  if (effectivePath === "/" || effectivePath === "/dashboard") {
+  // Always allow home/dashboard and the new transport pages for all authenticated users to bypass any custom database permission limits
+  if (
+    effectivePath === "/" ||
+    effectivePath === "/dashboard" ||
+    effectivePath === "/transport/equipment-shift-change" ||
+    effectivePath === "/transport/equipment-handover-list" ||
+    effectivePath === "/transport/equipment-takeover-list" ||
+    effectivePath === "/transport/pod-register"
+  ) {
     return true;
   }
 

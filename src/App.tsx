@@ -73,6 +73,7 @@ import StoreDashboard from "./pages/store/pages/store/StoreDashboard";
 import StoreIssue from "./pages/store/pages/store/StoreIssue";
 import StoreIndentAll from "./pages/store/pages/store/IndentAll";
 import StoreOutApproval from "./pages/store/pages/store/StoreOutApproval";
+
 import StorePendingPOs from "./pages/store/pages/store/PendingPOs";
 import StoreCreatePO from "./pages/store/pages/store/CreatePO";
 import StoreApproveIndent from "./pages/store/pages/store/ApproveIndent";
@@ -109,11 +110,13 @@ import TransportLrBiltyRegister from "./pages/transport/pages/TransportLrBiltyRe
 import TransportDoDpoReport from "./pages/transport/pages/TransportDoDpoReport";
 import TransportInwardLrReport from "./pages/transport/pages/TransportInwardLrReport";
 import TransportOutwardLrReport from "./pages/transport/pages/TransportOutwardLrReport";
+import TransportEquipmentShiftChange from "./pages/transport/pages/TransportEquipmentShiftChange";
+import TransportEquipmentHandoverList from "./pages/transport/pages/TransportEquipmentHandoverList";
+import TransportEquipmentTakeoverList from "./pages/transport/pages/TransportEquipmentTakeoverList";
+import TransportPodRegister from "./pages/transport/pages/TransportPodRegister";
 import DoordrishtiPage from "./pages/iot/pages/doordrishti";
 import IotPumPage from "./pages/iot/pages/iotpum";
 import { DashboardPage as IotDashboardPage } from "./pages/iot/pages/DashboardPage";
-
-
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
 import DocumentResourceManager from "./pages/document/pages/ResourceManager";
@@ -324,6 +327,10 @@ export default function App() {
             <Route path="/transport/do-dpo-report" element={<RouteGuard><TransportDoDpoReport /></RouteGuard>} />
             <Route path="/transport/inward-lr-report" element={<RouteGuard><TransportInwardLrReport /></RouteGuard>} />
             <Route path="/transport/outward-lr-report" element={<RouteGuard><TransportOutwardLrReport /></RouteGuard>} />
+            <Route path="/transport/equipment-shift-change" element={<RouteGuard><TransportEquipmentShiftChange /></RouteGuard>} />
+            <Route path="/transport/equipment-handover-list" element={<RouteGuard><TransportEquipmentHandoverList /></RouteGuard>} />
+            <Route path="/transport/equipment-takeover-list" element={<RouteGuard><TransportEquipmentTakeoverList /></RouteGuard>} />
+            <Route path="/transport/pod-register" element={<RouteGuard><TransportPodRegister /></RouteGuard>} />
 
             {/* IoT Routes */}
             <Route path="/iot" element={<RouteGuard><Navigate to="/iot/doordrishti" replace /></RouteGuard>} />
