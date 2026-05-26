@@ -3,6 +3,7 @@ import { ClipboardCheck, ChevronLeft, ChevronRight, Download } from "lucide-reac
 import { z } from "zod";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as XLSX from "xlsx";
 
 import Heading from "../../components/element/Heading";
 import { Button } from "../../components/ui/button";
@@ -175,6 +176,103 @@ const formatDateTime = (dateString?: string | null) =>
       second: "2-digit",
     })
     : "";
+
+const buildPendingExportRows = (rows: IndentRow[]) =>
+  rows.map((row, index) => ({
+    "S.No": index + 1,
+    "Planned Time Stamp": formatDateTime(row.PLANNEDTIMESTAMP),
+    "Indent Number": row.INDENT_NUMBER || "",
+    "Indent Date": formatDate(row.INDENT_DATE),
+    Indenter: row.INDENTER_NAME || "",
+    Division: row.DIVISION || "",
+    Department: row.DEPARTMENT || "",
+    "Item Name": row.ITEM_NAME || "",
+    UOM: row.UM || "",
+    "Required Qty": row.REQUIRED_QTY ?? 0,
+    Remark: row.REMARK || "",
+    Specification: row.SPECIFICATION || "",
+    "Cost Project": row.COST_PROJECT || "",
+    "Vendor Type": row.VENDOR_TYPE || "Pending",
+  }));
+
+const buildHistoryExportRows = (rows: IndentRow[]) =>
+  rows.map((row, index) => ({
+    "S.No": index + 1,
+    "Planned Time Stamp": formatDateTime(row.PLANNEDTIMESTAMP),
+    "Indent Number": row.INDENT_NUMBER || "",
+    "Indent Date": formatDate(row.INDENT_DATE),
+    Indenter: row.INDENTER_NAME || "",
+    Division: row.DIVISION || "",
+    Department: row.DEPARTMENT || "",
+    "Item Name": row.ITEM_NAME || "",
+    UOM: row.UM || "",
+    "Required Qty": row.REQUIRED_QTY ?? 0,
+    Remark: row.REMARK || "",
+    Specification: row.SPECIFICATION || "",
+    "Cost Project": row.COST_PROJECT || "",
+    "Cancelled Date & Time": formatDateTime(row.CANCELLEDDATE),
+    "Cancelled Remark": row.CANCELLED_REMARK || "",
+    "PO No.": row.PO_NO || "",
+    "PO Qty": row.PO_QTY ?? "",
+    "Vendor Type": row.VENDOR_TYPE || "Pending",
+  }));
+
+const downloadRowsAsExcel = (
+  rows: IndentRow[],
+  type: "pending" | "history",
+  fileName: string
+) => {
+  const exportRows =
+    type === "pending" ? buildPendingExportRows(rows) : buildHistoryExportRows(rows);
+  const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+  worksheet["!cols"] =
+    type === "pending"
+      ? [
+        { wch: 8 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 24 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 36 },
+        { wch: 10 },
+        { wch: 14 },
+        { wch: 28 },
+        { wch: 36 },
+        { wch: 20 },
+        { wch: 14 },
+      ]
+      : [
+        { wch: 8 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 24 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 36 },
+        { wch: 10 },
+        { wch: 14 },
+        { wch: 28 },
+        { wch: 36 },
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 28 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 14 },
+      ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    type === "pending" ? "Pending Indents" : "Indent History"
+  );
+  XLSX.writeFile(workbook, fileName);
+};
 
 function MobileInfoRow({
   label,
@@ -389,22 +487,18 @@ export default function ApproveIndent() {
     try {
       if (type === "pending") {
         setDownloadingPending(true);
-        const blob = await storeApi.downloadPendingIndents();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "pending-indents.xlsx";
-        link.click();
-        window.URL.revokeObjectURL(url);
+        if (!pendingFiltered.length) {
+          toast.error("No pending indents available to download.");
+          return;
+        }
+        downloadRowsAsExcel(pendingFiltered, "pending", "pending-indents.xlsx");
       } else {
         setDownloadingHistory(true);
-        const blob = await storeApi.downloadHistoryIndents();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "history-indents.xlsx";
-        link.click();
-        window.URL.revokeObjectURL(url);
+        if (!historyFiltered.length) {
+          toast.error("No history indents available to download.");
+          return;
+        }
+        downloadRowsAsExcel(historyFiltered, "history", "history-indents.xlsx");
       }
     } catch (err) {
       console.error(err);
