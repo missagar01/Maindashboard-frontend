@@ -748,9 +748,14 @@ const normalizePageEntryToRoute = (
 
   if (page.startsWith("/")) {
     const normalized = normalizePath(page);
+    const normalizedSystem = getSystemForPath(normalized, normalized);
 
     if (normalized === "/dashboard") {
       return resolveDashboardRoute();
+    }
+
+    if (normalizedSystem === "transport" && !hasTransport) {
+      return null;
     }
 
     // Normalize module root aliases to concrete page routes so sidebar filtering
@@ -795,6 +800,12 @@ const normalizePageEntryToRoute = (
   }
 
   const mappedRoute = PAGE_NAME_TO_ROUTE_MAP[matchedKey];
+  const mappedRouteSystem = getSystemForPath(mappedRoute, normalizePath(mappedRoute));
+
+  if (mappedRouteSystem === "transport" && !hasTransport) {
+    return null;
+  }
+
   if (mappedRoute === "/" && normalizedPageLookup === "dashboard") {
     return resolveDashboardRoute();
   }
@@ -821,12 +832,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Inject system default routes so the sidebar at least opens the root page when the user has system_access.
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
-  // Unconditionally add new transport routes to allowed routes list for all authenticated users to prevent permission blocks
-  routes.add("/transport/dashboard");
-  routes.add("/transport/equipment-shift-change");
-  routes.add("/transport/equipment-handover-list");
-  routes.add("/transport/equipment-takeover-list");
-  routes.add("/transport/pod-register");
+  if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
@@ -885,14 +891,10 @@ export const isPathAllowed = (
   }
 
   const effectivePath = normalizePath(path);
-  // Always allow home/dashboard and the new transport pages for all authenticated users to bypass any custom database permission limits
+  // Always allow home/dashboard for authenticated users.
   if (
     effectivePath === "/" ||
-    effectivePath === "/dashboard" ||
-    effectivePath === "/transport/equipment-shift-change" ||
-    effectivePath === "/transport/equipment-handover-list" ||
-    effectivePath === "/transport/equipment-takeover-list" ||
-    effectivePath === "/transport/pod-register"
+    effectivePath === "/dashboard"
   ) {
     return true;
   }
