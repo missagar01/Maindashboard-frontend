@@ -146,12 +146,11 @@ const isSessionAuthFailure = (error: any) => {
   }
 
   const requestUrl = String(error.config?.url || '').toLowerCase();
-  if (requestUrl.includes('/api/auth/verify-session')) {
-    return responseCode === 'SESSION_REVOKED' || responseCode === 'TOKEN_EXPIRED' || responseCode === 'TOKEN_INVALID';
+  if (requestUrl.includes('/login') || requestUrl.includes('/signin')) {
+    return false;
   }
 
-  const token = getStoredToken();
-  return Boolean(token && isJwtExpired(token));
+  return true;
 };
 
 api.interceptors.request.use(

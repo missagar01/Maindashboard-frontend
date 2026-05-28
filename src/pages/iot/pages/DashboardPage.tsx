@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from 'react';
+import { startTransition, useEffect, useState, type ReactElement } from 'react';
 import {
   fetchLive,
   fetchSummary,
@@ -6,6 +6,258 @@ import {
   type DashboardSummaryResponse,
 } from '../../../api/iot/iotApi';
 import { TextileMESDashboard } from '../components/TextileMESDashboard';
+import {
+  Activity,
+  BarChart3,
+  TrendingUp,
+} from 'lucide-react';
+
+const RING_RADIUS = 64;
+const RING_STROKE = 14;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+const isNumber = (value: number | null | undefined): value is number =>
+  value !== null && value !== undefined && Number.isFinite(value);
+
+const formatValue = (value: number | null | undefined, unit = '', digits = 2) => {
+  if (!isNumber(value)) {
+    return '--';
+  }
+
+  const formatted = value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+
+  return unit ? `${formatted} ${unit}` : formatted;
+};
+
+const formatDuration = (totalSeconds: number | null | undefined) => {
+  if (!isNumber(totalSeconds) || totalSeconds <= 0) {
+    return '00h 00m';
+  }
+
+  const safeSeconds = Math.floor(totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m`;
+};
+
+const formatPercent = (value: number | null | undefined) => {
+  if (!isNumber(value)) {
+    return '--';
+  }
+
+  return `${value.toFixed(1)}%`;
+};
+
+const ProgressRing = ({
+  scoreLabel,
+  running,
+  stopped,
+}: {
+  scoreLabel: string;
+  running: number;
+  stopped: number;
+}) => {
+  const total = running + stopped;
+  const circles: ReactElement[] = [];
+  
+  const RING_RADIUS = 46;
+  const RING_STROKE = 14;
+  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+  if (total > 0) {
+    const runningLength = (running / total) * RING_CIRCUMFERENCE;
+    const stoppedLength = (stopped / total) * RING_CIRCUMFERENCE;
+
+    circles.push(
+      <circle
+        key="bg"
+        cx="60"
+        cy="60"
+        r={RING_RADIUS}
+        fill="transparent"
+        stroke="#94a3b8"
+        strokeWidth={RING_STROKE}
+      />
+    );
+
+    if (running > 0) {
+      circles.push(
+        <circle
+          key="running"
+          cx="60"
+          cy="60"
+          r={RING_RADIUS}
+          fill="transparent"
+          stroke="#10b981"
+          strokeWidth={RING_STROKE}
+          strokeLinecap="butt"
+          strokeDasharray={`${runningLength} ${RING_CIRCUMFERENCE}`}
+          strokeDashoffset={0}
+          className="transition-all duration-1000 ease-in-out"
+        />
+      );
+    }
+
+    if (stopped > 0) {
+      circles.push(
+        <circle
+          key="stopped"
+          cx="60"
+          cy="60"
+          r={RING_RADIUS}
+          fill="transparent"
+          stroke="#f59e0b"
+          strokeWidth={RING_STROKE}
+          strokeLinecap="butt"
+          strokeDasharray={`${stoppedLength} ${RING_CIRCUMFERENCE}`}
+          strokeDashoffset={-runningLength}
+          className="transition-all duration-1000 ease-in-out"
+        />
+      );
+    }
+  } else {
+    circles.push(
+      <circle
+        key="empty"
+        cx="60"
+        cy="60"
+        r={RING_RADIUS}
+        fill="transparent"
+        stroke="#e2e8f0"
+        strokeWidth={RING_STROKE}
+      />
+    );
+  }
+
+  return (
+    <div className="relative flex shrink-0 items-center justify-center w-[90px] h-[90px] sm:w-[130px] sm:h-[130px] lg:w-[90px] lg:h-[90px] xl:w-[110px] xl:h-[110px]">
+      <svg
+        viewBox="0 0 120 120"
+        className="relative h-full w-full -rotate-90"
+      >
+        {circles}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[8px] sm:text-[10px] lg:text-[8px] xl:text-[9px] font-black text-slate-400 uppercase tracking-widest">
+          UPTIME
+        </span>
+        <span className="text-[16px] sm:text-[22px] lg:text-[16px] xl:text-[18px] font-black text-slate-900 tracking-tight leading-none mt-0.5 sm:mt-1 lg:mt-0.5 xl:mt-1">
+          {scoreLabel}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+interface TextileSummaryCardProps {
+  title: string;
+  subtitle: string;
+  period: any;
+}
+
+const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps) => {
+  if (!period) {
+    return (
+      <article className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex h-[200px] items-center justify-center text-sm font-medium text-slate-400">
+          No data available for this range
+        </div>
+      </article>
+    );
+  }
+
+  const running = period.runningTimeSeconds || 0;
+  const stopped = period.stoppedTimeSeconds || 0;
+  const uptimeLabel = formatPercent(period.uptimePct);
+  const totalDevices = (period.onlineDevices || 0) + (period.offlineDevices || 0);
+
+  const metrics = [
+    {
+      key: 'energy',
+      label: 'ENERGY',
+      value: formatValue(period.totalEnergy, 'kWh'),
+      dotClass: 'bg-[#10b981]',
+    },
+    {
+      key: 'power',
+      label: 'POWER',
+      value: formatValue(period.power?.avg, 'kW'),
+      dotClass: 'bg-[#f59e0b]',
+    },
+    {
+      key: 'pf',
+      label: 'PF AVG',
+      value: formatValue(period.powerFactor?.avg, '', 2),
+      dotClass: 'bg-[#94a3b8]',
+    },
+    {
+      key: 'runtime',
+      label: 'RUNTIME',
+      value: formatDuration(period.runningTimeSeconds),
+      dotClass: 'bg-[#ef4444]',
+    },
+  ];
+
+  return (
+    <article className="group relative overflow-hidden rounded-[24px] sm:rounded-[32px] lg:rounded-[24px] xl:rounded-[32px] border border-slate-100 bg-white p-4 sm:p-6 lg:p-4 xl:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+      {/* Header */}
+      <div className="flex flex-row items-center justify-between gap-2 mb-4 sm:mb-6 lg:mb-4 xl:mb-5">
+        <h2 className="text-[15px] sm:text-[20px] lg:text-[14px] xl:text-[18px] font-black uppercase tracking-[0.1em] text-slate-900 truncate">
+          {title}
+        </h2>
+
+        <div className="flex flex-row items-center gap-1.5 sm:gap-2 lg:gap-1.5 xl:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-1 xl:gap-1.5 rounded-full bg-[#f59e0b] px-2 py-1 sm:px-3 sm:py-1.5 lg:px-2 lg:py-1 xl:px-3 xl:py-1.5 shadow-sm">
+            <TrendingUp className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 lg:h-2.5 lg:w-2.5 xl:h-3 xl:w-3 text-white" />
+            <span className="text-[9px] sm:text-[11px] lg:text-[8px] xl:text-[10px] font-black text-white uppercase tracking-wide">
+              SCORE: {uptimeLabel}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-1 xl:gap-1.5 rounded-full bg-[#111827] px-2 py-1 sm:px-3 sm:py-1.5 lg:px-2 lg:py-1 xl:px-3 xl:py-1.5 shadow-sm">
+            <BarChart3 className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 lg:h-2.5 lg:w-2.5 xl:h-3 xl:w-3 text-slate-300" />
+            <span className="text-[9px] sm:text-[11px] lg:text-[8px] xl:text-[10px] font-black text-white uppercase tracking-wide">
+              TOTAL: {totalDevices}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content (Chart + Pills) */}
+      <div className="flex flex-row items-center justify-between gap-3 sm:gap-8 lg:gap-3 xl:gap-5 w-full">
+        
+        {/* Left: Donut Chart */}
+        <div className="flex justify-center shrink-0">
+          <ProgressRing scoreLabel={uptimeLabel} running={running} stopped={stopped} />
+        </div>
+
+        {/* Right: Metrics Pills */}
+        <div className="flex flex-1 flex-col gap-2 sm:gap-3 lg:gap-2 xl:gap-2.5 min-w-0">
+          {metrics.map((metric) => (
+            <div
+              key={metric.key}
+              className="flex items-center justify-between rounded-full bg-white border border-slate-100 px-2.5 py-1.5 sm:px-4 sm:py-2.5 lg:px-2 lg:py-1.5 xl:px-3 xl:py-2 shadow-[0_2px_10px_rgb(0,0,0,0.03)] transition-all hover:bg-slate-50 min-w-0"
+            >
+              <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-1.5 xl:gap-2 min-w-0">
+                <div className={`h-2 w-2 sm:h-3 sm:w-3 lg:h-2 lg:w-2 xl:h-2.5 xl:w-2.5 rounded-full ${metric.dotClass} shrink-0`} />
+                <span className="text-[9px] sm:text-[12px] lg:text-[9px] xl:text-[11px] font-black uppercase tracking-wider text-slate-700 truncate">
+                  {metric.label}
+                </span>
+              </div>
+              <span className="text-[10px] sm:text-[14px] lg:text-[10px] xl:text-[12px] font-black text-slate-900 shrink-0 ml-2">
+                {metric.value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </article>
+  );
+};
 
 export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
@@ -14,6 +266,7 @@ export function DashboardPage() {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const apiDisplayBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || window.location.origin;
 
+  // Textile MES hydrate effect
   useEffect(() => {
     let isMounted = true;
 
@@ -50,76 +303,58 @@ export function DashboardPage() {
     };
   }, []);
 
-  if (errorMessage) {
-    return (
-      <main className="min-h-screen text-slate-800 pb-12 bg-[#f8fafc]">
-        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 mt-8">
-          <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 text-center shadow-md">
-            {/* Ambient subtle glows */}
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-500/5 blur-3xl pointer-events-none" />
-            <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-blue-500/5 blur-3xl pointer-events-none" />
-
-            {/* Glowing Icon Container */}
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 mb-5 relative">
-              <span className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-30" />
-              <svg className="h-6 w-6 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-
-            {/* Typography */}
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 uppercase">Backend Connection Offline</h2>
-            <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-              We are unable to establish a connection with the IoT backend server. The dashboard will automatically reconnect once the server becomes available.
-            </p>
-
-            {/* Collapsible Diagnostics Panel */}
-            <div className="mt-6 border-t border-slate-100 pt-5">
-              <button
-                onClick={() => setShowDiagnostics(!showDiagnostics)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-              >
-                <span>{showDiagnostics ? 'Hide Diagnostics' : 'Show Diagnostics'}</span>
-                <svg
-                  className={`h-3 w-3 transform transition-transform duration-200 ${showDiagnostics ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showDiagnostics && (
-                <div className="mt-4 rounded-xl bg-slate-50 p-3 sm:p-4 text-left font-mono text-xs text-slate-700 overflow-x-auto shadow-inner border border-slate-200">
-                  <span className="font-bold text-rose-600 uppercase tracking-wider block mb-1">Error Diagnostics:</span>
-                  <div className="whitespace-pre-wrap">{errorMessage}</div>
-                  <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-200 pt-2">
-                    Target Endpoint: {`${apiDisplayBaseUrl}/api/iot/summary`}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400 font-semibold uppercase tracking-wider">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-              </span>
-              <span>Reconnecting every 30 seconds...</span>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen text-slate-800 pb-12 bg-[#f8fafc]">
-      <div className="relative z-10 mx-auto max-w-full px-0 sm:px-4 lg:px-8 mt-6">
-        <TextileMESDashboard summary={summary} live={live} isLiveMode />
+      <div className="relative z-10 mx-auto max-w-full px-4 sm:px-6 lg:px-8 mt-6">
+        
+        {/* Navigation & Header Panel */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-5 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-8 rounded-full bg-[#1e4b7a]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                Main IoT Portal
+              </span>
+            </div>
+         
+          </div>
+        </div>
+
+        {/* Dashboard Content */}
+        <div>
+          {!summary ? (
+            <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-[32px] border border-slate-100 bg-white shadow-sm">
+              <div className="relative flex h-16 w-16 items-center justify-center">
+                <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-100 border-t-[#1e4b7a]" />
+                <Activity className="h-6 w-6 text-[#1e4b7a] animate-pulse" />
+              </div>
+              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-slate-400">
+                Fetching Fleet Analytics...
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+              <TextileSummaryCard
+                title="Current Day"
+                subtitle={summary.periods?.day?.label || "Today"}
+                period={summary.periods?.day}
+              />
+              <TextileSummaryCard
+                title="Weekly"
+                subtitle={summary.periods?.week?.label || "Last 7 Days"}
+                period={summary.periods?.week}
+              />
+              <TextileSummaryCard
+                title="Monthly"
+                subtitle={summary.periods?.month?.label || "Last 30 Days"}
+                period={summary.periods?.month}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
 }
+
+

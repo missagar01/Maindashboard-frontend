@@ -50,6 +50,13 @@ const normalizeProductList = (rows: any[]): { itemName: string }[] => {
 
 const DASHBOARD_REQUEST_RETRY_LIMIT = 2;
 const DASHBOARD_REQUEST_RETRY_DELAY_MS = 1200;
+const getCurrentMonthStartStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+};
+const DASHBOARD_BASELINE_FROM_DATE = getCurrentMonthStartStr();
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -196,10 +203,10 @@ export default function StoreDashboard() {
     const loadSupplementalData = async () => {
       const [issRes, indRes, poRes, grnRes, vendorRes, productRes] =
         await Promise.allSettled([
-          storeApi.getDivisionWiseIssue(),
-          storeApi.getDivisionWiseIndent(),
-          storeApi.getDivisionWisePO(),
-          storeApi.getDivisionWiseGRN(),
+          storeApi.getDivisionWiseIssue(DASHBOARD_BASELINE_FROM_DATE),
+          storeApi.getDivisionWiseIndent(DASHBOARD_BASELINE_FROM_DATE),
+          storeApi.getDivisionWisePO(DASHBOARD_BASELINE_FROM_DATE),
+          storeApi.getDivisionWiseGRN(DASHBOARD_BASELINE_FROM_DATE),
           storeApi.getAllVendors(),
           storeApi.getAllProducts(),
         ]);
@@ -258,7 +265,7 @@ export default function StoreDashboard() {
       const fallbackReturnable =
         returnableRes.status === "fulfilled" ? unwrapResponseRows(returnableRes.value) : [];
 
-      const hasFallbackRows = hasCurrentMonthRecords([
+      const hasFallbackRows = hasAnyRecords([
         fallbackPendingIndents,
         fallbackHistoryIndents,
         fallbackPoPending,
@@ -317,7 +324,7 @@ export default function StoreDashboard() {
           setVendorOptions([]);
           setProductOptions([]);
           setFeedbacksLoading(false);
-          setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
+          setEmptyStateMessage("Dashboard data not found.");
           setLoading(false);
         };
 
@@ -327,7 +334,7 @@ export default function StoreDashboard() {
 
         const data = unwrapResponseData(dashboardRes);
         const hasSummary = !!(data?.summary && Object.keys(data.summary).length > 0);
-        const hasCurrentMonthRows = hasCurrentMonthRecords([
+        const hasAnyRows = hasAnyRecords([
           data?.pendingIndents,
           data?.historyIndents,
           data?.poPending,
@@ -337,7 +344,7 @@ export default function StoreDashboard() {
           data?.returnableDetails,
         ]);
 
-        if (!hasSummary && !hasCurrentMonthRows) {
+        if (!hasSummary && !hasAnyRows) {
           const restoredFromFallback = await loadFallbackDashboardData();
           if (restoredFromFallback || cancelled) {
             return;
@@ -379,7 +386,7 @@ export default function StoreDashboard() {
             setFeedbacks([]);
             setVendorOptions([]);
             setProductOptions([]);
-            setEmptyStateMessage(`Current month data not found for ${getCurrentMonthLabel()}.`);
+            setEmptyStateMessage("Dashboard data not found.");
           } else {
             setError(getDashboardErrorMessage(err));
           }
@@ -439,11 +446,12 @@ export default function StoreDashboard() {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const filteredIndents = historyIndents.filter(item => {
+    const currentMonthIndents = historyIndents.filter(item => {
       // For History, we prioritize using ACKNOWLEDGEDATE or INDENT_DATE
       const dateVal = item.ACKNOWLEDGEDATE || item.acknowledgedate || item.INDENT_DATE || item.indent_date;
       return dateVal && new Date(dateVal) >= monthStart;
     });
+    const filteredIndents = currentMonthIndents.length > 0 ? currentMonthIndents : historyIndents;
 
     const totals: Record<string, number> = {};
     let unassigned = 0;
@@ -794,6 +802,10 @@ export default function StoreDashboard() {
     );
   };
 
+  const hasAnyRecords = (rowsCollection: any[][]) => {
+    return rowsCollection.some((rows) => Array.isArray(rows) && rows.length > 0);
+  };
+
   const isNoDataApiError = (err: any) => {
     const status = Number(err?.response?.status || err?.status || 0);
     const message = String(err?.response?.data?.message || err?.message || "").toLowerCase();
@@ -1065,17 +1077,13 @@ export default function StoreDashboard() {
         return dateVal && new Date(dateVal).getTime() >= ms;
       });
     };
-
     const curMonthPendingIndents = filterMonth(pendingIndents);
     const curMonthHistoryIndents = filterMonth(historyIndents);
     const curMonthPoPending = filterMonth(poPending);
     const curMonthPoHistory = filterMonth(poHistory);
     const curMonthRepairPending = filterMonth(repairPending);
     const curMonthRepairHistory = filterMonth(repairHistory);
-    const curMonthReturnable = (returnableDetails || []).filter((item: any) => {
-      const dv = item.VRDATE || item.vrdate;
-      return dv && new Date(dv).getTime() >= monthStart.getTime();
-    });
+    const curMonthReturnable = filterMonth(returnableDetails);
 
     const now = new Date().getTime();
     const curMonthOverdue = curMonthPendingIndents.filter((item) => {
@@ -1083,14 +1091,16 @@ export default function StoreDashboard() {
       return ts && new Date(ts).getTime() < now;
     }).length;
 
-    const derivedTotal = (divisionListIndent || []).length;
-    const derivedPending = (divisionListIndent || []).filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
+    const curMonthDivisionListIndent = filterMonth(divisionListIndent);
+    const derivedTotal = curMonthDivisionListIndent.length;
+    const derivedPending = curMonthDivisionListIndent.filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
+
     const total = derivedTotal > 0
       ? derivedTotal
-      : Number(summary.totalIndents || curMonthPendingIndents.length + curMonthHistoryIndents.length);
+      : (curMonthPendingIndents.length + curMonthHistoryIndents.length);
     const pending = derivedTotal > 0
       ? derivedPending
-      : Number(summary.pendingIndents || curMonthPendingIndents.length);
+      : curMonthPendingIndents.length;
     const completed = total - pending;
 
     const completedPercent = (total > 0 ? (completed / total) * 100 : 0);
@@ -1376,7 +1386,7 @@ export default function StoreDashboard() {
         return new Date(dateVal) >= monthStart;
       });
 
-      setModalData(filteredByMonth);
+      setModalData(filteredByMonth.length > 0 ? filteredByMonth : rows);
     } catch (err) {
       console.error(`Failed to filter ${type} details:`, err);
     } finally {
@@ -1412,7 +1422,7 @@ export default function StoreDashboard() {
       return new Date(dateVal) >= monthStart;
     });
 
-    setModalData(filteredByMonth);
+    setModalData(filteredByMonth.length > 0 ? filteredByMonth : rows);
     setModalLoading(false);
   };
 
@@ -1665,7 +1675,7 @@ export default function StoreDashboard() {
               {emptyStateMessage}
             </h2>
             <p className="mt-3 max-w-xl text-sm font-medium text-slate-500 dark:text-slate-400">
-              No records are available from the API for {getCurrentMonthLabel()} right now. The dashboard will populate automatically once current month data is added.
+              No dashboard rows are available from the API right now. The dashboard will populate automatically once data is available.
             </p>
           </CardContent>
         </Card>

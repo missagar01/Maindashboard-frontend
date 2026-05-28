@@ -17,8 +17,10 @@ export const storeApi: any = {
       body: data,
     }),
 
-  getPendingIndents: () => storeApiRequest("/api/store/store-indent/pending"),
-  getHistoryIndents: () => storeApiRequest("/api/store/store-indent/history"),
+  getPendingIndents: () =>
+    storeApiRequest("/api/store/store-indent/pending", { bypassCache: true }),
+  getHistoryIndents: () =>
+    storeApiRequest("/api/store/store-indent/history", { bypassCache: true }),
 
   approveStoreIndent: (data: unknown) =>
     storeApiRequest("/api/store/store-indent/approve", {
@@ -88,8 +90,10 @@ export const storeApi: any = {
   getIndentsByStatus: (statusType: string) =>
     storeApiRequest(`/api/store/indent/status/${statusType}`),
 
-  getPoPending: () => storeApiRequest("/api/store/po/pending"),
-  getPoHistory: () => storeApiRequest("/api/store/po/history"),
+  getPoPending: () =>
+    storeApiRequest("/api/store/po/pending", { bypassCache: true }),
+  getPoHistory: () =>
+    storeApiRequest("/api/store/po/history", { bypassCache: true }),
   downloadPoPending: () => downloadBlob("/api/store/po/pending/download"),
   downloadPoHistory: () => downloadBlob("/api/store/po/history/download"),
 
@@ -139,7 +143,8 @@ export const storeApi: any = {
       body: data,
     }),
 
-  getDashboard: () => storeApiRequest("/api/store/dashboard"),
+  getDashboard: () =>
+    storeApiRequest("/api/store/dashboard", { bypassCache: true }),
   getDepartments: () => storeApiRequest("/api/store/departments"),
 
   createDepartment: (data: unknown) =>
@@ -175,28 +180,36 @@ export const storeApi: any = {
     if (fromDate) params.append("fromDate", fromDate);
     if (toDate) params.append("toDate", toDate);
     const query = params.toString();
-    return storeApiRequest(`/api/store/division/issue${query ? `?${query}` : ""}`);
+    return storeApiRequest(`/api/store/division/issue${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
   },
   getDivisionWiseIndent: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
     if (toDate) params.append("toDate", toDate);
     const query = params.toString();
-    return storeApiRequest(`/api/store/division/indent${query ? `?${query}` : ""}`);
+    return storeApiRequest(`/api/store/division/indent${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
   },
   getDivisionWisePO: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
     if (toDate) params.append("toDate", toDate);
     const query = params.toString();
-    return storeApiRequest(`/api/store/division/po${query ? `?${query}` : ""}`);
+    return storeApiRequest(`/api/store/division/po${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
   },
   getDivisionWiseGRN: (fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams();
     if (fromDate) params.append("fromDate", fromDate);
     if (toDate) params.append("toDate", toDate);
     const query = params.toString();
-    return storeApiRequest(`/api/store/division/grn${query ? `?${query}` : ""}`);
+    return storeApiRequest(`/api/store/division/grn${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
   },
 };
 

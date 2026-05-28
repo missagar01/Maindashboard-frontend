@@ -315,9 +315,11 @@ const iotSection: SidebarSection = {
   caption: "Live Device Monitoring",
   icon: Cpu,
   nodes: [
-    { kind: "link", key: "iot-doordrishti", name: "Doordrishti", path: "/iot/doordrishti", icon: Search },
-    { kind: "link", key: "iot-pum", name: "PUM", path: "/iot/pum", icon: Activity },
     { kind: "link", key: "iot-api-dashboard", name: "Energy Power", path: "/iot/dashboard", icon: LayoutDashboard },
+     { kind: "link", key: "iot-pum", name: "PUM", path: "/iot/pum", icon: Activity },
+    { kind: "link", key: "iot-doordrishti", name: "Doordrishti", path: "/iot/doordrishti", icon: Search },
+   
+    
   ],
 };
 
