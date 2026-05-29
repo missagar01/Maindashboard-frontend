@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FileSpreadsheet,
-  MapPinned,
   RefreshCw,
   Route,
   Search,
@@ -26,15 +25,6 @@ const quantityFormatter = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 3,
 });
-
-const mobileCardGradients = [
-  "from-slate-950 via-slate-900 to-sky-950",
-  "from-slate-950 via-indigo-950 to-blue-950",
-  "from-emerald-950 via-teal-900 to-slate-950",
-  "from-indigo-950 via-purple-950 to-pink-950",
-  "from-slate-950 via-rose-950 to-red-950",
-  "from-zinc-950 via-stone-900 to-slate-900",
-];
 
 const safeText = (value: unknown, fallback = "--") => {
   const normalized = String(value ?? "").trim();
@@ -85,6 +75,25 @@ const getDriverName = (record: PodRegisterRecord) =>
 
 const getStatus = (record: PodRegisterRecord) =>
   safeText(record.lr_bilty_status || record.status || "POD Prepared");
+
+const getStatusBadgeClass = (record: PodRegisterRecord) => {
+  const status = getStatus(record).toUpperCase();
+
+  if (
+    status === "POD PREPARED" ||
+    status === "PREPARED" ||
+    status === "COMPLETED" ||
+    status === "SUCCESS"
+  ) {
+    return "border border-emerald-100 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "PENDING") {
+    return "border border-amber-100 bg-amber-50 text-amber-700";
+  }
+
+  return "border border-sky-100 bg-sky-50 text-sky-700";
+};
 
 const getRouteLabel = (record: PodRegisterRecord) =>
   `${safeText(record.source_name)} -> ${safeText(record.destination_name)}`;
@@ -471,110 +480,112 @@ export default function TransportPodRegister() {
               </div>
             ) : (
               filteredRecords.map((record, index) => {
-                const gradient = mobileCardGradients[index % mobileCardGradients.length];
-
                 return (
                   <article
                     key={record.lr_bilty_id || `${record.lr_bilty_code}-${index}`}
-                    className={`border-b border-white/10 bg-gradient-to-r ${gradient} px-3 py-3 text-white`}
+                    className="border-b border-slate-200 bg-white px-3 py-2.5 text-slate-900"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-base font-black tracking-tight flex items-center gap-1.5">
-                          <FileCheck2 className="h-4 w-4 text-emerald-300" />
+                        <p className="flex items-center gap-1.5 truncate text-base font-black tracking-tight">
+                          <FileCheck2 className="h-4 w-4 text-emerald-600" />
                           POD: {safeText(record.pod_code)}
                         </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-white/75 flex items-center gap-1">
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
                           LR: {safeText(record.lr_bilty_code)} • {formatDate(record.pod_date || record.lr_bilty_date)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          record
+                        )}`}
+                      >
                         {getStatus(record)}
                       </span>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-start justify-between gap-3 border-t border-white/15 pt-2">
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-start justify-between gap-3 border-t border-slate-100 pt-1.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Branch
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {safeText(record.branch_name)}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Item
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {safeText(record.item_name)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-slate-100 pt-1.5">
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Truck className="h-3.5 w-3.5 text-sky-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Truck className="h-3.5 w-3.5 text-sky-500" />
                             Vehicle
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {safeText(record.vehicle_no)}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <UserRound className="h-3.5 w-3.5 text-emerald-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <UserRound className="h-3.5 w-3.5 text-emerald-500" />
                             Driver
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getDriverName(record)}
                           </p>
                         </div>
 
-                        <div className="col-span-2 min-w-0 border-t border-white/10 pt-2">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Route className="h-3.5 w-3.5 text-pink-300" />
+                        <div className="col-span-2 min-w-0 border-t border-slate-100 pt-1.5">
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Route className="h-3.5 w-3.5 text-pink-500" />
                             Route
                           </p>
-                          <p className="mt-0.5 text-xs font-semibold leading-relaxed truncate">
+                          <p className="mt-0.5 truncate text-xs font-semibold leading-relaxed text-slate-700">
                             {getRouteLabel(record)}
                           </p>
                         </div>
 
-                        <div className="min-w-0 border-t border-white/10 pt-2">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                        <div className="min-w-0 border-t border-slate-100 pt-1.5">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Received Qty
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {formatQuantity(record.received_quantity || record.received_qty)}
                           </p>
                         </div>
-                        <div className="min-w-0 border-t border-white/10 pt-2">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <AlertTriangle className="h-3 w-3 text-rose-300" />
+                        <div className="min-w-0 border-t border-slate-100 pt-1.5">
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <AlertTriangle className="h-3 w-3 text-rose-500" />
                             Shortage Qty
                           </p>
-                          <p className="mt-0.5 text-xs font-bold text-rose-300">
+                          <p className="mt-0.5 text-xs font-bold text-rose-600">
                             {formatQuantity(record.shortage_qty)}
                           </p>
                         </div>
 
-                        <div className="min-w-0 border-t border-white/10 pt-2">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                        <div className="min-w-0 border-t border-slate-100 pt-1.5">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Freight Advice
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {record.is_freight_advice_prepared ? "PREPARED" : "PENDING"}
                           </p>
                         </div>
-                        <div className="min-w-0 border-t border-white/10 pt-2">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <BadgeAlert className="h-3 w-3 text-amber-300" />
+                        <div className="min-w-0 border-t border-slate-100 pt-1.5">
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <BadgeAlert className="h-3 w-3 text-amber-500" />
                             Service Bill
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {record.is_service_bill_prepared ? "PREPARED" : "PENDING"}
                           </p>
                         </div>

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FileSpreadsheet,
-  MapPinned,
   RefreshCw,
   Search,
   Truck,
@@ -21,15 +20,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   year: "numeric",
 });
-
-const mobileCardGradients = [
-  "from-emerald-950 via-teal-900 to-sky-950",
-  "from-slate-950 via-teal-950 to-indigo-950",
-  "from-emerald-950 via-emerald-900 to-teal-950",
-  "from-teal-950 via-cyan-900 to-sky-950",
-  "from-slate-900 via-emerald-950 to-indigo-950",
-  "from-zinc-950 via-teal-950 to-slate-900",
-];
 
 const safeText = (value: unknown, fallback = "--") => {
   const normalized = String(value ?? "").trim();
@@ -96,6 +86,20 @@ const getDriverName = (record: EquipmentHandoverRecord) => {
 
 const getStatus = (record: EquipmentHandoverRecord) => {
   return safeText(record.status || "PENDING");
+};
+
+const getStatusBadgeClass = (record: EquipmentHandoverRecord) => {
+  const status = getStatus(record).toUpperCase();
+
+  if (status === "HANDED_OVER" || status === "COMPLETED" || status === "SUCCESS") {
+    return "border border-emerald-100 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "PENDING") {
+    return "border border-amber-100 bg-amber-50 text-amber-700";
+  }
+
+  return "border border-sky-100 bg-sky-50 text-sky-700";
 };
 
 const getKmrLabel = (record: EquipmentHandoverRecord) => {
@@ -427,13 +431,11 @@ export default function TransportEquipmentHandoverList() {
                           {getHmrLabel(record)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                            getStatus(record).toUpperCase() === "HANDED_OVER" || getStatus(record).toUpperCase() === "COMPLETED" || getStatus(record).toUpperCase() === "SUCCESS"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : getStatus(record).toUpperCase() === "PENDING"
-                              ? "bg-amber-50 text-amber-700 border border-amber-100"
-                              : "bg-sky-50 text-sky-700 border border-sky-100"
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${getStatusBadgeClass(
+                              record
+                            )}`}
+                          >
                             {getStatus(record)}
                           </span>
                         </td>
@@ -469,75 +471,77 @@ export default function TransportEquipmentHandoverList() {
               </div>
             ) : (
               filteredRecords.map((record, index) => {
-                const gradient = mobileCardGradients[index % mobileCardGradients.length];
-
                 return (
                   <article
                     key={record.id || `${record.equipment_id}-${index}`}
-                    className={`border-b border-white/10 bg-gradient-to-r ${gradient} px-3 py-3 text-white`}
+                    className="mx-2 mb-3 overflow-hidden rounded-[24px] border border-slate-200 bg-white px-3 py-3 text-slate-900 shadow-sm first:mt-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-base font-black tracking-tight flex items-center gap-1.5">
-                          <Truck className="h-4 w-4 text-emerald-300" />
+                        <p className="flex items-center gap-1.5 truncate text-base font-black tracking-tight">
+                          <Truck className="h-4 w-4 text-emerald-600" />
                           {getEquipmentName(record)}
                         </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-white/75 flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                          <CalendarDays className="h-3 w-3 text-slate-400" />
                           {formatDate(record.created_at || record.createdAt || record.date)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          record
+                        )}`}
+                      >
                         {getStatus(record)}
                       </span>
                     </div>
 
                     <div className="mt-3 space-y-2">
-                      <div className="flex items-start justify-between gap-3 border-t border-white/15 pt-2">
+                      <div className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Branch
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getBranchName(record)}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Shift Master
                           </p>
-                          <p className="mt-0.5 text-xs font-bold flex items-center justify-end gap-1">
-                            <Layers className="h-3 w-3 text-sky-300" />
+                          <p className="mt-0.5 flex items-center justify-end gap-1 text-xs font-bold text-slate-800">
+                            <Layers className="h-3 w-3 text-sky-500" />
                             {getShiftName(record)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-2">
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <UserRound className="h-3.5 w-3.5 text-emerald-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <UserRound className="h-3.5 w-3.5 text-emerald-500" />
                             Driver
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getDriverName(record)}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                             KMR Meter
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getKmrLabel(record)}
                           </p>
                         </div>
-                        <div className="col-span-2 min-w-0 border-t border-white/10 pt-2">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Gauge className="h-3.5 w-3.5 text-cyan-300" />
+                        <div className="col-span-2 min-w-0 border-t border-slate-100 pt-2">
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Gauge className="h-3.5 w-3.5 text-cyan-500" />
                             HMR Meter (Previous {"->"} Handover)
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {getHmrLabel(record)}
                           </p>
                         </div>

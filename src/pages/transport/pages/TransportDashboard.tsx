@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   BadgeIndianRupee,
-  CalendarClock,
   ChevronDown,
   FileClock,
-  Loader2,
   RefreshCw,
   ShieldCheck,
-  TrendingUp,
   Truck,
-  ArrowRightLeft,
   Activity,
-  Timer,
   Zap,
-  BarChart3,
-  PieChart as PieIcon,
   Navigation
 } from "lucide-react";
 import {
@@ -25,14 +17,12 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
   PolarAngleAxis,
   PolarGrid,
-  PolarRadiusAxis,
   Radar,
   RadarChart,
   ResponsiveContainer,
@@ -46,17 +36,12 @@ import { useTransportAnalyticsSection } from "../hooks/useTransportAnalyticsSect
 import { AnalyticsKpiCard } from "../components/AnalyticsKpiCard";
 import { AnalyticsChartContainer } from "../components/AnalyticsChartContainer";
 import { formatCurrency, formatNumber } from "../analyticsFormatters";
-import {
-  AnalyticsChartSkeleton,
-  AnalyticsEmptyState,
-  AnalyticsErrorState
-} from "../components/AnalyticsStates";
 import { fetchEquipmentShiftChangeList } from "../../../api/transport/equipmentShiftChangeApi";
 import { fetchEquipmentHandoverList } from "../../../api/transport/equipmentHandoverApi";
 import { fetchEquipmentTakeoverList } from "../../../api/transport/equipmentTakeoverApi";
 import { fetchPodRegisterReport } from "../../../api/transport/podRegisterApi";
 
-type TransportLrBiltyRecord = Record<string, any>;
+type TransportLrBiltyRecord = Record<string, unknown>;
 
 const chartPalette = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#3b82f6", "#06b6d4"];
 
@@ -108,8 +93,8 @@ export default function TransportDashboard() {
       setErrorBilty("");
       const response = await getLrBiltyRegister({ limit: 2000 });
       setRecords(response.records);
-    } catch (err: any) {
-      setErrorBilty(err.message || "Failed to fetch operational data");
+    } catch (err: unknown) {
+      setErrorBilty(err instanceof Error ? err.message : "Failed to fetch operational data");
     } finally {
       setLoadingBilty(false);
     }
@@ -176,7 +161,7 @@ export default function TransportDashboard() {
 
   const pipelineItems = useMemo(() => {
     const total = filteredRecords.length;
-    const pod = filteredRecords.filter(r => (r.lr_bilty_status || "").toUpperCase() === "POD_PREPARED").length;
+    const pod = filteredRecords.filter(r => safeString(r.lr_bilty_status).toUpperCase() === "POD_PREPARED").length;
     const freight = filteredRecords.filter(r => r.is_freight_advice_prepared || r.freight_voucher_id).length;
     const service = filteredRecords.filter(r => r.is_service_bill_prepared || r.service_bill_id).length;
 
@@ -191,12 +176,12 @@ export default function TransportDashboard() {
   const recentTakeovers = useMemo(() => takeover.data?.recentTakeovers?.slice(0, 4) ?? [], [takeover.data]);
 
   return (
-    <div className="space-y-6 py-2">
+    <div className="space-y-4 py-1 sm:space-y-6 sm:py-2">
       {/* Mini Header Integration */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between gap-2 px-2">
         <div className="flex items-center gap-3">
           <div className="h-8 w-1 rounded-full bg-indigo-500" />
-          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">Transport Hub</h1>
+          <h1 className="text-lg font-black uppercase tracking-tight text-slate-900 sm:text-xl">Transport Hub</h1>
         </div>
         <div className="flex items-center gap-2">
           <SelectField value={selectedBranch} onChange={setSelectedBranch} options={branchOptions} />
@@ -214,13 +199,19 @@ export default function TransportDashboard() {
         </div>
       </div>
 
+      {errorBilty ? (
+        <div className="mx-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+          {errorBilty}
+        </div>
+      ) : null}
+
       {/* Operations Command Center */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-indigo-500" />
           Core Operational Analytics
         </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 px-1">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5 px-1">
           <AnalyticsKpiCard
             label="Takeover"
             value={formatNumber(takeover.data?.takeoversThisMonth ?? 0)}
@@ -250,12 +241,12 @@ export default function TransportDashboard() {
       </div>
 
       {/* Equipment & Shift Operations Control */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1.5">
           <Truck className="h-3.5 w-3.5 text-indigo-500" />
           Equipment & Shift Handover Control
         </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 px-1">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-4 lg:gap-4 px-1">
           <AnalyticsKpiCard
             label="Equipment Shift Changes"
             value={loadingNewApis ? "..." : formatNumber(shiftChangeCount ?? 0)}
@@ -280,7 +271,7 @@ export default function TransportDashboard() {
       </div>
 
       {/* Primary Visual Row */}
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
         <AnalyticsChartContainer variant="flat" title="Takeover Trends" subtitle="Daily velocity analysis.">
           <div className="h-[280px] min-w-0">
             <ResponsiveContainer width="100%" height="100%">
@@ -330,7 +321,7 @@ export default function TransportDashboard() {
       </div>
 
       {/* Round Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <AnalyticsChartContainer variant="flat" title="Revenue Mix" subtitle="Freight components.">
           <div className="flex h-[260px] items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -376,12 +367,12 @@ export default function TransportDashboard() {
       </div>
 
       {/* Final Row: Workflow + Distribution */}
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className="space-y-4">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Pipeline Status</h2>
-          <div className="grid gap-3">
+          <div className="grid gap-2.5 sm:gap-3">
             {pipelineItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-sm">
+              <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm sm:p-2.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}10`, color: item.color }}>
                   <item.icon className="h-4.5 w-4.5" />
                 </div>
@@ -398,9 +389,9 @@ export default function TransportDashboard() {
 
         <div className="space-y-4">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Recent Takeovers</h2>
-          <div className="grid gap-3">
-            {recentTakeovers.length > 0 ? recentTakeovers.map((tk: any, i) => (
-              <div key={i} className="flex items-center gap-4 rounded-2xl border border-slate-50 bg-white p-3 shadow-sm hover:border-blue-100 transition-colors">
+          <div className="grid gap-2.5 sm:gap-3">
+            {recentTakeovers.length > 0 ? recentTakeovers.map((tk, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-50 bg-white p-2.5 shadow-sm hover:border-blue-100 transition-colors sm:gap-4 sm:p-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
                   <Navigation className="h-5 w-5" />
                 </div>

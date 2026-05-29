@@ -224,75 +224,9 @@ export default function StoreDashboard() {
     };
 
     const loadFallbackDashboardData = async () => {
-      const [
-        pendingRes,
-        historyRes,
-        poPendingRes,
-        poHistoryRes,
-        repairPendingRes,
-        repairHistoryRes,
-        returnableRes,
-      ] = await Promise.allSettled([
-        storeApi.getPendingIndents(),
-        storeApi.getHistoryIndents(),
-        storeApi.getPoPending(),
-        storeApi.getPoHistory(),
-        storeApi.getRepairGatePassPending(),
-        storeApi.getRepairGatePassReceived(),
-        storeApi.getReturnableDetails(),
-      ]);
-
-      if (cancelled) {
-        return false;
-      }
-
-      const fallbackPendingIndents =
-        pendingRes.status === "fulfilled" ? unwrapResponseRows(pendingRes.value) : [];
-      const fallbackHistoryIndents =
-        historyRes.status === "fulfilled" ? unwrapResponseRows(historyRes.value) : [];
-      const fallbackPoPending =
-        poPendingRes.status === "fulfilled" ? unwrapResponseRows(poPendingRes.value) : [];
-      const fallbackPoHistory =
-        poHistoryRes.status === "fulfilled" ? unwrapResponseRows(poHistoryRes.value) : [];
-      const fallbackRepairPending =
-        repairPendingRes.status === "fulfilled"
-          ? unwrapResponseRows(repairPendingRes.value)
-          : [];
-      const fallbackRepairHistory =
-        repairHistoryRes.status === "fulfilled"
-          ? unwrapResponseRows(repairHistoryRes.value)
-          : [];
-      const fallbackReturnable =
-        returnableRes.status === "fulfilled" ? unwrapResponseRows(returnableRes.value) : [];
-
-      const hasFallbackRows = hasAnyRecords([
-        fallbackPendingIndents,
-        fallbackHistoryIndents,
-        fallbackPoPending,
-        fallbackPoHistory,
-        fallbackRepairPending,
-        fallbackRepairHistory,
-        fallbackReturnable,
-      ]);
-
-      if (!hasFallbackRows) {
-        return false;
-      }
-
-      emptyDashboardRetryCountRef.current = 0;
-      setPendingIndents(fallbackPendingIndents);
-      setHistoryIndents(fallbackHistoryIndents);
-      setPoPending(fallbackPoPending);
-      setPoHistory(fallbackPoHistory);
-      setRepairPending(fallbackRepairPending);
-      setRepairHistory(fallbackRepairHistory);
-      setReturnableDetails(fallbackReturnable);
-      setDashboardSummary(null);
-      setFeedbacks([]);
-      setFeedbacksLoading(false);
-      setLoading(false);
-      void loadSupplementalData();
-      return true;
+      // Fallback fan-out requests are intentionally disabled to avoid
+      // overloading the store backend when the consolidated endpoint is empty.
+      return false;
     };
 
     const loadData = async () => {

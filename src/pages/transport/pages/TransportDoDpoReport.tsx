@@ -19,12 +19,14 @@ const numberFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+type TransportReportRecord = Record<string, unknown>;
+
 const toNumber = (value: unknown) => {
   const parsed = Number.parseFloat(String(value ?? "").replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const uniqueCount = (records: any[], keys: string[]) =>
+const uniqueCount = (records: TransportReportRecord[], keys: string[]) =>
   new Set(
     records
       .map((record) =>
@@ -35,7 +37,7 @@ const uniqueCount = (records: any[], keys: string[]) =>
       .filter(Boolean)
   ).size;
 
-const sumByKeys = (records: any[], keys: string[]) =>
+const sumByKeys = (records: TransportReportRecord[], keys: string[]) =>
   records.reduce((total, record) => {
     const match = keys
       .map((key) => record?.[key])
@@ -43,7 +45,7 @@ const sumByKeys = (records: any[], keys: string[]) =>
     return total + toNumber(match);
   }, 0);
 
-const buildStats = (records: any[], totalCount: number) => {
+const buildStats = (records: TransportReportRecord[], totalCount: number) => {
   const totalQuantity = sumByKeys(records, ["quantity"]);
   const remainingQuantity = sumByKeys(records, ["remaining_quantity"]);
   const branches = uniqueCount(records, ["branch_name", "branch_code"]);
@@ -69,9 +71,9 @@ export default function TransportDoDpoReport() {
     []
   );
 
-  const [selectedRecord, setSelectedRecord] = useState<Record<string, any> | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<TransportReportRecord | null>(null);
   const [page, setPage] = useState(1);
-  const [activeFilters, setActiveFilters] = useState<Record<string, any>>(
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(
     () => ({ ...(reportConfig?.defaultFilters || {}) })
   );
   const [sortState, setSortState] = useState<Array<{ id: string; desc: boolean }>>(
@@ -106,6 +108,17 @@ export default function TransportDoDpoReport() {
     return {
       ...reportConfig,
       drilldownRules: [],
+    };
+  }, [reportConfig]);
+
+  const reportTableConfig = useMemo(() => {
+    if (!reportConfig) {
+      return null;
+    }
+
+    return {
+      ...reportConfig,
+      color: "bg-transparent",
     };
   }, [reportConfig]);
 
@@ -178,7 +191,7 @@ export default function TransportDoDpoReport() {
     }
 
     const exportRows = records.map((record, index) => {
-      const row: Record<string, any> = { "S.No": index + 1 };
+      const row: Record<string, unknown> = { "S.No": index + 1 };
 
       reportConfig.columns.forEach((column) => {
         const value =
@@ -341,7 +354,7 @@ export default function TransportDoDpoReport() {
           ) : (
             <>
               <ReportTable
-                config={reportConfig}
+                config={reportTableConfig || reportConfig}
                 data={records}
                 loading={loading}
                 hasMore={hasMore}

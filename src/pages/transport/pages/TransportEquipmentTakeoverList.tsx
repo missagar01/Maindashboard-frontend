@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FileSpreadsheet,
-  MapPinned,
   RefreshCw,
   Search,
   Truck,
   UserRound,
   CalendarDays,
   Gauge,
-  Layers,
   Sparkles,
   Link as LinkIcon,
 } from "lucide-react";
@@ -22,15 +20,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   year: "numeric",
 });
-
-const mobileCardGradients = [
-  "from-indigo-950 via-blue-900 to-cyan-950",
-  "from-slate-950 via-blue-950 to-emerald-950",
-  "from-blue-950 via-slate-900 to-indigo-950",
-  "from-sky-950 via-slate-950 to-blue-900",
-  "from-indigo-950 via-indigo-900 to-slate-950",
-  "from-slate-900 via-cyan-950 to-indigo-950",
-];
 
 const safeText = (value: unknown, fallback = "--") => {
   const normalized = String(value ?? "").trim();
@@ -97,6 +86,16 @@ const getDriverName = (record: EquipmentTakeoverRecord) => {
 
 const getStatus = (record: EquipmentTakeoverRecord) => {
   return safeText(record.status || "COMPLETED");
+};
+
+const getStatusBadgeClass = (record: EquipmentTakeoverRecord) => {
+  const status = getStatus(record).toUpperCase();
+
+  if (status === "COMPLETED" || status === "SUCCESS") {
+    return "border border-emerald-100 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border border-blue-100 bg-blue-50 text-blue-700";
 };
 
 const getHandoverCode = (record: EquipmentTakeoverRecord) => {
@@ -415,11 +414,11 @@ export default function TransportEquipmentTakeoverList() {
                           {getHandoverCode(record)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                            getStatus(record).toUpperCase() === "COMPLETED" || getStatus(record).toUpperCase() === "SUCCESS"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : "bg-blue-50 text-blue-700 border border-blue-100"
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${getStatusBadgeClass(
+                              record
+                            )}`}
+                          >
                             {getStatus(record)}
                           </span>
                         </td>
@@ -455,67 +454,69 @@ export default function TransportEquipmentTakeoverList() {
               </div>
             ) : (
               filteredRecords.map((record, index) => {
-                const gradient = mobileCardGradients[index % mobileCardGradients.length];
-
                 return (
                   <article
                     key={record.id || `${record.equipment_id}-${index}`}
-                    className={`border-b border-white/10 bg-gradient-to-r ${gradient} px-3 py-3 text-white`}
+                    className="mx-2 mb-3 overflow-hidden rounded-[24px] border border-slate-200 bg-white px-3 py-3 text-slate-900 shadow-sm first:mt-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-base font-black tracking-tight flex items-center gap-1.5">
-                          <Truck className="h-4 w-4 text-sky-300" />
+                        <p className="flex items-center gap-1.5 truncate text-base font-black tracking-tight">
+                          <Truck className="h-4 w-4 text-sky-600" />
                           {getEquipmentName(record)}
                         </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-white/75 flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                          <CalendarDays className="h-3 w-3 text-slate-400" />
                           {formatDate(record.created_at || record.createdAt || record.date)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          record
+                        )}`}
+                      >
                         {getStatus(record)}
                       </span>
                     </div>
 
                     <div className="mt-3 space-y-2">
-                      <div className="flex items-start justify-between gap-3 border-t border-white/15 pt-2">
+                      <div className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Linked Handover
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate flex items-center gap-1 text-sky-200">
+                          <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-bold text-sky-700">
                             <LinkIcon className="h-3 w-3 shrink-0" />
                             {getHandoverCode(record)}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Driver/Operator
                           </p>
-                          <p className="mt-0.5 text-xs font-bold flex items-center justify-end gap-1">
-                            <UserRound className="h-3 w-3 text-emerald-300" />
+                          <p className="mt-0.5 flex items-center justify-end gap-1 text-xs font-bold text-slate-800">
+                            <UserRound className="h-3 w-3 text-emerald-500" />
                             {getDriverName(record)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-2">
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                             Closing KMR
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {safeText(record.closing_kmr ?? record.close_kmr)} km
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Gauge className="h-3.5 w-3.5 text-cyan-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Gauge className="h-3.5 w-3.5 text-cyan-500" />
                             Closing HMR
                           </p>
-                          <p className="mt-0.5 text-xs font-bold">
+                          <p className="mt-0.5 text-xs font-bold text-slate-800">
                             {safeText(record.closing_hmr ?? record.close_hmr)} hr
                           </p>
                         </div>

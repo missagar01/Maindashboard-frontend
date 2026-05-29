@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FileSpreadsheet,
-  MapPinned,
   RefreshCw,
   Search,
   Truck,
@@ -20,15 +19,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   year: "numeric",
 });
-
-const mobileCardGradients = [
-  "from-slate-950 via-slate-900 to-sky-950",
-  "from-slate-900 via-indigo-950 to-blue-950",
-  "from-slate-950 via-teal-950 to-emerald-950",
-  "from-zinc-950 via-stone-900 to-slate-950",
-  "from-slate-900 via-purple-950 to-indigo-950",
-  "from-slate-950 via-rose-950 to-red-950",
-];
 
 const safeText = (value: unknown, fallback = "--") => {
   const normalized = String(value ?? "").trim();
@@ -133,6 +123,20 @@ const getDriverName = (record: EquipmentShiftChangeRecord) => {
 
 const getStatus = (record: EquipmentShiftChangeRecord) => {
   return safeText(record.status || record.shift_status || "PENDING");
+};
+
+const getStatusBadgeClass = (record: EquipmentShiftChangeRecord) => {
+  const status = getStatus(record).toUpperCase();
+
+  if (status === "COMPLETED" || status === "APPROVED") {
+    return "border border-emerald-100 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "FAILED" || status === "CANCELLED") {
+    return "border border-rose-100 bg-rose-50 text-rose-700";
+  }
+
+  return "border border-amber-100 bg-amber-50 text-amber-700";
 };
 
 const getHandoverDetails = (record: EquipmentShiftChangeRecord) => {
@@ -471,13 +475,11 @@ export default function TransportEquipmentShiftChange() {
                           {getDriverName(record)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                            getStatus(record).toUpperCase() === "COMPLETED" || getStatus(record).toUpperCase() === "APPROVED"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : getStatus(record).toUpperCase() === "FAILED" || getStatus(record).toUpperCase() === "CANCELLED"
-                              ? "bg-rose-50 text-rose-700 border border-rose-100"
-                              : "bg-amber-50 text-amber-700 border border-amber-100"
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${getStatusBadgeClass(
+                              record
+                            )}`}
+                          >
                             {getStatus(record)}
                           </span>
                         </td>
@@ -513,76 +515,78 @@ export default function TransportEquipmentShiftChange() {
               </div>
             ) : (
               filteredRecords.map((record, index) => {
-                const gradient = mobileCardGradients[index % mobileCardGradients.length];
-
                 return (
                   <article
                     key={record.id || `${record.code}-${index}`}
-                    className={`border-b border-white/10 bg-gradient-to-r ${gradient} px-3 py-3 text-white`}
+                    className="mx-2 mb-3 overflow-hidden rounded-[24px] border border-slate-200 bg-white px-3 py-3 text-slate-900 shadow-sm first:mt-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-base font-black tracking-tight">
+                        <p className="truncate text-base font-black tracking-tight text-slate-900">
                           {safeText(record.code)}
                         </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-white/75 flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                          <CalendarDays className="h-3 w-3 text-slate-400" />
                           {formatDate(record.date || record.created_at || record.createdAt)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          record
+                        )}`}
+                      >
                         {getStatus(record)}
                       </span>
                     </div>
 
                     <div className="mt-3 space-y-2">
-                      <div className="flex items-start justify-between gap-3 border-t border-white/15 pt-2">
+                      <div className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Branch
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getBranchName(record)}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                             Active Shift
                           </p>
-                          <p className="mt-0.5 text-xs font-bold flex items-center justify-end gap-1">
-                            <Layers className="h-3 w-3 text-indigo-300" />
+                          <p className="mt-0.5 flex items-center justify-end gap-1 text-xs font-bold text-slate-800">
+                            <Layers className="h-3 w-3 text-indigo-500" />
                             {getShiftName(record)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-2">
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <Truck className="h-3.5 w-3.5 text-sky-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <Truck className="h-3.5 w-3.5 text-sky-500" />
                             Equipment
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getEquipmentName(record)}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                            <UserRound className="h-3.5 w-3.5 text-emerald-300" />
+                          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <UserRound className="h-3.5 w-3.5 text-emerald-500" />
                             Driver/Operator
                           </p>
-                          <p className="mt-0.5 text-xs font-bold truncate">
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-800">
                             {getDriverName(record)}
                           </p>
                         </div>
 
                         {getHandoverDetails(record) !== "--" ? (
                           <div className="col-span-2 min-w-0">
-                            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
-                              <Activity className="h-3.5 w-3.5 text-amber-300" />
+                            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                              <Activity className="h-3.5 w-3.5 text-amber-500" />
                               Handover details
                             </p>
-                            <p className="mt-0.5 text-xs italic font-medium leading-relaxed text-white/90">
+                            <p className="mt-0.5 text-xs font-medium italic leading-relaxed text-slate-600">
                               {getHandoverDetails(record)}
                             </p>
                           </div>
