@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { ArrowRight, Eye, EyeOff, Lock, User, Camera, Loader2, Key } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, User, Camera, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import logo from "../assert/Logo.jpeg";
 import { startAuthentication } from "@simplewebauthn/browser";
 import api from "../config/api.js";
+import { preloadFaceBiometrics } from "../utils/faceApi.js";
 
 type ToastState = {
   show: boolean;
@@ -80,6 +81,14 @@ const Login: React.FC = () => {
       }
     })();
   }, [autoLoginAttempted, isAuthenticated, loading, login]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.isSecureContext) {
+      return;
+    }
+
+    void preloadFaceBiometrics().catch(() => undefined);
+  }, []);
 
   const showToast = (message: string, type: ToastState["type"]) => {
     setToast({ show: true, message, type });
@@ -154,6 +163,13 @@ const Login: React.FC = () => {
     setError("");
     const trimmedUsername = username.trim();
 
+    if (!trimmedUsername) {
+      const errorMsg = "Face login ke liye username ya employee ID enter karna zaroori hai.";
+      setError(errorMsg);
+      showToast(errorMsg, "error");
+      return;
+    }
+
     const hasNavigator = typeof navigator !== "undefined";
     const hasSecureWindow = typeof window !== "undefined";
     const isSecureOrigin = !hasSecureWindow || window.isSecureContext;
@@ -177,36 +193,47 @@ const Login: React.FC = () => {
     try {
       // 1. Get webcam stream
       activeStream = await navigator.mediaDevices.getUserMedia({
-        video: true
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
       });
       setStream(activeStream);
 
-      setTimeout(() => {
-        if (videoRef.current && activeStream) {
-          videoRef.current.srcObject = activeStream;
-        }
-      }, 100);
+      const videoElement = videoRef.current;
+      if (!videoElement) {
+        throw new Error("Camera preview could not be initialized.");
+      }
 
-      // 2. Load face-api.js from CDN
+      videoElement.srcObject = activeStream;
+      await new Promise((resolve) => setTimeout(resolve, 180));
+      await videoElement.play().catch(() => undefined);
+
+      // 2. Load face biometrics engine
       setFaceStatus("Initializing Face AI...");
-      const { loadFaceApi, loadModels } = await import("../utils/faceApi.js");
-      const faceapi = await loadFaceApi();
-      await loadModels(faceapi);
+      const faceapi = await preloadFaceBiometrics();
 
       setFaceStatus("Detecting face... Look at camera");
+      const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 160,
+        scoreThreshold: 0.45,
+      });
+      const maxAttempts = 8;
+      const retryDelayMs = 120;
 
-      // 3. Scan face descriptor (retry up to 30 times)
+      // 3. Scan face descriptor
       let descriptor: number[] | null = null;
-      for (let i = 0; i < 30; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 
         if (!activeStream || activeStream.getTracks().every(t => t.readyState === 'ended')) {
           break; // Stop if stream closed
         }
 
-        if (videoRef.current && videoRef.current.readyState >= 2) {
+        if (videoElement.readyState >= 2) {
           const detection = await faceapi
-            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+            .detectSingleFace(videoElement, detectionOptions)
             .withFaceLandmarks()
             .withFaceDescriptor();
 
@@ -215,7 +242,7 @@ const Login: React.FC = () => {
             break;
           }
         }
-        setFaceStatus(`Scanning... Keep steady (${i + 1}/30)`);
+        setFaceStatus(`Scanning... Keep steady (${i + 1}/${maxAttempts})`);
       }
 
       if (!descriptor) {
@@ -482,6 +509,29 @@ const Login: React.FC = () => {
                   </>
                 ) : (
                   <>
+                    <div className="space-y-1.5 sm:space-y-[clamp(0.35rem,0.55vw,0.5rem)]">
+                      <Label htmlFor="face-username" className={labelClass}>
+                        Username / Employee ID
+                      </Label>
+                      <div className="relative">
+                        <span className={fieldIconWrapClass}>
+                          <User className={fieldIconClass} />
+                        </span>
+                        <Input
+                          id="face-username"
+                          name="face-username"
+                          type="text"
+                          autoComplete="username"
+                          placeholder="Enter your username or employee ID"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          disabled={loading || isLoggingInFace}
+                          className={`${baseInputClass} ${inputPaddingLeftClass}`}
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex flex-col items-center justify-center py-4 text-center select-none animate-[fadeIn_0.3s_ease-out]">
                       <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 shadow-[0_6px_18px_rgba(16,185,129,0.1)]">
                         <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-10" />

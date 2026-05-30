@@ -1,4 +1,5 @@
 let faceApiPromise: Promise<any> | null = null;
+let faceModelsPromise: Promise<void> | null = null;
 
 export const loadFaceApi = (): Promise<any> => {
   if (faceApiPromise) return faceApiPromise;
@@ -26,11 +27,27 @@ export const loadFaceApi = (): Promise<any> => {
 };
 
 export const loadModels = async (faceapi: any) => {
+  if (faceModelsPromise) {
+    return faceModelsPromise;
+  }
+
   const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models/";
-  // Load tiny face detector, face landmark, and face recognition models
-  await Promise.all([
+  faceModelsPromise = Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
     faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-  ]);
+  ])
+    .then(() => undefined)
+    .catch((error) => {
+      faceModelsPromise = null;
+      throw error;
+    });
+
+  return faceModelsPromise;
+};
+
+export const preloadFaceBiometrics = async (): Promise<any> => {
+  const faceapi = await loadFaceApi();
+  await loadModels(faceapi);
+  return faceapi;
 };

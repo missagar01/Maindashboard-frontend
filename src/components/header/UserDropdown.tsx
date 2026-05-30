@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, LogOut, Settings, Fingerprint, Loader2, Camera } from "lucide-react";
+import { ChevronDown, LogOut, Settings, Loader2, Camera } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { startRegistration } from "@simplewebauthn/browser";
 import api from "../../config/api.js";
 import { createPortal } from "react-dom";
+import { preloadFaceBiometrics } from "../../utils/faceApi.js";
 
 interface UserDropdownProps {
   variant?: "avatar" | "settings" | "mobile-drawer";
@@ -54,6 +55,14 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.isSecureContext) {
+      return;
+    }
+
+    void preloadFaceBiometrics().catch(() => undefined);
+  }, []);
+
   const handleLogout = () => {
     logout();
     setIsOpen(false);
@@ -95,6 +104,21 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
   };
 
   const handleRegisterFace = async () => {
+    const hasNavigator = typeof navigator !== "undefined";
+    const hasSecureWindow = typeof window !== "undefined";
+    const isSecureOrigin = !hasSecureWindow || window.isSecureContext;
+    const supportsCameraApi = hasNavigator && Boolean(navigator.mediaDevices?.getUserMedia);
+
+    if (!hasNavigator || !supportsCameraApi) {
+      showToast(
+        !isSecureOrigin
+          ? "Face registration needs a secure HTTPS site or localhost."
+          : "This browser does not support camera access for face registration.",
+        "error"
+      );
+      return;
+    }
+
     setIsOpen(false);
     setShowFaceModal(true);
     setIsRegisteringFace(true);
@@ -105,38 +129,47 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
     try {
       // 1. Get webcam access
       activeStream = await navigator.mediaDevices.getUserMedia({
-        video: true
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
       });
       setStream(activeStream);
 
-      // Small timeout to allow element to render and bind srcObject
-      setTimeout(() => {
-        if (videoRef.current && activeStream) {
-          videoRef.current.srcObject = activeStream;
-        }
-      }, 100);
+      const videoElement = videoRef.current;
+      if (!videoElement) {
+        throw new Error("Camera preview could not be initialized.");
+      }
 
-      // 2. Load face-api.js from CDN
+      videoElement.srcObject = activeStream;
+      await new Promise((resolve) => setTimeout(resolve, 180));
+      await videoElement.play().catch(() => undefined);
+
+      // 2. Load face biometrics engine
       setFaceStatus("Initializing Face AI...");
-      const { loadFaceApi, loadModels } = await import("../../utils/faceApi.js");
-      const faceapi = await loadFaceApi();
-      await loadModels(faceapi);
+      const faceapi = await preloadFaceBiometrics();
 
       setFaceStatus("Detecting face... Look at camera");
+      const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 160,
+        scoreThreshold: 0.45,
+      });
+      const maxAttempts = 8;
+      const retryDelayMs = 120;
 
-      // 3. Scan face descriptor (retry up to 30 times)
+      // 3. Scan face descriptor
       let descriptor: number[] | null = null;
-      for (let i = 0; i < 30; i++) {
-        // Wait 300ms between attempts
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 
         if (!activeStream || activeStream.getTracks().every(t => t.readyState === 'ended')) {
           break; // Stop if stream closed
         }
 
-        if (videoRef.current && videoRef.current.readyState >= 2) {
+        if (videoElement.readyState >= 2) {
           const detection = await faceapi
-            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+            .detectSingleFace(videoElement, detectionOptions)
             .withFaceLandmarks()
             .withFaceDescriptor();
 
@@ -145,7 +178,7 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
             break;
           }
         }
-        setFaceStatus(`Scanning... Keep steady (${i + 1}/30)`);
+        setFaceStatus(`Scanning... Keep steady (${i + 1}/${maxAttempts})`);
       }
 
       if (!descriptor) {
@@ -164,7 +197,17 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
       }
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "Face registration failed", "error");
+      let errorMessage = err?.response?.data?.message || err.message || "Face registration failed";
+
+      if (err.name === "NotReadableError" || String(err).includes("NotReadableError") || String(err).includes("Device in use")) {
+        errorMessage = "Camera is already in use by another application or browser tab.";
+      } else if (err.name === "NotAllowedError" || String(err).includes("NotAllowedError") || String(err).includes("Permission denied")) {
+        errorMessage = "Camera access was denied. Please allow camera permissions and try again.";
+      } else if (err.name === "NotFoundError" || String(err).includes("NotFoundError") || String(err).includes("Requested device not found")) {
+        errorMessage = "No webcam device was found. Please connect a camera and try again.";
+      }
+
+      showToast(errorMessage, "error");
     } finally {
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
