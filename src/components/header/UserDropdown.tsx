@@ -158,9 +158,12 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
       const maxAttempts = 8;
       const retryDelayMs = 120;
 
-      // 3. Scan face descriptor
-      let descriptor: number[] | null = null;
-      for (let i = 0; i < maxAttempts; i++) {
+      // 3. Scan face descriptor with Multi-Frame Averaging (5 samples for high quality)
+      const descriptorsList: number[][] = [];
+      const requiredSamples = 5;
+      const registrationAttempts = 15;
+
+      for (let i = 0; i < registrationAttempts; i++) {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 
         if (!activeStream || activeStream.getTracks().every(t => t.readyState === 'ended')) {
@@ -174,16 +177,25 @@ export default function UserDropdown({ variant = "avatar" }: UserDropdownProps) 
             .withFaceDescriptor();
 
           if (detection) {
-            descriptor = Array.from(detection.descriptor);
-            break;
+            descriptorsList.push(Array.from(detection.descriptor));
+            setFaceStatus(`Scanning... Keep steady (${descriptorsList.length}/${requiredSamples})`);
+            
+            if (descriptorsList.length >= requiredSamples) {
+              break;
+            }
           }
         }
-        setFaceStatus(`Scanning... Keep steady (${i + 1}/${maxAttempts})`);
       }
 
-      if (!descriptor) {
-        throw new Error("Face not detected. Please verify your camera feed and retry.");
+      if (descriptorsList.length < requiredSamples) {
+        throw new Error("Could not capture enough high-quality facial frames. Please ensure good lighting and try again.");
       }
+
+      // Calculate the mathematical average (mean) of all collected descriptors
+      const descriptor = descriptorsList[0].map((_, colIndex) => {
+        const sum = descriptorsList.reduce((acc, desc) => acc + desc[colIndex], 0);
+        return sum / descriptorsList.length;
+      });
 
       setFaceStatus("Encrypting & saving face profile...");
 

@@ -161,14 +161,6 @@ const Login: React.FC = () => {
 
   const handleFaceLogin = async () => {
     setError("");
-    const trimmedUsername = username.trim();
-
-    if (!trimmedUsername) {
-      const errorMsg = "Face login ke liye username ya employee ID enter karna zaroori hai.";
-      setError(errorMsg);
-      showToast(errorMsg, "error");
-      return;
-    }
 
     const hasNavigator = typeof navigator !== "undefined";
     const hasSecureWindow = typeof window !== "undefined";
@@ -219,13 +211,14 @@ const Login: React.FC = () => {
         inputSize: 160,
         scoreThreshold: 0.45,
       });
-      const maxAttempts = 8;
-      const retryDelayMs = 120;
 
-      // 3. Scan face descriptor
-      let descriptor: number[] | null = null;
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      // 3. Scan face descriptor with Multi-Frame Averaging (3 samples for fast login)
+      const descriptorsList: number[][] = [];
+      const requiredSamples = 3;
+      const scanAttempts = 10;
+
+      for (let i = 0; i < scanAttempts; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 120));
 
         if (!activeStream || activeStream.getTracks().every(t => t.readyState === 'ended')) {
           break; // Stop if stream closed
@@ -238,22 +231,34 @@ const Login: React.FC = () => {
             .withFaceDescriptor();
 
           if (detection) {
-            descriptor = Array.from(detection.descriptor);
-            break;
+            descriptorsList.push(Array.from(detection.descriptor));
+            setFaceStatus(`Scanning... Keep steady (${descriptorsList.length}/${requiredSamples})`);
+
+            if (descriptorsList.length >= requiredSamples) {
+              break;
+            }
           }
         }
-        setFaceStatus(`Scanning... Keep steady (${i + 1}/${maxAttempts})`);
       }
 
-      if (!descriptor) {
-        throw new Error("Face not detected. Please verify your camera feed and retry.");
+      if (descriptorsList.length < requiredSamples) {
+        throw new Error("Could not scan face clearly. Please adjust your lighting or camera angle and try again.");
       }
+
+      // Calculate the mathematical average (mean) of all collected descriptors
+      const descriptor = descriptorsList[0].map((_, colIndex) => {
+        const sum = descriptorsList.reduce((acc, desc) => acc + desc[colIndex], 0);
+        return sum / descriptorsList.length;
+      });
 
       setFaceStatus("Verifying face profile...");
 
-      // 4. Send descriptor to backend to match & login
+      // 4. Retrieve saved username silently from localStorage for secure 1-to-1 matching
+      const savedUsername = localStorage.getItem("user-name") || localStorage.getItem("username") || "";
+
+      // 5. Send descriptor & silent username to backend
       const resp = await api.post("/api/auth/webauthn/login-face", {
-        username: trimmedUsername,
+        username: savedUsername.trim(),
         descriptor,
       });
 
@@ -263,7 +268,7 @@ const Login: React.FC = () => {
         if (setAuthData) {
           setAuthData(userData, token);
         }
-        showToast(`Welcome back, ${userData?.username || trimmedUsername}!`, "success");
+        showToast(`Welcome back, ${userData?.username || userData?.user_name || "User"}!`, "success");
         setTimeout(() => navigate("/dashboard", { replace: true }), 800);
       } else {
         throw new Error(resp.data.message || "Face verification failed");
@@ -278,13 +283,13 @@ const Login: React.FC = () => {
       ) {
         errorMsg = err.message;
       } else
-      if (err.name === "NotReadableError" || String(err).includes("NotReadableError") || String(err).includes("Device in use")) {
-        errorMsg = "Camera is already in use by another application or browser tab. Please close other apps using the camera and try again.";
-      } else if (err.name === "NotAllowedError" || String(err).includes("NotAllowedError") || String(err).includes("Permission denied")) {
-        errorMsg = "Camera access was denied. Please allow camera permissions in your browser settings and try again.";
-      } else if (err.name === "NotFoundError" || String(err).includes("NotFoundError") || String(err).includes("Requested device not found")) {
-        errorMsg = "No webcam device was found. Please ensure a camera is connected and try again.";
-      }
+        if (err.name === "NotReadableError" || String(err).includes("NotReadableError") || String(err).includes("Device in use")) {
+          errorMsg = "Camera is already in use by another application or browser tab. Please close other apps using the camera and try again.";
+        } else if (err.name === "NotAllowedError" || String(err).includes("NotAllowedError") || String(err).includes("Permission denied")) {
+          errorMsg = "Camera access was denied. Please allow camera permissions in your browser settings and try again.";
+        } else if (err.name === "NotFoundError" || String(err).includes("NotFoundError") || String(err).includes("Requested device not found")) {
+          errorMsg = "No webcam device was found. Please ensure a camera is connected and try again.";
+        }
 
       setError(errorMsg);
       showToast(errorMsg, "error");
@@ -389,11 +394,10 @@ const Login: React.FC = () => {
                     setError("");
                     setActiveTab("face");
                   }}
-                  className={`flex-1 rounded-[0.55rem] py-1.5 text-[11px] font-bold transition-all duration-200 ${
-                    activeTab === "face"
-                      ? "bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`flex-1 rounded-[0.55rem] py-1.5 text-[11px] font-bold transition-all duration-200 ${activeTab === "face"
+                    ? "bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                    }`}
                 >
                   <span className="flex items-center justify-center gap-1">
                     <Camera className="h-3 w-3" />
@@ -406,11 +410,10 @@ const Login: React.FC = () => {
                     setError("");
                     setActiveTab("credentials");
                   }}
-                  className={`flex-1 rounded-[0.55rem] py-1.5 text-[11px] font-bold transition-all duration-200 ${
-                    activeTab === "credentials"
-                      ? "bg-gradient-to-br from-[#ee1c23] to-[#f43f1f] text-white shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
+                  className={`flex-1 rounded-[0.55rem] py-1.5 text-[11px] font-bold transition-all duration-200 ${activeTab === "credentials"
+                    ? "bg-gradient-to-br from-[#ee1c23] to-[#f43f1f] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                    }`}
                 >
                   <span className="flex items-center justify-center gap-1">
                     <User className="h-3 w-3" />
@@ -509,35 +512,12 @@ const Login: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="space-y-1.5 sm:space-y-[clamp(0.35rem,0.55vw,0.5rem)]">
-                      <Label htmlFor="face-username" className={labelClass}>
-                        Username / Employee ID
-                      </Label>
-                      <div className="relative">
-                        <span className={fieldIconWrapClass}>
-                          <User className={fieldIconClass} />
-                        </span>
-                        <Input
-                          id="face-username"
-                          name="face-username"
-                          type="text"
-                          autoComplete="username"
-                          placeholder="Enter your username or employee ID"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                          disabled={loading || isLoggingInFace}
-                          className={`${baseInputClass} ${inputPaddingLeftClass}`}
-                        />
-                      </div>
-                    </div>
-
                     <div className="flex flex-col items-center justify-center py-4 text-center select-none animate-[fadeIn_0.3s_ease-out]">
                       <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 shadow-[0_6px_18px_rgba(16,185,129,0.1)]">
                         <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-10" />
                         <Camera className="h-7 w-7 animate-pulse" />
                       </div>
-                      
+
                     </div>
 
                     {error && (
