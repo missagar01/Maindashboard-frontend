@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchUserScoresApi } from "../../../api/master/userScoreApi";
+import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
 import { apiCache } from "../runtime";
 
 /* -------------------- UTILITIES -------------------- */
@@ -47,6 +48,11 @@ const scoreBadge = (value) => {
     return "bg-rose-100 text-rose-700";
 };
 
+const hasValidMasterSession = () => {
+    const token = getStoredToken();
+    return Boolean(token && !isJwtExpired(token));
+};
+
 /* -------------------- COMPONENT -------------------- */
 
 const AllUserScore = () => {
@@ -66,6 +72,7 @@ const AllUserScore = () => {
 
     useEffect(() => {
         if (!selectedMonth?.startDate || !selectedMonth?.endDate) return;
+        if (!hasValidMasterSession()) return;
 
         abortRef.current?.abort();
         const controller = new AbortController();

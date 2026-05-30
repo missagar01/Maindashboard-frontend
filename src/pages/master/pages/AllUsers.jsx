@@ -21,6 +21,7 @@ import {
 import { fetchUserDetailsApiById } from "../../../api/master/settingApi";
 import { patchEmpImageApi } from "../../../api/master/userApi";
 import { fetchUserScoreApiByName } from "../../../api/master/userScoreApi";
+import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
 import { apiCache, decodeToken, storage } from "../runtime";
 import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 
@@ -49,6 +50,11 @@ const getCurrentUserId = () => {
     const token = storage.get("token");
     const decodedToken = decodeToken(token);
     return String(decodedToken?.id || storage.get("user_id") || "").trim();
+};
+
+const hasValidMasterSession = () => {
+    const token = getStoredToken();
+    return Boolean(token && !isJwtExpired(token));
 };
 
 const getUserProfileImage = (user) => {
@@ -97,6 +103,11 @@ const HomePage = () => {
 
     const fetchEmployeeDetails = useCallback(async ({ forceFreshUser = false } = {}) => {
         try {
+            if (!hasValidMasterSession()) {
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             const username = storage.get("user-name");
             const role = storage.get("role");
@@ -178,7 +189,7 @@ const HomePage = () => {
         const warnFileSize = 3 * 1024 * 1024;
         const allowedFormats = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-        if (!file || uploading || !userDetails?.id) return;
+        if (!file || uploading || !userDetails?.id || !hasValidMasterSession()) return;
 
         setUploadWarning("");
         setUploadSuccess("");

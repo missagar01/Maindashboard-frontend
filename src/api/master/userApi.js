@@ -1,4 +1,4 @@
-import axiosClient from "./axiosClient";
+import axiosClient, { isSilentMasterAuthError } from "./axiosClient";
 
 /**
  * PATCH employee image
@@ -25,7 +25,9 @@ export const patchEmpImageApi = async (id, file) => {
 
         return response.data;
     } catch (error) {
-        console.error("Error updating employee image", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.error("Error updating employee image", error);
+        }
         throw error;
     }
 };
@@ -35,9 +37,10 @@ export const getEmpImageApi = async (id) => {
         const response = await axiosClient.get(`/users/${id}/emp-image`);
         return response.data;
     } catch (error) {
-        console.error("Error fetching employee image", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.error("Error fetching employee image", error);
+        }
         throw error;
     }
 };
-
 

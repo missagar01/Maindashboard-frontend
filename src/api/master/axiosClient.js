@@ -1,6 +1,12 @@
 import axios from "axios";
+import { getStoredToken, isJwtExpired, clearStoredAuth } from "../apiClient";
 
-const normalizeBaseUrl = (rawBaseUrl) => {
+const resolveBaseUrl = () => {
+    if (import.meta.env.DEV) {
+        return "/api/master";
+    }
+
+    const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
     const cleaned = (rawBaseUrl || "").trim().replace(/\/+$/, "");
 
     if (!cleaned) {
@@ -19,73 +25,12 @@ const normalizeBaseUrl = (rawBaseUrl) => {
 };
 
 const axiosClient = axios.create({
-    baseURL: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL),
+    baseURL: resolveBaseUrl(),
     timeout: 60000, // 60 seconds timeout
     headers: {
         "Content-Type": "application/json",
     },
 });
-
-const AUTH_STORAGE_KEYS = [
-    "token",
-    "user",
-    "currentUser",
-    "user-name",
-    "username",
-    "user_name",
-    "user_id",
-    "role",
-    "employee_id",
-    "department",
-    "user_access",
-    "page_access",
-    "system_access",
-    "store_access",
-];
-
-const decodeTokenPayload = (token) => {
-    try {
-        const [, rawPayload = ""] = String(token || "").split(".");
-        if (!rawPayload) return null;
-
-        const normalized = rawPayload.replace(/-/g, "+").replace(/_/g, "/");
-        const paddingNeeded = normalized.length % 4;
-        const padded = paddingNeeded === 0 ? normalized : `${normalized}${"=".repeat(4 - paddingNeeded)}`;
-        return JSON.parse(atob(padded));
-    } catch {
-        return null;
-    }
-};
-
-const isTokenExpired = (token) => {
-    const exp = Number(decodeTokenPayload(token)?.exp);
-    if (!Number.isFinite(exp)) return false;
-    return exp <= Math.floor(Date.now() / 1000);
-};
-
-const getStoredToken = () => {
-    const sessionToken = sessionStorage.getItem("token");
-    const localToken = localStorage.getItem("token");
-
-    if (!sessionToken) return localToken;
-    if (!localToken) return sessionToken;
-    if (sessionToken === localToken) return sessionToken;
-
-    const sessionExpired = isTokenExpired(sessionToken);
-    const localExpired = isTokenExpired(localToken);
-
-    if (sessionExpired && !localExpired) return localToken;
-    if (!sessionExpired && localExpired) return sessionToken;
-
-    return localToken;
-};
-
-const clearAuthStorage = () => {
-    AUTH_STORAGE_KEYS.forEach((key) => {
-        sessionStorage.removeItem(key);
-        localStorage.removeItem(key);
-    });
-};
 
 const shouldForceLogout = (error) => {
     if (error.response?.status !== 401) {
@@ -98,16 +43,53 @@ const shouldForceLogout = (error) => {
     }
 
     const token = getStoredToken();
-    return Boolean(token && isTokenExpired(token));
+    return Boolean(token && isJwtExpired(token));
+};
+
+const redirectToLogin = () => {
+    if (typeof window === "undefined" || window.location.pathname === "/login") {
+        return;
+    }
+
+    clearStoredAuth();
+    window.location.href = "/login";
+};
+
+const buildAuthError = (message, code) => {
+    const error = new Error(message);
+    error.code = code;
+    error.response = {
+        status: 401,
+        data: {
+            message,
+            code,
+        },
+    };
+    return error;
+};
+
+export const isSilentMasterAuthError = (error) => {
+    const code = String(error?.code || error?.response?.data?.code || "").toUpperCase();
+    return ["TOKEN_MISSING", "TOKEN_EXPIRED", "TOKEN_INVALID", "SESSION_REVOKED"].includes(code);
 };
 
 // Add a request interceptor to include the JWT token
 axiosClient.interceptors.request.use(
     (config) => {
         const token = getStoredToken();
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+
+        if (!token) {
+            redirectToLogin();
+            return Promise.reject(buildAuthError("Authentication token missing", "TOKEN_MISSING"));
         }
+
+        if (isJwtExpired(token)) {
+            redirectToLogin();
+            return Promise.reject(buildAuthError("Authentication token expired", "TOKEN_EXPIRED"));
+        }
+
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
         return config;
     },
     (error) => Promise.reject(error)
@@ -118,12 +100,11 @@ axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (shouldForceLogout(error) && window.location.pathname !== "/login") {
-            clearAuthStorage();
+            clearStoredAuth();
             window.location.href = "/login";
         }
         return Promise.reject(error);
     }
 );
-
 
 export default axiosClient;

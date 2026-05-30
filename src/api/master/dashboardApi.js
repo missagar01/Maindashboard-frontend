@@ -1,4 +1,4 @@
-import axiosClient from "./axiosClient";
+import axiosClient, { isSilentMasterAuthError } from "./axiosClient";
 
 const extractCount = (payload) => {
     if (typeof payload === "number") {
@@ -44,7 +44,9 @@ export const getPendingTodayApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch pending today tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch pending today tasks", err);
+        }
         return 0;
     }
 };
@@ -69,7 +71,9 @@ export const getCompletedTodayApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch completed today tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch completed today tasks", err);
+        }
         return 0;
     }
 };
@@ -94,7 +98,9 @@ export const getTotalTaskApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch total tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch total tasks", err);
+        }
         return 0;
     }
 };
@@ -119,7 +125,9 @@ export const getCompletedTaskApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch completed tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch completed tasks", err);
+        }
         return 0;
     }
 };
@@ -144,7 +152,9 @@ export const getPendingTaskApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch pending tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch pending tasks", err);
+        }
         return 0;
     }
 };
@@ -169,7 +179,9 @@ export const getOverdueTaskApi = async ({
 
         return extractCount(res.data);
     } catch (err) {
-        console.error("Failed to fetch overdue tasks", err);
+        if (!isSilentMasterAuthError(err)) {
+            console.error("Failed to fetch overdue tasks", err);
+        }
         return 0;
     }
 };

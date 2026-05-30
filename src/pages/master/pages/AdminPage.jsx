@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { fetchUserDetailsApi, patchSystemAccessApi } from "../../../api/master/settingApi";
 import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
+import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
 import { Award, Clock3, Mail, MapPin, Phone, Target } from "lucide-react";
 import { apiCache } from "../runtime";
 
@@ -35,6 +36,11 @@ const LANDING_HOVER_MUTED_TEXT = "transition-colors duration-500 group-hover:tex
 const LANDING_HOVER_PILL = "inline-flex items-center rounded-full px-[clamp(0.95rem,0.75rem+0.45vw,1.35rem)] py-[clamp(0.35rem,0.28rem+0.18vw,0.52rem)] transition-all duration-500 group-hover:bg-white group-hover:text-red-700 group-hover:shadow-[0_18px_36px_-20px_rgba(255,255,255,0.95)]";
 const LANDING_HOVER_ICON_SURFACE = "transition-all duration-500 group-hover:bg-white group-hover:shadow-[0_24px_44px_-28px_rgba(255,255,255,0.95)]";
 
+const hasValidMasterSession = () => {
+    const token = getStoredToken();
+    return Boolean(token && !isJwtExpired(token));
+};
+
 const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => {
     const [allUsers, setAllUsers] = useState([]);
 
@@ -45,7 +51,7 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
     const [activeIndex, setActiveIndex] = useState(null);
 
     const handleSystemAccessPatch = async (id, value) => {
-        if (!value.trim()) return;
+        if (!value.trim() || !hasValidMasterSession()) return;
         try {
             const updatedUser = await patchSystemAccessApi({
                 id: id,
@@ -70,6 +76,10 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
 
         const fetchAdminData = async () => {
             try {
+                if (!hasValidMasterSession()) {
+                    return;
+                }
+
                 let users = apiCache.get("users_all");
                 if (!users) {
                     users = await fetchUserDetailsApi();

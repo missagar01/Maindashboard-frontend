@@ -177,6 +177,7 @@ interface AuthContextType {
     password?: string
   ) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
+  setAuthData?: (userData: any, token: string) => void;
   getAuthHeaders: () => { Authorization: string; 'Content-Type': string };
 
   // Document Store State
@@ -1015,6 +1016,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     delete api.defaults.headers.common['Authorization'];
   };
 
+  const setAuthData = (rawUserData: any, authToken: string) => {
+    const userData = normalizeAuthUser(rawUserData);
+    if (!userData) {
+      console.error('Invalid user payload for setAuthData');
+      return;
+    }
+    setToken(authToken);
+    setUser(userData);
+    persistAuthState(authToken, userData);
+    api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+  };
+
   const getAuthHeaders = () => ({
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -1045,6 +1058,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         refreshProjectProjects,
         login,
         logout,
+        setAuthData,
         getAuthHeaders,
         title,
         setTitle,

@@ -1,4 +1,4 @@
-import axiosClient from "./axiosClient";
+import axiosClient, { isSilentMasterAuthError } from "./axiosClient";
 
 /**
  * GET ALL USERS SCORES
@@ -16,7 +16,9 @@ export const fetchUserScoresApi = async ({
         });
         return response.data;
     } catch (error) {
-        console.log("Error fetching user scores", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.log("Error fetching user scores", error);
+        }
         return [];
     }
 };
@@ -39,7 +41,9 @@ export const fetchUserScoreApiByName = async (
         });
         return response.data;
     } catch (error) {
-        console.log("Error fetching user score by name", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.log("Error fetching user score by name", error);
+        }
         return null;
     }
 };

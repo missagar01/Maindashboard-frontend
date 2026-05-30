@@ -690,7 +690,8 @@ const AppHeader: React.FC = () => {
                 })}
               </nav>
 
-              <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2">
+              <div className="shrink-0 border-t border-[#e2e8f0] bg-white px-2 py-2 space-y-2">
+                <UserDropdown variant="mobile-drawer" />
                 <button
                   type="button"
                   onClick={() => {

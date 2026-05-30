@@ -1,11 +1,13 @@
-import axiosClient from "./axiosClient";
+import axiosClient, { isSilentMasterAuthError } from "./axiosClient";
 
 export const fetchUserDetailsApi = async () => {
     try {
         const response = await axiosClient.get("/settings/users");
         return response.data;
     } catch (error) {
-        console.log("Error fetching users", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.log("Error fetching users", error);
+        }
         return [];
     }
 };
@@ -15,7 +17,9 @@ export const fetchUserDetailsApiById = async (id) => {
         const response = await axiosClient.get(`/settings/users/${id}`);
         return response.data;
     } catch (error) {
-        console.log("Error fetching user details by ID", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.log("Error fetching user details by ID", error);
+        }
         return null;
     }
 };
@@ -34,7 +38,9 @@ export const patchSystemAccessApi = async ({ id, system_access }) => {
 
         return response.data;
     } catch (error) {
-        console.log("Error patching system_access", error);
+        if (!isSilentMasterAuthError(error)) {
+            console.log("Error patching system_access", error);
+        }
         return null;
     }
 };
