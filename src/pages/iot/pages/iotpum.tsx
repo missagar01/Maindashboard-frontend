@@ -121,10 +121,10 @@ const DOORDRISHTI_RANGE_PRESET_OPTIONS: Array<{
   label: string;
   preset: Exclude<DoordrishtiRangePreset, "custom">;
 }> = [
-  { label: "Today", preset: "today" },
-  { label: "Weekly", preset: "weekly" },
-  { label: "Monthly", preset: "monthly" },
-];
+    { label: "Today", preset: "today" },
+    { label: "Weekly", preset: "weekly" },
+    { label: "Monthly", preset: "monthly" },
+  ];
 
 const buildFiltersForPreset = (
   preset: Exclude<DoordrishtiRangePreset, "custom">,
@@ -919,11 +919,10 @@ export default function IotPumPage() {
                     key={option.preset}
                     type="button"
                     onClick={() => handleRangePresetSelect(option.preset)}
-                    className={`h-10 rounded-2xl border px-5 text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 sm:h-11 ${
-                      isActive
+                    className={`h-10 rounded-2xl border px-5 text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 sm:h-11 ${isActive
                         ? "border-slate-900 bg-slate-900 text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]"
                         : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>

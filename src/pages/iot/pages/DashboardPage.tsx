@@ -53,81 +53,67 @@ const formatPercent = (value: number | null | undefined) => {
 
 const ProgressRing = ({
   scoreLabel,
-  running,
-  stopped,
+  runningPct,
+  stoppedPct,
 }: {
   scoreLabel: string;
-  running: number;
-  stopped: number;
+  runningPct: number;
+  stoppedPct: number;
 }) => {
-  const total = running + stopped;
   const circles: ReactElement[] = [];
-  
+
   const RING_RADIUS = 46;
   const RING_STROKE = 14;
   const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-  if (total > 0) {
-    const runningLength = (running / total) * RING_CIRCUMFERENCE;
-    const stoppedLength = (stopped / total) * RING_CIRCUMFERENCE;
+  // Background circle representing "Offline" or total timeline background (grey `#e2e8f0`)
+  circles.push(
+    <circle
+      key="bg"
+      cx="60"
+      cy="60"
+      r={RING_RADIUS}
+      fill="transparent"
+      stroke="#e2e8f0"
+      strokeWidth={RING_STROKE}
+    />
+  );
 
+  const runningLength = (runningPct / 100) * RING_CIRCUMFERENCE;
+  const stoppedLength = (stoppedPct / 100) * RING_CIRCUMFERENCE;
+
+  if (runningPct > 0) {
     circles.push(
       <circle
-        key="bg"
+        key="running"
         cx="60"
         cy="60"
         r={RING_RADIUS}
         fill="transparent"
-        stroke="#94a3b8"
+        stroke="#10b981"
         strokeWidth={RING_STROKE}
+        strokeLinecap="butt"
+        strokeDasharray={`${runningLength} ${RING_CIRCUMFERENCE}`}
+        strokeDashoffset={0}
+        className="transition-all duration-1000 ease-in-out"
       />
     );
+  }
 
-    if (running > 0) {
-      circles.push(
-        <circle
-          key="running"
-          cx="60"
-          cy="60"
-          r={RING_RADIUS}
-          fill="transparent"
-          stroke="#10b981"
-          strokeWidth={RING_STROKE}
-          strokeLinecap="butt"
-          strokeDasharray={`${runningLength} ${RING_CIRCUMFERENCE}`}
-          strokeDashoffset={0}
-          className="transition-all duration-1000 ease-in-out"
-        />
-      );
-    }
-
-    if (stopped > 0) {
-      circles.push(
-        <circle
-          key="stopped"
-          cx="60"
-          cy="60"
-          r={RING_RADIUS}
-          fill="transparent"
-          stroke="#f59e0b"
-          strokeWidth={RING_STROKE}
-          strokeLinecap="butt"
-          strokeDasharray={`${stoppedLength} ${RING_CIRCUMFERENCE}`}
-          strokeDashoffset={-runningLength}
-          className="transition-all duration-1000 ease-in-out"
-        />
-      );
-    }
-  } else {
+  if (stoppedPct > 0) {
     circles.push(
       <circle
-        key="empty"
+        key="stopped"
         cx="60"
         cy="60"
         r={RING_RADIUS}
         fill="transparent"
-        stroke="#e2e8f0"
+        stroke="#f59e0b"
         strokeWidth={RING_STROKE}
+        strokeLinecap="butt"
+        strokeDasharray={`${stoppedLength} ${RING_CIRCUMFERENCE}`}
+        strokeDashoffset={-runningLength}
+        className="transition-all duration-1000 ease-in-out"
       />
     );
   }
@@ -173,6 +159,33 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
   const stopped = period.stoppedTimeSeconds || 0;
   const uptimeLabel = formatPercent(period.uptimePct);
   const totalDevices = (period.onlineDevices || 0) + (period.offlineDevices || 0);
+
+  // Compute duration in seconds based on startTime/endTime or preset type fallback
+  let durationSeconds = 86400; // default 1 day
+  if (period.startTime && period.endTime) {
+    const diff = (new Date(period.endTime).getTime() - new Date(period.startTime).getTime()) / 1000;
+    if (diff > 0) {
+      durationSeconds = diff;
+    }
+  } else {
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes("week")) {
+      durationSeconds = 7 * 24 * 3600;
+    } else if (titleLower.includes("month")) {
+      durationSeconds = 30 * 24 * 3600;
+    }
+  }
+
+  // Calculate accurate percentages relative to the total timeline
+  let runningPct = period.uptimePct !== undefined && period.uptimePct !== null ? period.uptimePct : 0;
+  let stoppedPct = durationSeconds > 0 ? (stopped / durationSeconds) * 100 : 0;
+
+  // Protect against percentages exceeding 100% due to slight overlaps
+  if (runningPct + stoppedPct > 100) {
+    const factor = 100 / (runningPct + stoppedPct);
+    runningPct *= factor;
+    stoppedPct *= factor;
+  }
 
   const metrics = [
     {
@@ -228,10 +241,10 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
 
       {/* Main Content (Chart + Pills) */}
       <div className="flex flex-row items-center justify-between gap-3 sm:gap-8 lg:gap-3 xl:gap-5 w-full">
-        
+
         {/* Left: Donut Chart */}
         <div className="flex justify-center shrink-0">
-          <ProgressRing scoreLabel={uptimeLabel} running={running} stopped={stopped} />
+          <ProgressRing scoreLabel={uptimeLabel} runningPct={runningPct} stoppedPct={stoppedPct} />
         </div>
 
         {/* Right: Metrics Pills */}
@@ -306,7 +319,7 @@ export function DashboardPage() {
   return (
     <main className="min-h-screen text-slate-800 pb-12 bg-[#f8fafc]">
       <div className="relative z-10 mx-auto max-w-full px-4 sm:px-6 lg:px-8 mt-6">
-        
+
         {/* Navigation & Header Panel */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-5 mb-6">
           <div>
@@ -316,7 +329,7 @@ export function DashboardPage() {
                 Main IoT Portal
               </span>
             </div>
-         
+
           </div>
         </div>
 
