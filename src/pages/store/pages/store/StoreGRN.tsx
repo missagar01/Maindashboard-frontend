@@ -8,7 +8,7 @@ import { storeGRNApi } from "@/api/store/storeGRNApi";
 import { storeGRNApprovalApi } from "@/api/store/storeGRNApprovalApi";
 import { Card } from "../../components/ui/card";
 import { formatDate, formatDateTime, formatCurrency } from "../../utils/storeUtils";
-import { compareCurrentMonthFirstDesc } from "./currentMonthSort";
+import { compareCurrentMonthFirstDesc, parseStoreDateValue } from "./currentMonthSort";
 
 /* ================= TYPES ================= */
 
@@ -30,6 +30,21 @@ type PGRow = {
     party_bill_amount?: number;
     sended_bill?: boolean;
     approved_by_admin?: boolean;
+};
+
+const STORE_GRN_RANGE_START = new Date(2025, 3, 1);
+
+const isWithinStoreGrnRange = (...values: unknown[]) => {
+    const rangeEnd = new Date();
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    for (const value of values) {
+        const parsed = parseStoreDateValue(value);
+        if (!parsed) continue;
+        return parsed >= STORE_GRN_RANGE_START && parsed <= rangeEnd;
+    }
+
+    return false;
 };
 
 /* ================= COMPONENT ================= */
@@ -101,12 +116,21 @@ export default function StoreGRN() {
     /* ================= FILTERING LOGIC ================= */
 
     const historyRowsRaw = useMemo(() => {
-        return pgRows.filter(r => r.sended_bill && r.approved_by_admin);
+        return pgRows.filter(
+            (r) =>
+                r.sended_bill &&
+                r.approved_by_admin &&
+                isWithinStoreGrnRange(r.grn_date, r.planned_date)
+        );
     }, [pgRows]);
 
     const pendingRowsRaw = useMemo(() => {
         const historyNos = new Set(historyRowsRaw.map(r => r.grn_no));
-        return oracleRows.filter(o => !historyNos.has(o.VRNO));
+        return oracleRows.filter(
+            (o) =>
+                isWithinStoreGrnRange(o.VRDATE, o.PLANNEDDATE) &&
+                !historyNos.has(o.VRNO)
+        );
     }, [oracleRows, historyRowsRaw]);
 
     const filteredRows = useMemo(() => {
