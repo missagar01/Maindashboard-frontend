@@ -5,6 +5,7 @@ import type {
   SummaryPeriodPayload,
   SummaryRange,
 } from '../../../api/iot/iotApi';
+import { getUptimeDisplayMetrics } from '../uptime';
 
 interface TextileMESDashboardProps {
   summary: DashboardSummaryResponse | null;
@@ -160,6 +161,7 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
   const comparisonPeriods = summary?.periods ?? null;
   const connectionStatus = live?.connection?.status ?? (isLiveMode ? 'connected' : 'history');
   const chartRows = selectedPeriod?.trend ?? [];
+  const uptimeMetrics = getUptimeDisplayMetrics(selectedPeriod);
 
   const handleTabChange = (tab: SummaryRange) => {
     setSummaryTab(tab);
@@ -299,11 +301,11 @@ export function TextileMESDashboard({ summary, live, isLiveMode = false }: Texti
             label: 'Device Online / Offline',
             value: `${selectedPeriod?.onlineDevices ?? 0} / ${selectedPeriod?.offlineDevices ?? 0}`,
           },
-          { label: 'Uptime', value: formatPercent(selectedPeriod?.uptimePct) },
+          { label: 'Uptime', value: formatPercent(uptimeMetrics.scorePct) },
         ],
       },
     ],
-    [selectedPeriod]
+    [selectedPeriod, uptimeMetrics.scorePct]
   );
 
   if (!selectedPeriod) {

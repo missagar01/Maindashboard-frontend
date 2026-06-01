@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { TextileMESDashboard } from '../components/TextileMESDashboard';
+import { getUptimeDisplayMetrics } from '../uptime';
 
 const isNumber = (value: number | null | undefined): value is number =>
   value !== null && value !== undefined && Number.isFinite(value);
@@ -238,7 +239,7 @@ const ProgressRing = ({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[8px] sm:text-[10px] lg:text-[8px] xl:text-[9px] font-black text-slate-400 uppercase tracking-widest">
-          UPTIME
+          Score
         </span>
         <span className="text-[16px] sm:text-[22px] lg:text-[16px] xl:text-[18px] font-black text-slate-900 tracking-tight leading-none mt-0.5 sm:mt-1 lg:mt-0.5 xl:mt-1">
           {scoreLabel}
@@ -265,39 +266,12 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
     );
   }
 
-  const stopped = period.stoppedTimeSeconds || 0;
-  const uptimeLabel = formatPercent(period.uptimePct);
+  const uptimeMetrics = getUptimeDisplayMetrics(period);
+  const uptimeLabel = formatPercent(uptimeMetrics.scorePct);
   const totalDevices = (period.onlineDevices || 0) + (period.offlineDevices || 0);
   const rangeLabel = formatPeriodLabel(period, subtitle);
   const freshnessLabel = formatLastUpdated(period.lastSummaryTime);
   const isStale = isStaleSummary(period.lastSummaryTime);
-
-  // Compute duration in seconds based on startTime/endTime or preset type fallback
-  let durationSeconds = 86400; // default 1 day
-  if (period.startTime && period.endTime) {
-    const diff = (new Date(period.endTime).getTime() - new Date(period.startTime).getTime()) / 1000;
-    if (diff > 0) {
-      durationSeconds = diff;
-    }
-  } else {
-    const titleLower = title.toLowerCase();
-    if (titleLower.includes("week")) {
-      durationSeconds = 7 * 24 * 3600;
-    } else if (titleLower.includes("month")) {
-      durationSeconds = 30 * 24 * 3600;
-    }
-  }
-
-  // Calculate accurate percentages relative to the total timeline
-  let runningPct = period.uptimePct !== undefined && period.uptimePct !== null ? period.uptimePct : 0;
-  let stoppedPct = durationSeconds > 0 ? (stopped / durationSeconds) * 100 : 0;
-
-  // Protect against percentages exceeding 100% due to slight overlaps
-  if (runningPct + stoppedPct > 100) {
-    const factor = 100 / (runningPct + stoppedPct);
-    runningPct *= factor;
-    stoppedPct *= factor;
-  }
 
   const metrics = [
     {
@@ -361,7 +335,11 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
 
         {/* Left: Donut Chart */}
         <div className="flex justify-center shrink-0">
-          <ProgressRing scoreLabel={uptimeLabel} runningPct={runningPct} stoppedPct={stoppedPct} />
+          <ProgressRing
+            scoreLabel={uptimeLabel}
+            runningPct={uptimeMetrics.runningPct}
+            stoppedPct={uptimeMetrics.stoppedPct}
+          />
         </div>
 
         {/* Right: Metrics Pills */}
