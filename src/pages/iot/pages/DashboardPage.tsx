@@ -86,6 +86,50 @@ const formatSummaryWindow = (
   })}`;
 };
 
+const formatCurrentWeekLabel = (value: string | null | undefined) => {
+  if (!value) {
+    return 'Current Week';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Current Week';
+  }
+
+  const weekOfMonth = Math.ceil(parsed.getDate() / 7);
+  return `Week ${weekOfMonth} | ${parsed.toLocaleDateString(undefined, {
+    month: 'long',
+  })}`;
+};
+
+const formatCurrentMonthLabel = (value: string | null | undefined, fallbackLabel: string) => {
+  if (!value) {
+    return fallbackLabel;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallbackLabel;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const formatPeriodLabel = (period: SummaryPeriodPayload, fallbackLabel: string) => {
+  if (period.rangeKey === 'week') {
+    return formatCurrentWeekLabel(period.endTime);
+  }
+
+  if (period.rangeKey === 'month') {
+    return formatCurrentMonthLabel(period.endTime, fallbackLabel);
+  }
+
+  return formatSummaryWindow(period.startTime, period.endTime, fallbackLabel);
+};
+
 const formatLastUpdated = (value: string | null | undefined) => {
   if (!value) {
     return 'Awaiting fresh summary';
@@ -224,7 +268,7 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
   const stopped = period.stoppedTimeSeconds || 0;
   const uptimeLabel = formatPercent(period.uptimePct);
   const totalDevices = (period.onlineDevices || 0) + (period.offlineDevices || 0);
-  const rangeLabel = formatSummaryWindow(period.startTime, period.endTime, subtitle);
+  const rangeLabel = formatPeriodLabel(period, subtitle);
   const freshnessLabel = formatLastUpdated(period.lastSummaryTime);
   const isStale = isStaleSummary(period.lastSummaryTime);
 
@@ -455,12 +499,12 @@ export function DashboardPage() {
                 />
                 <TextileSummaryCard
                   title="Weekly"
-                  subtitle={summary.periods?.week?.label || "Last 7 Days"}
+                  subtitle={summary.periods?.week?.label || 'Current Week'}
                   period={summary.periods?.week}
                 />
                 <TextileSummaryCard
                   title="Monthly"
-                  subtitle={summary.periods?.month?.label || "Last 30 Days"}
+                  subtitle={summary.periods?.month?.label || 'Current Month'}
                   period={summary.periods?.month}
                 />
               </div>
