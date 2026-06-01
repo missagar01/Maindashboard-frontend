@@ -22,11 +22,21 @@ interface POData {
   UM: string;
 }
 
+const DEFAULT_PO_FROM_DATE = "2025-04-01";
+
 function formatShortDate(dateStr?: string) {
   if (!dateStr) return "--";
   const date = parseStoreDateValue(dateStr);
   if (!date) return dateStr;
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function sortPurchaseOrders(rows: POData[]) {
@@ -84,12 +94,16 @@ export default function PendingPOs() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [searchText, setSearchText] = useState("");
+  const rangeLabel = `${formatShortDate(DEFAULT_PO_FROM_DATE)} to ${formatShortDate(getTodayDateString())}`;
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [pendingRes, historyRes] = await Promise.all([storeApi.getPoPending(), storeApi.getPoHistory()]);
+        const [pendingRes, historyRes] = await Promise.all([
+          storeApi.getPoPending(DEFAULT_PO_FROM_DATE),
+          storeApi.getPoHistory(DEFAULT_PO_FROM_DATE),
+        ]);
         if (pendingRes.success && Array.isArray(pendingRes.data)) setPending(sortPurchaseOrders(pendingRes.data));
         if (historyRes.success && Array.isArray(historyRes.data)) setHistory(sortPurchaseOrders(historyRes.data));
       } catch (err) {
@@ -139,7 +153,7 @@ export default function PendingPOs() {
 
   return (
     <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-10">
-      <Heading heading="Purchase Orders" subtext="Pending and history"><ListTodo size={46} className="text-primary" /></Heading>
+      <Heading heading="Purchase Orders" subtext={`Pending and history | ${rangeLabel}`}><ListTodo size={46} className="text-primary" /></Heading>
       <Card className="rounded-xl border border-slate-200 shadow-sm">
         <CardContent className="space-y-3 p-3 sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

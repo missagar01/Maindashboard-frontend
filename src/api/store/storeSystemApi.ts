@@ -90,10 +90,16 @@ export const storeApi: any = {
   getIndentsByStatus: (statusType: string) =>
     storeApiRequest(`/api/store/indent/status/${statusType}`),
 
-  getPoPending: () =>
-    storeApiRequest("/api/store/po/pending", { bypassCache: true }),
-  getPoHistory: () =>
-    storeApiRequest("/api/store/po/history", { bypassCache: true }),
+  getPoPending: (fromDate?: string) =>
+    storeApiRequest(
+      `/api/store/po/pending${fromDate ? `?fromDate=${encodeURIComponent(fromDate)}` : ""}`,
+      { bypassCache: true }
+    ),
+  getPoHistory: (fromDate?: string) =>
+    storeApiRequest(
+      `/api/store/po/history${fromDate ? `?fromDate=${encodeURIComponent(fromDate)}` : ""}`,
+      { bypassCache: true }
+    ),
   downloadPoPending: () => downloadBlob("/api/store/po/pending/download"),
   downloadPoHistory: () => downloadBlob("/api/store/po/history/download"),
 

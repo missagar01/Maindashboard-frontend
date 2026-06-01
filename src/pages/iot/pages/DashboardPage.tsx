@@ -1,20 +1,17 @@
 import { startTransition, useEffect, useState, type ReactElement } from 'react';
 import {
-  fetchLive,
   fetchSummary,
-  type DashboardLiveResponse,
+  fetchLive,
   type DashboardSummaryResponse,
+  type DashboardLiveResponse,
+  type SummaryPeriodPayload,
 } from '../../../api/iot/iotApi';
-import { TextileMESDashboard } from '../components/TextileMESDashboard';
 import {
   Activity,
   BarChart3,
   TrendingUp,
 } from 'lucide-react';
-
-const RING_RADIUS = 64;
-const RING_STROKE = 14;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+import { TextileMESDashboard } from '../components/TextileMESDashboard';
 
 const isNumber = (value: number | null | undefined): value is number =>
   value !== null && value !== undefined && Number.isFinite(value);
@@ -49,6 +46,75 @@ const formatPercent = (value: number | null | undefined) => {
   }
 
   return `${value.toFixed(1)}%`;
+};
+
+const formatSummaryWindow = (
+  startTime: string | null | undefined,
+  endTime: string | null | undefined,
+  fallbackLabel: string
+) => {
+  if (!startTime || !endTime) {
+    return fallbackLabel;
+  }
+
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return fallbackLabel;
+  }
+
+  const sameDay = start.toDateString() === end.toDateString();
+  if (sameDay) {
+    return `${start.toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+    })} | ${start.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    })} - ${end.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+  }
+
+  return `${start.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+  })} - ${end.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+  })}`;
+};
+
+const formatLastUpdated = (value: string | null | undefined) => {
+  if (!value) {
+    return 'Awaiting fresh summary';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Awaiting fresh summary';
+  }
+
+  return `Last sync ${parsed.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+};
+
+const isStaleSummary = (value: string | null | undefined, staleAfterMinutes = 90) => {
+  if (!value) {
+    return true;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return true;
+  }
+
+  return Date.now() - parsed.getTime() > staleAfterMinutes * 60 * 1000;
 };
 
 const ProgressRing = ({
@@ -141,7 +207,7 @@ const ProgressRing = ({
 interface TextileSummaryCardProps {
   title: string;
   subtitle: string;
-  period: any;
+  period: SummaryPeriodPayload | null | undefined;
 }
 
 const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps) => {
@@ -155,10 +221,12 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
     );
   }
 
-  const running = period.runningTimeSeconds || 0;
   const stopped = period.stoppedTimeSeconds || 0;
   const uptimeLabel = formatPercent(period.uptimePct);
   const totalDevices = (period.onlineDevices || 0) + (period.offlineDevices || 0);
+  const rangeLabel = formatSummaryWindow(period.startTime, period.endTime, subtitle);
+  const freshnessLabel = formatLastUpdated(period.lastSummaryTime);
+  const isStale = isStaleSummary(period.lastSummaryTime);
 
   // Compute duration in seconds based on startTime/endTime or preset type fallback
   let durationSeconds = 86400; // default 1 day
@@ -218,9 +286,14 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
     <article className="group relative overflow-hidden rounded-[24px] sm:rounded-[32px] lg:rounded-[24px] xl:rounded-[32px] border border-slate-100 bg-white p-4 sm:p-6 lg:p-4 xl:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
       {/* Header */}
       <div className="flex flex-row items-center justify-between gap-2 mb-4 sm:mb-6 lg:mb-4 xl:mb-5">
-        <h2 className="text-[15px] sm:text-[20px] lg:text-[14px] xl:text-[18px] font-black uppercase tracking-[0.1em] text-slate-900 truncate">
-          {title}
-        </h2>
+        <div className="min-w-0">
+          <h2 className="text-[15px] sm:text-[20px] lg:text-[14px] xl:text-[18px] font-black uppercase tracking-[0.1em] text-slate-900 truncate">
+            {title}
+          </h2>
+          <p className="mt-1 text-[9px] sm:text-[11px] lg:text-[8px] xl:text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 truncate">
+            {rangeLabel}
+          </p>
+        </div>
 
         <div className="flex flex-row items-center gap-1.5 sm:gap-2 lg:gap-1.5 xl:gap-2 shrink-0">
           <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-1 xl:gap-1.5 rounded-full bg-[#f59e0b] px-2 py-1 sm:px-3 sm:py-1.5 lg:px-2 lg:py-1 xl:px-3 xl:py-1.5 shadow-sm">
@@ -268,6 +341,19 @@ const TextileSummaryCard = ({ title, subtitle, period }: TextileSummaryCardProps
         </div>
 
       </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+        <span className="text-[9px] sm:text-[11px] lg:text-[8px] xl:text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 truncate">
+          {freshnessLabel}
+        </span>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[8px] sm:text-[10px] lg:text-[8px] xl:text-[9px] font-black uppercase tracking-[0.16em] ${
+            isStale ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {isStale ? 'STALE DATA' : 'LIVE WINDOW'}
+        </span>
+      </div>
     </article>
   );
 };
@@ -276,8 +362,6 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
   const [live, setLive] = useState<DashboardLiveResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const apiDisplayBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || window.location.origin;
 
   // Textile MES hydrate effect
   useEffect(() => {
@@ -285,7 +369,13 @@ export function DashboardPage() {
 
     const hydrate = async () => {
       try {
-        const [summaryResponse, liveResponse] = await Promise.all([fetchSummary(), fetchLive()]);
+        const [summaryResponse, liveResponse] = await Promise.all([
+          fetchSummary(),
+          fetchLive().catch((e) => {
+            console.error('Failed to load live status', e);
+            return null;
+          }),
+        ]);
 
         if (!isMounted) {
           return;
@@ -334,8 +424,17 @@ export function DashboardPage() {
         </div>
 
         {/* Dashboard Content */}
-        <div>
-          {!summary ? (
+        <div className="space-y-6 sm:space-y-10">
+          {!summary && errorMessage ? (
+            <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[32px] border border-rose-100 bg-white px-6 text-center shadow-sm">
+              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-rose-500">
+                Dashboard Unavailable
+              </p>
+              <p className="max-w-xl text-sm font-medium text-slate-500">
+                {errorMessage}
+              </p>
+            </div>
+          ) : !summary ? (
             <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-[32px] border border-slate-100 bg-white shadow-sm">
               <div className="relative flex h-16 w-16 items-center justify-center">
                 <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-100 border-t-[#1e4b7a]" />
@@ -346,28 +445,38 @@ export function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-              <TextileSummaryCard
-                title="Current Day"
-                subtitle={summary.periods?.day?.label || "Today"}
-                period={summary.periods?.day}
-              />
-              <TextileSummaryCard
-                title="Weekly"
-                subtitle={summary.periods?.week?.label || "Last 7 Days"}
-                period={summary.periods?.week}
-              />
-              <TextileSummaryCard
-                title="Monthly"
-                subtitle={summary.periods?.month?.label || "Last 30 Days"}
-                period={summary.periods?.month}
-              />
-            </div>
+            <>
+              {/* Fleet-at-a-Glance Summary Cards */}
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+                <TextileSummaryCard
+                  title="Current Day"
+                  subtitle={summary.periods?.day?.label || "Today"}
+                  period={summary.periods?.day}
+                />
+                <TextileSummaryCard
+                  title="Weekly"
+                  subtitle={summary.periods?.week?.label || "Last 7 Days"}
+                  period={summary.periods?.week}
+                />
+                <TextileSummaryCard
+                  title="Monthly"
+                  subtitle={summary.periods?.month?.label || "Last 30 Days"}
+                  period={summary.periods?.month}
+                />
+              </div>
+
+              {/* Detailed Director Dashboard Component */}
+              <div className="border-t border-slate-200/60 pt-6 sm:pt-10">
+                <TextileMESDashboard
+                  summary={summary}
+                  live={live}
+                  isLiveMode={live?.connection?.status === 'connected' || live?.connection?.status === 'ready'}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
     </main>
   );
 }
-
-

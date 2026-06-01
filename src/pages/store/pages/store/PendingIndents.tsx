@@ -27,6 +27,7 @@ interface POData {
 }
 
 const PAGE_SIZE = 50;
+const DEFAULT_PO_FROM_DATE = "2025-04-01";
 const INDENT_FIELD_KEYS = ["INDENT_NO", "indent_no", "indentNo", "INDENTNO", "indentno"];
 const INDENTER_FIELD_KEYS = ["INDENTER", "indenter", "Indenter"];
 
@@ -62,6 +63,13 @@ const normalize = (po: Partial<POData> | Record<string, unknown>): POData => {
 
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
 const formatDateTime = (value?: string) => value ? new Date(value).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const normalizeSearch = (value: string) => value.trim().toLowerCase();
 const getSearchablePoText = (row: POData) => [row.VRNO, row.INDENT_NO, row.INDENTER, row.VENDOR_NAME, row.ITEM_NAME].filter(Boolean).join(" ").toLowerCase();
 const filterPurchaseOrders = (rows: POData[], query: string) => {
@@ -260,9 +268,10 @@ export default function PendingIndents() {
   const [loading, setLoading] = useState(false);
   const [downloadingPending, setDownloadingPending] = useState(false);
   const [downloadingHistory, setDownloadingHistory] = useState(false);
+  const rangeLabel = `${formatDate(DEFAULT_PO_FROM_DATE)} to ${formatDate(getTodayDateString())}`;
 
   const fetchPendingAll = async () => {
-    const res = await storeApi.getPoPending();
+    const res = await storeApi.getPoPending(DEFAULT_PO_FROM_DATE);
     const rows = res && typeof res === "object" && "data" in res && Array.isArray((res as Record<string, unknown>).data) ? ((res as { data: unknown[] }).data) : Array.isArray(res) ? res : [];
     const normalized = rows.map((row) => normalize(row)).sort((a, b) => compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP));
     setPendingAll(normalized);
@@ -270,7 +279,7 @@ export default function PendingIndents() {
   };
 
   const fetchHistoryAll = async () => {
-    const res = await storeApi.getPoHistory();
+    const res = await storeApi.getPoHistory(DEFAULT_PO_FROM_DATE);
     const rows = res && typeof res === "object" && "data" in res && Array.isArray((res as Record<string, unknown>).data) ? ((res as { data: unknown[] }).data) : Array.isArray(res) ? res : [];
     const normalized = rows.map((row) => normalize(row)).sort((a, b) => compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP));
     setHistoryAll(normalized);
@@ -331,7 +340,7 @@ export default function PendingIndents() {
 
   return (
     <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-8">
-      <Heading heading="Purchase Orders" subtext="Pending and received purchase orders"><ListTodo size={50} className="text-primary" /></Heading>
+      <Heading heading="Purchase Orders" subtext={`Pending and received purchase orders | ${rangeLabel}`}><ListTodo size={50} className="text-primary" /></Heading>
       <Tabs defaultValue="pending" className="mt-4 w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           <TabsTrigger value="pending" className="w-full rounded-xl py-2.5 font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">

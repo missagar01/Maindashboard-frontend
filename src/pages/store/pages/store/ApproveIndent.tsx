@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { PuffLoader as Loader } from "react-spinners";
 
 const PAGE_SIZE = 50;
+const DEFAULT_INDENT_FROM_DATE = "2025-04-01";
 
 type IndentRow = {
   PLANNEDTIMESTAMP?: string | null;
@@ -176,6 +177,14 @@ const formatDateTime = (dateString?: string | null) =>
       second: "2-digit",
     })
     : "";
+
+const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const buildPendingExportRows = (rows: IndentRow[]) =>
   rows.map((row, index) => ({
@@ -440,6 +449,9 @@ export default function ApproveIndent() {
   const [downloadingHistory, setDownloadingHistory] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState<IndentRow | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const rangeLabel = `${formatDate(DEFAULT_INDENT_FROM_DATE)} to ${formatDate(
+    getTodayDateString()
+  )}`;
 
   const form = useForm<any>({
     resolver: zodResolver(schema) as any,
@@ -588,7 +600,11 @@ export default function ApproveIndent() {
   return (
     <div className="w-full px-0 py-2 sm:p-4 md:p-2 lg:p-2">
       <Tabs defaultValue="pending">
-        <Heading heading="Approve Indent" subtext="Approve or Reject Indents" tabs>
+        <Heading
+          heading="Approve Indent"
+          subtext={`Approve or Reject Indents | ${rangeLabel}`}
+          tabs
+        >
           <ClipboardCheck size={50} className="text-primary" />
         </Heading>
 
