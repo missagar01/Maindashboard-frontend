@@ -18,6 +18,12 @@ import AssignTask from "../MaintenanceTaskAssign.jsx";
 import AdminLayout from "../../../components/layout/AdminLayout.jsx";
 import axiosInstance from "@/api/checklist/axiosInstance.js";
 
+const normalizeDepartmentValue = (value) =>
+  String(value ?? "").trim().toLowerCase();
+
+const formatDepartmentValue = (value) =>
+  String(value ?? "").trim();
+
 
 const Machines = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,7 +65,7 @@ const Machines = () => {
           "Machine Name": item.machine_name,
           "Serial No": item.serial_no,
           "Tag No": item.tag_no,
-          "Department": item.department,
+          "Department": formatDepartmentValue(item.department),
           "Warranty Expiration": item.warranty_expiration,
           "Purchase Date": item.purchase_date,
           "Vendor": item.vendor,
@@ -108,14 +114,20 @@ const Machines = () => {
           return rowData;
         });
 
-        const departments = formattedRows
-          .map((row) => {
-            const columnBValue = Object.values(row)[1];
-            return columnBValue;
-          })
-          .filter((dept) => dept && dept.toString().trim() !== "")
-          .filter((dept, index, self) => self.indexOf(dept) === index)
-          .sort();
+        const departmentsMap = new Map();
+
+        formattedRows.forEach((row) => {
+          const columnBValue = formatDepartmentValue(Object.values(row)[1]);
+          const normalizedDepartment = normalizeDepartmentValue(columnBValue);
+
+          if (normalizedDepartment && !departmentsMap.has(normalizedDepartment)) {
+            departmentsMap.set(normalizedDepartment, columnBValue);
+          }
+        });
+
+        const departments = Array.from(departmentsMap.values()).sort((a, b) =>
+          a.localeCompare(b)
+        );
 
         setDepartmentOptions(departments);
       }
@@ -179,6 +191,7 @@ const Machines = () => {
 
   const filteredMachines = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedSelectedDepartment = normalizeDepartmentValue(selectedDepartment);
 
     return sheetData
       .filter((machine) => {
@@ -197,8 +210,8 @@ const Machines = () => {
           searchableFields.some((value) => value.includes(normalizedSearch));
 
         const matchesDepartment =
-          selectedDepartment === "all" ||
-          machine["Department"] === selectedDepartment;
+          normalizedSelectedDepartment === "all" ||
+          normalizeDepartmentValue(machine["Department"]) === normalizedSelectedDepartment;
 
         const matchesStatus =
           selectedStatus === "all" || machine["Status"] === selectedStatus;
