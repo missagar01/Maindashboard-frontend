@@ -53,12 +53,19 @@ const Machines = () => {
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
   const API_URL = `${BACKEND_URL}/api/mainatce/machines`;
 
-  const fetchSheetData = async (pageNumber = 1) => {
+  const fetchSheetData = async (pageNumber = 1, department = selectedDepartment) => {
     try {
       if (pageNumber === 1) setLoaderSheetData(true);
       else setLoadingMore(true);
 
-      const { data: result } = await axiosInstance.get(`${API_URL}?page=${pageNumber}`);
+      const normalizedDepartment = normalizeDepartmentValue(department);
+      const params = { page: pageNumber };
+
+      if (normalizedDepartment && normalizedDepartment !== "all") {
+        params.department = formatDepartmentValue(department);
+      }
+
+      const { data: result } = await axiosInstance.get(API_URL, { params });
 
       if (result.success) {
         const formatted = result.data.map((item) => ({
@@ -167,7 +174,7 @@ const Machines = () => {
       if (scrollPosition >= bottom && !loadingMore && hasMore) {
         setPage((prevPage) => {
           const nextPage = prevPage + 1;
-          fetchSheetData(nextPage);
+          fetchSheetData(nextPage, selectedDepartment);
           return nextPage;
         });
       }
@@ -175,7 +182,7 @@ const Machines = () => {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [loadingMore, hasMore]);
+  }, [loadingMore, hasMore, selectedDepartment]);
 
 
 
@@ -187,6 +194,9 @@ const Machines = () => {
 
   const handleDepartmentChange = (value) => {
     setSelectedDepartment(value);
+    setPage(1);
+    setHasMore(true);
+    fetchSheetData(1, value);
   };
 
   const filteredMachines = useMemo(() => {
@@ -271,7 +281,7 @@ const Machines = () => {
     if (scrollPosition >= bottom && !loadingMore && hasMore) {
       setPage((prev) => {
         const next = prev + 1;
-        fetchSheetData(next);
+        fetchSheetData(next, selectedDepartment);
         return next;
       });
     }
