@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../../components/layout/AdminLayout.jsx"
+import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 const NewMachine = () => {
   const navigate = useNavigate();
@@ -22,7 +23,8 @@ const NewMachine = () => {
 
   // const API_URL = "http://18.60.212.185:5050/api/machines";
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const API_URL = `${BACKEND_URL}/api/mainatce/machines`;
+  const MAINTENANCE_API_BASE = "/api/mainatce";
+  const API_URL = `${MAINTENANCE_API_BASE}/machines`;
 
 
 
@@ -110,19 +112,27 @@ const NewMachine = () => {
   const fetchMasterSheetData = useCallback(async () => {
     try {
       setLoaderMasterSheetData(true);
-      // const res = await fetch("http://18.60.212.185:5050/api/departments");
-      const res = await fetch(`${BACKEND_URL}/api/mainatce/departments`);
-      const result = await res.json();
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/departments`);
+      const departments = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result)
+          ? result
+          : [];
 
-      if (result.success && Array.isArray(result.data)) {
-        setDepartmentOptions(result.data);
+      if (departments.length > 0) {
+        setDepartmentOptions(departments);
       } else {
         setDepartmentOptions([]);
-        toast.error("Failed to load department options");
+        toast.error(result?.error || "Failed to load department options");
       }
     } catch (error) {
       console.error("Fetch department error:", error);
-      toast.error("Error fetching department list");
+      toast.error(
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Error fetching department list"
+      );
     } finally {
       setLoaderMasterSheetData(false);
     }
@@ -281,15 +291,9 @@ const NewMachine = () => {
       };
 
       // ✅ Send JSON data to backend
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const { data: result } = await axiosInstance.post(API_URL, payload);
 
-      const result = await response.json();
-
-      if (result.success) {
+      if (result?.machine || result?.message) {
         toast.success("✅ Machine added successfully!");
         setFormValues({
           serialNumber: "",
@@ -310,11 +314,16 @@ const NewMachine = () => {
         });
         setTimeout(() => navigate("/dashboard/machines"), 1000);
       } else {
-        toast.error("❌ Failed to add machine");
+        toast.error(result?.error || "❌ Failed to add machine");
       }
     } catch (error) {
       console.error("Submit error:", error);
-      toast.error("❌ Server error");
+      toast.error(
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "❌ Server error"
+      );
     } finally {
       setLoaderSubmit(false);
     }

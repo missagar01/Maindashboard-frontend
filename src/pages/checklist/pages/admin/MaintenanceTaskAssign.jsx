@@ -3,6 +3,65 @@ import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import axiosInstance from "@/api/checklist/axiosInstance.js";
 
+const DEFAULT_FREQUENCY_OPTIONS = [
+  "one-time",
+  "Daily",
+  "Weekly",
+  "Monthly",
+  "Quarterly",
+  "Half Yearly",
+  "Yearly",
+];
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  if (typeof value === "string") {
+    const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoDateMatch) {
+      const [, year, month, day] = isoDateMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+
+    const displayDateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (displayDateMatch) {
+      const [, day, month, year] = displayDateMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+};
+
+const formatDateForInputValue = (value) => {
+  const parsed = parseDateValue(value);
+  if (!parsed) return "";
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateForDisplay = (value) => {
+  const parsed = parseDateValue(value);
+  if (!parsed) return "";
+
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const year = parsed.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 // Reusable dropdown with loading state
 const DropdownField = ({ label, id, name, value, onChange, required, disabled, loading, placeholder, children, hint }) => (
   <div className="space-y-1.5">
@@ -88,6 +147,7 @@ function AssignTask() {
   const [selectedDivision, setSelectedDivision] = useState("");
   const startDateInputRef = useRef(null);
   const startTimeInputRef = useRef(null);
+  const frequencyOptions = DEFAULT_FREQUENCY_OPTIONS;
 
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
   const CHECKLIST_API_BASE = `${BACKEND_URL}/api/checklist`;
@@ -433,7 +493,7 @@ function AssignTask() {
       if (result.success && result.data) {
         setWorkingDaysData(result.data);
         const lastDate = result.data[result.data.length - 1].working_date;
-        setEndDate(lastDate);
+        setEndDate(formatDateForInputValue(lastDate));
         return result.data;
       }
       return [];
@@ -450,52 +510,12 @@ function AssignTask() {
   }, []);
 
 
-  useEffect(() => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffInDays = (end - start) / (1000 * 60 * 60 * 24);
-
-      let frequencies = [];
-      if (diffInDays >= 365) {
-        frequencies = [
-          "one-time",
-          "Daily",
-          "Weekly",
-          "Monthly",
-          "Quarterly",
-          "Half Yearly",
-          "Yearly",
-        ];
-      } else if (diffInDays >= 180) {
-        frequencies = [
-          "one-time",
-          "Daily",
-          "Weekly",
-          "Monthly",
-          "Quarterly",
-          "Half Yearly",
-        ];
-      } else if (diffInDays >= 90) {
-        frequencies = ["one-time", "Daily", "Weekly", "Monthly", "Quarterly"];
-      } else if (diffInDays >= 30) {
-        frequencies = ["one-time", "Daily", "Weekly", "Monthly"];
-      } else if (diffInDays >= 7) {
-        frequencies = ["one-time", "Daily", "Weekly"];
-      } else if (diffInDays > 0) {
-        frequencies = ["one-time", "Daily"];
-      }
-
-      setAvailableFrequencies(frequencies);
-    } else {
-      setAvailableFrequencies([]);
-    }
-  }, [startDate, endDate]);
-
   const formatDateTimeForStorage = (date, time) => {
     if (!date || !time) return "";
 
-    const d = new Date(date);
+    const d = parseDateValue(date);
+    if (!d) return "";
+
     const day = d.getDate().toString().padStart(2, "0");
     const month = (d.getMonth() + 1).toString().padStart(2, "0");
     const year = d.getFullYear();
@@ -505,30 +525,18 @@ function AssignTask() {
   };
 
   const formatDateToDDMMYYYY = (date) => {
-    const d = new Date(date);
-    const day = d.getDate().toString().padStart(2, "0");
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
+    return formatDateForDisplay(date);
   };
 
-  const findNextWorkingDay = (targetDate, workingDays) => {
-    const targetDateStr = formatDateToDDMMYYYY(targetDate);
+  const findNextWorkingDayDate = (targetDate, workingDayDates) => {
+    const normalizedTargetDate = parseDateValue(targetDate);
+    if (!normalizedTargetDate) return null;
 
-    if (workingDays.includes(targetDateStr)) {
-      return targetDateStr;
+    if (!Array.isArray(workingDayDates) || workingDayDates.length === 0) {
+      return normalizedTargetDate;
     }
 
-    let checkDate = new Date(targetDate);
-    for (let i = 1; i <= 30; i++) {
-      checkDate = addDays(targetDate, i);
-      const checkDateStr = formatDateToDDMMYYYY(checkDate);
-      if (workingDays.includes(checkDateStr)) {
-        return checkDateStr;
-      }
-    }
-
-    return targetDateStr;
+    return workingDayDates.find((date) => date >= normalizedTargetDate) || null;
   };
 
   const addDays = (date, days) => {
@@ -549,18 +557,42 @@ function AssignTask() {
     return newDate;
   };
 
+  const getFallbackEndDate = (date, selectedFrequency) => {
+    switch ((selectedFrequency || "").toLowerCase()) {
+      case "daily":
+        return addMonths(date, 1);
+      case "weekly":
+        return addMonths(date, 3);
+      case "monthly":
+        return addYears(date, 1);
+      case "quarterly":
+        return addYears(date, 2);
+      case "half yearly":
+      case "half-yearly":
+        return addYears(date, 2);
+      case "yearly":
+        return addYears(date, 3);
+      default:
+        return date;
+    }
+  };
+
 
   const generateTasks = async () => {
-    if (!startDate || !endDate || !startTime || (selectedTaskType === "Maintenance" ? !frequency : !endTaskDate)) {
+    const isOneTimeTask = (frequency || "").toLowerCase() === "one-time";
+
+    if (
+      !startDate ||
+      !startTime ||
+      (selectedTaskType === "Maintenance" ? !frequency : !endTaskDate)
+    ) {
       toast.error("Please fill in all required fields including date range, time and frequency");
       return;
     }
 
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
-
-    if (startDateObj > endDateObj) {
-      toast.error("End date must be after start date");
+    const startDateObj = parseDateValue(startDate);
+    if (!startDateObj) {
+      toast.error("Please select a valid task date.");
       return;
     }
 
@@ -573,21 +605,35 @@ function AssignTask() {
           ? latestWorkingDays
           : workingDaysData;
 
-      const workingDays = workingDaysSource.map(
-        (d) =>
-          new Date(d.working_date).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          })
-      );
+      const workingDayDates = workingDaysSource
+        .map((d) => parseDateValue(d.working_date))
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+
+      const hasFutureWorkingDays = workingDayDates.some((date) => date >= startDateObj);
+
+      const effectiveEndDateObj = isOneTimeTask
+        ? startDateObj
+        : (
+          hasFutureWorkingDays
+            ? workingDayDates[workingDayDates.length - 1]
+            : getFallbackEndDate(startDateObj, frequency)
+        );
+
+      if (!effectiveEndDateObj) {
+        toast.error("Unable to determine a valid task range");
+        return;
+      }
 
       const tasks = [];
 
-      if (frequency === "one-time") {
-        const taskDate = findNextWorkingDay(startDateObj, workingDays);
-        if (!taskDate) {
-          toast.error("No working days found in the selected date range");
+      if (isOneTimeTask) {
+        const taskDateObj = hasFutureWorkingDays
+          ? findNextWorkingDayDate(startDateObj, workingDayDates)
+          : startDateObj;
+
+        if (!taskDateObj) {
+          toast.error("No valid task date could be determined");
           setLoaderWorkingDayData(false);
           return;
         }
@@ -596,10 +642,7 @@ function AssignTask() {
           description,
           givenBy: selectedGivenBy,
           doer: selectedDoerName,
-          dueDate: formatDateTimeForStorage(
-            new Date(taskDate.split("/").reverse().join("-")),
-            startTime
-          ),
+          dueDate: formatDateTimeForStorage(taskDateObj, startTime),
           status: "pending",
           frequency,
         });
@@ -608,43 +651,47 @@ function AssignTask() {
         let taskCount = 0;
         const maxTasks = 1000;
 
-        while (currentDate <= endDateObj && taskCount < maxTasks) {
-          const currentDateStr = formatDateToDDMMYYYY(currentDate);
+        while (currentDate <= effectiveEndDateObj && taskCount < maxTasks) {
+          const taskDateObj = hasFutureWorkingDays
+            ? findNextWorkingDayDate(currentDate, workingDayDates)
+            : new Date(currentDate);
 
-          if (workingDays.includes(currentDateStr)) {
-            tasks.push({
-              description,
-              givenBy: selectedGivenBy,
-              doer: selectedDoerName,
-              dueDate: formatDateTimeForStorage(currentDate, startTime),
-              status: "pending",
-              frequency,
-            });
-            taskCount++;
+          if (!taskDateObj || taskDateObj > effectiveEndDateObj) {
+            break;
           }
+
+          tasks.push({
+            description,
+            givenBy: selectedGivenBy,
+            doer: selectedDoerName,
+            dueDate: formatDateTimeForStorage(taskDateObj, startTime),
+            status: "pending",
+            frequency,
+          });
+          taskCount++;
 
           switch (frequency.toLowerCase()) {
             case "daily":
-              currentDate = addDays(currentDate, 1);
+              currentDate = addDays(taskDateObj, 1);
               break;
             case "weekly":
-              currentDate = addDays(currentDate, 7);
+              currentDate = addDays(taskDateObj, 7);
               break;
             case "monthly":
-              currentDate = addMonths(currentDate, 1);
+              currentDate = addMonths(taskDateObj, 1);
               break;
             case "quarterly":
-              currentDate = addMonths(currentDate, 3);
+              currentDate = addMonths(taskDateObj, 3);
               break;
             case "half yearly":
             case "half-yearly":
-              currentDate = addMonths(currentDate, 6);
+              currentDate = addMonths(taskDateObj, 6);
               break;
             case "yearly":
-              currentDate = addYears(currentDate, 1);
+              currentDate = addYears(taskDateObj, 1);
               break;
             default:
-              currentDate = addDays(currentDate, 1);
+              currentDate = addDays(taskDateObj, 1);
               break;
           }
         }
@@ -658,7 +705,7 @@ function AssignTask() {
 
       setGeneratedTasks(tasks);
       setShowTaskPreview(true);
-      toast.success(`Generated ${tasks.length} tasks between ${formatDateToDDMMYYYY(startDateObj)} and ${formatDateToDDMMYYYY(endDateObj)}`);
+      toast.success(`Generated ${tasks.length} tasks between ${formatDateToDDMMYYYY(startDateObj)} and ${formatDateToDDMMYYYY(effectiveEndDateObj)}`);
     } finally {
       setLoaderWorkingDayData(false);
     }
@@ -1154,16 +1201,28 @@ function AssignTask() {
                   >
                     Task Start Date
                   </label>
-                  <input
-                    ref={startDateInputRef}
-                    type="date"
-                    id="startDate"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    onClick={() => openNativePicker(startDateInputRef)}
-                    onFocus={() => openNativePicker(startDateInputRef)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      type="text"
+                      value={formatDateForDisplay(startDate)}
+                      placeholder="dd/mm/yyyy"
+                      readOnly
+                      onClick={() => openNativePicker(startDateInputRef)}
+                      onFocus={() => openNativePicker(startDateInputRef)}
+                      className="block w-full cursor-pointer rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                    />
+                    <input
+                      ref={startDateInputRef}
+                      type="date"
+                      id="startDate"
+                      value={formatDateForInputValue(startDate)}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="absolute inset-0 h-full w-full opacity-0 pointer-events-none"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">Format: dd/mm/yyyy</p>
                 </div>
 
                 {/* Task Time */}
@@ -1199,10 +1258,9 @@ function AssignTask() {
                     value={frequency}
                     onChange={(e) => setFrequency(e.target.value)}
                     className="w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={availableFrequencies.length === 0}
                   >
                     <option value="">Select Frequency</option>
-                    {availableFrequencies.map((freq, idx) => (
+                    {frequencyOptions.map((freq, idx) => (
                       <option key={idx} value={freq.toLowerCase()}>
                         {freq}
                       </option>
