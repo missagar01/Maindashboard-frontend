@@ -1025,17 +1025,9 @@ export default function StoreDashboard() {
       return ts && new Date(ts).getTime() < now;
     }).length;
 
-    const curMonthDivisionListIndent = filterMonth(divisionListIndent);
-    const derivedTotal = curMonthDivisionListIndent.length;
-    const derivedPending = curMonthDivisionListIndent.filter(item => (Number(item.pending || item.PENDING || 0)) > 0).length;
-
-    const total = derivedTotal > 0
-      ? derivedTotal
-      : (curMonthPendingIndents.length + curMonthHistoryIndents.length);
-    const pending = derivedTotal > 0
-      ? derivedPending
-      : curMonthPendingIndents.length;
-    const completed = total - pending;
+    const total = Number(summary.totalIndents || 0);
+    const pending = Number(summary.pendingIndents || 0);
+    const completed = Number(summary.completedIndents || 0);
 
     const completedPercent = (total > 0 ? (completed / total) * 100 : 0);
     const pendingPercent = (total > 0 ? (pending / total) * 100 : 0);
@@ -1050,7 +1042,7 @@ export default function StoreDashboard() {
         upcomingIndents: Number(summary.upcomingIndents || 0),
         overdueIndents: curMonthOverdue,
         totalIndentedQuantity: Number(summary.totalIndentedQuantity || 0),
-        totalPurchaseOrders: curMonthPoHistory.length,
+        totalPurchaseOrders: Number(summary.totalPurchaseOrders || 0),
         totalPurchasedAmount: curMonthPoHistory.reduce((acc: number, item: any) => acc + (Number(item.POAMOUNT) || 0), 0),
         totalPurchasedQuantity: Number(summary.totalPurchasedQuantity || 0),
         totalIssuedQuantity: Number(summary.totalIssuedQuantity || 0),
@@ -1060,7 +1052,7 @@ export default function StoreDashboard() {
         pendingPercent,
         upcomingPercent: Number(summary.upcomingPercent || 0),
         overduePercent,
-        pendingPurchaseOrders: curMonthPoPending.length,
+        pendingPurchaseOrders: Number(summary.pendingPurchaseOrders || 0),
       },
       repairGatePassCounts: {
         pending: curMonthRepairPending.length,
