@@ -57,17 +57,17 @@ export const AnalyticsKpiCard = ({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-[18px] border p-2.5 shadow-md transition-transform hover:scale-[1.02] sm:rounded-[24px] sm:p-5 sm:shadow-lg ${toneConfig.card}`}
+      className={`relative overflow-hidden rounded-[14px] border p-2 shadow-sm transition-transform hover:scale-[1.02] sm:rounded-[24px] sm:p-5 sm:shadow-lg ${toneConfig.card}`}
     >
       <div className="absolute -right-4 -top-4 h-12 w-12 rounded-full bg-white/10 blur-xl sm:-right-6 sm:-top-6 sm:h-24 sm:w-24" />
       <div className="absolute -bottom-4 -left-4 h-10 w-10 rounded-full bg-black/10 blur-lg sm:-bottom-6 sm:-left-6 sm:h-20 sm:w-20" />
 
-      <div className="relative flex min-h-[76px] items-center justify-between gap-2 sm:min-h-[116px] sm:gap-4">
-        <div className="min-w-0">
-          <p className={`text-[8px] font-bold uppercase leading-3 tracking-[0.1em] sm:text-[12px] sm:leading-normal sm:tracking-wider ${toneConfig.label}`}>
+      <div className="relative flex min-h-[60px] items-center justify-between gap-1.5 sm:min-h-[96px] sm:gap-4">
+        <div className="flex min-w-0 w-full flex-col justify-center">
+          <p className={`text-[8px] font-bold uppercase leading-[1.15] tracking-[0.05em] sm:text-[11px] sm:leading-normal sm:tracking-wider ${toneConfig.label}`}>
             {label}
           </p>
-          <p className={`mt-1 whitespace-nowrap text-[1.65rem] font-black leading-none tracking-tight sm:mt-2 sm:text-3xl ${toneConfig.value}`}>
+          <p className={`mt-0.5 truncate text-[16px] font-black leading-none tracking-tight sm:mt-1.5 sm:text-[32px] ${toneConfig.value}`} title={value}>
             {value}
           </p>
         </div>
