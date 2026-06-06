@@ -9,7 +9,6 @@ import {
   Search,
   TrendingUp,
   Truck,
-  BadgeIndianRupee,
   ChevronDown,
   FileClock,
   ShieldCheck,
@@ -745,13 +744,11 @@ export default function TransportDashboard() {
   const pipelineItems = useMemo(() => {
     const total = filteredRecords.length;
     const pod = filteredRecords.filter(r => safeString(r.lr_bilty_status).toUpperCase() === "POD_PREPARED").length;
-    const freight = filteredRecords.filter(r => r.is_freight_advice_prepared || r.freight_voucher_id).length;
     const service = filteredRecords.filter(r => r.is_service_bill_prepared || r.service_bill_id).length;
 
     return [
       { label: "LR ISSUED", count: total, color: "#6366f1", icon: Zap },
       { label: "POD SYNCED", count: pod, color: "#06b6d4", icon: ShieldCheck },
-      { label: "FREIGHT", count: freight, color: "#f59e0b", icon: BadgeIndianRupee },
       { label: "SERVICE", count: service, color: "#10b981", icon: FileClock },
     ];
   }, [filteredRecords]);
@@ -838,31 +835,35 @@ export default function TransportDashboard() {
           return;
         }
 
-        // Clear existing data before progressive loading starts
-        setResponseData({});
+        // Fetch strictly one by one (Sequential) with a small delay
+        // Kyunki server specific devices (jaise 13307, 13311) par crash ho raha hai.
+        for (const deviceId of devicesToFetch) {
+          if (controller.signal.aborted) break;
+          
+          try {
+            const report = await getEquipmentTripReport(
+              {
+                deviceId,
+                dateFrom: appliedFilters.dateFrom,
+                dateTo: appliedFilters.dateTo,
+                timePickerFrom: "00:00:00",
+                timePickerTo: "23:59:59",
+              },
+              controller.signal
+            );
 
-        // Fetch all devices completely in parallel to achieve maximum speed
-        await Promise.allSettled(
-          devicesToFetch.map(async (deviceId) => {
-            try {
-              const report = await getEquipmentTripReport(
-                {
-                  deviceId,
-                  dateFrom: appliedFilters.dateFrom,
-                  dateTo: appliedFilters.dateTo,
-                  timePickerFrom: "00:00:00",
-                  timePickerTo: "23:59:59",
-                },
-                controller.signal
-              );
-
-              // Progressively update the UI as each device's data arrives
-              setResponseData((prev) => ({ ...prev, [deviceId]: report.records }));
-            } catch (e) {
-              console.error(`Failed to fetch for device ${deviceId}`, e);
+            // Progressively update the UI as each device's data arrives
+            setResponseData((prev) => ({ ...prev, [deviceId]: report.records }));
+          } catch (e: any) {
+            if (e?.name === "AbortError" || e?.name === "CanceledError" || controller.signal.aborted) {
+              return;
             }
-          })
-        );
+            console.error(`Failed to fetch for device ${deviceId}`, e);
+          }
+
+          // 500ms delay between each API call to give server time to breathe
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Unable to load trip data.");
@@ -976,178 +977,6 @@ export default function TransportDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafc] px-0 pb-4 pt-0 text-slate-900 sm:px-3 sm:pb-8 sm:pt-3 md:px-4">
       <div className="mx-auto max-w-full space-y-2 sm:space-y-4">
-
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <header className="rounded-none border-b border-x-0 border-t-0 border-slate-200 bg-white p-3 shadow-sm sm:rounded-[28px] sm:border-x sm:border-t sm:p-6 sm:shadow-[0_15px_40px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-8 rounded-full bg-[#1e4b7a]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                  Real-time Dashboard
-                </span>
-              </div>
-              <h1 className="mt-1 text-[20px] font-black tracking-tight text-slate-900 sm:mt-1 sm:text-[32px]">
-                Transport <span className="text-[#1e4b7a]">Progress</span> Report
-              </h1>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {RANGE_PRESET_OPTIONS.map((option) => {
-                const isActive = selectedRangePreset === option.preset;
-                return (
-                  <button
-                    key={option.preset}
-                    type="button"
-                    onClick={() => handleRangePresetSelect(option.preset)}
-                    className={`h-9 rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.12em] transition-all duration-300 sm:h-11 sm:rounded-2xl sm:px-5 sm:text-[11px] ${isActive
-                      ? "border-slate-900 bg-slate-900 text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]"
-                      : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
-                      }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Filter Bar */}
-          <div className="mt-4 grid gap-2 sm:mt-6 sm:gap-3 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
-            <div className="space-y-1 sm:space-y-2">
-              <span className="ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                Vehicle Selection
-              </span>
-              <div className="flex h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-12 sm:rounded-2xl sm:px-4">
-                <Search className="h-4 w-4 text-slate-400" />
-                <select
-                  value={filterValues.deviceId}
-                  onChange={(e) => handleInputChange("deviceId", e.target.value)}
-                  className="w-full bg-transparent text-[13px] font-bold text-slate-700 outline-none sm:text-[14px]"
-                  disabled={deviceOptionsLoading}
-                >
-                  <option value="ALL">ALL VEHICLES</option>
-                  {deviceOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:contents">
-              <div className="space-y-1 sm:space-y-2">
-                <span className="ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  From Date
-                </span>
-                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-12 sm:gap-3 sm:rounded-2xl sm:px-4">
-                  <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-                  <input
-                    type="date"
-                    value={filterValues.dateFrom}
-                    onChange={(e) => handleInputChange("dateFrom", e.target.value)}
-                    className="w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none sm:text-[14px]"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1 sm:space-y-2">
-                <span className="ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  To Date
-                </span>
-                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-12 sm:gap-3 sm:rounded-2xl sm:px-4">
-                  <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-                  <input
-                    type="date"
-                    value={filterValues.dateTo}
-                    onChange={(e) => handleInputChange("dateTo", e.target.value)}
-                    className="w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none sm:text-[14px]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleApplyFilters}
-                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#1e4b7a] px-6 text-[12px] font-black uppercase tracking-[0.15em] text-white shadow-[0_10px_20px_rgba(30,75,122,0.2)] transition-all hover:bg-[#153658] hover:shadow-none active:scale-95"
-              >
-                <Search className="h-4 w-4" />
-                <span>Search</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAppliedFilters({ ...filterValues })}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-[12px] font-black uppercase tracking-[0.15em] text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-          </div>
-
-          {error ? (
-            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-rose-50 px-5 py-3 text-[12px] font-bold text-rose-600 ring-1 ring-rose-200/50">
-              <AlertCircle className="h-4 w-4" />
-              {error}
-            </div>
-          ) : null}
-        </header>
-
-        {/* ── Main Content ───────────────────────────────────────────────────── */}
-        <main className="space-y-6 sm:space-y-8">
-          {loading || deviceOptionsLoading ? (
-            <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-[32px] border border-slate-100 bg-white shadow-sm">
-              <div className="relative flex h-16 w-16 items-center justify-center">
-                <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-100 border-t-[#1e4b7a]" />
-                <Activity className="h-6 w-6 text-[#1e4b7a]" />
-              </div>
-              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-slate-400">
-                Fetching Vehicle Data...
-              </p>
-            </div>
-          ) : hasRenderableSummaries ? (
-            <>
-              {/* Per-vehicle cards */}
-              {showDivisionAnalysis ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 px-2">
-                    <div className="flex items-center gap-3">
-                      <TrendingUp className="h-4 w-4 text-[#1e4b7a]" />
-                      <h2 className="text-[14px] font-black uppercase tracking-[0.2em] text-slate-900">
-                        {appliedFilters.deviceId === "ALL" ? "Vehicle Wise Analysis" : "Vehicle Analysis"}
-                      </h2>
-                    </div>
-                    <div className="h-px flex-1 bg-slate-200/60" />
-                    <span className="text-[10px] font-black text-slate-400">
-                      {deviceSummaries.length} vehicles
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
-                    {deviceSummaries.map((summary) => (
-                      <TruckSummaryCard key={summary.deviceId} summary={summary} />
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[32px] border border-slate-100 bg-white p-8 text-center shadow-sm">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-200">
-                <BarChart3 className="h-10 w-10" />
-              </div>
-              <h3 className="text-[18px] font-black uppercase tracking-widest text-slate-300">
-                No Trip Data Found
-              </h3>
-              <p className="mt-2 max-w-md text-[14px] font-medium text-slate-500">
-                Selected vehicle aur date range ke liye koi data available nahi hai.
-                Kripya date range ya vehicle selection check karein.
-              </p>
-            </div>
-          )}
-        </main>
-
         <div className="space-y-4 py-1 sm:space-y-6 sm:py-2">
           {errorBilty ? (
             <div className="mx-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
@@ -1289,9 +1118,8 @@ export default function TransportDashboard() {
               <div className="flex h-[260px] items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
-                    { s: 'OPS', A: pipelineItems[0].count ? (pipelineItems[1].count / pipelineItems[0].count) * 100 : 0 },
-                    { s: 'FIN', A: pipelineItems[0].count ? (pipelineItems[2].count / pipelineItems[0].count) * 100 : 0 },
-                    { s: 'SVC', A: pipelineItems[0].count ? (pipelineItems[3].count / pipelineItems[0].count) * 100 : 0 },
+                    { s: 'OPS', A: pipelineItems[0]?.count ? (pipelineItems[1]?.count / pipelineItems[0].count) * 100 : 0 },
+                    { s: 'SVC', A: pipelineItems[0]?.count ? (pipelineItems[2]?.count / pipelineItems[0].count) * 100 : 0 },
                     { s: 'USE', A: (assetDistribution.length / 10) * 100 },
                     { s: 'REL', A: 90 }
                   ]}>
