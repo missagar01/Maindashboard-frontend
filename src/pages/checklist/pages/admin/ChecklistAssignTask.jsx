@@ -618,7 +618,7 @@ export default function AssignTask() {
     setFormData((prev) => {
       const nextDivision = matchedDepartment.division || prev.division;
       const nextDepartment = matchedDepartment.department || prev.department;
-      const nextGivenBy = userProfile?.given_by || prev.givenBy;
+      const nextGivenBy = prev.givenBy || userProfile?.given_by || "";
       const nextDoer = prev.doer || userProfile?.user_name?.trim() || normalizedDisplayUsername;
 
       if (

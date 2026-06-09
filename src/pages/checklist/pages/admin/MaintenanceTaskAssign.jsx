@@ -270,35 +270,6 @@ function AssignTask() {
 
 
 
-  // Handle machine change
-  // const handleMachineChange = async (machineName) => {
-  //   setSelectedMachine(machineName);
-  //   if (!machineName) return;
-
-  //   try {
-  //     // const res = await fetch(
-  //     //   `http://18.60.212.185:5050/api/form-responses?department=${selectedDepartment}&machine_name=${machineName}`
-  //     // );
-
-
-  //     const res = await fetch(
-  //   `${BACKEND_URL}/form-responses?department=${selectedDepartment}&machine_name=${machineName}`
-  // );
-
-  //     const result = await res.json();
-
-  //     if (result.success && result.data && result.data[0]?.serial_no) {
-  //       setSelectedSerialNo(result.data[0].serial_no);
-  //       toast.success(`✅ Serial found: ${result.data[0].serial_no}`);
-  //     } else {
-  //       toast.error("⚠️ No serial found for this machine");
-  //     }
-  //   } catch (error) {
-  //     console.error("Serial fetch error:", error);
-  //     toast.error("❌ Failed to fetch serial number");
-  //   }
-  // };
-
 
   const handleMachineChange = async (machineName) => {
     setSelectedMachine(machineName);
