@@ -19,6 +19,11 @@ export const fetchUniqueDivisionDataApi = async () => {
   return res.data;
 };
 
+export const fetchUserProfileApi = async (user_name) => {
+  const res = await axiosInstance.get(`${BASE_URL}/user-profile/${user_name}`);
+  return res.data;
+};
+
 export const fetchUniqueDoerNameDataApi = async (department) => {
   const res = await axiosInstance.get(`${BASE_URL}/doer/${department}`);
   return res.data;

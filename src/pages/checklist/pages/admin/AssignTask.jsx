@@ -174,11 +174,12 @@ export default function AssignTask() {
   // Add this near the top of your AssignTask component, after getting the state
   const userRole = localStorage.getItem('role');
   const username = localStorage.getItem('user-name');
+  const normalizedUsername = username?.trim().toLowerCase();
 
   // Filter doer names based on role
   const filteredDoerNames = userRole === 'admin'
     ? doerName
-    : doerName.filter(doer => doer?.toLowerCase() === username?.toLowerCase());
+    : doerName.filter((doer) => doer?.trim().toLowerCase() === normalizedUsername);
 
   useEffect(() => {
     fetchAssignTaskDepartments(username);

@@ -81,17 +81,59 @@ export default function QuickTask() {
   useEffect(() => {
     fetchQuickTaskUsers();
     resetQuickTaskChecklistPagination();
-    fetchUniqueChecklistTaskData({ page: 0, pageSize: 50000, nameFilter: "" });
+    fetchUniqueChecklistTaskData({ page: 0, pageSize: 100, nameFilter: "" });
   }, []);
 
-  // Infinite scroll has been removed
+  // Infinite scroll - load more data when user scrolls to bottom
   const handleScroll = useCallback(() => {
-    // Scroll handling removed
-  }, []);
+    const container = tableContainerRef.current;
+    if (!container || loading) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+
+    if (!isNearBottom) return;
+
+    if (activeTab === "checklist" && checklistHasMore) {
+      fetchUniqueChecklistTaskData({
+        page: checklistPage,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: true,
+      });
+    } else if (activeTab === "delegation" && delegationHasMore) {
+      fetchUniqueDelegationTaskData({
+        page: delegationPage,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: true,
+      });
+    } else if (activeTab === "maintenance" && maintenanceHasMore) {
+      fetchUniqueMaintenanceTaskData({
+        page: maintenancePage,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: true,
+      });
+    }
+  }, [
+    loading,
+    activeTab,
+    checklistHasMore,
+    checklistPage,
+    delegationHasMore,
+    delegationPage,
+    maintenanceHasMore,
+    maintenancePage,
+    appliedNameFilter,
+  ]);
 
   useEffect(() => {
-    // Scroll listener removed
-  }, []);
+    const container = tableContainerRef.current;
+    if (!container) return;
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
   // Edit functionality - Open modal with pre-filled data
   const handleEditClick = (task) => {
@@ -290,7 +332,7 @@ export default function QuickTask() {
       resetQuickTaskChecklistPagination();
       fetchUniqueChecklistTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: name,
         append: false,
       });
@@ -298,7 +340,7 @@ export default function QuickTask() {
       resetQuickTaskMaintenancePagination();
       fetchUniqueMaintenanceTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: name,
         append: false,
       });
@@ -306,7 +348,7 @@ export default function QuickTask() {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: name,
         append: false,
       });
@@ -327,7 +369,7 @@ export default function QuickTask() {
       resetQuickTaskChecklistPagination();
       fetchUniqueChecklistTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: "",
         append: false,
       });
@@ -335,7 +377,7 @@ export default function QuickTask() {
       resetQuickTaskMaintenancePagination();
       fetchUniqueMaintenanceTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: "",
         append: false,
       });
@@ -343,7 +385,7 @@ export default function QuickTask() {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
         page: 0,
-        pageSize: 50000,
+        pageSize: 100,
         nameFilter: "",
         append: false,
       });
@@ -543,7 +585,7 @@ export default function QuickTask() {
                 resetQuickTaskDelegationPagination();
                 fetchUniqueDelegationTaskData({
                   page: 0,
-                  pageSize: 50000,
+                  pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
               }}
@@ -562,7 +604,7 @@ export default function QuickTask() {
                 resetQuickTaskMaintenancePagination();
                 fetchUniqueMaintenanceTaskData({
                   page: 0,
-                  pageSize: 50000,
+                  pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
               }}
@@ -756,19 +798,19 @@ export default function QuickTask() {
               if (activeTab === "checklist") {
                 fetchUniqueChecklistTaskData({
                   page: 0,
-                  pageSize: 50000,
+                  pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
               } else if (activeTab === "maintenance") {
                 fetchUniqueMaintenanceTaskData({
                   page: 0,
-                  pageSize: 50000,
+                  pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
               } else {
                 fetchUniqueDelegationTaskData({
                   page: 0,
-                  pageSize: 50000,
+                  pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
               }
@@ -937,14 +979,20 @@ export default function QuickTask() {
                           {/* Name */}
                           <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-bold">
                             {editingTaskId === task.task_id ? (
-                              <input
-                                type="text"
-                                value={editFormData.name}
+                              <select
+                                value={editFormData.name || ""}
                                 onChange={(e) =>
                                   handleInputChange("name", e.target.value)
                                 }
-                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none"
-                              />
+                                className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-600 outline-none bg-white"
+                              >
+                                <option value="">Select Doer Name</option>
+                                {allNames.map((nameOption, idx) => (
+                                  <option key={idx} value={nameOption}>
+                                    {nameOption}
+                                  </option>
+                                ))}
+                              </select>
                             ) : (
                               task.name
                             )}
@@ -1373,12 +1421,18 @@ export default function QuickTask() {
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Doer Name</label>
-                    <input
-                      type="text"
+                    <select
                       value={editFormData.name || ""}
                       onChange={(e) => handleInputChange("name", e.target.value)}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-red-600 focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
-                    />
+                    >
+                      <option value="">Select Doer Name</option>
+                      {allNames.map((nameOption, idx) => (
+                        <option key={idx} value={nameOption}>
+                          {nameOption}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="space-y-1.5">

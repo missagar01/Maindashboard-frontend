@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BellRing, FileCheck, Calendar, Clock, Loader2 } from "lucide-react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
-import { fetchWorkingDaysApi } from "@/api/checklist/assignTaskApi.js";
+import { fetchWorkingDaysApi, fetchUserProfileApi } from "@/api/checklist/assignTaskApi.js";
 // import supabase from "../../SupabaseClient";
 
 // Reusable dropdown with loading state
@@ -19,11 +19,10 @@ const DropdownField = ({ label, id, name, value, onChange, required, disabled, l
         onChange={onChange}
         required={required}
         disabled={disabled || loading}
-        className={`w-full rounded-xl border px-3 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 transition-all ${
-          loading || disabled
-            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-            : "border-gray-300 bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500"
-        }`}
+        className={`w-full rounded-xl border px-3 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 transition-all ${loading || disabled
+          ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+          : "border-gray-300 bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500"
+          }`}
       >
         <option value="">{loading ? "Loading..." : placeholder}</option>
         {!loading && children}
@@ -193,28 +192,31 @@ const formatDateToDDMMYYYY = (date) => {
 };
 
 export default function AssignTask() {
-  const { 
-    assignTaskState, 
-    fetchUniqueDepartmentDataAction, 
-    fetchUniqueGivenByDataAction, 
-    fetchUniqueDivisionDataAction, 
-    fetchUniqueDoerNameDataAction, 
-    pushAssignTaskAction 
+  const {
+    assignTaskState,
+    fetchUniqueDepartmentDataAction,
+    fetchUniqueGivenByDataAction,
+    fetchUniqueDivisionDataAction,
+    fetchUniqueDoerNameDataAction,
+    pushAssignTaskAction
   } = useAuth();
 
   const { department, doerName, givenBy, division } = assignTaskState || {};
 
   const userRole = localStorage.getItem('role');
   const username = localStorage.getItem('user-name');
+  const normalizedDisplayUsername = username?.trim() || "";
+  const normalizedUsername = username?.trim().toLowerCase();
 
   // Filter doer names based on role
   const filteredDoerNames = userRole === 'admin'
     ? (doerName || [])
-    : (doerName || []).filter(doer => doer?.toLowerCase() === username?.toLowerCase());
+    : (normalizedDisplayUsername ? [normalizedDisplayUsername] : []);
 
   // Loading states for each dropdown group
   const [loadingMeta, setLoadingMeta] = useState(true); // division, department, givenBy
   const [loadingDoers, setLoadingDoers] = useState(false); // doer names
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -231,6 +233,41 @@ export default function AssignTask() {
     };
     loadMeta();
   }, []);
+
+  useEffect(() => {
+    if (userRole === "admin" || loadingMeta || !username) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadUserProfile = async () => {
+      try {
+        const profile = await fetchUserProfileApi(username);
+
+        if (cancelled) {
+          return;
+        }
+
+        setUserProfile(profile);
+        setFormData((prev) => ({
+          ...prev,
+          division: profile?.division || prev.division,
+          department: profile?.department || prev.department,
+          givenBy: profile?.given_by || prev.givenBy,
+          doer: profile?.user_name?.trim() || normalizedDisplayUsername,
+        }));
+      } catch (error) {
+        console.error("Checklist user profile error:", error);
+      }
+    };
+
+    loadUserProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadingMeta, normalizedDisplayUsername, userRole, username]);
 
 
   const [date, setSelectedDate] = useState(null);
@@ -265,6 +302,44 @@ export default function AssignTask() {
     description: "",
     frequency: "daily",
     enableReminders: true,
+  });
+
+  const resetForm = (profile = userProfile) => {
+    setFormData({
+      division: userRole === "admin" ? "" : profile?.division || "",
+      department: userRole === "admin" ? "" : profile?.department || "",
+      givenBy: userRole === "admin" ? "" : profile?.given_by || "",
+      doer: userRole === "admin" ? "" : profile?.user_name?.trim() || normalizedDisplayUsername,
+      description: "",
+      frequency: "daily",
+      enableReminders: true,
+    });
+    setSelectedDate(null);
+    setTime("09:00");
+    setGeneratedTasks([]);
+    setAccordionOpen(false);
+  };
+
+  const availableDivisions = userRole === "admin"
+    ? (division || []).filter((item) => item && item !== "null" && item !== "NULL")
+    : Array.from(
+      new Set(
+        (department || [])
+          .map((item) => item?.division)
+          .filter((item) => item && item !== "null" && item !== "NULL")
+      )
+    );
+
+  const availableDepartments = (department || []).filter((item) => {
+    if (!item?.department) {
+      return false;
+    }
+
+    if (!formData.division) {
+      return userRole !== "admin";
+    }
+
+    return item.division === formData.division;
   });
 
 
@@ -503,6 +578,11 @@ export default function AssignTask() {
   };
 
   useEffect(() => {
+    if (userRole !== "admin") {
+      setLoadingDoers(false);
+      return;
+    }
+
     if (formData.department) {
       const loadDoers = async () => {
         setLoadingDoers(true);
@@ -514,7 +594,69 @@ export default function AssignTask() {
       };
       loadDoers();
     }
-  }, [formData.department]);
+  }, [formData.department, userRole]);
+
+  useEffect(() => {
+    if (userRole === "admin" || !userProfile || availableDepartments.length === 0) {
+      return;
+    }
+
+    const matchedDepartment = availableDepartments.find(
+      (item) =>
+        item?.department?.trim().toLowerCase() ===
+        userProfile?.department?.trim().toLowerCase()
+    ) || (department || []).find(
+      (item) =>
+        item?.department?.trim().toLowerCase() ===
+        userProfile?.department?.trim().toLowerCase()
+    );
+
+    if (!matchedDepartment) {
+      return;
+    }
+
+    setFormData((prev) => {
+      const nextDivision = matchedDepartment.division || prev.division;
+      const nextDepartment = matchedDepartment.department || prev.department;
+      const nextGivenBy = userProfile?.given_by || prev.givenBy;
+      const nextDoer = prev.doer || userProfile?.user_name?.trim() || normalizedDisplayUsername;
+
+      if (
+        prev.division === nextDivision &&
+        prev.department === nextDepartment &&
+        prev.givenBy === nextGivenBy &&
+        prev.doer === nextDoer
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        division: nextDivision,
+        department: nextDepartment,
+        givenBy: nextGivenBy,
+        doer: nextDoer,
+      };
+    });
+  }, [availableDepartments, department, normalizedDisplayUsername, userProfile, userRole]);
+
+  useEffect(() => {
+    if (userRole === "admin" || filteredDoerNames.length === 0) {
+      return;
+    }
+
+    const matchedDoer = filteredDoerNames.find(
+      (doer) => doer?.trim().toLowerCase() === normalizedUsername
+    ) || normalizedDisplayUsername;
+
+    if (!matchedDoer) {
+      return;
+    }
+
+    setFormData((prev) => (
+      prev.doer === matchedDoer ? prev : { ...prev, doer: matchedDoer }
+    ));
+  }, [filteredDoerNames, normalizedDisplayUsername, normalizedUsername, userRole]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -531,19 +673,7 @@ export default function AssignTask() {
       alert(`Successfully submitted ${generatedTasks.length} tasks!`);
 
       // Reset form
-      setFormData({
-        division: "",
-        department: "",
-        givenBy: "",
-        doer: "",
-        description: "",
-        frequency: "daily",
-        enableReminders: true,
-      });
-      setSelectedDate(null);
-      setTime("09:00");
-      setGeneratedTasks([]);
-      setAccordionOpen(false);
+      resetForm();
     } catch (error) {
       console.error("Submission error:", error);
       alert("Failed to assign tasks. Please try again.");
@@ -590,7 +720,7 @@ export default function AssignTask() {
                 required loading={loadingMeta}
                 placeholder="Select Division"
               >
-                {(division || []).filter(d => d && d !== "null" && d !== "NULL").map((divName, i) => (
+                {availableDivisions.map((divName, i) => (
                   <option key={i} value={divName}>{divName}</option>
                 ))}
               </DropdownField>
@@ -604,7 +734,7 @@ export default function AssignTask() {
                 placeholder="Select Department"
                 hint={!formData.division ? "Select a division first" : undefined}
               >
-                {(department || []).filter(d => d && d.division === formData.division).map((deptObj, i) => (
+                {availableDepartments.map((deptObj, i) => (
                   <option key={i} value={deptObj.department}>{deptObj.department}</option>
                 ))}
               </DropdownField>
@@ -628,9 +758,15 @@ export default function AssignTask() {
                 value={formData.doer} onChange={handleChange}
                 required
                 loading={loadingDoers}
-                disabled={!formData.department}
+                disabled={userRole !== "admin" || !formData.department}
                 placeholder="Select Doer"
-                hint={!formData.department ? "Select a department first" : undefined}
+                hint={
+                  userRole !== "admin"
+                    ? "Auto-selected from logged-in user"
+                    : !formData.department
+                      ? "Select a department first"
+                      : undefined
+                }
               >
                 {filteredDoerNames.map((doer, i) => (
                   <option key={i} value={doer}>{doer}</option>
@@ -860,25 +996,11 @@ export default function AssignTask() {
           </div>
 
           <div className="flex justify-between bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-t border-purple-100">
-            <button
-              type="button"
-              onClick={() => {
-                setFormData({
-                  department: "",
-                  givenBy: "",
-                  doer: "",
-                  description: "",
-                  frequency: "daily",
-                  enableReminders: true,
-                  requireAttachment: false,
-                });
-                setSelectedDate(null);
-                setTime("09:00");
-                setGeneratedTasks([]);
-                setAccordionOpen(false);
-              }}
-              className="rounded-md border border-purple-200 py-2 px-4 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-            >
+              <button
+                type="button"
+                onClick={() => resetForm()}
+                className="rounded-md border border-purple-200 py-2 px-4 text-purple-700 hover:border-purple-300 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              >
               Cancel
             </button>
             <button
