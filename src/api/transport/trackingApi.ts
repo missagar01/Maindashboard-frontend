@@ -92,8 +92,23 @@ export interface EquipmentTripReportParams {
 
 export interface EquipmentTripReportResponse {
   records: EquipmentTripReportRecord[];
+  summary: EquipmentTripReportSummary | null;
   message: string;
   statusCode: number;
+}
+
+export interface EquipmentTripReportSummary {
+  movingCount: number;
+  totalWorkingHours: string;
+  totalWorkingSeconds: number;
+  sumOfDistance: number;
+  startTime: string | null;
+  endTime: string | null;
+  perTotalIdleTime: number;
+  perTotalMovingTime: number;
+  perTotalStoppageTime: number;
+  avgSpeed: string;
+  raw: Record<string, any>;
 }
 
 const safeString = (value: unknown) => String(value ?? "").trim();
@@ -101,6 +116,88 @@ const safeString = (value: unknown) => String(value ?? "").trim();
 const safeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseDurationToSeconds = (value: unknown) => {
+  const normalizedValue = safeString(value);
+
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const hhmmssMatch = normalizedValue.match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+
+  if (hhmmssMatch) {
+    const [, hours, minutes, seconds = "0"] = hhmmssMatch;
+    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+  }
+
+  const numericValue = Number(normalizedValue);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
+const hasEquipmentTripSummaryShape = (value: unknown): value is Record<string, any> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return [
+    "moving_count",
+    "total_working_hours",
+    "sum_of_distance",
+    "start_time",
+    "end_time",
+  ].some((key) => key in value);
+};
+
+const findEquipmentTripSummarySource = (
+  value: unknown,
+  depth = 0
+): Record<string, any> | null => {
+  if (depth > 5 || value == null) {
+    return null;
+  }
+
+  if (hasEquipmentTripSummaryShape(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const found = findEquipmentTripSummarySource(value[index], depth + 1);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  if (typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const priorityKeys = ["summary", "totals", "total", "footer", "meta", "extra"];
+
+  for (const key of priorityKeys) {
+    if (!(key in record)) {
+      continue;
+    }
+
+    const found = findEquipmentTripSummarySource(record[key], depth + 1);
+    if (found) {
+      return found;
+    }
+  }
+
+  for (const nestedValue of Object.values(record)) {
+    const found = findEquipmentTripSummarySource(nestedValue, depth + 1);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
 };
 
 const resolveStatusKey = (
@@ -208,6 +305,22 @@ const normalizeEquipmentTripReportRecord = (
   raw: item,
 });
 
+const normalizeEquipmentTripReportSummary = (
+  item: Record<string, any>
+): EquipmentTripReportSummary => ({
+  movingCount: safeNumber(item.moving_count) ?? 0,
+  totalWorkingHours: safeString(item.total_working_hours),
+  totalWorkingSeconds: parseDurationToSeconds(item.total_working_hours),
+  sumOfDistance: safeNumber(item.sum_of_distance) ?? 0,
+  startTime: safeString(item.start_time) || null,
+  endTime: safeString(item.end_time) || null,
+  perTotalIdleTime: safeNumber(item.per_total_idle_time) ?? 0,
+  perTotalMovingTime: safeNumber(item.per_total_moving_time) ?? 0,
+  perTotalStoppageTime: safeNumber(item.per_total_stoppage_time) ?? 0,
+  avgSpeed: safeString(item.avg_speed),
+  raw: item,
+});
+
 export const buildEquipmentTrackingSummary = (
   records: EquipmentTrackingRecord[]
 ): EquipmentTrackingSummary =>
@@ -251,8 +364,8 @@ export const getEquipmentTrackingReport = async (
   const body = response?.data || {};
   const records = Array.isArray(body.data)
     ? body.data.map((item: Record<string, any>) =>
-        normalizeEquipmentTrackingRecord(item)
-      )
+      normalizeEquipmentTrackingRecord(item)
+    )
     : [];
   const fallbackSummary = buildEquipmentTrackingSummary(records);
   const apiSummary = body.summary || {};
@@ -312,13 +425,19 @@ export const getEquipmentTripReport = async (
 
   const body = response?.data || {};
   const records = Array.isArray(body.data)
-    ? body.data.map((item: Record<string, any>) =>
+    ? body.data
+      .filter((item: Record<string, any>) => !hasEquipmentTripSummaryShape(item))
+      .map((item: Record<string, any>) =>
         normalizeEquipmentTripReportRecord(item)
       )
     : [];
+  const summarySource = findEquipmentTripSummarySource(body);
 
   return {
     records,
+    summary: summarySource
+      ? normalizeEquipmentTripReportSummary(summarySource)
+      : null,
     message: safeString(body.message),
     statusCode: Number(body.statusCode || response?.status || 0),
   };

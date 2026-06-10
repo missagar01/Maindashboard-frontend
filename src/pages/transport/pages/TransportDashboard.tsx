@@ -1,266 +1,168 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
-  BarChart3,
   CalendarDays,
-  LayoutGrid,
+  Clock3,
+  type LucideIcon,
+  Navigation,
   RefreshCw,
   Search,
-  TrendingUp,
   Truck,
-  ChevronDown,
-  FileClock,
-  ShieldCheck,
-  Zap,
-  Navigation
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { getLrBiltyRegister } from "../../../api/transport/reportApi";
-import { getHandoverSummary, getTakeoverSummary } from "../../../api/transport/analyticsApi";
-import { useTransportAnalyticsSection } from "../hooks/useTransportAnalyticsSection";
-import { AnalyticsKpiCard } from "../components/AnalyticsKpiCard";
-import { AnalyticsChartContainer } from "../components/AnalyticsChartContainer";
-import { formatCurrency, formatNumber } from "../analyticsFormatters";
-import { fetchEquipmentShiftChangeList } from "../../../api/transport/equipmentShiftChangeApi";
-import { fetchEquipmentHandoverList } from "../../../api/transport/equipmentHandoverApi";
-import { fetchEquipmentTakeoverList } from "../../../api/transport/equipmentTakeoverApi";
-import { fetchPodRegisterReport } from "../../../api/transport/podRegisterApi";
 import {
   getEquipmentTrackingReport,
   getEquipmentTripReport,
   type EquipmentTrackingRecord,
   type EquipmentTripReportRecord,
+  type EquipmentTripReportResponse,
+  type EquipmentTripReportSummary,
 } from "../../../api/transport/trackingApi";
-
 
 const RECORD_TITLE_OVERRIDES: Record<string, string> = {
   "353742371399445": "SRMPL_8_Workshop",
 };
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
-const DOORDRISHTI_API_URL = "https://doordrishti.co/report_trip_ignition_result.php";
-const DEFAULT_DEVICE_ID = "13234";
-const DEFAULT_USER_NAME = "sagarpipe@doordrishti.com";
-const DEFAULT_HASH_KEY = "AMICGJOBSWLVIQJG";
-const DEFAULT_TIME_FROM = "00:00:00";
-const DEFAULT_TIME_TO = "23:59:59";
+const IOT_PUMP_KEYWORDS = [
+  "SRMPL",
+  "IOT",
+  "PUMP",
+  "SUBSTATION",
+  "WORKSHOP",
+  "MOTOR",
+  "COMPRESSOR",
+];
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-type DoordrishtiTripData = {
-  device_id?: string;
-  gps_data_id?: string;
-  start_date?: string;
-  start_location?: string;
-  end_date?: string;
-  end_date_gps_data_id?: string;
-  registration_no?: string;
-  end_location?: string;
-  distance?: number | string;
-  trip_diffrence?: string;
-  average_speed?: number | string;
-};
+const REQUEST_DELAY_MS = 500;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+const WORKING_STATUS_KEYWORDS = ["moving", "idle", "idling"];
 
-type DoordrishtiResponse = {
-  result?: number | string;
-  version?: string;
-  message?: string;
-  data?: DoordrishtiTripData[];
-};
-
-type DoordrishtiTripRow = {
+type TransportFilters = {
   deviceId: string;
-  gpsDataId: string;
-  startDate: string;
-  startLocation: string;
-  endDate: string;
-  registrationNo: string;
-  endLocation: string;
-  distanceKm: number;
-  tripDifference: string;
-  timeCoveredSeconds: number;
-  averageSpeedKmph: number;
+  dateFrom: string;
+  dateTo: string;
 };
 
-type DoordrishtiFilters = { deviceId: string; dateFrom: string; dateTo: string };
-type DoordrishtiRangePreset = "today" | "weekly" | "monthly" | "custom";
-type DoordrishtiDeviceOption = { value: string; label: string; registrationNo: string; equipmentName?: string };
+type TransportRangePreset = "today" | "weekly" | "monthly" | "custom";
 
-
-
-type TruckMetric = {
-  key: string;
+type VehicleOption = {
+  value: string;
   label: string;
-  valueLabel: string;
-  dotClass: string;
-  ringColor?: string;
-  chartValue?: number;
+  registrationNo: string;
+  equipmentName: string;
 };
 
-type TruckProgressSummary = {
+type TransportSummary = {
   deviceId: string;
-  deviceName: string;       // vehicle registration number (truck number)
-  equipmentName: string;    // equipment name from backend
+  deviceName: string;
+  equipmentName: string;
   totalTrips: number;
   totalRunningSeconds: number;
   totalIdleSeconds: number;
   totalElapsedSeconds: number;
-  totalPossibleSeconds: number;
-  noDataSeconds: number;
+  totalDistanceKm: number;
   scorePercentage: number;
   scoreLabel: string;
-  totalDistanceKm: number;
-  averageSpeedKmph: number;
-  workingHoursLabel: string;
-  movingCount: number;
-  firstStartDate: string;   // earliest trip start datetime
-  lastEndDate: string;      // latest trip end datetime
-  metrics: TruckMetric[];
-  ringMetrics: TruckMetric[];
+  startTime: string | null;
+  endTime: string | null;
   hasData: boolean;
 };
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
-const SECONDS_PER_DAY = 24 * 60 * 60;
-const RING_RADIUS = 64;
-const RING_STROKE = 14;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
 const RANGE_PRESET_OPTIONS: Array<{
   label: string;
-  preset: Exclude<DoordrishtiRangePreset, "custom">;
+  preset: Exclude<TransportRangePreset, "custom">;
 }> = [
     { label: "Today", preset: "today" },
     { label: "Weekly", preset: "weekly" },
     { label: "Monthly", preset: "monthly" },
   ];
 
-// ─── Utility Functions ─────────────────────────────────────────────────────────
-const padNumber = (v: number) => String(v).padStart(2, "0");
+const padNumber = (value: number) => String(value).padStart(2, "0");
 
 const getTodayDateValue = (date: Date = new Date()) =>
   `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 
 const buildFiltersForPreset = (
-  preset: Exclude<DoordrishtiRangePreset, "custom">,
+  preset: Exclude<TransportRangePreset, "custom">,
   date: Date = new Date(),
-  deviceId: string = ""
-): DoordrishtiFilters => {
+  deviceId = "ALL"
+): TransportFilters => {
   const endDate = new Date(date);
   const startDate = new Date(date);
-  if (preset === "weekly") startDate.setDate(startDate.getDate() - 6);
-  else if (preset === "monthly") startDate.setDate(startDate.getDate() - 29);
-  return { deviceId, dateFrom: getTodayDateValue(startDate), dateTo: getTodayDateValue(endDate) };
+
+  if (preset === "weekly") {
+    startDate.setDate(startDate.getDate() - 6);
+  } else if (preset === "monthly") {
+    startDate.setDate(startDate.getDate() - 29);
+  }
+
+  return {
+    deviceId,
+    dateFrom: getTodayDateValue(startDate),
+    dateTo: getTodayDateValue(endDate),
+  };
 };
 
-const buildDefaultFilters = (date: Date = new Date()): DoordrishtiFilters =>
+const buildDefaultFilters = (date: Date = new Date()): TransportFilters =>
   buildFiltersForPreset("today", date);
 
 const safeString = (value: unknown) => String(value ?? "").trim();
+
 const normalizeRecordText = (value: unknown) => String(value ?? "").trim();
-const safeNumber = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+
+const getDateTimestamp = (value: string) => {
+  const normalizedValue = safeString(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const timestamp = Date.parse(normalizedValue.replace(" ", "T"));
+  return Number.isFinite(timestamp) ? timestamp : null;
 };
 
-const parseDurationToSeconds = (value: string) => {
-  const normalizedValue = safeString(value);
-  if (!normalizedValue) return 0;
-  const normalizedLowerValue = normalizedValue.toLowerCase();
-  let totalSeconds = 0;
-  let matchedUnit = false;
-  for (const match of normalizedLowerValue.matchAll(
-    /(\d+)\s*(days?|d|hours?|hrs?|hr|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)\b/g
-  )) {
-    const amount = Number(match[1]);
-    const unit = match[2];
-    if (!Number.isFinite(amount)) continue;
-    matchedUnit = true;
-    if (unit.startsWith("d")) { totalSeconds += amount * 24 * 60 * 60; continue; }
-    if (unit.startsWith("h")) { totalSeconds += amount * 60 * 60; continue; }
-    if (unit.startsWith("m")) { totalSeconds += amount * 60; continue; }
-    totalSeconds += amount;
-  }
-  if (matchedUnit) return totalSeconds;
+const getDateRangeStartTimestamp = (value: string) => {
+  const timestamp = Date.parse(`${safeString(value)}T00:00:00`);
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
 
-  const timeMatch = normalizedLowerValue.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
-  if (timeMatch) {
-    const [, first, second, third] = timeMatch;
-    if (third !== undefined) return Number(first) * 60 * 60 + Number(second) * 60 + Number(third);
-    return Number(first) * 60 * 60 + Number(second) * 60;
+const getDateRangeEndTimestamp = (value: string) => {
+  const timestamp = Date.parse(`${safeString(value)}T23:59:59`);
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getInclusiveDayCount = (dateFrom: string, dateTo: string) => {
+  const startTimestamp = Date.parse(`${safeString(dateFrom)}T00:00:00`);
+  const endTimestamp = Date.parse(`${safeString(dateTo)}T00:00:00`);
+
+  if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp) || endTimestamp < startTimestamp) {
+    return 1;
   }
-  const numericValue = Number(normalizedLowerValue);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+
+  return Math.floor((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000)) + 1;
 };
 
 const formatSecondsToDuration = (totalSeconds: number) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  return `${padNumber(Math.floor(s / 3600))}h ${padNumber(Math.floor((s % 3600) / 60))}m ${padNumber(s % 60)}s`;
-};
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
 
-// Format datetime string "2025-12-07 08:00:27" → "07 Dec 2025 08:00"
-const formatDateTime = (value: string): string => {
-  if (!value) return "--";
-  const ts = Date.parse(value.replace(" ", "T"));
-  if (!Number.isFinite(ts)) return value;
-  const d = new Date(ts);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${padNumber(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${padNumber(d.getHours())}:${padNumber(d.getMinutes())}`;
+  return `${padNumber(hours)}h ${padNumber(minutes)}m ${padNumber(seconds)}s`;
 };
 
 const formatPercentage = (value: number) => `${value.toFixed(2)}%`;
 
-const getDateTimestamp = (value: string) => {
-  const v = safeString(value);
-  if (!v) return null;
-  const t = Date.parse(v.replace(" ", "T"));
-  return Number.isFinite(t) ? t : null;
-};
+const isWorkingTripStatus = (status: string) =>
+  WORKING_STATUS_KEYWORDS.some((keyword) => status.includes(keyword));
 
-const getDateOnlyTimestamp = (value: string) => {
-  const v = safeString(value);
-  if (!v) return null;
-  const t = Date.parse(`${v}T00:00:00`);
-  return Number.isFinite(t) ? t : null;
-};
-
-const getInclusiveDayCount = (dateFrom: string, dateTo: string) => {
-  const s = getDateOnlyTimestamp(dateFrom);
-  const e = getDateOnlyTimestamp(dateTo);
-  if (s === null || e === null || e < s) return 1;
-  return Math.floor((e - s) / (24 * 60 * 60 * 1000)) + 1;
-};
-
-const getRangeTotalSeconds = (dateFrom: string, dateTo: string) =>
-  getInclusiveDayCount(dateFrom, dateTo) * SECONDS_PER_DAY;
-
-
-
-// ─── Record Name / Display Helpers ─────────────────────────────────────────────
 const getRecordNameCandidates = (record: EquipmentTrackingRecord) =>
   Array.from(
     new Set(
       [
-        record.registrationNo,          // truck number — highest priority
+        record.raw?.category,
+        record.equipment?.equipmentCategory,
+        record.registrationNo,
         record.equipment.equipmentName,
         record.raw?.equipment_name,
         record.raw?.equipment?.equipment_name,
@@ -276,920 +178,873 @@ const getRecordNameCandidates = (record: EquipmentTrackingRecord) =>
   );
 
 const getRecordTitleScore = (candidate: string, record: EquipmentTrackingRecord) => {
-  const upper = candidate.toUpperCase();
+  const normalizedCandidate = candidate.toUpperCase();
   const doorNumber = normalizeRecordText(record.equipment.doorNumber).toUpperCase();
-  const regNo = normalizeRecordText(record.registrationNo).toUpperCase();
+  const registrationNo = normalizeRecordText(record.registrationNo).toUpperCase();
   let score = 0;
-  // Prefer registration number (truck plate)
-  if (upper === regNo && regNo.length > 0) score += 200;
-  if (upper.includes("/") || upper.includes(" ")) score += 40;
-  if (candidate.length >= 6) score += 20;
-  if (upper !== doorNumber) score += 15;
-  if (upper === doorNumber) score -= 15;
+
+  if (normalizedCandidate === registrationNo && registrationNo.length > 0) {
+    score += 200;
+  }
+
+  if (normalizedCandidate.includes("/") || normalizedCandidate.includes(" ")) {
+    score += 40;
+  }
+
+  if (candidate.length >= 6) {
+    score += 20;
+  }
+
+  if (normalizedCandidate !== doorNumber) {
+    score += 15;
+  }
+
+  if (normalizedCandidate === doorNumber) {
+    score -= 15;
+  }
+
   return score;
 };
 
 const getRecordTitle = (record: EquipmentTrackingRecord) => {
   const overrideCandidate = getRecordNameCandidates(record).find(
-    (c) => RECORD_TITLE_OVERRIDES[c]
+    (candidate) => RECORD_TITLE_OVERRIDES[candidate]
   );
-  if (overrideCandidate) return RECORD_TITLE_OVERRIDES[overrideCandidate];
-  return [...getRecordNameCandidates(record)].sort((a, b) => {
-    const delta = getRecordTitleScore(b, record) - getRecordTitleScore(a, record);
-    return delta !== 0 ? delta : b.length - a.length;
-  })[0] || "Unknown Vehicle";
+
+  if (overrideCandidate) {
+    return RECORD_TITLE_OVERRIDES[overrideCandidate];
+  }
+
+  return [...getRecordNameCandidates(record)]
+    .sort((left, right) => {
+      const scoreDelta = getRecordTitleScore(right, record) - getRecordTitleScore(left, record);
+
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return right.length - left.length;
+    })[0] || "Unknown Vehicle";
 };
 
 const buildDeviceFilterLabel = (record: EquipmentTrackingRecord) => {
-  const title = normalizeRecordText(getRecordTitle(record));
-  const regNo = normalizeRecordText(record.registrationNo);
-  if (!title) return regNo || record.deviceId || "Unknown Vehicle";
-  if (regNo && !title.toUpperCase().includes(regNo.toUpperCase())) return `${title} | ${regNo}`;
+  const categoryName =
+    normalizeRecordText(record.raw?.category) ||
+    normalizeRecordText(record.equipment?.equipmentCategory);
+  const title = categoryName || normalizeRecordText(getRecordTitle(record));
+  const registrationNo = normalizeRecordText(record.registrationNo);
+
+  if (!title) {
+    return registrationNo || record.deviceId || "Unknown Vehicle";
+  }
+
+  if (registrationNo && !title.toUpperCase().includes(registrationNo.toUpperCase())) {
+    return `${title} | ${registrationNo}`;
+  }
+
   return title;
-};
-
-// ─── Transport Vehicle Filter ──────────────────────────────────────────────────
-// Only show actual transport vehicles — exclude IoT pump / SRMPL devices
-const IOT_PUMP_KEYWORDS = ["SRMPL", "IOT", "PUMP", "SUBSTATION", "WORKSHOP", "MOTOR", "COMPRESSOR"];
-
-const isTransportVehicleRecord = (record: EquipmentTrackingRecord): boolean => {
-  const regNo = normalizeRecordText(record.registrationNo).toUpperCase();
-  const fullLabel = buildDeviceFilterLabel(record).toUpperCase();
-
-  // Exclude records whose full display name (including overrides) contains IoT / pump keywords
-  if (IOT_PUMP_KEYWORDS.some((kw) => fullLabel.includes(kw))) return false;
-
-  // Must have a valid vehicle registration number (Indian plate pattern, e.g. CG04JB2808)
-  // Pattern: 2 letters + 2 digits + 1-3 letters + 4 digits
-  if (regNo && /^[A-Z]{2}\d{2}[A-Z]{1,3}\d{4}$/.test(regNo.replace(/[-\s]/g, ""))) return true;
-
-  // Fallback: has a registration number that is not a pure device ID (not all digits)
-  if (regNo && regNo.length >= 6 && !/^\d+$/.test(regNo)) return true;
-
-  return false;
 };
 
 const formatDeviceHeading = (value: string) =>
   safeString(value).replace(/_/g, " ").replace(/\s+/g, " ").trim() || "Unknown Vehicle";
 
-// ─── Doordrishti URL ───────────────────────────────────────────────────────────
-const buildDoordrishtiUrl = ({ deviceId, dateFrom, dateTo }: DoordrishtiFilters) => {
-  const p = new URLSearchParams({
-    device_id: deviceId || DEFAULT_DEVICE_ID,
-    date_from: dateFrom,
-    date_to: dateTo,
-    time_picker_from: DEFAULT_TIME_FROM,
-    time_picker_to: DEFAULT_TIME_TO,
-    order_by: "0",
-    order_type: "0",
-    action: "report_trip_json",
-    user_name: DEFAULT_USER_NAME,
-    hash_key: DEFAULT_HASH_KEY,
-    rand: String(Math.floor(Date.now() / 1000)),
+const isTransportVehicleRecord = (record: EquipmentTrackingRecord) => {
+  const registrationNo = normalizeRecordText(record.registrationNo).toUpperCase();
+  const fullLabel = buildDeviceFilterLabel(record).toUpperCase();
+
+  if (IOT_PUMP_KEYWORDS.some((keyword) => fullLabel.includes(keyword))) {
+    return false;
+  }
+
+  if (/^[A-Z]{2}\d{2}[A-Z]{1,3}\d{4}$/.test(registrationNo.replace(/[-\s]/g, ""))) {
+    return true;
+  }
+
+  return Boolean(registrationNo && registrationNo.length >= 6 && !/^\d+$/.test(registrationNo));
+};
+
+const ON_STATUSES = ["moving", "idle", "idling"];
+const OFF_STATUSES = ["stopped", "stop", "unreach", "unreachable"];
+
+const isOnStatus = (status: string) =>
+  ON_STATUSES.some((key) => status.includes(key));
+
+const isOffStatus = (status: string) =>
+  OFF_STATUSES.some((key) => status.includes(key));
+
+const calculateOnOffTime = (trips: EquipmentTripReportRecord[]) => {
+  const sortedTrips = [...trips].sort((a, b) => {
+    const aTime = getDateTimestamp(a.startDate ?? "") || 0;
+    const bTime = getDateTimestamp(b.startDate ?? "") || 0;
+    return aTime - bTime;
   });
-  return `${DOORDRISHTI_API_URL}?${p.toString()}`;
-};
 
-// ─── Flatten Trip Rows ──────────────────────────────────────────────────────────
-const flattenTripRows = (response: DoordrishtiResponse | null): DoordrishtiTripRow[] => {
-  const items = response?.data || [];
-  return items
-    .map((item) => ({
-      deviceId: safeString(item.device_id),
-      gpsDataId: safeString(item.gps_data_id),
-      startDate: safeString(item.start_date),
-      startLocation: safeString(item.start_location),
-      endDate: safeString(item.end_date),
-      registrationNo: safeString(item.registration_no),
-      endLocation: safeString(item.end_location),
-      distanceKm: safeNumber(item.distance) || 0,
-      tripDifference: safeString(item.trip_diffrence),
-      timeCoveredSeconds: parseDurationToSeconds(safeString(item.trip_diffrence)),
-      averageSpeedKmph: safeNumber(item.average_speed) || 0,
-    }))
-    .filter(
-      (item) =>
-        item.registrationNo &&
-        item.startDate &&
-        item.endDate &&
-        item.startLocation &&
-        item.endLocation &&
-        item.tripDifference
+  let onTimeSeconds = 0;
+  let offTimeSeconds = 0;
+  let movingSeconds = 0;
+  let idleSeconds = 0;
+  let stoppedSeconds = 0;
+  let gapSeconds = 0;
+
+  let previousEndTimestamp: number | null = null;
+
+  for (const trip of sortedTrips) {
+    const startTimestamp = getDateTimestamp(trip.startDate ?? "");
+    const endTimestamp = getDateTimestamp(trip.endDate ?? "");
+
+    if (startTimestamp === null || endTimestamp === null) {
+      continue;
+    }
+
+    // Gap between previous trip end and current trip start
+    if (previousEndTimestamp !== null && startTimestamp > previousEndTimestamp) {
+      const gap = Math.floor((startTimestamp - previousEndTimestamp) / 1000);
+      gapSeconds += gap;
+      offTimeSeconds += gap;
+    }
+
+    const durationSeconds = Math.max(
+      0,
+      Math.floor((endTimestamp - startTimestamp) / 1000)
     );
+
+    const status = safeString(trip.vehicleStatus).toLowerCase();
+
+    if (status.includes("moving")) {
+      movingSeconds += durationSeconds;
+      onTimeSeconds += durationSeconds;
+    } else if (status.includes("idle") || status.includes("idling")) {
+      idleSeconds += durationSeconds;
+      onTimeSeconds += durationSeconds;
+    } else if (isOffStatus(status)) {
+      stoppedSeconds += durationSeconds;
+      offTimeSeconds += durationSeconds;
+    }
+
+    previousEndTimestamp = endTimestamp;
+  }
+
+  const totalTimeSeconds = onTimeSeconds + offTimeSeconds;
+  const scorePercentage =
+    totalTimeSeconds > 0 ? (onTimeSeconds / totalTimeSeconds) * 100 : 0;
+
+  return {
+    onTimeSeconds,
+    offTimeSeconds,
+    movingSeconds,
+    idleSeconds,
+    stoppedSeconds,
+    gapSeconds,
+    totalTimeSeconds,
+    scorePercentage,
+  };
 };
 
-// ─── Build Summary ──────────────────────────────────────────────────────────────
-const buildTruckProgressSummary = ({
+const buildTransportSummary = ({
   deviceId,
   deviceName,
   equipmentName,
-  totalTrips,
-  totalRunningSeconds,
-  totalIdleSeconds,
-  totalPossibleSeconds,
-  totalDistanceKm,
-  averageSpeedKmph,
-  movingCount,
-  firstStartDate,
-  lastEndDate,
+  tripRows,
+  tripSummary,
+  dateFrom,
+  dateTo,
 }: {
   deviceId: string;
   deviceName: string;
   equipmentName: string;
-  totalTrips: number;
-  totalRunningSeconds: number;
-  totalIdleSeconds: number;
-  totalPossibleSeconds: number;
-  totalDistanceKm: number;
-  averageSpeedKmph: number;
-  movingCount: number;
-  firstStartDate: string;
-  lastEndDate: string;
-}): TruckProgressSummary => {
-  const totalElapsedSeconds = totalRunningSeconds + totalIdleSeconds;
-  const noDataSeconds = Math.max(0, totalPossibleSeconds - totalElapsedSeconds);
-  const scorePercentage =
-    totalPossibleSeconds > 0 ? (totalRunningSeconds / totalPossibleSeconds) * 100 : 0;
+  tripRows: EquipmentTripReportRecord[];
+  tripSummary?: EquipmentTripReportSummary | null;
+  dateFrom: string;
+  dateTo: string;
+}): TransportSummary => {
+  const sortedTrips = [...tripRows].sort((left, right) => {
+    const leftTime = getDateTimestamp(left.startDate ?? "") || 0;
+    const rightTime = getDateTimestamp(right.startDate ?? "") || 0;
+    return leftTime - rightTime;
+  });
 
-  // Internal ring metrics (for the donut arc — not shown as rows)
-  const ringMetrics: TruckMetric[] = [
-    {
-      key: "running",
-      label: "On Time",
-      valueLabel: formatSecondsToDuration(totalRunningSeconds),
-      dotClass: "bg-emerald-500",
-      ringColor: "#16c784",
-      chartValue: totalRunningSeconds,
-    },
-    {
-      key: "idle",
-      label: "Off Time",
-      valueLabel: formatSecondsToDuration(totalIdleSeconds),
-      dotClass: "bg-amber-500",
-      ringColor: "#f59e0b",
-      chartValue: totalIdleSeconds,
-    },
-  ];
+  const rangeStartTimestamp = getDateRangeStartTimestamp(dateFrom);
+  const rawRangeEndTimestamp = getDateRangeEndTimestamp(dateTo);
+  const currentTimestamp = Date.now();
+  const actualDataEndTimestamp =
+    rawRangeEndTimestamp === null ? currentTimestamp : Math.min(rawRangeEndTimestamp, currentTimestamp);
+  const totalPossibleSeconds = getInclusiveDayCount(dateFrom, dateTo) * SECONDS_PER_DAY;
 
-  // Displayed metric rows
-  const metrics: TruckMetric[] = [
-    {
-      key: "startTime",
-      label: "Start Time",
-      valueLabel: firstStartDate ? formatDateTime(firstStartDate) : "--",
-      dotClass: "bg-emerald-500",
-    },
-    {
-      key: "endTime",
-      label: "End Time",
-      valueLabel: lastEndDate ? formatDateTime(lastEndDate) : "--",
-      dotClass: "bg-rose-500",
-    },
-    {
-      key: "distance",
-      label: "Total Distance",
-      valueLabel: `${totalDistanceKm.toFixed(2)} Km`,
-      dotClass: "bg-violet-500",
-    },
-    {
-      key: "speed",
-      label: "Avg Speed",
-      valueLabel: `${averageSpeedKmph.toFixed(2)} Kmph`,
-      dotClass: "bg-cyan-500",
-    },
-    {
-      key: "workingHours",
-      label: "Working Hours",
-      valueLabel: formatSecondsToDuration(totalRunningSeconds),
-      dotClass: "bg-indigo-500",
-    },
-  ];
+  const fallbackTripCount = sortedTrips.length;
+  const fallbackDistanceKm = sortedTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
+  const normalizedTrips = sortedTrips
+    .map((trip) => {
+      const rawStartTimestamp = getDateTimestamp(trip.startDate ?? "");
+      const rawEndTimestamp = getDateTimestamp(trip.endDate ?? "");
+
+      if (rawStartTimestamp === null) {
+        return null;
+      }
+
+      const clampedStartTimestamp =
+        rangeStartTimestamp === null ? rawStartTimestamp : Math.max(rawStartTimestamp, rangeStartTimestamp);
+      const resolvedEndTimestamp = rawEndTimestamp === null ? clampedStartTimestamp : rawEndTimestamp;
+      const clampedEndTimestamp = Math.min(resolvedEndTimestamp, actualDataEndTimestamp);
+
+      if (clampedEndTimestamp < clampedStartTimestamp) {
+        return null;
+      }
+
+      return {
+        trip,
+        endTimestamp: clampedEndTimestamp,
+        durationSeconds: Math.floor((clampedEndTimestamp - clampedStartTimestamp) / 1000),
+        status: safeString(trip.vehicleStatus).toLowerCase(),
+      };
+    })
+    .filter((trip): trip is NonNullable<typeof trip> => trip !== null);
+
+  const calculatedTime = calculateOnOffTime(sortedTrips);
+
+  const workingSeconds = calculatedTime.onTimeSeconds;
+  const totalIdleSeconds = calculatedTime.offTimeSeconds;
+  const totalElapsedSeconds = calculatedTime.totalTimeSeconds;
+  const scorePercentage = calculatedTime.scorePercentage;
+  const totalTrips = tripSummary?.movingCount ?? fallbackTripCount;
+  const totalDistanceKm = tripSummary?.sumOfDistance ?? fallbackDistanceKm;
 
   return {
     deviceId,
     deviceName,
     equipmentName,
     totalTrips,
-    totalRunningSeconds,
+    totalRunningSeconds: workingSeconds,
     totalIdleSeconds,
     totalElapsedSeconds,
-    totalPossibleSeconds,
-    noDataSeconds,
+    totalDistanceKm,
     scorePercentage,
     scoreLabel: formatPercentage(scorePercentage),
-    totalDistanceKm,
-    averageSpeedKmph,
-    workingHoursLabel: formatSecondsToDuration(totalRunningSeconds),
-    movingCount,
-    firstStartDate,
-    lastEndDate,
-    metrics,
-    ringMetrics,
-    hasData: totalElapsedSeconds > 0 || totalTrips > 0,
+    startTime: tripSummary?.startTime ?? null,
+    endTime: tripSummary?.endTime ?? null,
+    hasData: totalTrips > 0 || workingSeconds > 0 || totalDistanceKm > 0,
   };
 };
 
-// ─── Progress Ring ──────────────────────────────────────────────────────────────
-const ProgressRing = ({
-  scoreLabel,
-  segments,
-}: {
-  scoreLabel: string;
-  segments: TruckMetric[];
-}) => {
-  const total = segments.reduce((s, seg) => s + (seg.chartValue || 0), 0);
-  const circles: ReactElement[] = [];
-  let accumulated = 0;
+const RING_RADIUS = 66;
+const RING_STROKE = 16;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-  segments.forEach((seg) => {
-    const value = seg.chartValue || 0;
-    if (value <= 0 || !seg.ringColor || total <= 0) return;
-    const len = (value / total) * RING_CIRCUMFERENCE;
-    circles.push(
-      <circle
-        key={seg.key}
-        cx="80" cy="80" r={RING_RADIUS}
-        fill="transparent"
-        stroke={seg.ringColor}
-        strokeWidth={RING_STROKE}
-        strokeLinecap="round"
-        strokeDasharray={`${len} ${RING_CIRCUMFERENCE}`}
-        strokeDashoffset={-accumulated}
-        className="transition-all duration-1000 ease-in-out"
-      />
-    );
-    accumulated += len;
-  });
+const SummaryMetric = ({
+  icon,
+  label,
+  value,
+  dotClass,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  dotClass: string;
+}) => {
+  const Icon = icon;
 
   return (
-    <div className="relative flex h-[100px] w-[100px] shrink-0 items-center justify-center sm:h-[130px] sm:w-[130px]">
-      <div className="absolute h-3/4 w-3/4 rounded-full bg-slate-50/50 blur-xl transition-all group-hover:bg-slate-100/50" />
-      <svg width="130" height="130" viewBox="0 0 160 160" className="relative h-full w-full -rotate-90">
-        <circle cx="80" cy="80" r={RING_RADIUS} fill="transparent" stroke="#f8fafc" strokeWidth={RING_STROKE + 2} />
-        {circles}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 sm:text-[9px]">Score</span>
-        <div className="flex items-baseline">
-          <span className="bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-[18px] font-black tracking-tight text-transparent sm:text-[22px]">
-            {scoreLabel.replace("%", "")}
-          </span>
-          <span className="ml-0.5 text-[10px] font-black text-slate-400 sm:text-[11px]">%</span>
-        </div>
+    <div className="flex items-center justify-between gap-2 rounded-[18px] border border-slate-200/90 bg-white px-2.5 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition-all duration-300 hover:border-slate-300 hover:shadow-[0_12px_22px_rgba(15,23,42,0.08)] sm:rounded-full sm:px-3 sm:py-2.5">
+      <div className="flex min-w-0 items-center gap-1.5 text-slate-600 sm:gap-2">
+        <div className={`h-2.5 w-2.5 rounded-full ${dotClass}`} />
+        <Icon className="h-3 w-3 text-slate-400 sm:h-3.5 sm:w-3.5" />
+        <span className="truncate text-[8px] font-black uppercase tracking-[0.1em] sm:text-[10px] sm:tracking-[0.12em]">
+          {label}
+        </span>
+      </div>
+      <div className="shrink-0 rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-black text-slate-900 ring-1 ring-slate-200 sm:px-3 sm:text-[12px]">
+        {value}
       </div>
     </div>
   );
 };
 
-
-// ─── Truck Summary Card ─────────────────────────────────────────────────────────
-const TruckSummaryCard = ({
-  summary,
-  isAggregate,
+const ScoreRing = ({
+  onTimeSeconds,
+  offTimeSeconds,
+  scoreLabel,
 }: {
-  summary: TruckProgressSummary;
+  onTimeSeconds: number;
+  offTimeSeconds: number;
+  scoreLabel: string;
+}) => {
+  const total = Math.max(onTimeSeconds + offTimeSeconds, 1);
+  const segments = [
+    { key: "on", value: onTimeSeconds, color: "#10b981" },
+    { key: "off", value: offTimeSeconds, color: "#f59e0b" },
+  ];
+  let accumulated = 0;
+
+  return (
+    <div className="relative flex h-[116px] w-[116px] shrink-0 items-center justify-center sm:h-[148px] sm:w-[148px] lg:h-[176px] lg:w-[176px]">
+      <div className="absolute inset-4 rounded-full bg-slate-50 blur-2xl" />
+      <svg viewBox="0 0 180 180" className="h-[104px] w-[104px] -rotate-90 sm:h-[136px] sm:w-[136px] lg:h-[160px] lg:w-[160px]">
+        <circle
+          cx="90"
+          cy="90"
+          r={RING_RADIUS}
+          fill="transparent"
+          stroke="#e2e8f0"
+          strokeWidth={RING_STROKE}
+        />
+        {segments.map((segment) => {
+          const length = (segment.value / total) * RING_CIRCUMFERENCE;
+          const circle = (
+            <circle
+              key={segment.key}
+              cx="90"
+              cy="90"
+              r={RING_RADIUS}
+              fill="transparent"
+              stroke={segment.color}
+              strokeWidth={RING_STROKE}
+              strokeLinecap="round"
+              strokeDasharray={`${length} ${RING_CIRCUMFERENCE}`}
+              strokeDashoffset={-accumulated}
+            />
+          );
+          accumulated += length;
+          return circle;
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[7px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[9px] lg:text-[10px]">
+          Score
+        </span>
+        <span className="text-[18px] font-black tracking-tight text-slate-900 sm:text-[22px] lg:text-[32px]">
+          {scoreLabel}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const getScoreBadgeClass = (scorePercentage: number) => {
+  if (scorePercentage >= 65) {
+    return "from-amber-400 via-orange-500 to-amber-500";
+  }
+
+  if (scorePercentage >= 45) {
+    return "from-orange-500 via-orange-600 to-amber-600";
+  }
+
+  return "from-rose-500 via-red-500 to-rose-600";
+};
+
+const TransportSummaryCard = ({
+  summary,
+  isAggregate = false,
+}: {
+  summary: TransportSummary;
   isAggregate?: boolean;
 }) => (
-  <article className="group relative overflow-hidden rounded-[24px] border border-slate-100 bg-white p-2.5 shadow-sm transition-all duration-300 hover:shadow-md sm:p-4">
-    {/* Card Header */}
-    <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-3 sm:gap-6">
+  <article className="relative min-w-0 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(15,23,42,0.12)] sm:rounded-[34px] sm:p-6">
+    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-blue-500/6 via-cyan-400/6 to-violet-500/6 sm:h-24" />
+    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
       <div className="min-w-0 flex-1">
-        {/* Vehicle / Truck Registration Number */}
-        <h2 className="truncate text-[16px] font-black uppercase tracking-tight text-slate-900 sm:text-[20px]">
-          {isAggregate ? "ALL VEHICLES" : (
-            <span className="flex items-center gap-2">
-              <Truck className="h-4 w-4 shrink-0 text-indigo-500" />
-              {formatDeviceHeading(summary.deviceName)}
-            </span>
-          )}
+        <div className="mb-2 flex items-center gap-2 text-[#1e4b7a]">
+          <Truck className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+          <span className="text-[8px] font-black uppercase tracking-[0.16em] sm:text-[10px] sm:tracking-[0.18em]">
+            {isAggregate ? "Fleet Overview" : "Vehicle Summary"}
+          </span>
+        </div>
+        <h2 className="truncate text-[14px] font-black uppercase tracking-[0.03em] text-slate-900 sm:text-[18px] lg:text-[22px]">
+          {isAggregate ? "ALL VEHICLES" : formatDeviceHeading(summary.deviceName)}
         </h2>
-        {/* Equipment name as subtitle */}
-        {!isAggregate && summary.equipmentName && summary.equipmentName.toUpperCase() !== summary.deviceName.toUpperCase() && (
-          <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500">
-            {formatDeviceHeading(summary.equipmentName)}
-          </p>
-        )}
+      
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <div className="flex items-center gap-1.5 rounded-lg bg-[#ff9d1a] px-2 py-1 shadow-sm sm:rounded-xl sm:px-3 sm:py-1.5">
-          <TrendingUp className="h-3 w-3 text-white sm:h-4 sm:w-4" />
-          <span className="text-[10px] font-black text-white sm:text-[12px]">{summary.scoreLabel}</span>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2 py-1 shadow-sm sm:rounded-xl sm:px-3 sm:py-1.5">
-          <BarChart3 className="h-3 w-3 text-slate-400 sm:h-4 sm:w-4" />
-          <span className="text-[10px] font-black text-white sm:text-[12px]">{summary.totalTrips}</span>
-        </div>
-      </div>
-    </div>
 
-    {/* Ring + Metrics */}
-    <div className="mt-3 flex items-center justify-between gap-3 sm:mt-4 sm:gap-6">
-      <div className="shrink-0 scale-90 sm:scale-100">
-        <ProgressRing scoreLabel={summary.scoreLabel} segments={summary.ringMetrics} />
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 sm:gap-2">
-        {summary.metrics.map((metric) => (
-          <div
-            key={metric.key}
-            className="flex items-center justify-between rounded-lg bg-slate-50/80 p-1 px-2 transition-all hover:bg-slate-100"
-          >
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${metric.dotClass} shadow-sm`} />
-              <span className="text-[10px] font-black uppercase tracking-tight text-slate-900">
-                {metric.label}
-              </span>
-            </div>
-            <div className="rounded bg-white px-2 py-0.5 text-[11px] font-black text-[#1e4b7a] shadow-sm ring-1 ring-slate-200">
-              {metric.valueLabel}
-            </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+
+        <div className="rounded-full bg-gradient-to-r from-slate-900 to-slate-800 px-3 py-1.5 text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:px-4 sm:py-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Truck className="h-3 w-3 text-rose-400 sm:h-3.5 sm:w-3.5" />
+            <span className="text-[7px] font-black uppercase tracking-[0.01em] sm:text-[11px] sm:tracking-[0.03em]">
+              TRIPS:{summary.totalTrips}
+            </span>
           </div>
-        ))}
+        </div>
       </div>
     </div>
 
+    <div className="mt-5 flex items-start gap-3 sm:mt-6 sm:gap-4 lg:gap-6 xl:justify-between">
+      <div className="flex shrink-0 justify-center xl:min-w-[220px]">
+        <ScoreRing
+          onTimeSeconds={summary.totalRunningSeconds}
+          offTimeSeconds={summary.totalIdleSeconds}
+          scoreLabel={summary.scoreLabel}
+        />
+      </div>
 
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-3 xl:max-w-[360px]">
+        <SummaryMetric
+          icon={Clock3}
+          label="OnTime"
+          value={formatSecondsToDuration(summary.totalRunningSeconds)}
+          dotClass="bg-emerald-500"
+        />
+        <SummaryMetric
+          icon={Clock3}
+          label="OffTime"
+          value={formatSecondsToDuration(summary.totalIdleSeconds)}
+          dotClass="bg-amber-500"
+        />
+        <SummaryMetric
+          icon={Activity}
+          label="TotalTime"
+          value={formatSecondsToDuration(summary.totalElapsedSeconds)}
+          dotClass="bg-slate-400"
+        />
+        <SummaryMetric
+          icon={Navigation}
+          label="Distance"
+          value={`${summary.totalDistanceKm.toFixed(2)} Km`}
+          dotClass="bg-sky-500"
+        />
+      </div>
+    </div>
   </article>
 );
 
-type TransportLrBiltyRecord = Record<string, unknown>;
-
-const chartPalette = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#3b82f6", "#06b6d4"];
-
-const SelectField = ({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ label: string; value: string }>;
-}) => (
-  <div className="relative">
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="min-w-[140px] appearance-none rounded-xl border border-slate-200 bg-white px-3 py-1.5 pr-10 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none transition hover:bg-slate-50 focus:border-indigo-300 shadow-sm"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-  </div>
-);
-
-// ─── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function TransportDashboard() {
-  const [selectedRangePreset, setSelectedRangePreset] = useState<DoordrishtiRangePreset>("today");
-  const [filterValues, setFilterValues] = useState<DoordrishtiFilters>(() =>
-    buildDefaultFilters(new Date())
-  );
-  const [appliedFilters, setAppliedFilters] = useState<DoordrishtiFilters>(() =>
-    buildDefaultFilters(new Date())
-  );
-  const [deviceOptions, setDeviceOptions] = useState<DoordrishtiDeviceOption[]>([]);
+  const [selectedRangePreset, setSelectedRangePreset] = useState<TransportRangePreset>("today");
+  const [filterValues, setFilterValues] = useState<TransportFilters>(() => buildDefaultFilters(new Date()));
+  const [appliedFilters, setAppliedFilters] = useState<TransportFilters>(() => buildDefaultFilters(new Date()));
+  const [deviceOptions, setDeviceOptions] = useState<VehicleOption[]>([]);
   const [deviceOptionsLoading, setDeviceOptionsLoading] = useState(false);
-  const [responseData, setResponseData] = useState<Record<string, EquipmentTripReportRecord[]>>({});
+  const [responseData, setResponseData] = useState<Record<string, EquipmentTripReportResponse>>({});
+  const [failedDeviceIds, setFailedDeviceIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [totalToLoad, setTotalToLoad] = useState(0);
   const [error, setError] = useState("");
 
-  const takeover = useTransportAnalyticsSection(getTakeoverSummary);
-  const handover = useTransportAnalyticsSection(getHandoverSummary);
-
-  const [records, setRecords] = useState<TransportLrBiltyRecord[]>([]);
-  const [loadingBilty, setLoadingBilty] = useState(true);
-  const [errorBilty, setErrorBilty] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState("all");
-
-  const [shiftChangeCount, setShiftChangeCount] = useState<number | null>(null);
-  const [equipmentHandoverCount, setEquipmentHandoverCount] = useState<number | null>(null);
-  const [equipmentTakeoverCount, setEquipmentTakeoverCount] = useState<number | null>(null);
-  const [podRegisterCount, setPodRegisterCount] = useState<number | null>(null);
-  const [loadingNewApis, setLoadingNewApis] = useState(true);
-
-  const fetchBiltyData = async () => {
-    try {
-      setLoadingBilty(true);
-      setErrorBilty("");
-      const response = await getLrBiltyRegister({ limit: 2000 });
-      setRecords(response.records);
-    } catch (err: unknown) {
-      setErrorBilty(err instanceof Error ? err.message : "Failed to fetch operational data");
-    } finally {
-      setLoadingBilty(false);
-    }
-  };
-
-  const fetchNewApisData = async (signal?: AbortSignal) => {
-    try {
-      setLoadingNewApis(true);
-      const [shiftChangeRes, equipHandoverRes, equipTakeoverRes, podRegisterRes] = await Promise.all([
-        fetchEquipmentShiftChangeList({}, signal).catch(() => ({ records: [], total: 0 })),
-        fetchEquipmentHandoverList({}, signal).catch(() => ({ records: [], total: 0 })),
-        fetchEquipmentTakeoverList({}, signal).catch(() => ({ records: [], total: 0 })),
-        fetchPodRegisterReport({}, signal).catch(() => ({ records: [], total: 0 })),
-      ]);
-
-      setShiftChangeCount(shiftChangeRes.records.length || shiftChangeRes.total || 0);
-      setEquipmentHandoverCount(equipHandoverRes.records.length || equipHandoverRes.total || 0);
-      setEquipmentTakeoverCount(equipTakeoverRes.records.length || equipTakeoverRes.total || 0);
-      setPodRegisterCount(podRegisterRes.records.length || podRegisterRes.total || 0);
-    } catch (err) {
-      console.error("Failed to fetch new APIs data", err);
-    } finally {
-      setLoadingNewApis(false);
-    }
-  };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchBiltyData();
-    fetchNewApisData(controller.signal);
-    return () => controller.abort();
-  }, []);
-
-  const branchOptions = useMemo(() => {
-    const branches = Array.from(new Set(records.map(r => safeString(r.branch_name)).filter(Boolean))).sort();
-    return [{ label: "ALL BRANCHES", value: "all" }, ...branches.map(b => ({ label: b.toUpperCase(), value: b }))];
-  }, [records]);
-
-  const filteredRecords = useMemo(() => {
-    if (selectedBranch === "all") return records;
-    return records.filter(r => safeString(r.branch_name) === selectedBranch);
-  }, [records, selectedBranch]);
-
-  const assetDistribution = useMemo(() => {
-    const counts = new Map<string, number>();
-    filteredRecords.forEach(r => {
-      const key = safeString(r.vehicle_type) || "Common";
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-    return Array.from(counts.entries()).map(([label, amount]) => ({ label, amount })).slice(0, 6);
-  }, [filteredRecords]);
-
-  const revenueData = useMemo(() => {
-    const totalFreight = filteredRecords.reduce((sum, r) => sum + (Number(r.freight_amount) || 0), 0);
-    const totalAdvance = filteredRecords.reduce((sum, r) => sum + (Number(r.advance_cash_amount || r.advance_diesel_amount) || 0), 0);
-    const totalTax = filteredRecords.reduce((sum, r) => sum + (Number(r.total_tax_amount) || 0), 0);
-
-    return [
-      { name: "Freight", value: totalFreight || 10, color: "#6366f1" },
-      { name: "Advance", value: totalAdvance || 5, color: "#10b981" },
-      { name: "Handling", value: totalTax || 2, color: "#f59e0b" },
-    ];
-  }, [filteredRecords]);
-
-  const pipelineItems = useMemo(() => {
-    const total = filteredRecords.length;
-    const pod = filteredRecords.filter(r => safeString(r.lr_bilty_status).toUpperCase() === "POD_PREPARED").length;
-    const service = filteredRecords.filter(r => r.is_service_bill_prepared || r.service_bill_id).length;
-
-    return [
-      { label: "LR ISSUED", count: total, color: "#6366f1", icon: Zap },
-      { label: "POD SYNCED", count: pod, color: "#06b6d4", icon: ShieldCheck },
-      { label: "SERVICE", count: service, color: "#10b981", icon: FileClock },
-    ];
-  }, [filteredRecords]);
-
-  const recentTakeovers = useMemo(() => takeover.data?.recentTakeovers?.slice(0, 4) ?? [], [takeover.data]);
-
-  // ── Load ALL vehicles (no IoT pump filter) ──────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     const loadDeviceOptions = async () => {
       setDeviceOptionsLoading(true);
+
       try {
         const response = await getEquipmentTrackingReport();
-        const uniqueOptions = new Map<string, DoordrishtiDeviceOption>();
+        const uniqueOptions = new Map<string, VehicleOption>();
 
-        // ★ Only transport vehicles — exclude IoT pump / SRMPL devices
         response.records.filter(isTransportVehicleRecord).forEach((record) => {
-          if (!record.deviceId || uniqueOptions.has(record.deviceId)) return;
-
-          const regNo = normalizeRecordText(record.registrationNo) || normalizeRecordText(record.equipment.doorNumber) || record.deviceId;
-          const eqName = normalizeRecordText(record.equipment.equipmentName)
-            || normalizeRecordText(record.equipment.equipmentType)
-            || normalizeRecordText(record.equipment.equipmentCategory)
-            || normalizeRecordText(record.raw?.equipment_name)
-            || normalizeRecordText(record.raw?.display_name)
-            || normalizeRecordText(record.raw?.vehicle_type)
-            || normalizeRecordText(record.raw?.equipment?.vehicle_type)
-            || normalizeRecordText(record.raw?.equipment?.asset_type)
-            || normalizeRecordText(record.raw?.type)
-            || "";
-
-          let displayLabel = regNo;
-          if (eqName && eqName.toUpperCase() !== regNo.toUpperCase()) {
-            displayLabel = `${eqName} | ${regNo}`;
+          if (!record.deviceId || uniqueOptions.has(record.deviceId)) {
+            return;
           }
+
+          const registrationNo =
+            normalizeRecordText(record.registrationNo) ||
+            normalizeRecordText(record.equipment.doorNumber) ||
+            record.deviceId;
+          const categoryName =
+            normalizeRecordText(record.raw?.category) ||
+            normalizeRecordText(record.equipment?.equipmentCategory);
+          const equipmentName =
+            categoryName ||
+            normalizeRecordText(record.equipment.equipmentName) ||
+            normalizeRecordText(record.raw?.equipment_name) ||
+            normalizeRecordText(record.raw?.display_name) ||
+            "";
+          const label = buildDeviceFilterLabel(record);
 
           uniqueOptions.set(record.deviceId, {
             value: record.deviceId,
-            label: displayLabel,
-            registrationNo: regNo,
-            equipmentName: eqName,
+            label,
+            registrationNo,
+            equipmentName,
           });
         });
 
-        const nextOptions = [...uniqueOptions.values()].sort((a, b) =>
-          a.label.localeCompare(b.label)
-        );
+        const nextOptions = [...uniqueOptions.values()].sort((left, right) => left.label.localeCompare(right.label));
 
-        if (!cancelled && nextOptions.length) {
+        if (!cancelled) {
           setDeviceOptions(nextOptions);
           setFilterValues((prev) => ({ ...prev, deviceId: "ALL" }));
           setAppliedFilters((prev) => ({ ...prev, deviceId: "ALL" }));
-        } else if (!cancelled) {
           setLoading(false);
         }
-      } catch {
-        if (!cancelled) { setDeviceOptions([]); setLoading(false); }
+      } catch (fetchError) {
+        if (!cancelled) {
+          setDeviceOptions([]);
+          setLoading(false);
+          setError(fetchError instanceof Error ? fetchError.message : "Unable to load vehicle list.");
+        }
       } finally {
-        if (!cancelled) setDeviceOptionsLoading(false);
+        if (!cancelled) {
+          setDeviceOptionsLoading(false);
+        }
       }
     };
 
     void loadDeviceOptions();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // ── Fetch trip data ──────────────────────────────────────────────────────────
   useEffect(() => {
     const controller = new AbortController();
 
     const loadTrips = async () => {
       setLoading(true);
-      // ── Fetch via backend API (same as TransportLiveLocation) ────────────
       setError("");
+      setResponseData({});
+      setFailedDeviceIds([]);
+      setLoadedCount(0);
+      setTotalToLoad(0);
+
       try {
         const devicesToFetch =
           appliedFilters.deviceId === "ALL"
-            ? deviceOptions.map((o) => o.value)
+            ? deviceOptions.map((option) => option.value)
             : [appliedFilters.deviceId];
+
+        setTotalToLoad(devicesToFetch.length);
 
         if (!devicesToFetch.length) {
           setLoading(false);
           return;
         }
 
-        // Fetch strictly one by one (Sequential) with a small delay
-        // Kyunki server specific devices (jaise 13307, 13311) par crash ho raha hai.
-        for (const deviceId of devicesToFetch) {
-          if (controller.signal.aborted) break;
-          
-          try {
-            const report = await getEquipmentTripReport(
-              {
-                deviceId,
-                dateFrom: appliedFilters.dateFrom,
-                dateTo: appliedFilters.dateTo,
-                timePickerFrom: "00:00:00",
-                timePickerTo: "23:59:59",
-              },
-              controller.signal
-            );
+        const BATCH_SIZE = 10;
 
-            // Progressively update the UI as each device's data arrives
-            setResponseData((prev) => ({ ...prev, [deviceId]: report.records }));
-          } catch (e: any) {
-            if (e?.name === "AbortError" || e?.name === "CanceledError" || controller.signal.aborted) {
-              return;
-            }
-            console.error(`Failed to fetch for device ${deviceId}`, e);
+        for (let i = 0; i < devicesToFetch.length; i += BATCH_SIZE) {
+          if (controller.signal.aborted) {
+            return;
           }
 
-          // 500ms delay between each API call to give server time to breathe
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          const batch = devicesToFetch.slice(i, i + BATCH_SIZE);
+
+          const batchPromises = batch.map(async (deviceId) => {
+            try {
+              const report = await getEquipmentTripReport(
+                {
+                  deviceId,
+                  dateFrom: appliedFilters.dateFrom,
+                  dateTo: appliedFilters.dateTo,
+                  timePickerFrom: "00:00:00",
+                  timePickerTo: "23:59:59",
+                },
+                controller.signal
+              );
+              return { deviceId, report, error: null };
+            } catch (error) {
+              return { deviceId, report: null, error };
+            }
+          });
+
+          const results = await Promise.all(batchPromises);
+
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          const newResponseData: Record<string, EquipmentTripReportResponse> = {};
+          const newFailedIds: string[] = [];
+
+          results.forEach((res) => {
+            if (res.report) {
+              newResponseData[res.deviceId] = res.report;
+            } else {
+              newFailedIds.push(res.deviceId);
+            }
+          });
+
+          setResponseData((prev) => ({
+            ...prev,
+            ...newResponseData,
+          }));
+
+          setLoadedCount((prev) => prev + batch.length);
+
+          if (newFailedIds.length > 0) {
+            setFailedDeviceIds((prev) => Array.from(new Set([...prev, ...newFailedIds])));
+          }
         }
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Unable to load trip data.");
+      } catch (fetchError) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setError(fetchError instanceof Error ? fetchError.message : "Unable to load trip data.");
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
-    if (deviceOptions.length > 0) void loadTrips();
+    if (deviceOptions.length > 0) {
+      void loadTrips();
+    }
+
     return () => controller.abort();
   }, [appliedFilters, deviceOptions]);
 
-  const handleRangePresetSelect = (preset: DoordrishtiRangePreset) => {
-    if (preset === "custom") return;
+  const handleRangePresetSelect = (preset: TransportRangePreset) => {
+    if (preset === "custom") {
+      return;
+    }
+
     setSelectedRangePreset(preset);
-    const f = buildFiltersForPreset(preset, new Date(), filterValues.deviceId);
-    setFilterValues((prev) => ({ ...prev, dateFrom: f.dateFrom, dateTo: f.dateTo }));
-    setAppliedFilters((prev) => ({ ...prev, dateFrom: f.dateFrom, dateTo: f.dateTo }));
+    const nextFilters = buildFiltersForPreset(preset, new Date(), filterValues.deviceId);
+
+    setFilterValues((prev) => ({
+      ...prev,
+      dateFrom: nextFilters.dateFrom,
+      dateTo: nextFilters.dateTo,
+    }));
+
+    setAppliedFilters((prev) => ({
+      ...prev,
+      dateFrom: nextFilters.dateFrom,
+      dateTo: nextFilters.dateTo,
+    }));
   };
 
-  const handleInputChange = (field: keyof DoordrishtiFilters, value: string) => {
+  const handleInputChange = (field: keyof TransportFilters, value: string) => {
     setFilterValues((prev) => ({ ...prev, [field]: value }));
-    if (field === "dateFrom" || field === "dateTo") setSelectedRangePreset("custom");
+
+    if (field === "dateFrom" || field === "dateTo") {
+      setSelectedRangePreset("custom");
+    }
   };
 
-  const handleApplyFilters = () => setAppliedFilters({ ...filterValues });
-
-  const totalRangeSecondsPerDevice = useMemo(
-    () => getRangeTotalSeconds(appliedFilters.dateFrom, appliedFilters.dateTo),
-    [appliedFilters.dateFrom, appliedFilters.dateTo]
-  );
-
-  // Helper — get vehicle registration number (truck number) for display
-  const getVehicleInfo = (deviceId: string) => {
-    const opt = deviceOptions.find((o) => o.value === deviceId);
-    return {
-      registrationNo: opt?.registrationNo || deviceId,
-      equipmentName: opt?.equipmentName || "",
-    };
+  const handleApplyFilters = () => {
+    setAppliedFilters({ ...filterValues });
   };
 
   const deviceSummaries = useMemo(() => {
     const devicesToProcess =
       appliedFilters.deviceId === "ALL"
-        ? deviceOptions.map((o) => o.value)
+        ? deviceOptions.map((option) => option.value)
         : [appliedFilters.deviceId];
 
     return devicesToProcess.map((deviceId) => {
-      const tripRows: EquipmentTripReportRecord[] = responseData[deviceId] || [];
-      const totalTrips = tripRows.length;
+      const tripReport = responseData[deviceId];
+      const tripRows = tripReport?.records || [];
+      const deviceInfo = deviceOptions.find((option) => option.value === deviceId);
 
-      // Working hours = sum of diffSeconds (actual duration per trip from backend)
-      const totalRunningSeconds = tripRows.reduce((sum, t) => sum + (t.diffSeconds || 0), 0);
-
-      // Total distance
-      const totalDistanceKm = tripRows.reduce((sum, t) => sum + (t.distance || 0), 0);
-
-      // Average speed = average of per-trip averageSpeed (weighted by trips)
-      const speedSum = tripRows.reduce((sum, t) => sum + (t.averageSpeed || 0), 0);
-      const averageSpeedKmph = totalTrips > 0 ? speedSum / totalTrips : 0;
-
-      // Moving count = trips where vehicleStatus indicates moving or distance > 0
-      const movingCount = tripRows.filter(
-        (t) => (t.distance || 0) > 0 || t.vehicleStatus?.toLowerCase().includes("moving")
-      ).length;
-
-      // Idle time between consecutive trips (gap between end and next start)
-      let totalIdleSeconds = 0;
-      const sortedTrips = [...tripRows].sort((a, b) => {
-        return (getDateTimestamp(a.startDate ?? "") || 0) - (getDateTimestamp(b.startDate ?? "") || 0);
-      });
-      for (let i = 1; i < sortedTrips.length; i++) {
-        const prevEnd = getDateTimestamp(sortedTrips[i - 1].endDate ?? "");
-        const nextStart = getDateTimestamp(sortedTrips[i].startDate ?? "");
-        if (prevEnd !== null && nextStart !== null && nextStart > prevEnd) {
-          totalIdleSeconds += Math.floor((nextStart - prevEnd) / 1000);
-        }
-      }
-
-      // Get registration no — from deviceOptions
-      const vehicleInfo = getVehicleInfo(deviceId);
-      const deviceName = vehicleInfo.registrationNo;
-      const equipmentName = vehicleInfo.equipmentName;
-
-      // First and last trip dates
-      const firstStartDate = sortedTrips[0]?.startDate ?? "";
-      const lastEndDate = sortedTrips[sortedTrips.length - 1]?.endDate ?? "";
-
-      return buildTruckProgressSummary({
+      return buildTransportSummary({
         deviceId,
-        deviceName,
-        equipmentName,
-        totalTrips,
-        totalRunningSeconds,
-        totalIdleSeconds,
-        totalPossibleSeconds: totalRangeSecondsPerDevice,
-        totalDistanceKm,
-        averageSpeedKmph,
-        movingCount,
-        firstStartDate,
-        lastEndDate,
+        deviceName: deviceInfo?.label || deviceInfo?.registrationNo || deviceId,
+        equipmentName: deviceInfo?.equipmentName || "",
+        tripRows,
+        tripSummary: tripReport?.summary,
+        dateFrom: appliedFilters.dateFrom,
+        dateTo: appliedFilters.dateTo,
       });
     });
-  }, [appliedFilters.deviceId, deviceOptions, responseData, totalRangeSecondsPerDevice]);
+  }, [appliedFilters.dateFrom, appliedFilters.dateTo, appliedFilters.deviceId, deviceOptions, responseData]);
 
+  const visibleSummaries = useMemo(
+    () => deviceSummaries.filter((summary) => summary.hasData),
+    [deviceSummaries]
+  );
 
+  const failedVehicleLabels = useMemo(
+    () =>
+      failedDeviceIds.map((deviceId) => {
+        const matched = deviceOptions.find((option) => option.value === deviceId);
+        return matched?.registrationNo || matched?.label || deviceId;
+      }),
+    [deviceOptions, failedDeviceIds]
+  );
 
-  const hasRenderableSummaries = deviceSummaries.length > 0 && deviceSummaries.some((s) => s.hasData);
-  const showDivisionAnalysis = deviceSummaries.length > 0;
+  const hasRenderableSummaries =
+    visibleSummaries.length > 0;
+
+  const sectionTitle =
+    appliedFilters.deviceId === "ALL" ? "All Vehicle Summaries" : "Vehicle Summary";
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] px-0 pb-4 pt-0 text-slate-900 sm:px-3 sm:pb-8 sm:pt-3 md:px-4">
-      <div className="mx-auto max-w-full space-y-2 sm:space-y-4">
-        <div className="space-y-4 py-1 sm:space-y-6 sm:py-2">
-          {errorBilty ? (
-            <div className="mx-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
-              {errorBilty}
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#dbeafe_0%,_#eff6ff_22%,_#f8fafc_52%,_#eef2ff_100%)] px-2 pb-4 pt-2 text-slate-900 sm:px-3 sm:pb-8 sm:pt-3 md:px-4">
+      <div className="mx-auto max-w-full space-y-3 sm:space-y-4">
+        <header className="relative overflow-hidden border-0 bg-transparent p-0 shadow-none backdrop-blur-0 sm:rounded-[20px] sm:border sm:border-slate-200/80 sm:bg-white/90 sm:p-4 sm:shadow-[0_10px_30px_rgba(15,23,42,0.06)] sm:backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-20 bg-gradient-to-r from-blue-600/12 via-cyan-500/10 to-violet-600/12 sm:block" />
+          <div className="pointer-events-none absolute -right-10 top-2 hidden h-20 w-20 rounded-full bg-blue-500/10 blur-3xl sm:block" />
+          <div className="pointer-events-none absolute left-10 top-4 hidden h-16 w-16 rounded-full bg-cyan-400/10 blur-3xl sm:block" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-1.5 w-6 rounded-full bg-[#1e4b7a]" />
+                <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 sm:text-[9px] sm:tracking-[0.2em]">
+                  Transport Dashboard
+                </span>
+              </div>
+              <h1 className="mt-1 text-[clamp(1.4rem,4vw,1.8rem)] font-black leading-none tracking-tight text-slate-900 sm:text-[24px]">
+                Vehicle <span className="text-[#1e4b7a]">Trip Summary</span>
+              </h1>
+
+            </div>
+
+            <div className="grid w-full grid-cols-3 gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+              {RANGE_PRESET_OPTIONS.map((option) => {
+                const isActive = selectedRangePreset === option.preset;
+
+                return (
+                  <button
+                    key={option.preset}
+                    type="button"
+                    onClick={() => handleRangePresetSelect(option.preset)}
+                    className={`min-w-0 rounded-[12px] border px-2 py-1.5 text-[8px] font-black uppercase tracking-[0.04em] transition-all duration-300 sm:h-9 sm:rounded-[14px] sm:px-4 sm:py-0 sm:text-[10px] sm:tracking-[0.1em] ${isActive
+                      ? "border-slate-900 bg-slate-900 text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]"
+                      : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
+                      }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 md:mt-4 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
+            <div className="space-y-1.5">
+              <span className="ml-1 text-[8px] font-black uppercase tracking-[0.1em] text-slate-400 sm:text-[9px] sm:tracking-[0.15em]">
+                Vehicle Selection
+              </span>
+              <div className="flex h-9 items-center gap-2 rounded-[14px] border border-slate-200 bg-slate-50 px-2.5 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-10 sm:gap-2.5 sm:px-3">
+                <Search className="h-3.5 w-3.5 text-slate-400" />
+                <select
+                  value={filterValues.deviceId}
+                  onChange={(event) => handleInputChange("deviceId", event.target.value)}
+                  className="w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none sm:text-[12px]"
+                  disabled={deviceOptionsLoading}
+                >
+                  <option value="ALL">ALL VEHICLES</option>
+                  {deviceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:contents">
+              <div className="space-y-1.5">
+                <span className="ml-1 text-[8px] font-black uppercase tracking-[0.1em] text-slate-400 sm:text-[9px] sm:tracking-[0.15em]">
+                  From Date
+                </span>
+                <div className="flex h-9 items-center gap-2 rounded-[14px] border border-slate-200 bg-slate-50 px-2.5 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-10 sm:gap-2.5 sm:px-3">
+                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="date"
+                    value={filterValues.dateFrom}
+                    onChange={(event) => handleInputChange("dateFrom", event.target.value)}
+                    className="w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none sm:text-[12px]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="ml-1 text-[8px] font-black uppercase tracking-[0.1em] text-slate-400 sm:text-[9px] sm:tracking-[0.15em]">
+                  To Date
+                </span>
+                <div className="flex h-9 items-center gap-2 rounded-[14px] border border-slate-200 bg-slate-50 px-2.5 focus-within:border-slate-400 focus-within:bg-white transition-all sm:h-10 sm:gap-2.5 sm:px-3">
+                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="date"
+                    value={filterValues.dateTo}
+                    onChange={(event) => handleInputChange("dateTo", event.target.value)}
+                    className="w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none sm:text-[12px]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,1fr)_36px] gap-2 sm:grid-cols-[minmax(0,1fr)_44px]">
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="flex h-9 items-center justify-center gap-1.5 rounded-[14px] bg-[#1e4b7a] px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-[0_8px_16px_rgba(30,75,122,0.2)] transition-all hover:bg-[#153658] hover:shadow-none active:scale-95 sm:h-10 sm:px-5 sm:text-[11px]"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Search</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="flex h-9 items-center justify-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 transition-all hover:bg-slate-50 active:scale-95 sm:h-10 sm:px-3"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""} sm:h-4 sm:w-4`} />
+              </button>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="mt-3 flex items-center gap-2 rounded-[14px] bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-600 ring-1 ring-rose-200/50">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {error}
             </div>
           ) : null}
 
-          {/* Operations Command Center */}
-          <div className="space-y-2.5">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-indigo-500" />
-              Core Operational Analytics
-            </h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:gap-4 xl:grid-cols-5 px-1">
-              <AnalyticsKpiCard
-                label="Takeover"
-                value={formatNumber(takeover.data?.takeoversThisMonth ?? 0)}
-                tone="blue"
-              />
-              <AnalyticsKpiCard
-                label="Handover"
-                value={formatNumber(handover.data?.handoversThisMonth ?? 0)}
-                tone="emerald"
-              />
-              <AnalyticsKpiCard
-                label="Bilty"
-                value={formatNumber(filteredRecords.length)}
-                tone="violet"
-              />
-              <AnalyticsKpiCard
-                label="Deductions"
-                value={formatCurrency(takeover.data?.totalDeductionsThisMonth ?? 0)}
-                tone="amber"
-              />
 
-              <AnalyticsKpiCard
-                label="Equipment Shift Changes"
-                value={loadingNewApis ? "..." : formatNumber(shiftChangeCount ?? 0)}
-                tone="violet"
-              />
-              <AnalyticsKpiCard
-                label="Equipment Handovers"
-                value={loadingNewApis ? "..." : formatNumber(equipmentHandoverCount ?? 0)}
-                tone="emerald"
-              />
-              <AnalyticsKpiCard
-                label="Equipment Takeovers"
-                value={loadingNewApis ? "..." : formatNumber(equipmentTakeoverCount ?? 0)}
-                tone="blue"
-              />
-              <AnalyticsKpiCard
-                label="Prepared PODs"
-                value={loadingNewApis ? "..." : formatNumber(podRegisterCount ?? 0)}
-                tone="rose"
-              />
+        </header>
+
+        <main className="space-y-6 sm:space-y-8">
+          {deviceOptionsLoading || (loading && Object.keys(responseData).length === 0) ? (
+            <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-[32px] border border-slate-100 bg-white shadow-sm">
+              <div className="relative flex h-16 w-16 items-center justify-center">
+                <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-100 border-t-[#1e4b7a]" />
+                <Activity className="h-6 w-6 text-[#1e4b7a]" />
+              </div>
+              <p className="mt-2 text-[12px] font-black uppercase tracking-[0.3em] text-slate-400">
+                Fetching Trips... {totalToLoad > 0 ? `${loadedCount} / ${totalToLoad}` : ""}
+              </p>
+              {totalToLoad > 0 && (
+                <div className="mt-2 h-1.5 w-48 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full bg-[#1e4b7a] transition-all duration-300"
+                    style={{ width: `${Math.max(5, (loadedCount / totalToLoad) * 100)}%` }}
+                  />
+                </div>
+              )}
             </div>
-          </div>
-
-
-
-          {/* Primary Visual Row */}
-          <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-            <AnalyticsChartContainer variant="flat" title="Takeover Trends" subtitle="Daily velocity analysis.">
-              <div className="h-[280px] min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={takeover.data?.activityTrend ?? []} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
-                    <defs>
-                      <linearGradient id="tkGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
-                      itemStyle={{ fontWeight: 800, color: '#1e293b' }}
-                    />
-                    <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={4} fill="url(#tkGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-
-            <AnalyticsChartContainer variant="flat" title="Handover Momentum" subtitle="Movement Variance.">
-              <div className="h-[280px] min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={handover.data?.activityTrend ?? []} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
-                    <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 800 }} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
-                      itemStyle={{ fontWeight: 800, color: '#10b981' }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#10b981"
-                      strokeWidth={4}
-                      dot={{ r: 5, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }}
-                      activeDot={{ r: 8, strokeWidth: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-          </div>
-
-          {/* Round Charts Row */}
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-            <AnalyticsChartContainer variant="flat" title="Revenue Mix" subtitle="Freight components.">
-              <div className="flex h-[260px] items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={revenueData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
-                      {revenueData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-
-            <AnalyticsChartContainer variant="flat" title="Recent Drivers" subtitle="Leaderboard.">
-              <div className="h-[260px] min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={handover.data?.topEmployees?.slice(0, 5) ?? []} layout="vertical" barSize={12}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="employeeName" type="category" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 9, fontWeight: 700 }} width={80} />
-                    <Bar dataKey="handoverCount" fill="#ec4899" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-
-            <AnalyticsChartContainer variant="flat" title="Utilization" subtitle="Fleet Score.">
-              <div className="flex h-[260px] items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
-                    { s: 'OPS', A: pipelineItems[0]?.count ? (pipelineItems[1]?.count / pipelineItems[0].count) * 100 : 0 },
-                    { s: 'SVC', A: pipelineItems[0]?.count ? (pipelineItems[2]?.count / pipelineItems[0].count) * 100 : 0 },
-                    { s: 'USE', A: (assetDistribution.length / 10) * 100 },
-                    { s: 'REL', A: 90 }
-                  ]}>
-                    <PolarGrid stroke="#e2e8f0" />
-                    <PolarAngleAxis dataKey="s" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} />
-                    <Radar name="Fleet" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-          </div>
-
-          {/* Final Row: Workflow + Distribution */}
-          <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
-            <div className="space-y-4">
-              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Pipeline Status</h2>
-              <div className="grid gap-2.5 sm:gap-3">
-                {pipelineItems.map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm sm:p-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}10`, color: item.color }}>
-                      <item.icon className="h-4.5 w-4.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black tracking-widest text-slate-400">{item.label}</span>
-                        <span className="text-base font-black text-slate-900">{formatNumber(item.count)}</span>
-                      </div>
-                    </div>
+          ) : hasRenderableSummaries ? (
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 px-2">
+                  <div className="flex min-w-0 items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-2 shadow-sm sm:gap-3 sm:px-4">
+                    <Truck className="h-4 w-4 text-[#1e4b7a]" />
+                    <h2 className="truncate text-[11px] font-black uppercase tracking-[0.12em] text-slate-900 sm:text-[14px] sm:tracking-[0.2em]">
+                      {sectionTitle}
+                    </h2>
                   </div>
-                ))}
-              </div>
-            </div>
+                  {loading && (
+                    <div className="flex shrink-0 items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-blue-600 shadow-sm sm:px-4 sm:text-[11px]">
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Loading {loadedCount}/{totalToLoad}
+                    </div>
+                  )}
+                  <div className="h-px flex-1 bg-slate-200/60" />
+                </div>
 
-            <div className="space-y-4">
-              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1">Recent Takeovers</h2>
-              <div className="grid gap-2.5 sm:gap-3">
-                {recentTakeovers.length > 0 ? recentTakeovers.map((tk, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-50 bg-white p-2.5 shadow-sm hover:border-blue-100 transition-colors sm:gap-4 sm:p-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-                      <Navigation className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-900 truncate">{tk.vehicleNo}</p>
-                      <p className="text-[10px] font-bold text-slate-400 truncate">{tk.driverName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-blue-500 uppercase">Active</p>
-                    </div>
-                  </div>
-                )) : <div className="h-20 flex items-center justify-center rounded-2xl border border-dashed text-[10px] font-bold text-slate-400">No Recent Takeovers</div>}
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+                  {visibleSummaries.map((summary) => (
+                    <TransportSummaryCard key={summary.deviceId} summary={summary} />
+                  ))}
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[32px] border border-slate-100 bg-white p-8 text-center shadow-sm">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-200">
+                <Truck className="h-10 w-10" />
+              </div>
+              <h3 className="text-[18px] font-black uppercase tracking-widest text-slate-300">
+                No Vehicle Data Found
+              </h3>
+              <p className="mt-2 max-w-md text-[14px] font-medium text-slate-500">
+                Selected vehicle aur date range ke liye koi trip summary available nahi hai.
+                Date range ya vehicle selection ko verify karke dubara search karein.
+              </p>
             </div>
-
-            <AnalyticsChartContainer variant="flat" title="Distribution" subtitle="By vehicle type.">
-              <div className="h-[240px] min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={assetDistribution} margin={{ left: -25 }} barSize={18}>
-                    <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 9, fontWeight: 700 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 9, fontWeight: 700 }} />
-                    <Tooltip />
-                    <Bar dataKey="amount" radius={[5, 5, 0, 0]}>
-                      {assetDistribution.map((_, i) => <Cell key={`b-${i}`} fill={chartPalette[i % chartPalette.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </AnalyticsChartContainer>
-          </div>
-        </div>
+          )}
+        </main>
       </div>
     </div>
   );
