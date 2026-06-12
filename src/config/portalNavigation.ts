@@ -50,7 +50,14 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     key: "store",
     label: "STORE AND PURCHASE",
     path: "/store/dashboard",
-    aliases: ["storeandpurchase", "store", "stores", "purchase", "inventory", "storefms"],
+    aliases: [
+      "storeandpurchase",
+      "store",
+      "stores",
+      "purchase",
+      "inventory",
+      "storefms",
+    ],
   },
   {
     key: "transport",
@@ -62,13 +69,33 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     key: "iot",
     label: "IOT",
     path: "/iot/dashboard",
-    aliases: ["iot", "iote", "internetofthings", "telemetry", "smartfactory", "device-monitoring"],
+    aliases: [
+      "iot",
+      "iote",
+      "internetofthings",
+      "telemetry",
+      "smartfactory",
+      "device-monitoring",
+    ],
   },
   {
     key: "sales",
     label: "SALES MODULE",
     path: "/o2d/dashboard",
-    aliases: ["salesmodule", "sales", "sale", "leadtoorder", "lead_to_order", "crm", "o2d", "logistic", "logistics", "dispatch", "batchcode", "batch"],
+    aliases: [
+      "salesmodule",
+      "sales",
+      "sale",
+      "leadtoorder",
+      "lead_to_order",
+      "crm",
+      "o2d",
+      "logistic",
+      "logistics",
+      "dispatch",
+      "batchcode",
+      "batch",
+    ],
   },
   {
     key: "project",
@@ -80,7 +107,14 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
     key: "subscription",
     label: "SUBSCRIPTION",
     path: "/document/dashboard",
-    aliases: ["subscription", "document", "documents", "loan", "payment", "resource"],
+    aliases: [
+      "subscription",
+      "document",
+      "documents",
+      "loan",
+      "payment",
+      "resource",
+    ],
   },
   {
     key: "hrms",
@@ -117,9 +151,11 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "project", label: "PROJECT", path: "/project/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
   { key: "hrms", label: "HRMS", path: "/hrfms/dashboard" },
-  // { key: "logistic", label: "LOGISTIC", path: "https://triofleet.trieon.in/" },
-  // { key: "batchcode", label: "BATCHCODE", path: "/batchcode/hot-coil" },
-  { key: "visitor-gate-pass", label: "VISITOR GATE PASS", path: "/gatepass/visitor" },
+  {
+    key: "visitor-gate-pass",
+    label: "VISITOR GATE PASS",
+    path: "/gatepass/visitor",
+  },
 ];
 
 export const resolvePortalSystemDefinition = (systemName?: string | null) => {
@@ -130,14 +166,16 @@ export const resolvePortalSystemDefinition = (systemName?: string | null) => {
     PORTAL_SYSTEM_DEFINITIONS.find(
       (definition) =>
         normalizeSystemIdentifier(definition.label) === normalized ||
-        definition.aliases.some((alias) => normalizeSystemIdentifier(alias) === normalized)
+        definition.aliases.some(
+          (alias) => normalizeSystemIdentifier(alias) === normalized,
+        ),
     ) || null
   );
 };
 
 export const resolvePortalNavItem = (
   systemName?: string | null,
-  _link?: string | null
+  _link?: string | null,
 ): PortalNavItem | null => {
   const definition = resolvePortalSystemDefinition(systemName);
 

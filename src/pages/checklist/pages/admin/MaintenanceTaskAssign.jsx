@@ -6,6 +6,7 @@ import axiosInstance from "@/api/checklist/axiosInstance.js";
 const DEFAULT_FREQUENCY_OPTIONS = [
   "one-time",
   "Daily",
+  "15 Days",
   "Weekly",
   "Monthly",
   "Quarterly",
@@ -532,6 +533,8 @@ function AssignTask() {
     switch ((selectedFrequency || "").toLowerCase()) {
       case "daily":
         return addMonths(date, 1);
+      case "15 days":
+        return addMonths(date, 6);
       case "weekly":
         return addMonths(date, 3);
       case "monthly":
@@ -644,6 +647,9 @@ function AssignTask() {
           switch (frequency.toLowerCase()) {
             case "daily":
               currentDate = addDays(taskDateObj, 1);
+              break;
+            case "15 days":
+              currentDate = addDays(taskDateObj, 15);
               break;
             case "weekly":
               currentDate = addDays(taskDateObj, 7);
