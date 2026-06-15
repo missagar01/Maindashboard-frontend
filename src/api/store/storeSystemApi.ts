@@ -151,6 +151,8 @@ export const storeApi: any = {
 
   getDashboard: () =>
     storeApiRequest("/api/store/dashboard", { bypassCache: true }),
+  getDashboardFeedbacks: () =>
+    storeApiRequest("/api/store/dashboard/feedbacks"),
   getDepartments: () => storeApiRequest("/api/store/departments"),
 
   createDepartment: (data: unknown) =>

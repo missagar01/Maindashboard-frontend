@@ -96,6 +96,10 @@ const fetchDashboardWithRetry = async () => {
   }
 };
 
+const fetchDashboardFeedbacks = async () => {
+  return await storeApi.getDashboardFeedbacks();
+};
+
 const unwrapResponseData = (value: any) => value?.data ?? value;
 
 const unwrapResponseRows = (value: any): any[] => {
@@ -229,6 +233,26 @@ export default function StoreDashboard() {
       return false;
     };
 
+    const loadFeedbackData = async () => {
+      setFeedbacksLoading(true);
+
+      try {
+        const feedbackRes = await fetchDashboardFeedbacks();
+        if (cancelled) return;
+
+        setFeedbacks(unwrapResponseRows(feedbackRes));
+      } catch (err) {
+        console.error("Dashboard feedback load error:", err);
+        if (!cancelled) {
+          setFeedbacks([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setFeedbacksLoading(false);
+        }
+      }
+    };
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
@@ -296,9 +320,8 @@ export default function StoreDashboard() {
         setRepairHistory(data?.repairHistory || []);
         setReturnableDetails(data?.returnableDetails || []);
         setDashboardSummary(data?.summary || null);
-        setFeedbacks(data?.feedbacks || []);
-        setFeedbacksLoading(false);
         setLoading(false);
+        void loadFeedbackData();
         void loadSupplementalData();
       } catch (err: any) {
         console.error("Dashboard data load error:", err);
@@ -1960,6 +1983,474 @@ export default function StoreDashboard() {
   );
 }
 
+function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: boolean }) {
+  const validFeedbacks = useMemo(
+    () =>
+      (feedbacks || []).filter((fb: any) => {
+        if (!fb || typeof fb !== "object") return false;
+
+        const timestamp = String(fb.Timestamp || "").trim();
+        const vendorName = String(
+          fb["Vendor Name"] || fb["Supplier Name"] || ""
+        ).trim();
+        const companyName = String(
+          fb["Company Name"] || fb["Factory or Firm Name"] || ""
+        ).trim();
+
+        return Boolean(timestamp || vendorName || companyName);
+      }),
+    [feedbacks]
+  );
+
+  const hasSurveyFields = useMemo(
+    () =>
+      validFeedbacks.some((fb: any) =>
+        [
+          fb["Feedback"],
+          fb["How was our communication?"],
+          fb["How satisfied are you with our overall business relationship?"],
+          fb["Did you receive payments on time?"],
+          fb["Would you like to continue working with us?"],
+          fb["Any suggestions for us?"],
+        ].some((value) => String(value || "").trim() !== "")
+      ),
+    [validFeedbacks]
+  );
+
+  const stats = useMemo(() => {
+    if (validFeedbacks.length === 0 || !hasSurveyFields) return null;
+
+    const getStatus = (val: any) => {
+      const value = String(val || "").trim().toLowerCase();
+      if (value.includes("yes") || value === "y") return "yes";
+      if (value.includes("sometimes") || value.includes("occasionally")) return "sometimes";
+      if (value.includes("maybe") || value.includes("not sure") || value.includes("possibly")) return "maybe";
+      return "no";
+    };
+
+    const getNum = (val: any) => {
+      const num = parseFloat(val);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const totals = {
+      feedback: [] as number[],
+      communication: [] as number[],
+      satisfaction: [] as number[],
+      payments: { yes: 0, no: 0, maybe: 0, sometimes: 0 },
+      continue: { yes: 0, no: 0, maybe: 0, sometimes: 0 },
+    };
+
+    validFeedbacks.forEach((fb: any) => {
+      const feedback = getNum(fb["Feedback"]);
+      const communication = getNum(fb["How was our communication?"]);
+      const satisfaction = getNum(
+        fb["How satisfied are you with our overall business relationship?"]
+      );
+
+      if (feedback > 0) totals.feedback.push(feedback);
+      if (communication > 0) totals.communication.push(communication);
+      if (satisfaction > 0) totals.satisfaction.push(satisfaction);
+
+      totals.payments[getStatus(fb["Did you receive payments on time?"])]++;
+      totals.continue[getStatus(fb["Would you like to continue working with us?"])]++;
+    });
+
+    const average = (rows: number[]) =>
+      rows.length > 0
+        ? (rows.reduce((sum, value) => sum + value, 0) / rows.length).toFixed(1)
+        : "0.0";
+
+    const percent = (row: { yes: number, no: number, maybe: number, sometimes: number }) => {
+      const total = validFeedbacks.length || 1;
+      return {
+        yes: Math.round((row.yes / total) * 100),
+        no: Math.round((row.no / total) * 100),
+        maybe: Math.round((row.maybe / total) * 100),
+        sometimes: Math.round((row.sometimes / total) * 100),
+      };
+    };
+
+    return {
+      avgFeedback: average(totals.feedback),
+      avgCommunication: average(totals.communication),
+      avgSatisfaction: average(totals.satisfaction),
+      payments: percent(totals.payments),
+      continue: percent(totals.continue),
+    };
+  }, [hasSurveyFields, validFeedbacks]);
+
+  if (loading) {
+    return <div className="animate-pulse bg-slate-200 dark:bg-slate-800 rounded-3xl h-64 w-full"></div>;
+  }
+
+  const getSurveyStatus = (val: any) => {
+    const value = String(val || "").trim().toLowerCase();
+    if (value.includes("yes") || value === "y") return "yes";
+    if (value.includes("sometimes") || value.includes("occasionally")) return "sometimes";
+    if (value.includes("maybe") || value.includes("not sure") || value.includes("possibly")) return "maybe";
+    return "no";
+  };
+
+  const formatFeedbackDate = (value: any) => {
+    if (!value) return "-";
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "-";
+
+    return parsed.toLocaleDateString("en-GB");
+  };
+
+  const getVendorName = (fb: any) =>
+    String(fb["Vendor Name"] || fb["Supplier Name"] || "Unknown").trim() || "Unknown";
+
+  const getCompanyName = (fb: any) =>
+    String(fb["Company Name"] || fb["Factory or Firm Name"] || "").trim() || "-";
+
+  const getRegistrationNumber = (fb: any) =>
+    String(fb["Vendor Registration Number"] || "-").trim() || "-";
+
+  const getBusinessType = (fb: any) =>
+    String(fb["Type of Business"] || "-").trim() || "-";
+
+  const getProductType = (fb: any) =>
+    String(fb["Product Type"] || "-").trim() || "-";
+
+  const getGstNumber = (fb: any) =>
+    String(fb["GST NO"] || "-").trim() || "-";
+
+  const getWhatsappStatus = (fb: any) =>
+    String(fb["WhatsAppStatus"] || "Unknown").trim() || "Unknown";
+
+  const getRegistrationStatusClasses = (status: string) => {
+    const normalized = status.toUpperCase();
+
+    if (normalized.includes("SENT")) {
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+    }
+
+    if (normalized.includes("PENDING")) {
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+    }
+
+    if (normalized.includes("FAILED") || normalized.includes("ERROR")) {
+      return "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400";
+    }
+
+    return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  };
+
+  const StarRating = ({ rating, size = 12 }: { rating: number, size?: number }) => {
+    const r = parseFloat(String(rating));
+    return (
+      <div className="flex items-center gap-0.5 mt-1">
+        {[...Array(5)].map((_, i) => {
+          const fillAmount = Math.max(0, Math.min(1, r - i));
+          return (
+            <div key={i} className="relative leading-none">
+              <Star
+                size={size}
+                className="text-slate-300 dark:text-slate-700"
+              />
+              <div
+                className="absolute top-0 left-0 overflow-hidden pointer-events-none"
+                style={{ width: `${fillAmount * 100}%` }}
+              >
+                <Star
+                  size={size}
+                  className="fill-amber-400 text-amber-400"
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <Card className="rounded-3xl border-0 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 overflow-hidden relative">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-white/20 text-white backdrop-blur-sm">
+              <Users size={16} />
+            </div>
+            <CardTitle className="text-lg font-bold text-white">Vendor Satisfaction Feedback</CardTitle>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-2 md:p-4">
+        {stats && (
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 bg-transparent">
+            <div className="p-2 md:p-4 border border-blue-200 dark:border-blue-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-blue-500/20 hover:shadow-blue-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Avg Feedback</p>
+              <h4 className="text-xl md:text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgFeedback}</h4>
+              <StarRating rating={Number(stats.avgFeedback)} size={16} />
+            </div>
+            <div className="p-2 md:p-4 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-indigo-500/20 hover:shadow-indigo-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Communication</p>
+              <h4 className="text-xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgCommunication}</h4>
+              <StarRating rating={Number(stats.avgCommunication)} size={16} />
+            </div>
+            <div className="p-2 md:p-4 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm shadow-emerald-500/20 hover:shadow-emerald-500/40">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Satisfaction</p>
+              <h4 className="text-xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter group-hover:scale-110 transition-transform">{stats.avgSatisfaction}</h4>
+              <StarRating rating={Number(stats.avgSatisfaction)} size={16} />
+            </div>
+            <div className="p-2 md:p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/30">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Payments On Time</p>
+              <div className="flex flex-col items-center">
+                <span className="text-md md:text-xl font-black text-emerald-500">Yes - {stats.payments.yes}%</span>
+                <span className="text-[11px] md:text-[14px] font-extrabold text-rose-500 opacity-80">No - {stats.payments.no}%</span>
+                <div className="flex flex-wrap justify-center gap-x-1.5 mt-0.5">
+                  {stats.payments.sometimes > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-blue-500 opacity-80">Sometimes - {stats.payments.sometimes}%</span>}
+                  {stats.payments.maybe > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-amber-500 opacity-80">Maybe - {stats.payments.maybe}%</span>}
+                </div>
+              </div>
+            </div>
+            <div className="p-2 md:p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center group hover:bg-white dark:hover:bg-slate-900 transition-all shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/30">
+              <p className="text-[11px] md:text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Continue Working</p>
+              <div className="flex flex-col items-center">
+                <span className="text-md md:text-xl font-black text-emerald-500">Yes - {stats.continue.yes}%</span>
+                <span className="text-[11px] md:text-[14px] font-extrabold text-rose-500 opacity-80">No - {stats.continue.no}%</span>
+                <div className="flex flex-wrap justify-center gap-x-1.5 mt-0.5">
+                  {stats.continue.sometimes > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-blue-500 opacity-80">Sometimes - {stats.continue.sometimes}%</span>}
+                  {stats.continue.maybe > 0 && <span className="text-[11px] md:text-[14px] font-extrabold text-amber-500 opacity-80">Maybe - {stats.continue.maybe}%</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="md:hidden flex flex-col gap-2.5 p-2 max-h-[500px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
+          {validFeedbacks.map((fb: any, idx: number) => {
+            const cardColors = [
+              "bg-blue-50 text-blue-900 border-blue-100 shadow-blue-100/50 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-100",
+              "bg-emerald-50 text-emerald-900 border-emerald-100 shadow-emerald-100/50 dark:bg-emerald-900/20 dark:border-emerald-800/30 dark:text-emerald-100",
+              "bg-purple-50 text-purple-900 border-purple-100 shadow-purple-100/50 dark:bg-purple-900/20 dark:border-purple-800/30 dark:text-purple-100",
+              "bg-amber-50 text-amber-900 border-amber-100 shadow-amber-100/50 dark:bg-amber-900/20 dark:border-amber-800/30 dark:text-amber-100",
+              "bg-rose-50 text-rose-900 border-rose-100 shadow-rose-100/50 dark:bg-rose-900/20 dark:border-rose-800/30 dark:text-rose-100",
+              "bg-cyan-50 text-cyan-900 border-cyan-100 shadow-cyan-100/50 dark:bg-cyan-900/20 dark:border-cyan-800/30 dark:text-cyan-100",
+            ];
+
+            const colorClass = cardColors[idx % cardColors.length];
+            const vendorName = getVendorName(fb);
+            const companyName = getCompanyName(fb);
+
+            if (!hasSurveyFields) {
+              return (
+                <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{vendorName}</h4>
+                      <p className="text-[12px] text-slate-500 font-medium truncate mt-0.5">{companyName}</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
+                      {formatFeedbackDate(fb.Timestamp)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Reg. No.</p>
+                      <p className="text-xs font-black text-indigo-600">{getRegistrationNumber(fb)}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Status</p>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getRegistrationStatusClasses(getWhatsappStatus(fb))}`}>
+                        {getWhatsappStatus(fb)}
+                      </span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 col-span-2">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">GST</p>
+                      <p className="text-xs font-black text-slate-700 dark:text-slate-200 break-all">{getGstNumber(fb)}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 col-span-2">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Business Type</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{getBusinessType(fb)}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 col-span-2">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Product Type</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{getProductType(fb)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={idx} className={`p-4 rounded-2xl border space-y-3 shadow-sm transition-all hover:-translate-y-0.5 ${colorClass}`}>
+                <div className="flex justify-between items-start gap-4">
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-[13px] uppercase tracking-wide truncate">{vendorName}</h4>
+                    <p className="text-[12px] text-slate-500 font-medium truncate mt-0.5">{companyName}</p>
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-500 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0 shadow-sm">
+                    {formatFeedbackDate(fb.Timestamp)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Feedback</p>
+                    <span className="text-xs font-black text-blue-600">{fb["Feedback"] || "-"}</span>
+                    {fb["Feedback"] && <StarRating rating={fb["Feedback"]} size={10} />}
+                  </div>
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Communication</p>
+                    <span className="text-xs font-black text-indigo-600">{fb["How was our communication?"] || "-"}</span>
+                    {fb["How was our communication?"] && <StarRating rating={fb["How was our communication?"]} size={10} />}
+                  </div>
+                  <div className="col-span-1 bg-white dark:bg-slate-800 shadow-sm p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center">
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-1">Satisfaction</p>
+                    <span className="text-xs font-black text-emerald-600">{fb["How satisfied are you with our overall business relationship?"] || "-"}</span>
+                    {fb["How satisfied are you with our overall business relationship?"] && <StarRating rating={fb["How satisfied are you with our overall business relationship?"]} size={10} />}
+                  </div>
+
+                  <div className="col-span-3 grid grid-cols-2 gap-2 mt-1">
+                    <div className="bg-white dark:bg-slate-800 shadow-sm px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase">Payment on Time</p>
+                      <span className={`text-[11px] font-black border-l-2 pl-2 ${getSurveyStatus(fb["Did you receive payments on time?"]) === "yes" ? "text-emerald-500 border-emerald-500" : getSurveyStatus(fb["Did you receive payments on time?"]) === "sometimes" ? "text-blue-500 border-blue-500" : getSurveyStatus(fb["Did you receive payments on time?"]) === "maybe" ? "text-amber-500 border-amber-500" : "text-rose-500 border-rose-500"}`}>
+                        {getSurveyStatus(fb["Did you receive payments on time?"]).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-sm px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-extrabold uppercase">Continue Working</p>
+                      <span className={`text-[11px] font-black border-l-2 pl-2 ${getSurveyStatus(fb["Would you like to continue working with us?"]) === "yes" ? "text-emerald-500 border-emerald-500" : getSurveyStatus(fb["Would you like to continue working with us?"]) === "sometimes" ? "text-blue-500 border-blue-500" : getSurveyStatus(fb["Would you like to continue working with us?"]) === "maybe" ? "text-amber-500 border-amber-500" : "text-rose-500 border-rose-500"}`}>
+                        {getSurveyStatus(fb["Would you like to continue working with us?"]).toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {fb["Any suggestions for us?"] && String(fb["Any suggestions for us?"]).trim() !== "" && (
+                  <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 italic font-medium leading-relaxed">
+                    "{fb["Any suggestions for us?"]}"
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden md:block max-h-[500px] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/95 backdrop-blur-md shadow-sm z-10">
+              {hasSurveyFields ? (
+                <tr className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-28">Date</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-48">Vendor</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Feedback</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Commu.</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Satisfy</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-28">Payments On Time</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-28">Continue Working</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700">Suggestions</th>
+                </tr>
+              ) : (
+                <tr className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-28">Date</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-48">Vendor</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-24">Reg. No.</th>
+                  <th className="px-3 py-4 border-b border-slate-100 dark:border-slate-700 text-center w-24">Status</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-32">GST</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-48">Business Type</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700">Product Type</th>
+                  <th className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 w-40">Company</th>
+                </tr>
+              )}
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {validFeedbacks.map((fb: any, idx: number) => {
+                const vendorName = getVendorName(fb);
+                const companyName = getCompanyName(fb);
+
+                if (!hasSurveyFields) {
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors group">
+                      <td className="px-6 py-5 font-mono font-bold text-slate-500 dark:text-slate-500 text-[11px]">
+                        {formatFeedbackDate(fb.Timestamp)}
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug truncate uppercase tracking-widest">{vendorName}</p>
+                        <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{companyName}</p>
+                      </td>
+                      <td className="px-6 py-5 text-[12px] font-black text-indigo-700">{getRegistrationNumber(fb)}</td>
+                      <td className="px-3 py-5 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getRegistrationStatusClasses(getWhatsappStatus(fb))}`}>
+                          {getWhatsappStatus(fb)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-[12px] font-semibold text-slate-700 dark:text-slate-300 break-all">{getGstNumber(fb)}</td>
+                      <td className="px-6 py-5 text-[12px] font-semibold text-slate-700 dark:text-slate-300">{getBusinessType(fb)}</td>
+                      <td className="px-6 py-5 text-[12px] font-semibold text-slate-700 dark:text-slate-300">{getProductType(fb)}</td>
+                      <td className="px-6 py-5 text-[12px] font-semibold text-slate-700 dark:text-slate-300">{companyName}</td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors group">
+                    <td className="px-6 py-5 font-mono font-bold text-slate-500 dark:text-slate-500 text-[11px]">
+                      {formatFeedbackDate(fb.Timestamp)}
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug truncate uppercase tracking-widest">{vendorName}</p>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5 truncate uppercase">{companyName}</p>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-black text-[13px] border border-blue-100 dark:border-blue-800/50">
+                        <span>{fb["Feedback"] || "-"}</span>
+                        {fb["Feedback"] && <StarRating rating={fb["Feedback"]} size={10} />}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[13px] border border-indigo-100 dark:border-indigo-800/50">
+                        <span>{fb["How was our communication?"] || "-"}</span>
+                        {fb["How was our communication?"] && <StarRating rating={fb["How was our communication?"]} size={10} />}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <div className="inline-flex flex-col items-center justify-center min-w-[32px] px-2 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-black text-[13px] border border-emerald-100 dark:border-emerald-800/50">
+                        <span>{fb["How satisfied are you with our overall business relationship?"] || "-"}</span>
+                        {fb["How satisfied are you with our overall business relationship?"] && <StarRating rating={fb["How satisfied are you with our overall business relationship?"]} size={10} />}
+                      </div>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getSurveyStatus(fb["Did you receive payments on time?"]) === "yes" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : getSurveyStatus(fb["Did you receive payments on time?"]) === "sometimes" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" : getSurveyStatus(fb["Did you receive payments on time?"]) === "maybe" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"}`}>
+                        {getSurveyStatus(fb["Did you receive payments on time?"])}
+                      </span>
+                    </td>
+                    <td className="px-3 py-5 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getSurveyStatus(fb["Would you like to continue working with us?"]) === "yes" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : getSurveyStatus(fb["Would you like to continue working with us?"]) === "sometimes" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" : getSurveyStatus(fb["Would you like to continue working with us?"]) === "maybe" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"}`}>
+                        {getSurveyStatus(fb["Would you like to continue working with us?"])}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 italic font-medium">
+                        {fb["Any suggestions for us?"] ? `"${fb["Any suggestions for us?"]}"` : "-"}
+                      </p>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {validFeedbacks.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center p-16 text-slate-400">
+            <Users size={48} className="opacity-20 mb-4" />
+            <p className="font-bold text-sm text-slate-500">No feedback available right now.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function KpiItem({ label, value, color, icon }: any) {
   return (
     <div className="space-y-4 p-5 rounded-3xl bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
@@ -2146,15 +2637,42 @@ function TopListCard({ title, data, type }: any) {
 
 // ── Feedback Section ────────────────────────────────────────────────────────
 
-function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: boolean }) {
-  if (loading) {
-    return <div className="animate-pulse bg-slate-200 dark:bg-slate-800 rounded-3xl h-64 w-full"></div>;
-  }
+function LegacyFeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: boolean }) {
+  const validFeedbacks = useMemo(
+    () =>
+      (feedbacks || []).filter((fb: any) => {
+        if (!fb || typeof fb !== "object") return false;
 
-  const validFeedbacks = (feedbacks || []).filter((fb: any) => fb && fb.Timestamp && String(fb.Timestamp).trim() !== "");
+        const timestamp = String(fb.Timestamp || "").trim();
+        const vendorName = String(
+          fb["Vendor Name"] || fb["Supplier Name"] || ""
+        ).trim();
+        const companyName = String(
+          fb["Company Name"] || fb["Factory or Firm Name"] || ""
+        ).trim();
+
+        return timestamp || vendorName || companyName;
+      }),
+    [feedbacks]
+  );
+
+  const hasSurveyFields = useMemo(
+    () =>
+      validFeedbacks.some((fb: any) =>
+        [
+          fb["Feedback"],
+          fb["How was our communication?"],
+          fb["How satisfied are you with our overall business relationship?"],
+          fb["Did you receive payments on time?"],
+          fb["Would you like to continue working with us?"],
+          fb["Any suggestions for us?"],
+        ].some((value) => String(value || "").trim() !== "")
+      ),
+    [validFeedbacks]
+  );
 
   const stats = useMemo(() => {
-    if (validFeedbacks.length === 0) return null;
+    if (validFeedbacks.length === 0 || !hasSurveyFields) return null;
 
     const getStatus = (val: any) => {
       if (!val) return 'no';
@@ -2210,7 +2728,11 @@ function FeedbackSection({ feedbacks, loading }: { feedbacks: any[], loading: bo
       payments: percent(totals.payments),
       continue: percent(totals.continue)
     };
-  }, [validFeedbacks]);
+  }, [hasSurveyFields, validFeedbacks]);
+
+  if (loading) {
+    return <div className="animate-pulse bg-slate-200 dark:bg-slate-800 rounded-3xl h-64 w-full"></div>;
+  }
 
   const StarRating = ({ rating, size = 12 }: { rating: number, size?: number }) => {
     const r = parseFloat(String(rating));
