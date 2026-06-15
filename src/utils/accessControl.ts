@@ -305,6 +305,10 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Administration: "/store/administration",
   Settings: "/store/settings",
   "Store Settings": "/store/settings",
+  "Store ChatBot": "/store/chatbot",
+  "Store Chatbot": "/store/chatbot",
+  ChatBot: "/store/chatbot",
+  Chatbot: "/store/chatbot",
   "User Indent": "/store/user-indent",
   "Create Indent": "/store/user-indent",
   "My Indent": "/store/erp-indent",
@@ -333,6 +337,7 @@ const STORE_USER_BASE_ROUTES = [
   "/store/user-indent-list-indent", // My Indent — always accessible
   "/store/user-requisition",         // Requisition — always accessible
   "/store/user-indent",              // Create Indent — always accessible
+  "/store/chatbot",
 ];
 
 const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
@@ -356,6 +361,9 @@ const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
   "RECEIVE ITEMS": ["/store/receive-items"],
   "RATE APPROVAL": ["/store/rate-approval"],
   "VENDOR UPDATE": ["/store/vendor-update"],
+  CHATBOT: ["/store/chatbot"],
+  "STORE CHATBOT": ["/store/chatbot"],
+  "STORE CHAT BOT": ["/store/chatbot"],
   ADMINISTRATION: ["/store/administration"],
   SETTINGS: ["/store/settings"],
   "REPAIR GATE PASS": ["/store/repair-gate-pass"],
@@ -408,6 +416,7 @@ const STORE_ADMIN_ROUTE_ALLOWLIST = [
   "/store/store-grn-gm",
   "/store/store-grn-close",
   "/store/rate-approval",
+  "/store/chatbot",
 ];
 
 const normalizePath = (path: string): string => {

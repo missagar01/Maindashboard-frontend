@@ -154,3 +154,10 @@ export const isPdfFileUrl = (value) =>
   extractUploadedFileValues(value).some((item) =>
     stripHashAndQuery(normalizeRawValue(item)).toLowerCase().endsWith('.pdf')
   );
+
+  
+
+
+
+
+

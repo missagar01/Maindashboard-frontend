@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import {
   BadgeCheck,
   ArrowLeftRight,
+  Bot,
   Building2,
   Boxes,
   BriefcaseBusiness,
@@ -252,6 +253,7 @@ const storeSection: SidebarSection = {
   key: "store", title: "Store and Purchase", caption: "Material Operations", icon: ShoppingCart,
   nodes: [
     { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
+      { kind: "link", key: "store-chatbot", name: "ChatBot", path: "/store/chatbot", icon: Bot },
     { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
     { kind: "link", key: "store-pending-gate-entry", name: "Pending Gate Entry", path: "/store/pending-gate-entry", icon: Truck },
     //  { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
@@ -259,6 +261,7 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-requested-indent", name: "Requested Indent", path: "/store/user-indent-list-indent", icon: FileText },
     { kind: "link", key: "store-requisition", name: "Requisition", path: "/store/user-requisition", icon: FileText },
     { kind: "link", key: "store-create-indent", name: "Create Indent", path: "/store/user-indent", icon: FileText },
+  
 
     { kind: "link", key: "store-issue", name: "Store Issue", path: "/store/store-issue", icon: ClipboardList },
 

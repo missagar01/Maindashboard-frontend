@@ -175,6 +175,7 @@ const PAGE_ROUTES = {
     createPageOption("Requested Indent", "Requested Indent", "/store/user-indent-list-indent", ["User Indent Details", "/store/user-indent-list-indent"]),
     createPageOption("Requisition", "Requisition", "/store/user-requisition", ["User Requisitions", "/store/user-requisition"]),
     createPageOption("Create Indent", "Create Indent", "/store/user-indent", ["User Indent", "/store/user-indent"]),
+    createPageOption("Store ChatBot", "Store ChatBot", "/store/chatbot", ["Store ChatBot", "ChatBot", "/store/chatbot"]),
   ],
   "SUBSCRIPTION": [
     createPageOption("Document Dashboard", "Document Dashboard", "/document/dashboard", ["/document/dashboard"]),
