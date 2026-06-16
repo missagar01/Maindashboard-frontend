@@ -1,5 +1,9 @@
 import { transportApiRequest } from "./api";
 
+const DOORDRISHTI_TRIP_REPORT_URL = "https://doordrishti.co/report_trip_result.php";
+const DOORDRISHTI_USER_NAME = "sagarpipe@doordrishti.com";
+const DOORDRISHTI_HASH_KEY = "AMICGJOBSWLVIQJG";
+
 export type EquipmentTrackingStatusKey =
   | "moving"
   | "stopped"
@@ -200,6 +204,197 @@ const findEquipmentTripSummarySource = (
   return null;
 };
 
+const isNonEmptyEquipmentTripItem = (value: unknown): value is Record<string, any> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const item = value as Record<string, any>;
+
+  return [
+    item.trip_id,
+    item.start_date,
+    item.end_date,
+    item.vehicle_status,
+    item.distance,
+    item.diff_secs,
+    item.time_interval,
+  ].some((field) => safeString(field).length > 0);
+};
+
+const extractEquipmentTripRowsSource = (
+  value: unknown,
+  depth = 0
+): Record<string, any>[] => {
+  if (depth > 5 || value == null) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(isNonEmptyEquipmentTripItem);
+  }
+
+  if (typeof value !== "object") {
+    return [];
+  }
+
+  const record = value as Record<string, any>;
+
+  if (Array.isArray(record.trip_data)) {
+    return record.trip_data.filter(isNonEmptyEquipmentTripItem);
+  }
+
+  for (const key of ["data", "providerResponse", "payload", "response"]) {
+    if (!(key in record)) {
+      continue;
+    }
+
+    const found = extractEquipmentTripRowsSource(record[key], depth + 1);
+
+    if (found.length > 0) {
+      return found;
+    }
+  }
+
+  return [];
+};
+
+const isTripReportNoDataPayload = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, any>;
+  const messages = [
+    safeString(record.message).toLowerCase(),
+    safeString(record.providerResponse?.message).toLowerCase(),
+  ].filter(Boolean);
+  const resultCodes = [
+    safeString(record.result),
+    safeString(record.providerResponse?.result),
+  ].filter(Boolean);
+
+  return (
+    messages.some(
+      (message) =>
+        message.includes("data not found") || message.includes("no record found")
+    ) ||
+    (extractEquipmentTripRowsSource(record).length === 0 &&
+      resultCodes.some((code) => code === "1" || code === "1560"))
+  );
+};
+
+const normalizeEquipmentTripReportResponse = (
+  body: Record<string, any>,
+  fallbackStatusCode: number
+): EquipmentTripReportResponse => {
+  const records = extractEquipmentTripRowsSource(body).map((item) =>
+    normalizeEquipmentTripReportRecord(item)
+  );
+  const summarySource = findEquipmentTripSummarySource(body);
+
+  return {
+    records,
+    summary: summarySource
+      ? normalizeEquipmentTripReportSummary(summarySource)
+      : null,
+    message: safeString(body.message || body.providerResponse?.message),
+    statusCode: Number(body.statusCode || fallbackStatusCode || 0),
+  };
+};
+
+const fetchDoordrishtiTripReport = async (
+  params: EquipmentTripReportParams,
+  signal?: AbortSignal
+) => {
+  const buildLegacyDoordrishtiDateValue = (value: string) => {
+    const match = safeString(value).match(/^(\d{4}-\d{2})-(\d{2})$/);
+
+    if (!match) {
+      return safeString(value);
+    }
+
+    const [, prefix, day] = match;
+    return `${prefix}-0${day}`;
+  };
+
+  const buildDoordrishtiSearchParams = (dateFrom: string, dateTo: string) =>
+    new URLSearchParams({
+      action: "report_trip_json",
+      device_id: params.deviceId,
+      date_from: dateFrom,
+      date_to: dateTo,
+      time_picker_from: params.timePickerFrom,
+      time_picker_to: params.timePickerTo,
+      idling: "1",
+      moving: "1",
+      stoppage: "1",
+      unreach: "1",
+      minimum_duration: "0",
+      order_by: "0",
+      order_type: "0",
+      distance_filter: "0",
+      delayedreports_id: "",
+      user_name: DOORDRISHTI_USER_NAME,
+      hash_key: DOORDRISHTI_HASH_KEY,
+    });
+
+  const readDoordrishtiResponse = async (searchParams: URLSearchParams) => {
+    const response = await fetch(
+      `${DOORDRISHTI_TRIP_REPORT_URL}?${searchParams.toString()}`,
+      {
+        method: "GET",
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Doordrishti request failed with status ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  const primaryBody = await readDoordrishtiResponse(
+    buildDoordrishtiSearchParams(params.dateFrom, params.dateTo)
+  );
+
+  if (!isTripReportNoDataPayload(primaryBody)) {
+    return primaryBody;
+  }
+
+  const legacyDateFrom = buildLegacyDoordrishtiDateValue(params.dateFrom);
+  const legacyDateTo = buildLegacyDoordrishtiDateValue(params.dateTo);
+
+  if (legacyDateFrom === params.dateFrom && legacyDateTo === params.dateTo) {
+    return primaryBody;
+  }
+
+  const legacyBody = await readDoordrishtiResponse(
+    buildDoordrishtiSearchParams(legacyDateFrom, legacyDateTo)
+  );
+
+  if (!isTripReportNoDataPayload(legacyBody)) {
+    return legacyBody;
+  }
+
+  return primaryBody;
+};
+
+export const getEquipmentTripReportFromDoordrishti = async (
+  params: EquipmentTripReportParams,
+  signal?: AbortSignal
+): Promise<EquipmentTripReportResponse> => {
+  const doordrishtiBody = await fetchDoordrishtiTripReport(params, signal);
+
+  return normalizeEquipmentTripReportResponse(
+    doordrishtiBody && typeof doordrishtiBody === "object"
+      ? doordrishtiBody
+      : {},
+    200
+  );
+};
+
 const resolveStatusKey = (
   rawItem: Record<string, any>,
   statusLabel: string,
@@ -395,50 +590,116 @@ export const getEquipmentTripReport = async (
 ): Promise<EquipmentTripReportResponse> => {
   const combinedFrom = `${params.dateFrom} ${params.timePickerFrom}`.trim();
   const combinedTo = `${params.dateTo} ${params.timePickerTo}`.trim();
-
-  const response = await transportApiRequest(
-    "entity/equipment-master/get-equipment-trip-report",
-    {
-      params: {
-        device_id: params.deviceId,
-        date_from: params.dateFrom,
-        date_to: params.dateTo,
-        time_picker_from: params.timePickerFrom,
-        time_picker_to: params.timePickerTo,
-        // Variants to ensure backend picks up the filter
-        from_date: params.dateFrom,
-        to_date: params.dateTo,
-        from_time: params.timePickerFrom,
-        to_time: params.timePickerTo,
-        start_time: params.timePickerFrom,
-        end_time: params.timePickerTo,
-        datetime_from: combinedFrom,
-        datetime_to: combinedTo,
-        from_datetime: combinedFrom,
-        to_datetime: combinedTo,
-        date_time_from: combinedFrom,
-        date_time_to: combinedTo,
-      },
-      signal,
-    }
-  );
-
-  const body = response?.data || {};
-  const records = Array.isArray(body.data)
-    ? body.data
-      .filter((item: Record<string, any>) => !hasEquipmentTripSummaryShape(item))
-      .map((item: Record<string, any>) =>
-        normalizeEquipmentTripReportRecord(item)
-      )
-    : [];
-  const summarySource = findEquipmentTripSummarySource(body);
-
-  return {
-    records,
-    summary: summarySource
-      ? normalizeEquipmentTripReportSummary(summarySource)
-      : null,
-    message: safeString(body.message),
-    statusCode: Number(body.statusCode || response?.status || 0),
+  const transportParams = {
+    device_id: params.deviceId,
+    date_from: params.dateFrom,
+    date_to: params.dateTo,
+    time_picker_from: params.timePickerFrom,
+    time_picker_to: params.timePickerTo,
+    // Variants to ensure backend picks up the filter
+    from_date: params.dateFrom,
+    to_date: params.dateTo,
+    from_time: params.timePickerFrom,
+    to_time: params.timePickerTo,
+    start_time: params.timePickerFrom,
+    end_time: params.timePickerTo,
+    datetime_from: combinedFrom,
+    datetime_to: combinedTo,
+    from_datetime: combinedFrom,
+    to_datetime: combinedTo,
+    date_time_from: combinedFrom,
+    date_time_to: combinedTo,
   };
+
+  try {
+    const response = await transportApiRequest(
+      "entity/equipment-master/get-equipment-trip-report",
+      {
+        params: transportParams,
+        signal,
+      }
+    );
+
+    const normalizedTransportResponse = normalizeEquipmentTripReportResponse(
+      response?.data || {},
+      Number(response?.status || 0)
+    );
+
+    if (
+      normalizedTransportResponse.records.length > 0 ||
+      normalizedTransportResponse.summary
+    ) {
+      return normalizedTransportResponse;
+    }
+
+    try {
+      const doordrishtiBody = await fetchDoordrishtiTripReport(params, signal);
+      const normalizedDoordrishtiResponse =
+        normalizeEquipmentTripReportResponse(
+          doordrishtiBody && typeof doordrishtiBody === "object"
+            ? doordrishtiBody
+            : {},
+          200
+        );
+
+      if (
+        normalizedDoordrishtiResponse.records.length > 0 ||
+        normalizedDoordrishtiResponse.summary ||
+        isTripReportNoDataPayload(doordrishtiBody)
+      ) {
+        return normalizedDoordrishtiResponse;
+      }
+    } catch {
+      // Ignore fallback failures here and keep the transport response.
+    }
+
+    return normalizedTransportResponse;
+  } catch (error: any) {
+    if (signal?.aborted) {
+      throw error;
+    }
+
+    const transportStatusCode = Number(error?.response?.status || 0);
+    const transportBody =
+      error?.response?.data && typeof error.response.data === "object"
+        ? error.response.data
+        : {};
+    const transportHasNoData = isTripReportNoDataPayload(transportBody);
+    const shouldTryDoordrishtiFallback =
+      transportStatusCode >= 500 || transportHasNoData;
+
+    if (shouldTryDoordrishtiFallback) {
+      try {
+        const doordrishtiBody = await fetchDoordrishtiTripReport(params, signal);
+        const normalizedDoordrishtiResponse =
+          normalizeEquipmentTripReportResponse(
+            doordrishtiBody && typeof doordrishtiBody === "object"
+              ? doordrishtiBody
+              : {},
+            200
+          );
+
+        if (
+          normalizedDoordrishtiResponse.records.length > 0 ||
+          normalizedDoordrishtiResponse.summary ||
+          isTripReportNoDataPayload(doordrishtiBody)
+        ) {
+          return normalizedDoordrishtiResponse;
+        }
+      } catch (fallbackError) {
+        if (!transportHasNoData) {
+          throw error;
+        }
+      }
+    }
+
+    if (transportHasNoData) {
+      return normalizeEquipmentTripReportResponse(
+        transportBody,
+        transportStatusCode
+      );
+    }
+
+    throw error;
+  }
 };

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   getEquipmentTrackingReport,
-  getEquipmentTripReport,
+  getEquipmentTripReportFromDoordrishti,
   type EquipmentTrackingRecord,
   type EquipmentTripReportRecord,
   type EquipmentTripReportResponse,
@@ -30,6 +30,7 @@ const IOT_PUMP_KEYWORDS = [
 ];
 
 const REQUEST_DELAY_MS = 500;
+const MAX_PARALLEL_TRIP_REQUESTS = 25;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 const WORKING_STATUS_KEYWORDS = ["moving", "idle", "idling"];
 
@@ -366,7 +367,10 @@ const buildTransportSummary = ({
   const currentTimestamp = Date.now();
   const actualDataEndTimestamp =
     rawRangeEndTimestamp === null ? currentTimestamp : Math.min(rawRangeEndTimestamp, currentTimestamp);
-  const totalPossibleSeconds = getInclusiveDayCount(dateFrom, dateTo) * SECONDS_PER_DAY;
+  const totalPossibleSeconds =
+    rangeStartTimestamp !== null && actualDataEndTimestamp >= rangeStartTimestamp
+      ? Math.floor((actualDataEndTimestamp - rangeStartTimestamp) / 1000)
+      : getInclusiveDayCount(dateFrom, dateTo) * SECONDS_PER_DAY;
 
   const fallbackTripCount = sortedTrips.length;
   const fallbackDistanceKm = sortedTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
@@ -390,6 +394,7 @@ const buildTransportSummary = ({
 
       return {
         trip,
+        startTimestamp: clampedStartTimestamp,
         endTimestamp: clampedEndTimestamp,
         durationSeconds: Math.floor((clampedEndTimestamp - clampedStartTimestamp) / 1000),
         status: safeString(trip.vehicleStatus).toLowerCase(),
@@ -397,12 +402,38 @@ const buildTransportSummary = ({
     })
     .filter((trip): trip is NonNullable<typeof trip> => trip !== null);
 
-  const calculatedTime = calculateOnOffTime(sortedTrips);
+  let totalRunningSeconds = 0;
+  let totalOffSeconds = 0;
+  let previousEndTimestamp = rangeStartTimestamp;
 
-  const workingSeconds = calculatedTime.onTimeSeconds;
-  const totalIdleSeconds = calculatedTime.offTimeSeconds;
-  const totalElapsedSeconds = calculatedTime.totalTimeSeconds;
-  const scorePercentage = calculatedTime.scorePercentage;
+  for (const trip of normalizedTrips) {
+    if (previousEndTimestamp !== null && trip.startTimestamp > previousEndTimestamp) {
+      totalOffSeconds += Math.floor((trip.startTimestamp - previousEndTimestamp) / 1000);
+    }
+
+    if (isOffStatus(trip.status)) {
+      totalOffSeconds += trip.durationSeconds;
+    } else {
+      totalRunningSeconds += trip.durationSeconds;
+    }
+
+    previousEndTimestamp = trip.endTimestamp;
+  }
+
+  if (previousEndTimestamp !== null && actualDataEndTimestamp > previousEndTimestamp) {
+    totalOffSeconds += Math.floor((actualDataEndTimestamp - previousEndTimestamp) / 1000);
+  }
+
+  if (normalizedTrips.length === 0 && totalPossibleSeconds > 0) {
+    totalOffSeconds = totalPossibleSeconds;
+  }
+
+  const totalElapsedSeconds = Math.max(
+    totalPossibleSeconds,
+    totalRunningSeconds + totalOffSeconds
+  );
+  const scorePercentage =
+    totalElapsedSeconds > 0 ? (totalRunningSeconds / totalElapsedSeconds) * 100 : 0;
   const totalTrips = tripSummary?.movingCount ?? fallbackTripCount;
   const totalDistanceKm = tripSummary?.sumOfDistance ?? fallbackDistanceKm;
 
@@ -411,15 +442,15 @@ const buildTransportSummary = ({
     deviceName,
     equipmentName,
     totalTrips,
-    totalRunningSeconds: workingSeconds,
-    totalIdleSeconds,
+    totalRunningSeconds,
+    totalIdleSeconds: Math.max(0, totalElapsedSeconds - totalRunningSeconds),
     totalElapsedSeconds,
     totalDistanceKm,
     scorePercentage,
     scoreLabel: formatPercentage(scorePercentage),
     startTime: tripSummary?.startTime ?? null,
     endTime: tripSummary?.endTime ?? null,
-    hasData: totalTrips > 0 || workingSeconds > 0 || totalDistanceKm > 0,
+    hasData: true,
   };
 };
 
@@ -708,7 +739,10 @@ export default function TransportDashboard() {
           return;
         }
 
-        const BATCH_SIZE = 10;
+        const BATCH_SIZE = Math.max(
+          1,
+          Math.min(MAX_PARALLEL_TRIP_REQUESTS, devicesToFetch.length)
+        );
 
         for (let i = 0; i < devicesToFetch.length; i += BATCH_SIZE) {
           if (controller.signal.aborted) {
@@ -719,7 +753,7 @@ export default function TransportDashboard() {
 
           const batchPromises = batch.map(async (deviceId) => {
             try {
-              const report = await getEquipmentTripReport(
+              const report = await getEquipmentTripReportFromDoordrishti(
                 {
                   deviceId,
                   dateFrom: appliedFilters.dateFrom,
@@ -839,10 +873,7 @@ export default function TransportDashboard() {
     });
   }, [appliedFilters.dateFrom, appliedFilters.dateTo, appliedFilters.deviceId, deviceOptions, responseData]);
 
-  const visibleSummaries = useMemo(
-    () => deviceSummaries.filter((summary) => summary.hasData),
-    [deviceSummaries]
-  );
+  const visibleSummaries = useMemo(() => deviceSummaries, [deviceSummaries]);
 
   const aggregateSummary = useMemo(() => {
     if (appliedFilters.deviceId !== "ALL" || visibleSummaries.length === 0) {
