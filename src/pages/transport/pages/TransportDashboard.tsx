@@ -533,9 +533,11 @@ const getScoreBadgeClass = (scorePercentage: number) => {
 const TransportSummaryCard = ({
   summary,
   isAggregate = false,
+  aggregateVehicleCount = 0,
 }: {
   summary: TransportSummary;
   isAggregate?: boolean;
+  aggregateVehicleCount?: number;
 }) => (
   <article className="relative min-w-0 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(15,23,42,0.12)] sm:rounded-[34px] sm:p-6">
     <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-blue-500/6 via-cyan-400/6 to-violet-500/6 sm:h-24" />
@@ -559,7 +561,7 @@ const TransportSummaryCard = ({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Truck className="h-3 w-3 text-rose-400 sm:h-3.5 sm:w-3.5" />
             <span className="text-[7px] font-black uppercase tracking-[0.01em] sm:text-[11px] sm:tracking-[0.03em]">
-              TRIPS:{summary.totalTrips}
+              {isAggregate ? `VEHICLES:${aggregateVehicleCount}` : `TRIPS:${summary.totalTrips}`}
             </span>
           </div>
         </div>
@@ -844,6 +846,50 @@ export default function TransportDashboard() {
     [deviceSummaries]
   );
 
+  const aggregateSummary = useMemo(() => {
+    if (appliedFilters.deviceId !== "ALL" || visibleSummaries.length === 0) {
+      return null;
+    }
+
+    const totals = visibleSummaries.reduce(
+      (accumulator, summary) => ({
+        totalTrips: accumulator.totalTrips + summary.totalTrips,
+        totalRunningSeconds: accumulator.totalRunningSeconds + summary.totalRunningSeconds,
+        totalIdleSeconds: accumulator.totalIdleSeconds + summary.totalIdleSeconds,
+        totalElapsedSeconds: accumulator.totalElapsedSeconds + summary.totalElapsedSeconds,
+        totalDistanceKm: accumulator.totalDistanceKm + summary.totalDistanceKm,
+      }),
+      {
+        totalTrips: 0,
+        totalRunningSeconds: 0,
+        totalIdleSeconds: 0,
+        totalElapsedSeconds: 0,
+        totalDistanceKm: 0,
+      }
+    );
+
+    const scorePercentage =
+      totals.totalElapsedSeconds > 0
+        ? (totals.totalRunningSeconds / totals.totalElapsedSeconds) * 100
+        : 0;
+
+    return {
+      deviceId: "ALL",
+      deviceName: "ALL VEHICLES",
+      equipmentName: "",
+      totalTrips: totals.totalTrips,
+      totalRunningSeconds: totals.totalRunningSeconds,
+      totalIdleSeconds: totals.totalIdleSeconds,
+      totalElapsedSeconds: totals.totalElapsedSeconds,
+      totalDistanceKm: totals.totalDistanceKm,
+      scorePercentage,
+      scoreLabel: formatPercentage(scorePercentage),
+      startTime: null,
+      endTime: null,
+      hasData: true,
+    } satisfies TransportSummary;
+  }, [appliedFilters.deviceId, visibleSummaries]);
+
   const failedVehicleLabels = useMemo(
     () =>
       failedDeviceIds.map((deviceId) => {
@@ -1022,6 +1068,14 @@ export default function TransportDashboard() {
                   )}
                   <div className="h-px flex-1 bg-slate-200/60" />
                 </div>
+
+                {aggregateSummary ? (
+                  <TransportSummaryCard
+                    summary={aggregateSummary}
+                    isAggregate
+                    aggregateVehicleCount={visibleSummaries.length}
+                  />
+                ) : null}
 
                 <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
                   {visibleSummaries.map((summary) => (
