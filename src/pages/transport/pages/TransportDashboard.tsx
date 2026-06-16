@@ -19,10 +19,6 @@ import {
   type EquipmentTripReportSummary,
 } from "../../../api/transport/trackingApi";
 
-const RECORD_TITLE_OVERRIDES: Record<string, string> = {
-  "353742371399445": "SRMPL_8_Workshop",
-};
-
 const IOT_PUMP_KEYWORDS = [
   "SRMPL",
   "IOT",
@@ -207,14 +203,6 @@ const getRecordTitleScore = (candidate: string, record: EquipmentTrackingRecord)
 };
 
 const getRecordTitle = (record: EquipmentTrackingRecord) => {
-  const overrideCandidate = getRecordNameCandidates(record).find(
-    (candidate) => RECORD_TITLE_OVERRIDES[candidate]
-  );
-
-  if (overrideCandidate) {
-    return RECORD_TITLE_OVERRIDES[overrideCandidate];
-  }
-
   return [...getRecordNameCandidates(record)]
     .sort((left, right) => {
       const scoreDelta = getRecordTitleScore(right, record) - getRecordTitleScore(left, record);
@@ -231,8 +219,14 @@ const buildDeviceFilterLabel = (record: EquipmentTrackingRecord) => {
   const categoryName =
     normalizeRecordText(record.raw?.category) ||
     normalizeRecordText(record.equipment?.equipmentCategory);
-  const title = categoryName || normalizeRecordText(getRecordTitle(record));
   const registrationNo = normalizeRecordText(record.registrationNo);
+  const hasVehicleRegistrationPattern = /^[A-Z]{2}\d{2}[A-Z]{1,3}\d{4}$/.test(
+    registrationNo.toUpperCase().replace(/[-\s]/g, "")
+  );
+  const title =
+    categoryName && !(hasVehicleRegistrationPattern && IOT_PUMP_KEYWORDS.some((keyword) => categoryName.toUpperCase().includes(keyword)))
+      ? categoryName
+      : normalizeRecordText(getRecordTitle(record));
 
   if (!title) {
     return registrationNo || record.deviceId || "Unknown Vehicle";
@@ -250,14 +244,18 @@ const formatDeviceHeading = (value: string) =>
 
 const isTransportVehicleRecord = (record: EquipmentTrackingRecord) => {
   const registrationNo = normalizeRecordText(record.registrationNo).toUpperCase();
+  const normalizedRegistrationNo = registrationNo.replace(/[-\s]/g, "");
   const fullLabel = buildDeviceFilterLabel(record).toUpperCase();
+  const hasVehicleRegistrationPattern = /^[A-Z]{2}\d{2}[A-Z]{1,3}\d{4}$/.test(
+    normalizedRegistrationNo
+  );
+
+  if (hasVehicleRegistrationPattern) {
+    return true;
+  }
 
   if (IOT_PUMP_KEYWORDS.some((keyword) => fullLabel.includes(keyword))) {
     return false;
-  }
-
-  if (/^[A-Z]{2}\d{2}[A-Z]{1,3}\d{4}$/.test(registrationNo.replace(/[-\s]/g, ""))) {
-    return true;
   }
 
   return Boolean(registrationNo && registrationNo.length >= 6 && !/^\d+$/.test(registrationNo));
