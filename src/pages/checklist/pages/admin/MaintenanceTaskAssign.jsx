@@ -836,41 +836,41 @@ function AssignTask() {
 
 
   return (
-    <div className="p-2">
+    <div className="w-full">
       <h1 className="text-2xl font-bold mb-6 text-center">Assign Task</h1>
-      <div className="flex justify-center">
-        <div className="bg-white rounded-lg shadow p-6 w-[90vw]">
+      <div className="w-full">
+        <div className="w-full">
           <form className="space-y-4" onSubmit={handleSubmitForm}>
             <div className="space-y-4">
-              {/* Division Dropdown */}
-              <DropdownField
-                id="division" label="Division Name"
-                value={selectedDivision}
-                onChange={(e) => setSelectedDivision(e.target.value)}
-                required
-                loading={loaderMasterSheetData}
-                placeholder="Select Division"
-              >
-                {divisionOptions.map((divName, index) => (
-                  <option key={index} value={divName}>{divName}</option>
-                ))}
-              </DropdownField>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+                {/* Division Dropdown */}
+                <DropdownField
+                  id="division" label="Division Name"
+                  value={selectedDivision}
+                  onChange={(e) => setSelectedDivision(e.target.value)}
+                  required
+                  loading={loaderMasterSheetData}
+                  placeholder="Select Division"
+                >
+                  {divisionOptions.map((divName, index) => (
+                    <option key={index} value={divName}>{divName}</option>
+                  ))}
+                </DropdownField>
 
-              {/* Machine Department Dropdown */}
-              <DropdownField
-                id="machineDepartment" label="Machine Department"
-                value={machineDepartment}
-                onChange={(e) => handleMachineDepartmentChange(e.target.value)}
-                loading={loaderMasterSheetData}
-                placeholder="Select Machine Department"
-              >
-                {departmentOptions.map((dept, index) => (
-                  <option key={index} value={dept}>{dept}</option>
-                ))}
-              </DropdownField>
+                {/* Machine Department Dropdown */}
+                <DropdownField
+                  id="machineDepartment" label="Machine Department"
+                  value={machineDepartment}
+                  onChange={(e) => handleMachineDepartmentChange(e.target.value)}
+                  loading={loaderMasterSheetData}
+                  placeholder="Select Machine Department"
+                >
+                  {departmentOptions.map((dept, index) => (
+                    <option key={index} value={dept}>{dept}</option>
+                  ))}
+                </DropdownField>
 
-              {/* Doer Department Dropdown */}
-              <div className="mt-4">
+                {/* Doer Department Dropdown */}
                 <DropdownField
                   id="doerDepartment" label="Doer Department"
                   value={doerDepartment}
@@ -884,9 +884,9 @@ function AssignTask() {
                 </DropdownField>
               </div>
 
-              <div className="block md:flex md:justify-between md:space-x-4">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-8">
                 {/* Left Section */}
-                <div className="w-full md:w-[45%] space-y-4 mb-4 md:mb-0">
+                <div className="w-full space-y-4">
                   {/* Machine Name Dropdown - Only enabled when machine department is selected */}
                   <div>
                     <label
@@ -1028,7 +1028,7 @@ function AssignTask() {
                 </div>
 
                 {/* Right Section - REST OF YOUR CODE REMAINS THE SAME */}
-                <div className="w-full md:w-[45%] space-y-4">
+                <div className="w-full space-y-4">
                   {/* Task Status */}
                   <div>
                     <label

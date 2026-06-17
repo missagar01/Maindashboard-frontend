@@ -57,7 +57,7 @@ export default function AssignTaskForm() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 md:p-6">
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full max-w-none">
           {/* Back Button */}
           <button
             onClick={() => navigate("/dashboard/assign-task")}
