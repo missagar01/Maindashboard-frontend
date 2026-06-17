@@ -42,14 +42,11 @@ const Machines = () => {
   const [hasMore, setHasMore] = useState(true);
 
 
-  // const SCRIPT_URL =
-  //   "https://script.google.com/macros/s/AKfycbzudKkY63zbthWP_YcfyF-HnUOObG_XM9aS2JDCmTmcYLaY1OQq7ho6i085BXxu9N2E7Q/exec";
-  // const SHEET_NAME = "FormResponses";
-  // const SHEET_Id = "15SBKzTJKzaqhjPI5yt5tKkrd3tzNuhm_Q9-iDO8n0B0";
+ 
 
   const [loaderSheetData, setLoaderSheetData] = useState(false);
 
-  // const API_URL = "http://18.60.212.185:5050/api/machines";
+
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
   const API_URL = `${BACKEND_URL}/api/mainatce/machines`;
 
