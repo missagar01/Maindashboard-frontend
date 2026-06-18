@@ -111,6 +111,8 @@ export interface EquipmentTripReportSummary {
   perTotalIdleTime: number;
   perTotalMovingTime: number;
   perTotalStoppageTime: number;
+  perTotalTowingTime: number;
+  perTotalUnreachTime: number;
   avgSpeed: string;
   raw: Record<string, any>;
 }
@@ -512,6 +514,8 @@ const normalizeEquipmentTripReportSummary = (
   perTotalIdleTime: safeNumber(item.per_total_idle_time) ?? 0,
   perTotalMovingTime: safeNumber(item.per_total_moving_time) ?? 0,
   perTotalStoppageTime: safeNumber(item.per_total_stoppage_time) ?? 0,
+  perTotalTowingTime: safeNumber(item.per_total_towing_time) ?? 0,
+  perTotalUnreachTime: safeNumber(item.per_total_unreach_time) ?? 0,
   avgSpeed: safeString(item.avg_speed),
   raw: item,
 });

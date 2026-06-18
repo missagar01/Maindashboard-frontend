@@ -150,6 +150,51 @@ const formatSecondsToDuration = (totalSeconds: number) => {
 
 const formatPercentage = (value: number) => `${value.toFixed(2)}%`;
 
+const clampPercentage = (value: number) => Math.min(100, Math.max(0, value));
+
+const hasTripSummaryData = (tripSummary?: EquipmentTripReportSummary | null) =>
+  Boolean(
+    tripSummary &&
+      (tripSummary.totalWorkingSeconds > 0 ||
+        tripSummary.movingCount > 0 ||
+        tripSummary.sumOfDistance > 0 ||
+        safeString(tripSummary.startTime) ||
+        safeString(tripSummary.endTime))
+  );
+
+const buildTimingFromTripSummary = (tripSummary?: EquipmentTripReportSummary | null) => {
+  if (!tripSummary || !hasTripSummaryData(tripSummary) || tripSummary.totalWorkingSeconds <= 0) {
+    return null;
+  }
+
+  const totalElapsedSeconds = Math.max(0, tripSummary.totalWorkingSeconds);
+  const onPercentage =
+    clampPercentage(tripSummary.perTotalMovingTime) + clampPercentage(tripSummary.perTotalIdleTime);
+  const explicitOffPercentage =
+    clampPercentage(tripSummary.perTotalStoppageTime) +
+    clampPercentage(tripSummary.perTotalTowingTime) +
+    clampPercentage(tripSummary.perTotalUnreachTime);
+  const offPercentage =
+    explicitOffPercentage > 0 ? explicitOffPercentage : Math.max(0, 100 - onPercentage);
+  const combinedPercentage = onPercentage + offPercentage;
+
+  if (combinedPercentage <= 0) {
+    return null;
+  }
+
+  const onRatio = onPercentage / combinedPercentage;
+  const totalRunningSeconds = Math.min(
+    totalElapsedSeconds,
+    Math.max(0, Math.round(totalElapsedSeconds * onRatio))
+  );
+
+  return {
+    totalElapsedSeconds,
+    totalRunningSeconds,
+    totalOffSeconds: Math.max(0, totalElapsedSeconds - totalRunningSeconds),
+  };
+};
+
 const isWorkingTripStatus = (status: string) =>
   WORKING_STATUS_KEYWORDS.some((keyword) => status.includes(keyword));
 
@@ -356,6 +401,54 @@ const buildTransportSummary = ({
   dateFrom: string;
   dateTo: string;
 }): TransportSummary => {
+  const totalTrips = tripSummary?.movingCount ?? tripRows.length;
+  const totalDistanceKm =
+    tripSummary?.sumOfDistance ?? tripRows.reduce((sum, trip) => sum + (trip.distance || 0), 0);
+  const summaryTiming = buildTimingFromTripSummary(tripSummary);
+  const hasData =
+    hasTripSummaryData(tripSummary) || tripRows.length > 0 || totalTrips > 0 || totalDistanceKm > 0;
+
+  if (summaryTiming) {
+    const scorePercentage =
+      summaryTiming.totalElapsedSeconds > 0
+        ? (summaryTiming.totalRunningSeconds / summaryTiming.totalElapsedSeconds) * 100
+        : 0;
+
+    return {
+      deviceId,
+      deviceName,
+      equipmentName,
+      totalTrips,
+      totalRunningSeconds: summaryTiming.totalRunningSeconds,
+      totalIdleSeconds: summaryTiming.totalOffSeconds,
+      totalElapsedSeconds: summaryTiming.totalElapsedSeconds,
+      totalDistanceKm,
+      scorePercentage,
+      scoreLabel: formatPercentage(scorePercentage),
+      startTime: tripSummary?.startTime ?? null,
+      endTime: tripSummary?.endTime ?? null,
+      hasData: true,
+    };
+  }
+
+  if (!hasData) {
+    return {
+      deviceId,
+      deviceName,
+      equipmentName,
+      totalTrips: 0,
+      totalRunningSeconds: 0,
+      totalIdleSeconds: 0,
+      totalElapsedSeconds: 0,
+      totalDistanceKm: 0,
+      scorePercentage: 0,
+      scoreLabel: formatPercentage(0),
+      startTime: null,
+      endTime: null,
+      hasData: false,
+    };
+  }
+
   const sortedTrips = [...tripRows].sort((left, right) => {
     const leftTime = getDateTimestamp(left.startDate ?? "") || 0;
     const rightTime = getDateTimestamp(right.startDate ?? "") || 0;
@@ -372,8 +465,6 @@ const buildTransportSummary = ({
       ? Math.floor((actualDataEndTimestamp - rangeStartTimestamp) / 1000)
       : getInclusiveDayCount(dateFrom, dateTo) * SECONDS_PER_DAY;
 
-  const fallbackTripCount = sortedTrips.length;
-  const fallbackDistanceKm = sortedTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
   const normalizedTrips = sortedTrips
     .map((trip) => {
       const rawStartTimestamp = getDateTimestamp(trip.startDate ?? "");
@@ -434,8 +525,6 @@ const buildTransportSummary = ({
   );
   const scorePercentage =
     totalElapsedSeconds > 0 ? (totalRunningSeconds / totalElapsedSeconds) * 100 : 0;
-  const totalTrips = tripSummary?.movingCount ?? fallbackTripCount;
-  const totalDistanceKm = tripSummary?.sumOfDistance ?? fallbackDistanceKm;
 
   return {
     deviceId,
@@ -450,7 +539,7 @@ const buildTransportSummary = ({
     scoreLabel: formatPercentage(scorePercentage),
     startTime: tripSummary?.startTime ?? null,
     endTime: tripSummary?.endTime ?? null,
-    hasData: true,
+    hasData,
   };
 };
 
