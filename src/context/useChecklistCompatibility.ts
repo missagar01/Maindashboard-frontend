@@ -122,6 +122,7 @@ export const useChecklistCompatibility = () => {
     quickTask: [] as any[],
     delegationTasks: [] as any[],
     maintenanceTasks: [] as any[],
+    housekeepingTasks: [] as any[],
     users: [] as any[],
     checklistPage: 0,
     checklistTotal: 0,
@@ -132,6 +133,9 @@ export const useChecklistCompatibility = () => {
     maintenancePage: 0,
     maintenanceTotal: 0,
     maintenanceHasMore: true,
+    housekeepingPage: 0,
+    housekeepingTotal: 0,
+    housekeepingHasMore: true,
     loading: false,
   });
 
@@ -413,6 +417,15 @@ export const useChecklistCompatibility = () => {
     }));
   };
 
+  const resetQuickTaskHousekeepingPagination = () => {
+    setQuickTaskState((previous) => ({
+      ...previous,
+      housekeepingPage: 0,
+      housekeepingTasks: [],
+      housekeepingHasMore: true,
+    }));
+  };
+
   const fetchUniqueChecklistTaskData = useCallback(async ({
     page = 0,
     pageSize = 50,
@@ -521,14 +534,70 @@ export const useChecklistCompatibility = () => {
     }
   }, []);
 
+  const fetchUniqueHousekeepingTaskData = useCallback(async ({
+    page = 0,
+    pageSize = 50,
+    nameFilter = "",
+    append = false,
+  } = {}) => {
+    setQuickTaskState((previous) => ({ ...previous, loading: true }));
+    try {
+      const result = await quickTaskApi.fetchHousekeepingData(
+        page,
+        pageSize,
+        nameFilter
+      );
+      const data = Array.isArray(result?.data) ? result.data : [];
+      const total = Number(result?.total) || data.length;
+
+      setQuickTaskState((previous) => {
+        const nextHousekeepingTasks = append ? [...previous.housekeepingTasks, ...data] : data;
+        return {
+          ...previous,
+          housekeepingTasks: nextHousekeepingTasks,
+          housekeepingPage: page + 1,
+          housekeepingTotal: total,
+          housekeepingHasMore: nextHousekeepingTasks.length < total,
+          loading: false,
+        };
+      });
+
+      return result;
+    } catch (error) {
+      setQuickTaskState((previous) => ({ ...previous, loading: false }));
+      console.error("Checklist housekeeping quick-task data error:", error);
+      throw error;
+    }
+  }, []);
+
   const updateQuickTaskChecklistTask = async (updatedTask: any, originalTask: any) =>
     quickTaskApi.updateChecklistTaskApi(updatedTask, originalTask);
+
+  const updateQuickTaskDelegationTask = async (updatedTask: any) =>
+    quickTaskApi.updateDelegationTaskApi(updatedTask);
+
+  const updateQuickTaskMaintenanceTask = async (updatedTask: any) =>
+    quickTaskApi.updateMaintenanceTaskApi(updatedTask);
+
+  const updateQuickTaskHousekeepingTask = async (updatedTask: any) => {
+    const response = await housekeepingApi.updateHousekeepingTaskAPI(
+      updatedTask.task_id,
+      updatedTask
+    );
+    return response?.data ?? response;
+  };
 
   const deleteQuickTaskChecklistTask = async (tasks: any[]) =>
     quickTaskApi.deleteChecklistTasksApi(tasks);
 
   const deleteQuickTaskDelegationTask = async (taskIds: any[]) =>
     quickTaskApi.deleteDelegationTasksApi(taskIds);
+
+  const deleteQuickTaskMaintenanceTask = async (taskIds: any[]) =>
+    quickTaskApi.deleteMaintenanceTasksApi(taskIds);
+
+  const deleteQuickTaskHousekeepingTask = async (taskIds: any[]) =>
+    quickTaskApi.deleteHousekeepingTasksApi(taskIds);
 
   const fetchChecklist = useCallback(async (args?: number | { page?: number; replace?: boolean }) => {
     const page = typeof args === "object" ? args.page || 1 : args || 1;
@@ -1272,13 +1341,20 @@ export const useChecklistCompatibility = () => {
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
     resetQuickTaskMaintenancePagination,
+    resetQuickTaskHousekeepingPagination,
     fetchUniqueChecklistTaskData,
     fetchUniqueDelegationTaskData,
     fetchUniqueMaintenanceTaskData,
+    fetchUniqueHousekeepingTaskData,
     fetchUniqueDelegationTaskDataAction: fetchUniqueDelegationTaskData,
     updateQuickTaskChecklistTask,
+    updateQuickTaskDelegationTask,
+    updateQuickTaskMaintenanceTask,
+    updateQuickTaskHousekeepingTask,
     deleteQuickTaskChecklistTask,
     deleteQuickTaskDelegationTask,
+    deleteQuickTaskMaintenanceTask,
+    deleteQuickTaskHousekeepingTask,
     deleteDelegationTaskAction: deleteQuickTaskDelegationTask,
     fetchChecklist,
     fetchChecklistDataAction,

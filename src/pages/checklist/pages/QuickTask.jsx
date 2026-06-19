@@ -15,6 +15,58 @@ import AdminLayout from "../components/layout/AdminLayout";
 import DelegationPage from "./delegation-data";
 import { useAuth } from "../context/AuthContext";
 
+const normalizeFrequencyValue = (value) => {
+  if (!value) return "";
+  const normalized = String(value).trim();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+};
+
+const normalizeYesNoValue = (value) => {
+  if (!value) return "";
+  const normalized = String(value).trim();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+};
+
+const isCurrentDayDateValue = (dateValue) => {
+  if (!dateValue) return false;
+  let taskDate = new Date(dateValue);
+  
+  if (Number.isNaN(taskDate.getTime()) && typeof dateValue === 'string') {
+    const parts = dateValue.split(' ');
+    if (parts.length >= 1) {
+      const dateParts = parts[0].split('/');
+      if (dateParts.length === 3) {
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1;
+        const year = parseInt(dateParts[2], 10);
+        taskDate = new Date(year, month, day);
+      }
+    }
+  }
+
+  if (Number.isNaN(taskDate.getTime())) return false;
+  const today = new Date();
+  return (
+    taskDate.getFullYear() === today.getFullYear() &&
+    taskDate.getMonth() === today.getMonth() &&
+    taskDate.getDate() === today.getDate()
+  );
+};
+
+const getActionButtonClasses = (variant, isEnabled) => {
+  if (!isEnabled) {
+    return "flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed";
+  }
+
+  if (variant === "edit") {
+    return "flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500 text-white hover:bg-sky-600 transition-all shadow-sm border border-sky-500";
+  }
+
+  return "flex items-center justify-center w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all shadow-sm border border-red-500";
+};
+
 export default function QuickTask() {
   const [tasks, setTasks] = useState([]);
   const [delegationLoading, setDelegationLoading] = useState(false);
@@ -32,7 +84,9 @@ export default function QuickTask() {
   });
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingTaskKey, setDeletingTaskKey] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskType, setEditingTaskType] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [originalTaskData, setOriginalTaskData] = useState(null);
@@ -43,11 +97,18 @@ export default function QuickTask() {
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
     resetQuickTaskMaintenancePagination,
+    resetQuickTaskHousekeepingPagination,
     fetchUniqueChecklistTaskData,
     fetchUniqueDelegationTaskData,
     fetchUniqueMaintenanceTaskData,
+    fetchUniqueHousekeepingTaskData,
     updateQuickTaskChecklistTask,
+    updateQuickTaskDelegationTask,
+    updateQuickTaskMaintenanceTask,
+    updateQuickTaskHousekeepingTask,
     deleteQuickTaskChecklistTask,
+    deleteQuickTaskMaintenanceTask,
+    deleteQuickTaskHousekeepingTask,
     userData
   } = useAuth();
 
@@ -56,6 +117,7 @@ export default function QuickTask() {
     loading,
     delegationTasks,
     maintenanceTasks,
+    housekeepingTasks,
     users,
     checklistPage,
     checklistHasMore,
@@ -63,13 +125,16 @@ export default function QuickTask() {
     delegationHasMore,
     maintenancePage,
     maintenanceHasMore,
+    housekeepingPage,
+    housekeepingHasMore,
   } = quickTaskState;
 
   const allNames = [...new Set([
     ...users.map((user) => typeof user?.user_name === "string" ? user.user_name.trim() : ""),
     ...quickTask.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
     ...delegationTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
-    ...maintenanceTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : "")
+    ...maintenanceTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+    ...housekeepingTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : "")
   ])]
     .filter((name) => name && typeof name === "string" && name.trim() !== "")
     .sort();
@@ -115,6 +180,13 @@ export default function QuickTask() {
         nameFilter: appliedNameFilter,
         append: true,
       });
+    } else if (activeTab === "housekeeping" && housekeepingHasMore) {
+      fetchUniqueHousekeepingTaskData({
+        page: housekeepingPage,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: true,
+      });
     }
   }, [
     loading,
@@ -125,6 +197,8 @@ export default function QuickTask() {
     delegationPage,
     maintenanceHasMore,
     maintenancePage,
+    housekeepingHasMore,
+    housekeepingPage,
     appliedNameFilter,
   ]);
 
@@ -136,29 +210,61 @@ export default function QuickTask() {
   }, [handleScroll]);
 
   // Edit functionality - Open modal with pre-filled data
-  const handleEditClick = (task) => {
+  const refreshTabData = async (taskType) => {
+    if (taskType === "checklist") {
+      resetQuickTaskChecklistPagination();
+      await fetchUniqueChecklistTaskData({
+        page: 0,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: false,
+      });
+      return;
+    }
+
+    if (taskType === "delegation") {
+      resetQuickTaskDelegationPagination();
+      await fetchUniqueDelegationTaskData({
+        page: 0,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: false,
+      });
+      return;
+    }
+
+    if (taskType === "maintenance") {
+      resetQuickTaskMaintenancePagination();
+      await fetchUniqueMaintenanceTaskData({
+        page: 0,
+        pageSize: 100,
+        nameFilter: appliedNameFilter,
+        append: false,
+      });
+      return;
+    }
+
+    resetQuickTaskHousekeepingPagination();
+    await fetchUniqueHousekeepingTaskData({
+      page: 0,
+      pageSize: 100,
+      nameFilter: appliedNameFilter,
+      append: false,
+    });
+  };
+
+  const handleEditClick = (task, taskType = activeTab) => {
+    if (!isCurrentDayDateValue(task?.task_start_date)) {
+      setError("Only current day tasks can be edited.");
+      return;
+    }
+
     setEditingTaskId(task.task_id);
+    setEditingTaskType(taskType);
     setOriginalTaskData(task);
     setError(null);
     setSuccessMessage("");
-
-    // Normalize frequency to match select box options (capitalize first letter)
-    const normalizeFrequency = (freq) => {
-      if (!freq) return "";
-      const freqStr = String(freq).trim();
-      if (!freqStr) return "";
-      // Capitalize first letter, lowercase rest
-      return freqStr.charAt(0).toUpperCase() + freqStr.slice(1).toLowerCase();
-    };
-
-    // Normalize Yes/No values to match select box options
-    const normalizeYesNo = (value) => {
-      if (!value) return "";
-      const valueStr = String(value).trim();
-      if (!valueStr) return "";
-      // Capitalize first letter
-      return valueStr.charAt(0).toUpperCase() + valueStr.slice(1).toLowerCase();
-    };
+    setIsSaving(false);
 
     // Pre-fill form with existing task data - preserve all original fields first
     setEditFormData({
@@ -172,21 +278,28 @@ export default function QuickTask() {
         ? new Date(task.task_start_date).toISOString().slice(0, 16)
         : "",
       // Normalize frequency to match select options (Daily, Weekly, Monthly, Yearly)
-      frequency: normalizeFrequency(task.frequency),
+      frequency: normalizeFrequencyValue(task.frequency),
       // Normalize enable_reminder to match select options (Yes, No)
-      enable_reminder: normalizeYesNo(task.enable_reminder),
+      enable_reminder: normalizeYesNoValue(task.enable_reminder),
       // Normalize require_attachment to match select options (Yes, No)
-      require_attachment: normalizeYesNo(task.require_attachment),
+      require_attachment: normalizeYesNoValue(task.require_attachment),
       remark: task.remark || "",
+      machine_name: task.machine_name || "",
+      serial_no: task.serial_no || "",
+      task_type: task.task_type || "",
+      priority: task.priority || "",
+      status: normalizeYesNoValue(task.status),
     });
   };
 
   const handleCancelEdit = () => {
     setEditingTaskId(null);
+    setEditingTaskType(null);
     setOriginalTaskData(null);
     setEditFormData({});
     setError(null);
     setSuccessMessage("");
+    setIsSaving(false);
   };
 
   const handleSaveEdit = async () => {
@@ -198,6 +311,7 @@ export default function QuickTask() {
     setIsSaving(true);
     setError(null);
     setSuccessMessage("");
+    const currentTaskType = editingTaskType || activeTab;
 
     try {
       // Prepare the updated task data
@@ -212,31 +326,40 @@ export default function QuickTask() {
       };
 
       // Create a matching object for bulk update by name and description
-      const matchCriteria = {
-        name: originalTaskData.name,
-        task_description: originalTaskData.task_description,
-        division: originalTaskData.division || userData?.division || localStorage.getItem("division") || ""
-      };
+      if (currentTaskType === "checklist") {
+        const matchCriteria = {
+          name: originalTaskData?.name,
+          task_description: originalTaskData?.task_description,
+          division:
+            originalTaskData?.division ||
+            userData?.division ||
+            localStorage.getItem("division") ||
+            "",
+        };
 
-      // Pass matchCriteria to update all tasks with same name & description
-      await updateQuickTaskChecklistTask(updatedTaskData, matchCriteria);
+        await updateQuickTaskChecklistTask(updatedTaskData, matchCriteria);
+      } else if (currentTaskType === "delegation") {
+        await updateQuickTaskDelegationTask(updatedTaskData);
+      } else if (currentTaskType === "maintenance") {
+        await updateQuickTaskMaintenanceTask(updatedTaskData);
+      } else if (currentTaskType === "housekeeping") {
+        await updateQuickTaskHousekeepingTask(updatedTaskData);
+      }
 
-      // Update was successful - show success message
-      setSuccessMessage("Task updated successfully! ✅");
+      await refreshTabData(currentTaskType);
+      setSuccessMessage("Task updated successfully!");
+      setIsSaving(false);
 
-      // Close modal after 2 seconds
       setTimeout(() => {
-        setEditingTaskId(null);
-        setEditFormData({});
-        setError(null);
-        setSuccessMessage("");
-      }, 2000);
+        handleCancelEdit();
+      }, 1200);
 
     } catch (error) {
       console.error("Failed to update task:", error);
       const errorMessage =
         error?.message ||
         error?.error ||
+        (typeof error === "string" ? error : null) ||
         "Failed to update task. Please try again.";
       setError(errorMessage);
       setIsSaving(false);
@@ -261,19 +384,27 @@ export default function QuickTask() {
 
   // Select all
   const handleSelectAll = () => {
-    const isAllSelected = filteredChecklistTasks.length > 0 &&
-      filteredChecklistTasks.every(task => selectedTasks.some(t => t.task_id === task.task_id));
+    const selectableTasks = filteredChecklistTasks.filter((task) =>
+      isCurrentDayDateValue(task.task_start_date)
+    );
+    const isAllSelected = selectableTasks.length > 0 &&
+      selectableTasks.every(task => selectedTasks.some(t => t.task_id === task.task_id));
 
     if (isAllSelected) {
       setSelectedTasks([]);
     } else {
-      setSelectedTasks(filteredChecklistTasks); // store full rows
+      setSelectedTasks(selectableTasks);
     }
   };
 
   // Delete
   const handleDeleteSelected = async () => {
     if (selectedTasks.length === 0) return;
+
+    if (selectedTasks.some((task) => !isCurrentDayDateValue(task.task_start_date))) {
+      setError("Only current day tasks can be deleted.");
+      return;
+    }
 
     setIsDeleting(true);
     try {
@@ -289,9 +420,66 @@ export default function QuickTask() {
       setSelectedTasks([]);
     } catch (error) {
       console.error("Failed to delete tasks:", error);
-      setError("Failed to delete tasks");
+      setError(
+        error?.message ||
+        error?.error ||
+        (typeof error === "string" ? error : null) ||
+        "Failed to delete tasks"
+      );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteTask = async (task, taskType = activeTab) => {
+    if (!isCurrentDayDateValue(task?.task_start_date)) {
+      setError("Only current day tasks can be deleted.");
+      return;
+    }
+
+    const taskLabel = task?.task_description || `task #${task?.task_id || ""}`;
+    const shouldDelete = window.confirm(
+      `Delete this ${taskType} task?\n\n${taskLabel}`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    const currentDeletingKey = `${taskType}:${task.task_id}`;
+    setDeletingTaskKey(currentDeletingKey);
+    setError(null);
+
+    try {
+      if (taskType === "checklist") {
+        await deleteQuickTaskChecklistTask([
+          {
+            name: task.name,
+            task_description: task.task_description,
+            division: task.division || userData?.division || localStorage.getItem("division") || "",
+          },
+        ]);
+      } else if (taskType === "maintenance") {
+        await deleteQuickTaskMaintenanceTask([task.task_id]);
+      } else if (taskType === "housekeeping") {
+        await deleteQuickTaskHousekeepingTask([task.task_id]);
+      }
+
+      if (editingTaskId === task.task_id && editingTaskType === taskType) {
+        handleCancelEdit();
+      }
+
+      await refreshTabData(taskType);
+    } catch (deleteError) {
+      console.error(`Failed to delete ${taskType} task:`, deleteError);
+      const errorMessage =
+        deleteError?.message ||
+        deleteError?.error ||
+        (typeof deleteError === "string" ? deleteError : null) ||
+        `Failed to delete ${taskType} task.`;
+      setError(errorMessage);
+    } finally {
+      setDeletingTaskKey(null);
     }
   };
 
@@ -344,6 +532,14 @@ export default function QuickTask() {
         nameFilter: name,
         append: false,
       });
+    } else if (activeTab === "housekeeping") {
+      resetQuickTaskHousekeepingPagination();
+      fetchUniqueHousekeepingTaskData({
+        page: 0,
+        pageSize: 100,
+        nameFilter: name,
+        append: false,
+      });
     } else {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
@@ -381,6 +577,14 @@ export default function QuickTask() {
         nameFilter: "",
         append: false,
       });
+    } else if (activeTab === "housekeeping") {
+      resetQuickTaskHousekeepingPagination();
+      fetchUniqueHousekeepingTaskData({
+        page: 0,
+        pageSize: 100,
+        nameFilter: "",
+        append: false,
+      });
     } else {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
@@ -407,6 +611,7 @@ export default function QuickTask() {
       ...quickTask.map((task) => task.frequency),
       ...delegationTasks.map((task) => task.frequency),
       ...maintenanceTasks.map((task) => task.frequency),
+      ...housekeepingTasks.map((task) => task.frequency),
     ]),
   ].filter(
     (frequency) =>
@@ -461,6 +666,10 @@ export default function QuickTask() {
       }
       return 0;
     });
+
+  const selectableChecklistTasks = filteredChecklistTasks.filter((task) =>
+    isCurrentDayDateValue(task.task_start_date)
+  );
 
   const filteredMaintenanceTasks = maintenanceTasks
     .filter((task) => {
@@ -517,6 +726,75 @@ export default function QuickTask() {
       return 0;
     });
 
+  const filteredHousekeepingTasks = housekeepingTasks
+    .filter((task) => {
+      if (!task) return false;
+
+      const nameFilterPass =
+        !appliedNameFilter ||
+        (task.name &&
+          task.name.trim().toLowerCase() ===
+          appliedNameFilter.trim().toLowerCase());
+
+      const freqFilterPass =
+        !freqFilter ||
+        (task.frequency &&
+          task.frequency.toLowerCase() === freqFilter.toLowerCase());
+
+      const query = searchTerm.toLowerCase();
+      const searchTermPass =
+        !searchTerm ||
+        (task.task_description &&
+          task.task_description.toLowerCase().includes(query)) ||
+        (task.department &&
+          task.department.toLowerCase().includes(query)) ||
+        (task.name &&
+          task.name.toLowerCase().includes(query)) ||
+        (task.given_by &&
+          task.given_by.toLowerCase().includes(query)) ||
+        (task.remark &&
+          task.remark.toLowerCase().includes(query)) ||
+        (task.hod &&
+          String(task.hod).toLowerCase().includes(query)) ||
+        (task.doer_name2 &&
+          String(task.doer_name2).toLowerCase().includes(query)) ||
+        (task.status &&
+          String(task.status).toLowerCase().includes(query));
+
+      return nameFilterPass && freqFilterPass && searchTermPass;
+    })
+    .sort((a, b) => {
+      if (!sortConfig.key) return 0;
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      if (aVal < bVal) {
+        return sortConfig.direction === "asc" ? -1 : 1;
+      }
+      if (aVal > bVal) {
+        return sortConfig.direction === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
+  const isChecklistEdit = editingTaskType === "checklist";
+  const isDelegationEdit = editingTaskType === "delegation";
+  const isMaintenanceEdit = editingTaskType === "maintenance";
+  const isHousekeepingEdit = editingTaskType === "housekeeping";
+  const showReminderFields = isChecklistEdit || isDelegationEdit;
+  const showRemarkField = isChecklistEdit || isHousekeepingEdit;
+  const editModalTitle = isDelegationEdit
+    ? "Edit Delegation Task"
+    : isMaintenanceEdit
+      ? "Edit Maintenance Task"
+      : isHousekeepingEdit
+        ? "Edit Housekeeping Task"
+        : "Edit Task";
+
   function formatTimestampToDDMMYYYY(timestamp) {
     if (!timestamp || timestamp === "" || timestamp === null) {
       return "—"; // or just return ""
@@ -547,7 +825,9 @@ export default function QuickTask() {
                 ? `Managing ${filteredChecklistTasks.length} checklist items`
                 : activeTab === "delegation"
                   ? "Managing delegation tasks"
-                  : `Managing ${filteredMaintenanceTasks.length} maintenance items`}
+                  : activeTab === "housekeeping"
+                    ? `Managing ${filteredHousekeepingTasks.length} housekeeping items`
+                    : `Managing ${filteredMaintenanceTasks.length} maintenance items`}
             </p>
           </div>
         </div>
@@ -610,6 +890,25 @@ export default function QuickTask() {
               }}
             >
               Maintenance
+            </button>
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "housekeeping"
+                ? "bg-white text-red-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                }`}
+              onClick={() => {
+                setSelectedTasks([]);
+                handleCancelEdit();
+                setActiveTab("housekeeping");
+                resetQuickTaskHousekeepingPagination();
+                fetchUniqueHousekeepingTaskData({
+                  page: 0,
+                  pageSize: 100,
+                  nameFilter: appliedNameFilter,
+                });
+              }}
+            >
+              Housekeeping
             </button>
           </div>
 
@@ -801,6 +1100,12 @@ export default function QuickTask() {
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
                 });
+              } else if (activeTab === "housekeeping") {
+                fetchUniqueHousekeepingTaskData({
+                  page: 0,
+                  pageSize: 100,
+                  nameFilter: appliedNameFilter,
+                });
               } else if (activeTab === "maintenance") {
                 fetchUniqueMaintenanceTaskData({
                   page: 0,
@@ -836,6 +1141,13 @@ export default function QuickTask() {
         </div>
       )}
 
+      {loading && activeTab === "housekeeping" && (
+        <div className="mt-8 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
+          <p className="text-purple-600">Loading housekeeping data...</p>
+        </div>
+      )}
+
       {!error && (
         <>
           {activeTab === "checklist" ? (
@@ -865,12 +1177,15 @@ export default function QuickTask() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
+                      <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        Actions
+                      </th>
                       <th className="px-4 py-3 text-left">
                         <input
                           type="checkbox"
                           checked={
-                            filteredChecklistTasks.length > 0 &&
-                            filteredChecklistTasks.every(task =>
+                            selectableChecklistTasks.length > 0 &&
+                            selectableChecklistTasks.every(task =>
                               selectedTasks.some(t => t.task_id === task.task_id)
                             )
                           }
@@ -900,7 +1215,6 @@ export default function QuickTask() {
                         { key: "frequency", label: "Frequency" },
                         { key: "enable_reminder", label: "Reminders" },
                         { key: "require_attachment", label: "Attachment" },
-                        { key: "actions", label: "Actions" },
                       ].map((column) => (
                         <th
                           key={column.label}
@@ -932,15 +1246,59 @@ export default function QuickTask() {
                     {filteredChecklistTasks.length > 0 ? (
                       filteredChecklistTasks.map((task, index) => (
                         <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {editingTaskId === task.task_id ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSaveEdit}
+                                  disabled={isSaving}
+                                  className="flex items-center justify-center w-8 h-8 bg-green-50 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all shadow-sm border border-green-100"
+                                  title="Save"
+                                >
+                                  <Save size={14} />
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="flex items-center justify-center w-8 h-8 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-600 hover:text-white transition-all shadow-sm border border-gray-100"
+                                  title="Cancel"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleEditClick(task)}
+                                  disabled={!isCurrentDayDateValue(task.task_start_date)}
+                                  className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date))}
+                                  title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTask(task, "checklist")}
+                                  disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `checklist:${task.task_id}`}
+                                  className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `checklist:${task.task_id}`)}
+                                  title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                                >
+                                  {deletingTaskKey === `checklist:${task.task_id}` ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                                  ) : (
+                                    <Trash2 size={14} />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={selectedTasks.some(t => t.task_id === task.task_id)}
                               onChange={() => handleCheckboxChange(task)}
+                              disabled={!isCurrentDayDateValue(task.task_start_date)}
                               className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                             />
                           </td>
-
                           {/* Department */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {editingTaskId === task.task_id ? (
@@ -1128,43 +1486,12 @@ export default function QuickTask() {
                               </span>
                             )}
                           </td>
-
-                          {/* Actions */}
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {editingTaskId === task.task_id ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={handleSaveEdit}
-                                  disabled={isSaving}
-                                  className="flex items-center justify-center w-8 h-8 bg-green-50 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all shadow-sm border border-green-100"
-                                  title="Save"
-                                >
-                                  <Save size={14} />
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  className="flex items-center justify-center w-8 h-8 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-600 hover:text-white transition-all shadow-sm border border-gray-100"
-                                  title="Cancel"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleEditClick(task)}
-                                className="flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
-                                title="Edit Task"
-                              >
-                                <Edit size={14} />
-                              </button>
-                            )}
-                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td
-                          colSpan={12}
+                          colSpan={11}
                           className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic"
                         >
                           <div className="flex flex-col items-center gap-2">
@@ -1198,9 +1525,187 @@ export default function QuickTask() {
               searchTerm={searchTerm}
               nameFilter={nameFilter}
               freqFilter={freqFilter}
-              setNameFilter={setNameFilter}
-              setFreqFilter={setFreqFilter}
+              onEditTask={handleEditClick}
             />
+          ) : activeTab === "housekeeping" ? (
+            <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
+              <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
+                <div>
+                  <h2 className="text-gray-700 font-bold text-sm flex items-center gap-2">
+                    <div className="w-1 h-4 bg-red-600 rounded-full" />
+                    Housekeeping Tasks
+                  </h2>
+                  <p className="text-gray-500 text-[10px] sm:text-xs">
+                    Showing all unique items from housekeeping
+                  </p>
+                </div>
+                <span className="text-[10px] sm:text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                  {filteredHousekeepingTasks.length} items
+                </span>
+              </div>
+              <div
+                ref={tableContainerRef}
+                className="overflow-x-auto overflow-y-auto"
+                style={{ maxHeight: "calc(100vh - 220px)" }}
+              >
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-20">
+                    <tr>
+                      {[
+                        { key: "actions", label: "Actions" },
+                        { key: "department", label: "Department" },
+                        { key: "given_by", label: "Given By" },
+                        { key: "name", label: "Doer Name" },
+                        {
+                          key: "task_description",
+                          label: "Task Description",
+                          minWidth: "min-w-[320px]",
+                        },
+                        {
+                          key: "task_start_date",
+                          label: "Start Date",
+                          bg: "bg-yellow-50",
+                        },
+                        { key: "frequency", label: "Frequency" },
+                        { key: "status", label: "Status" },
+                        { key: "remark", label: "Remark" },
+                        { key: "attachment", label: "Verification" },
+                      ].map((column) => (
+                        <th
+                          key={column.label}
+                          className={`px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest transition-colors ${column.bg ? "bg-red-50/30" : ""
+                            } ${column.minWidth || ""} ${column.key && column.key !== "actions"
+                              ? "cursor-pointer hover:bg-gray-100/50 hover:text-red-600"
+                              : ""
+                            }`}
+                          onClick={() => column.key && column.key !== "actions" && requestSort(column.key)}
+                        >
+                          <div className="flex items-center gap-1">
+                            {column.label}
+                            {sortConfig.key === column.key && (
+                              <span className="text-red-600 font-bold">
+                                {sortConfig.direction === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredHousekeepingTasks.length > 0 ? (
+                      filteredHousekeepingTasks.map((task, index) => (
+                        <tr key={`${task.task_id}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditClick(task, "housekeeping")}
+                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+                                className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `housekeeping:${task.task_id}`)}
+                                title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTask(task, "housekeeping")}
+                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+                                className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `housekeeping:${task.task_id}`)}
+                                title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                              >
+                                {deletingTaskKey === `housekeeping:${task.task_id}` ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {task.department || "-"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
+                            {task.given_by || "-"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-bold">
+                            {task.name || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-500 min-w-[320px] max-w-[420px]">
+                            <div className="whitespace-normal break-words leading-relaxed">
+                              {task.task_description || "-"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600 bg-red-50/10">
+                            {formatTimestampToDDMMYYYY(task.task_start_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-50 text-gray-600 border border-gray-100">
+                              {task.frequency || "-"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold">
+                            <span
+                              className={
+                                String(task.status || "").toLowerCase() === "yes"
+                                  ? "text-green-600"
+                                  : String(task.status || "").toLowerCase() === "no"
+                                    ? "text-amber-600"
+                                    : "text-gray-500"
+                              }
+                            >
+                              {task.status || "-"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-[11px] text-gray-500 min-w-[220px] max-w-[320px]">
+                            <div className="whitespace-normal break-words leading-relaxed">
+                              {task.remark || "-"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-[11px] font-bold">
+                            <span
+                              className={
+                                String(task.attachment || "").toLowerCase() === "confirmed"
+                                  ? "text-green-600"
+                                  : "text-gray-400"
+                              }
+                            >
+                              {task.attachment || "-"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Filter size={24} className="opacity-20" />
+                            <span>
+                              {searchTerm || freqFilter
+                                ? "No housekeeping tasks matching your search filters"
+                                : appliedNameFilter
+                                  ? "No housekeeping tasks found for this doer"
+                                  : "No housekeeping tasks found"
+                              }
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {loading && housekeepingHasMore && (
+                  <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />
+                    <p className="text-red-600 text-[10px] font-bold uppercase tracking-widest mt-3 animate-pulse">
+                      Loading more housekeeping tasks...
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
               <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
@@ -1226,6 +1731,7 @@ export default function QuickTask() {
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
                       {[
+                        { key: "actions", label: "Actions" },
                         { key: "department", label: "Department" },
                         { key: "given_by", label: "Given By" },
                         { key: "name", label: "Doer Name" },
@@ -1248,11 +1754,11 @@ export default function QuickTask() {
                         <th
                           key={column.label}
                           className={`px-6 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest transition-colors ${column.bg ? "bg-red-50/30" : ""
-                            } ${column.minWidth || ""} ${column.key
+                            } ${column.minWidth || ""} ${column.key && column.key !== "actions"
                               ? "cursor-pointer hover:bg-gray-100/50 hover:text-red-600"
                               : ""
                             }`}
-                          onClick={() => column.key && requestSort(column.key)}
+                          onClick={() => column.key && column.key !== "actions" && requestSort(column.key)}
                         >
                           <div className="flex items-center gap-1">
                             {column.label}
@@ -1271,6 +1777,30 @@ export default function QuickTask() {
                     {filteredMaintenanceTasks.length > 0 ? (
                       filteredMaintenanceTasks.map((task, index) => (
                         <tr key={`${task.task_id}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditClick(task, "maintenance")}
+                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+                                className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `maintenance:${task.task_id}`)}
+                                title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTask(task, "maintenance")}
+                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+                                className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `maintenance:${task.task_id}`)}
+                                title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                              >
+                                {deletingTaskKey === `maintenance:${task.task_id}` ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {task.department || "—"}
                           </td>
@@ -1310,7 +1840,7 @@ export default function QuickTask() {
                     ) : (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={11}
                           className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic"
                         >
                           <div className="flex flex-col items-center gap-2">
@@ -1359,7 +1889,7 @@ export default function QuickTask() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">
-                    Edit Task
+                    {editModalTitle}
                   </h3>
                   <p className="text-xs text-gray-500">ID: #{editingTaskId}</p>
                 </div>
@@ -1459,30 +1989,95 @@ export default function QuickTask() {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Remainders</label>
+                  {isMaintenanceEdit && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Machine Name</label>
+                        <input
+                          type="text"
+                          value={editFormData.machine_name || ""}
+                          onChange={(e) => handleInputChange("machine_name", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Serial No</label>
+                        <input
+                          type="text"
+                          value={editFormData.serial_no || ""}
+                          onChange={(e) => handleInputChange("serial_no", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Task Type</label>
+                        <input
+                          type="text"
+                          value={editFormData.task_type || ""}
+                          onChange={(e) => handleInputChange("task_type", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Priority</label>
+                        <select
+                          value={editFormData.priority || ""}
+                          onChange={(e) => handleInputChange("priority", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        >
+                          <option value="">Select Priority</option>
+                          <option value="High">High</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Low">Low</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {showReminderFields && (
+                    <div className="grid grid-cols-2 gap-4 sm:col-span-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Reminders</label>
+                        <select
+                          value={editFormData.enable_reminder || ""}
+                          onChange={(e) => handleInputChange("enable_reminder", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        >
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Attachment</label>
+                        <select
+                          value={editFormData.require_attachment || ""}
+                          onChange={(e) => handleInputChange("require_attachment", e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
+                        >
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {isHousekeepingEdit && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Status</label>
                       <select
-                        value={editFormData.enable_reminder || ""}
-                        onChange={(e) => handleInputChange("enable_reminder", e.target.value)}
+                        value={editFormData.status || ""}
+                        onChange={(e) => handleInputChange("status", e.target.value)}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
                       >
+                        <option value="">Select Status</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Attachment</label>
-                      <select
-                        value={editFormData.require_attachment || ""}
-                        onChange={(e) => handleInputChange("require_attachment", e.target.value)}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none"
-                      >
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1495,15 +2090,17 @@ export default function QuickTask() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Remark</label>
-                  <textarea
-                    value={editFormData.remark || ""}
-                    onChange={(e) => handleInputChange("remark", e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none min-h-[80px]"
-                    placeholder="Add any additional notes..."
-                  />
-                </div>
+                {showRemarkField && (
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider ml-1">Remark</label>
+                    <textarea
+                      value={editFormData.remark || ""}
+                      onChange={(e) => handleInputChange("remark", e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-red-100 focus:border-red-600 focus:bg-white transition-all outline-none min-h-[80px]"
+                      placeholder="Add any additional notes..."
+                    />
+                  </div>
+                )}
               </form>
             </div>
 
