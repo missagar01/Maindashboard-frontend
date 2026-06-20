@@ -63,6 +63,8 @@ const formatDateForDisplay = (value) => {
   return `${day}/${month}/${year}`;
 };
 
+const normalizeTextValue = (value) => String(value || "").trim().toLowerCase();
+
 // Reusable dropdown with loading state
 const DropdownField = ({ label, id, name, value, onChange, required, disabled, loading, placeholder, children, hint }) => (
   <div className="space-y-1.5">
@@ -274,27 +276,42 @@ function AssignTask() {
 
   const handleMachineChange = async (machineName) => {
     setSelectedMachine(machineName);
+    setSelectedSerialNo("");
+    setFilteredSerials([]);
+
     if (!machineName) return;
 
     try {
-      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/machine-details`);
+      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/machine-details`, {
+        params: {
+          machine_name: machineName,
+        },
+      });
 
       if (result.success && Array.isArray(result.data) && result.data.length > 0) {
         const matches = result.data.filter(
           (m) =>
-            m.machine_name === machineName &&
-            (!machineDepartment || m.department === machineDepartment)
+            normalizeTextValue(m.machine_name) === normalizeTextValue(machineName)
         );
 
-        const tagNumbers =
-          matches
-            .map((m) => m.tag_no)
-            .filter(Boolean) || [];
+        const tagNumbers = [
+          ...new Set(
+            matches
+              .map((m) => String(m.tag_no || "").trim())
+              .filter(Boolean)
+          ),
+        ];
 
         const serialNumbersFallback =
           tagNumbers.length > 0
             ? []
-            : matches.map((m) => m.serial_no).filter(Boolean);
+            : [
+                ...new Set(
+                  matches
+                    .map((m) => String(m.serial_no || "").trim())
+                    .filter(Boolean)
+                ),
+              ];
 
         const finalList = tagNumbers.length > 0 ? tagNumbers : serialNumbersFallback;
 
