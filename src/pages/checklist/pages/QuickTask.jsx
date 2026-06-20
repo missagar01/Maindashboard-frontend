@@ -67,6 +67,59 @@ const getActionButtonClasses = (variant, isEnabled) => {
   return "flex items-center justify-center w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all shadow-sm border border-red-500";
 };
 
+const getCurrentDayRange = () => {
+  const currentDay = format(new Date(), "yyyy-MM-dd");
+  return {
+    startDate: currentDay,
+    endDate: currentDay,
+  };
+};
+
+const getDisplayValue = (value, fallback = "—") => {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  return value;
+};
+
+const getFrequencyBadgeClasses = (frequency) => {
+  if (frequency === "Daily") {
+    return "bg-blue-50 text-blue-600 border border-blue-100";
+  }
+
+  if (frequency === "Weekly") {
+    return "bg-green-50 text-green-600 border border-green-100";
+  }
+
+  if (frequency === "Monthly") {
+    return "bg-red-50 text-red-600 border border-red-100";
+  }
+
+  return "bg-gray-50 text-gray-600 border border-gray-100";
+};
+
+const getYesNoTextClasses = (
+  value,
+  positiveClassName = "text-green-600",
+  negativeClassName = "text-gray-400"
+) => {
+  return String(value || "").toLowerCase() === "yes"
+    ? positiveClassName
+    : negativeClassName;
+};
+
+const MobileTaskField = ({ label, value, valueClassName = "text-gray-700" }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+      {label}
+    </p>
+    <p className={`mt-1 text-xs font-medium break-words ${valueClassName}`}>
+      {getDisplayValue(value)}
+    </p>
+  </div>
+);
+
 export default function QuickTask() {
   const [tasks, setTasks] = useState([]);
   const [delegationLoading, setDelegationLoading] = useState(false);
@@ -143,11 +196,56 @@ export default function QuickTask() {
     (name) => name.toLowerCase() === nameFilter.trim().toLowerCase()
   ) || nameFilter.trim()) : "";
 
+  const getFetchParams = useCallback(
+    (taskType, overrides = {}) => {
+      const params = { ...overrides };
+
+      if (
+        taskType === "checklist" ||
+        taskType === "maintenance" ||
+        taskType === "housekeeping"
+      ) {
+        return {
+          ...params,
+          ...getCurrentDayRange(),
+        };
+      }
+
+      return params;
+    },
+    []
+  );
+
   useEffect(() => {
-    fetchQuickTaskUsers();
-    resetQuickTaskChecklistPagination();
-    fetchUniqueChecklistTaskData({ page: 0, pageSize: 100, nameFilter: "" });
-  }, []);
+    let isActive = true;
+
+    const initializeQuickTask = async () => {
+      setError(null);
+      resetQuickTaskChecklistPagination();
+
+      await fetchQuickTaskUsers();
+
+      try {
+        await fetchUniqueChecklistTaskData(
+          getFetchParams("checklist", { page: 0, pageSize: 100, nameFilter: "" })
+        );
+      } catch (loadError) {
+        if (!isActive) return;
+        const errorMessage =
+          loadError?.message ||
+          loadError?.error ||
+          (typeof loadError === "string" ? loadError : null) ||
+          "Failed to load quick tasks. Please check the API connection.";
+        setError(errorMessage);
+      }
+    };
+
+    initializeQuickTask();
+
+    return () => {
+      isActive = false;
+    };
+  }, [fetchQuickTaskUsers, resetQuickTaskChecklistPagination, fetchUniqueChecklistTaskData, getFetchParams]);
 
   // Infinite scroll - load more data when user scrolls to bottom
   const handleScroll = useCallback(() => {
@@ -160,12 +258,12 @@ export default function QuickTask() {
     if (!isNearBottom) return;
 
     if (activeTab === "checklist" && checklistHasMore) {
-      fetchUniqueChecklistTaskData({
+      fetchUniqueChecklistTaskData(getFetchParams("checklist", {
         page: checklistPage,
         pageSize: 100,
         nameFilter: appliedNameFilter,
         append: true,
-      });
+      }));
     } else if (activeTab === "delegation" && delegationHasMore) {
       fetchUniqueDelegationTaskData({
         page: delegationPage,
@@ -174,19 +272,19 @@ export default function QuickTask() {
         append: true,
       });
     } else if (activeTab === "maintenance" && maintenanceHasMore) {
-      fetchUniqueMaintenanceTaskData({
+      fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
         page: maintenancePage,
         pageSize: 100,
         nameFilter: appliedNameFilter,
         append: true,
-      });
+      }));
     } else if (activeTab === "housekeeping" && housekeepingHasMore) {
-      fetchUniqueHousekeepingTaskData({
+      fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
         page: housekeepingPage,
         pageSize: 100,
         nameFilter: appliedNameFilter,
         append: true,
-      });
+      }));
     }
   }, [
     loading,
@@ -200,6 +298,7 @@ export default function QuickTask() {
     housekeepingHasMore,
     housekeepingPage,
     appliedNameFilter,
+    getFetchParams,
   ]);
 
   useEffect(() => {
@@ -213,12 +312,12 @@ export default function QuickTask() {
   const refreshTabData = async (taskType) => {
     if (taskType === "checklist") {
       resetQuickTaskChecklistPagination();
-      await fetchUniqueChecklistTaskData({
+      await fetchUniqueChecklistTaskData(getFetchParams("checklist", {
         page: 0,
         pageSize: 100,
         nameFilter: appliedNameFilter,
         append: false,
-      });
+      }));
       return;
     }
 
@@ -235,22 +334,22 @@ export default function QuickTask() {
 
     if (taskType === "maintenance") {
       resetQuickTaskMaintenancePagination();
-      await fetchUniqueMaintenanceTaskData({
+      await fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
         page: 0,
         pageSize: 100,
         nameFilter: appliedNameFilter,
         append: false,
-      });
+      }));
       return;
     }
 
     resetQuickTaskHousekeepingPagination();
-    await fetchUniqueHousekeepingTaskData({
+    await fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
       page: 0,
       pageSize: 100,
       nameFilter: appliedNameFilter,
       append: false,
-    });
+    }));
   };
 
   const handleEditClick = (task, taskType = activeTab) => {
@@ -518,28 +617,28 @@ export default function QuickTask() {
 
     if (activeTab === "checklist") {
       resetQuickTaskChecklistPagination();
-      fetchUniqueChecklistTaskData({
+      fetchUniqueChecklistTaskData(getFetchParams("checklist", {
         page: 0,
         pageSize: 100,
         nameFilter: name,
         append: false,
-      });
+      }));
     } else if (activeTab === "maintenance") {
       resetQuickTaskMaintenancePagination();
-      fetchUniqueMaintenanceTaskData({
+      fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
         page: 0,
         pageSize: 100,
         nameFilter: name,
         append: false,
-      });
+      }));
     } else if (activeTab === "housekeeping") {
       resetQuickTaskHousekeepingPagination();
-      fetchUniqueHousekeepingTaskData({
+      fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
         page: 0,
         pageSize: 100,
         nameFilter: name,
         append: false,
-      });
+      }));
     } else {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
@@ -563,28 +662,28 @@ export default function QuickTask() {
 
     if (activeTab === "checklist") {
       resetQuickTaskChecklistPagination();
-      fetchUniqueChecklistTaskData({
+      fetchUniqueChecklistTaskData(getFetchParams("checklist", {
         page: 0,
         pageSize: 100,
         nameFilter: "",
         append: false,
-      });
+      }));
     } else if (activeTab === "maintenance") {
       resetQuickTaskMaintenancePagination();
-      fetchUniqueMaintenanceTaskData({
+      fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
         page: 0,
         pageSize: 100,
         nameFilter: "",
         append: false,
-      });
+      }));
     } else if (activeTab === "housekeeping") {
       resetQuickTaskHousekeepingPagination();
-      fetchUniqueHousekeepingTaskData({
+      fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
         page: 0,
         pageSize: 100,
         nameFilter: "",
         append: false,
-      });
+      }));
     } else {
       resetQuickTaskDelegationPagination();
       fetchUniqueDelegationTaskData({
@@ -621,6 +720,9 @@ export default function QuickTask() {
   const filteredChecklistTasks = quickTask
     .filter((task) => {
       if (!task) return false;
+
+      const currentDayPass = isCurrentDayDateValue(task.task_start_date);
+      if (!currentDayPass) return false;
 
       const nameFilterPass =
         !appliedNameFilter ||
@@ -812,6 +914,250 @@ export default function QuickTask() {
     return `${day}/${month}/${year}`;
   }
 
+  const renderChecklistMobileCard = (task, index) => (
+    <div
+      key={`${task.task_id}-${index}`}
+      className="border-b border-gray-100 p-4 last:border-b-0"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-gray-900 break-words">
+            {getDisplayValue(task.department)}
+          </p>
+          <p className="mt-1 text-xs font-bold text-red-600 break-words">
+            {getDisplayValue(task.name)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="checkbox"
+            checked={selectedTasks.some((selectedTask) => selectedTask.task_id === task.task_id)}
+            onChange={() => handleCheckboxChange(task)}
+            disabled={!isCurrentDayDateValue(task.task_start_date)}
+            className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
+          />
+          <button
+            onClick={() => handleEditClick(task)}
+            disabled={!isCurrentDayDateValue(task.task_start_date)}
+            className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date))}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            onClick={() => handleDeleteTask(task, "checklist")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `checklist:${task.task_id}`}
+            className={getActionButtonClasses(
+              "delete",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskKey !== `checklist:${task.task_id}`
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+          >
+            {deletingTaskKey === `checklist:${task.task_id}` ? (
+              <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <Trash2 size={14} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-gray-500 break-words">
+        {getDisplayValue(task.task_description)}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span
+          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${getFrequencyBadgeClasses(task.frequency)}`}
+        >
+          {getDisplayValue(task.frequency)}
+        </span>
+        <span className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+          Start: {formatTimestampToDDMMYYYY(task.task_start_date)}
+        </span>
+        <span className="rounded-md bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+          End: {formatTimestampToDDMMYYYY(task.submission_date)}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <MobileTaskField label="Given By" value={task.given_by} />
+        <MobileTaskField
+          label="Reminders"
+          value={task.enable_reminder}
+          valueClassName={getYesNoTextClasses(task.enable_reminder)}
+        />
+        <MobileTaskField
+          label="Attachment"
+          value={task.require_attachment}
+          valueClassName={getYesNoTextClasses(task.require_attachment, "text-blue-600")}
+        />
+        <MobileTaskField label="Task ID" value={task.task_id ? `#${task.task_id}` : "—"} />
+      </div>
+    </div>
+  );
+
+  const renderHousekeepingMobileCard = (task, index) => (
+    <div
+      key={`${task.task_id}-${index}`}
+      className="border-b border-gray-100 p-4 last:border-b-0"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-gray-900 break-words">
+            {getDisplayValue(task.department)}
+          </p>
+          <p className="mt-1 text-xs font-bold text-red-600 break-words">
+            {getDisplayValue(task.name)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => handleEditClick(task, "housekeeping")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+            className={getActionButtonClasses(
+              "edit",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskKey !== `housekeeping:${task.task_id}`
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            onClick={() => handleDeleteTask(task, "housekeeping")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+            className={getActionButtonClasses(
+              "delete",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskKey !== `housekeeping:${task.task_id}`
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+          >
+            {deletingTaskKey === `housekeeping:${task.task_id}` ? (
+              <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <Trash2 size={14} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-gray-500 break-words">
+        {getDisplayValue(task.task_description)}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span
+          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${getFrequencyBadgeClasses(task.frequency)}`}
+        >
+          {getDisplayValue(task.frequency)}
+        </span>
+        <span className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+          {formatTimestampToDDMMYYYY(task.task_start_date)}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <MobileTaskField label="Given By" value={task.given_by} />
+        <MobileTaskField
+          label="Status"
+          value={task.status}
+          valueClassName={
+            String(task.status || "").toLowerCase() === "yes"
+              ? "text-green-600"
+              : String(task.status || "").toLowerCase() === "no"
+                ? "text-amber-600"
+                : "text-gray-500"
+          }
+        />
+        <MobileTaskField label="Remark" value={task.remark} />
+        <MobileTaskField
+          label="Verification"
+          value={task.attachment}
+          valueClassName={
+            String(task.attachment || "").toLowerCase() === "confirmed"
+              ? "text-green-600"
+              : "text-gray-400"
+          }
+        />
+      </div>
+    </div>
+  );
+
+  const renderMaintenanceMobileCard = (task, index) => (
+    <div
+      key={`${task.task_id}-${index}`}
+      className="border-b border-gray-100 p-4 last:border-b-0"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-gray-900 break-words">
+            {getDisplayValue(task.department)}
+          </p>
+          <p className="mt-1 text-xs font-bold text-red-600 break-words">
+            {getDisplayValue(task.machine_name)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => handleEditClick(task, "maintenance")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+            className={getActionButtonClasses(
+              "edit",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskKey !== `maintenance:${task.task_id}`
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            onClick={() => handleDeleteTask(task, "maintenance")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+            className={getActionButtonClasses(
+              "delete",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskKey !== `maintenance:${task.task_id}`
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+          >
+            {deletingTaskKey === `maintenance:${task.task_id}` ? (
+              <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <Trash2 size={14} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-gray-500 break-words">
+        {getDisplayValue(task.task_description)}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span
+          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${getFrequencyBadgeClasses(task.frequency)}`}
+        >
+          {getDisplayValue(task.frequency)}
+        </span>
+        <span className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+          {formatTimestampToDDMMYYYY(task.task_start_date)}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <MobileTaskField label="Doer Name" value={task.name} />
+        <MobileTaskField label="Given By" value={task.given_by} />
+        <MobileTaskField label="Serial No" value={task.serial_no} />
+        <MobileTaskField label="Task Type" value={task.task_type} />
+        <MobileTaskField label="Priority" value={task.priority} />
+        <MobileTaskField label="Machine" value={task.machine_name} />
+      </div>
+    </div>
+  );
+
   return (
     <AdminLayout>
       <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md pb-4 pt-2 border-b border-gray-100">
@@ -833,9 +1179,9 @@ export default function QuickTask() {
         </div>
         <div className="mt-4 flex flex-col lg:flex-row justify-between gap-4 items-start lg:items-center">
           {/* View Toggle Tabs */}
-          <div className="flex p-1 bg-gray-100/50 rounded-xl border border-gray-200/50 w-full sm:w-auto">
+          <div className="grid w-full grid-cols-2 gap-1 rounded-xl border border-gray-200/50 bg-gray-100/50 p-1 sm:flex sm:w-auto">
             <button
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "checklist"
+              className={`min-w-0 px-3 py-2 text-[11px] font-bold rounded-lg transition-all sm:flex-1 sm:px-4 sm:py-1.5 sm:text-xs ${activeTab === "checklist"
                 ? "bg-white text-red-600 shadow-sm"
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
@@ -844,17 +1190,17 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("checklist");
                 resetQuickTaskChecklistPagination();
-                fetchUniqueChecklistTaskData({
+                fetchUniqueChecklistTaskData(getFetchParams("checklist", {
                   page: 0,
                   pageSize: 50,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               }}
             >
               Checklist
             </button>
             <button
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "delegation"
+              className={`min-w-0 px-3 py-2 text-[11px] font-bold rounded-lg transition-all sm:flex-1 sm:px-4 sm:py-1.5 sm:text-xs ${activeTab === "delegation"
                 ? "bg-white text-red-600 shadow-sm"
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
@@ -873,7 +1219,7 @@ export default function QuickTask() {
               Delegation
             </button>
             <button
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "maintenance"
+              className={`min-w-0 px-3 py-2 text-[11px] font-bold rounded-lg transition-all sm:flex-1 sm:px-4 sm:py-1.5 sm:text-xs ${activeTab === "maintenance"
                 ? "bg-white text-red-600 shadow-sm"
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
@@ -882,17 +1228,17 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("maintenance");
                 resetQuickTaskMaintenancePagination();
-                fetchUniqueMaintenanceTaskData({
+                fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
                   page: 0,
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               }}
             >
               Maintenance
             </button>
             <button
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === "housekeeping"
+              className={`min-w-0 px-3 py-2 text-[11px] font-bold rounded-lg transition-all sm:flex-1 sm:px-4 sm:py-1.5 sm:text-xs ${activeTab === "housekeeping"
                 ? "bg-white text-red-600 shadow-sm"
                 : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 }`}
@@ -901,11 +1247,11 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("housekeeping");
                 resetQuickTaskHousekeepingPagination();
-                fetchUniqueHousekeepingTaskData({
+                fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
                   page: 0,
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               }}
             >
               Housekeeping
@@ -930,7 +1276,7 @@ export default function QuickTask() {
             </div>
 
             {/* Filters Group */}
-            <div className="flex flex-col-2 sm:flex-row gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <div className="relative w-full sm:w-auto">
                 <div className="flex items-center gap-2">
                   <div className="relative w-full">
@@ -1095,23 +1441,23 @@ export default function QuickTask() {
           <button
             onClick={() => {
               if (activeTab === "checklist") {
-                fetchUniqueChecklistTaskData({
+                fetchUniqueChecklistTaskData(getFetchParams("checklist", {
                   page: 0,
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               } else if (activeTab === "housekeeping") {
-                fetchUniqueHousekeepingTaskData({
+                fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
                   page: 0,
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               } else if (activeTab === "maintenance") {
-                fetchUniqueMaintenanceTaskData({
+                fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
                   page: 0,
                   pageSize: 100,
                   nameFilter: appliedNameFilter,
-                });
+                }));
               } else {
                 fetchUniqueDelegationTaskData({
                   page: 0,
@@ -1174,6 +1520,25 @@ export default function QuickTask() {
                 className="overflow-x-auto overflow-y-auto"
                 style={{ maxHeight: "calc(100vh - 220px)" }}
               >
+                <div className="divide-y divide-gray-100 md:hidden">
+                  {filteredChecklistTasks.length > 0 ? (
+                    filteredChecklistTasks.map(renderChecklistMobileCard)
+                  ) : (
+                    <div className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic">
+                      <div className="flex flex-col items-center gap-2">
+                        <Filter size={24} className="opacity-20" />
+                        <span>
+                          {searchTerm || freqFilter
+                            ? "No tasks matching your search filters"
+                            : appliedNameFilter
+                              ? "No tasks found for this doer"
+                              : "No checklist tasks found"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
@@ -1510,6 +1875,7 @@ export default function QuickTask() {
                     )}
                   </tbody>
                 </table>
+                </div>
                 {loading && checklistHasMore && (
                   <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />
@@ -1548,6 +1914,25 @@ export default function QuickTask() {
                 className="overflow-x-auto overflow-y-auto"
                 style={{ maxHeight: "calc(100vh - 220px)" }}
               >
+                <div className="divide-y divide-gray-100 md:hidden">
+                  {filteredHousekeepingTasks.length > 0 ? (
+                    filteredHousekeepingTasks.map(renderHousekeepingMobileCard)
+                  ) : (
+                    <div className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic">
+                      <div className="flex flex-col items-center gap-2">
+                        <Filter size={24} className="opacity-20" />
+                        <span>
+                          {searchTerm || freqFilter
+                            ? "No housekeeping tasks matching your search filters"
+                            : appliedNameFilter
+                              ? "No housekeeping tasks found for this doer"
+                              : "No housekeeping tasks found"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
@@ -1696,6 +2081,7 @@ export default function QuickTask() {
                     )}
                   </tbody>
                 </table>
+                </div>
                 {loading && housekeepingHasMore && (
                   <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />
@@ -1727,6 +2113,25 @@ export default function QuickTask() {
                 className="overflow-x-auto overflow-y-auto"
                 style={{ maxHeight: "calc(100vh - 220px)" }}
               >
+                <div className="divide-y divide-gray-100 md:hidden">
+                  {filteredMaintenanceTasks.length > 0 ? (
+                    filteredMaintenanceTasks.map(renderMaintenanceMobileCard)
+                  ) : (
+                    <div className="px-6 py-12 text-center text-gray-400 text-xs font-bold italic">
+                      <div className="flex flex-col items-center gap-2">
+                        <Filter size={24} className="opacity-20" />
+                        <span>
+                          {searchTerm || freqFilter
+                            ? "No maintenance tasks matching your search filters"
+                            : appliedNameFilter
+                              ? "No maintenance tasks found for this doer"
+                              : "No maintenance tasks found"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
@@ -1859,6 +2264,7 @@ export default function QuickTask() {
                     )}
                   </tbody>
                 </table>
+                </div>
                 {loading && maintenanceHasMore && (
                   <div className="flex flex-col items-center justify-center py-8 bg-gray-50/30">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600/20 border-t-red-600" />

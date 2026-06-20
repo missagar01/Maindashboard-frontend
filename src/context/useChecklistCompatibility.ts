@@ -390,54 +390,65 @@ export const useChecklistCompatibility = () => {
     }
   }, []);
 
-  const resetQuickTaskChecklistPagination = () => {
+  const resetQuickTaskChecklistPagination = useCallback(() => {
     setQuickTaskState((previous) => ({
       ...previous,
       checklistPage: 0,
       quickTask: [],
       checklistHasMore: true,
     }));
-  };
+  }, []);
 
-  const resetQuickTaskDelegationPagination = () => {
+  const resetQuickTaskDelegationPagination = useCallback(() => {
     setQuickTaskState((previous) => ({
       ...previous,
       delegationPage: 0,
       delegationTasks: [],
       delegationHasMore: true,
     }));
-  };
+  }, []);
 
-  const resetQuickTaskMaintenancePagination = () => {
+  const resetQuickTaskMaintenancePagination = useCallback(() => {
     setQuickTaskState((previous) => ({
       ...previous,
       maintenancePage: 0,
       maintenanceTasks: [],
       maintenanceHasMore: true,
     }));
-  };
+  }, []);
 
-  const resetQuickTaskHousekeepingPagination = () => {
+  const resetQuickTaskHousekeepingPagination = useCallback(() => {
     setQuickTaskState((previous) => ({
       ...previous,
       housekeepingPage: 0,
       housekeepingTasks: [],
       housekeepingHasMore: true,
     }));
-  };
+  }, []);
 
   const fetchUniqueChecklistTaskData = useCallback(async ({
     page = 0,
     pageSize = 50,
     nameFilter = "",
+    startDate,
+    endDate,
     append = false,
+  }: {
+    page?: number;
+    pageSize?: number;
+    nameFilter?: string;
+    startDate?: string;
+    endDate?: string;
+    append?: boolean;
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
       const result = await quickTaskApi.fetchChecklistData(
         page,
         pageSize,
-        nameFilter
+        nameFilter,
+        startDate,
+        endDate
       );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;
@@ -502,14 +513,25 @@ export const useChecklistCompatibility = () => {
     page = 0,
     pageSize = 50,
     nameFilter = "",
+    startDate,
+    endDate,
     append = false,
+  }: {
+    page?: number;
+    pageSize?: number;
+    nameFilter?: string;
+    startDate?: string;
+    endDate?: string;
+    append?: boolean;
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
       const result = await quickTaskApi.fetchMaintenanceData(
         page,
         pageSize,
-        nameFilter
+        nameFilter,
+        startDate,
+        endDate
       );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;
@@ -538,14 +560,25 @@ export const useChecklistCompatibility = () => {
     page = 0,
     pageSize = 50,
     nameFilter = "",
+    startDate,
+    endDate,
     append = false,
+  }: {
+    page?: number;
+    pageSize?: number;
+    nameFilter?: string;
+    startDate?: string;
+    endDate?: string;
+    append?: boolean;
   } = {}) => {
     setQuickTaskState((previous) => ({ ...previous, loading: true }));
     try {
       const result = await quickTaskApi.fetchHousekeepingData(
         page,
         pageSize,
-        nameFilter
+        nameFilter,
+        startDate,
+        endDate
       );
       const data = Array.isArray(result?.data) ? result.data : [];
       const total = Number(result?.total) || data.length;

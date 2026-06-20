@@ -8,12 +8,16 @@ const BASE_URL = "/api/checklist/tasks";
 export const fetchChecklistData = async (
   page = 0,
   pageSize = 50,
-  nameFilter = ""
+  nameFilter = "",
+  startDate,
+  endDate
 ) => {
   const res = await axiosInstance.post(`${BASE_URL}/checklist`, {
     page,
     pageSize,
     nameFilter,
+    startDate,
+    endDate,
   });
   return res.data;
 };
@@ -40,12 +44,16 @@ export const fetchDelegationData = async (
 export const fetchMaintenanceData = async (
   page = 0,
   pageSize = 50,
-  nameFilter = ""
+  nameFilter = "",
+  startDate,
+  endDate
 ) => {
   const res = await axiosInstance.post(`${BASE_URL}/maintenance`, {
     page,
     pageSize,
     nameFilter,
+    startDate,
+    endDate,
   });
   return res.data;
 };
@@ -56,12 +64,16 @@ export const fetchMaintenanceData = async (
 export const fetchHousekeepingData = async (
   page = 0,
   pageSize = 50,
-  nameFilter = ""
+  nameFilter = "",
+  startDate,
+  endDate
 ) => {
   const res = await axiosInstance.post(`${BASE_URL}/housekeeping`, {
     page,
     pageSize,
     nameFilter,
+    startDate,
+    endDate,
   });
   return res.data;
 };

@@ -28,6 +28,51 @@ const getActionButtonClasses = (variant, isEnabled) => {
   return "flex items-center justify-center w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all shadow-sm border border-red-500";
 };
 
+const getDisplayValue = (value, fallback = "—") => {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  return value;
+};
+
+const getFrequencyBadgeClasses = (frequency) => {
+  if (frequency === "Daily") {
+    return "bg-blue-50 text-blue-600 border border-blue-100";
+  }
+
+  if (frequency === "Weekly") {
+    return "bg-green-50 text-green-600 border border-green-100";
+  }
+
+  if (frequency === "Monthly") {
+    return "bg-red-50 text-red-600 border border-red-100";
+  }
+
+  return "bg-gray-50 text-gray-600 border border-gray-100";
+};
+
+const getYesNoTextClasses = (
+  value,
+  positiveClassName = "text-green-600",
+  negativeClassName = "text-gray-400"
+) => {
+  return String(value || "").toLowerCase() === "yes"
+    ? positiveClassName
+    : negativeClassName;
+};
+
+const MobileTaskField = ({ label, value, valueClassName = "text-gray-700" }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+      {label}
+    </p>
+    <p className={`mt-1 text-xs font-medium break-words ${valueClassName}`}>
+      {getDisplayValue(value)}
+    </p>
+  </div>
+);
+
 function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState(null);
@@ -172,6 +217,97 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
     [filteredTasks]
   );
 
+  const renderMobileTaskCard = (task, index) => (
+    <div
+      key={`${task.task_id}-${index}`}
+      className={`border-b border-gray-100 p-4 last:border-b-0 ${
+        selectedTasks.includes(task.task_id) ? "bg-red-50/20" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-gray-900 break-words">
+            {getDisplayValue(task.department)}
+          </p>
+          <p className="mt-1 text-xs font-bold text-red-600 break-words">
+            {getDisplayValue(task.name)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="checkbox"
+            checked={selectedTasks.includes(task.task_id)}
+            onChange={() => handleCheckboxChange(task.task_id)}
+            disabled={!isCurrentDayDateValue(task.task_start_date)}
+            className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
+          />
+          <button
+            onClick={() => onEditTask?.(task, "delegation")}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id}
+            className={getActionButtonClasses(
+              "edit",
+              isCurrentDayDateValue(task.task_start_date) && deletingTaskId !== task.task_id
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            onClick={() => handleDeleteTask(task)}
+            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id || isDeleting}
+            className={getActionButtonClasses(
+              "delete",
+              isCurrentDayDateValue(task.task_start_date) &&
+                deletingTaskId !== task.task_id &&
+                !isDeleting
+            )}
+            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+          >
+            {deletingTaskId === task.task_id ? (
+              <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <Trash2 size={14} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-gray-500 break-words">
+        {getDisplayValue(task.task_description)}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span
+          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${getFrequencyBadgeClasses(task.frequency)}`}
+        >
+          {getDisplayValue(task.frequency)}
+        </span>
+        <span className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+          Start: {formatDateTime(task.task_start_date)}
+        </span>
+        <span className="rounded-md bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+          End: {formatDateTime(task.submission_date)}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <MobileTaskField label="Timestamp" value={formatDateTime(task.created_at)} />
+        <MobileTaskField label="Task ID" value={task.task_id ? `#${task.task_id}` : "—"} />
+        <MobileTaskField label="Given By" value={task.given_by} />
+        <MobileTaskField
+          label="Reminders"
+          value={task.enable_reminder}
+          valueClassName={getYesNoTextClasses(task.enable_reminder)}
+        />
+        <MobileTaskField
+          label="Attachment"
+          value={task.require_attachment}
+          valueClassName={getYesNoTextClasses(task.require_attachment, "text-blue-600")}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <>
       {successMessage && (
@@ -234,6 +370,18 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
           </div>
 
           <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: "calc(100vh - 280px)" }}>
+            <div className="divide-y divide-gray-100 md:hidden">
+              {filteredTasks.length > 0 ? (
+                filteredTasks.map(renderMobileTaskCard)
+              ) : (
+                <div className="px-6 py-12 text-center text-gray-500 text-xs">
+                  {searchTerm || nameFilter || freqFilter
+                    ? "No tasks matching your filters"
+                    : "No pending tasks found"}
+                </div>
+              )}
+            </div>
+            <div className="hidden md:block">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50/80 sticky top-0 z-20 backdrop-blur-sm">
                 <tr>
@@ -381,6 +529,7 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
