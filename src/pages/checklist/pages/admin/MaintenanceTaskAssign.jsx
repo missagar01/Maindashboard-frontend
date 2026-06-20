@@ -100,7 +100,6 @@ const DropdownField = ({ label, id, name, value, onChange, required, disabled, l
 
 function AssignTask() {
   const [accordionOpen, setAccordionOpen] = useState(false);
-  const [sheetData, setSheetData] = useState([]);
   const [doerName, setDoerName] = useState([]);
   const [giveByData, setGivenByData] = useState([]);
   const [taskStatusData, setTaskStatusData] = useState([]);
@@ -116,7 +115,6 @@ function AssignTask() {
   const [endDate, setEndDate] = useState("");
   const [endTaskDate, setEndTaskDate] = useState("");
   const [availableFrequencies, setAvailableFrequencies] = useState([]);
-  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [filteredMachines, setFilteredMachines] = useState([]);
 
   const [selectedSerialNo, setSelectedSerialNo] = useState("");
@@ -208,67 +206,36 @@ function AssignTask() {
   };
 
 
-  // ✅ Fetch machines dynamically from backend (Postgres)
+  // Use the filtered backend response as the single source of truth for machines.
   const fetchMachinesByDepartment = async (department) => {
+    if (!department) {
+      setFilteredMachines([]);
+      setLoaderSheetData(false);
+      return;
+    }
+
+    setLoaderSheetData(true);
+
     try {
       const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/form-responses`, {
         params: { department },
       });
 
       const rows = getArrayPayload(result);
+      const machineNames = [...new Set(
+        rows
+          .map((row) => String(row?.machine_name || "").trim())
+          .filter(Boolean)
+      )].sort((left, right) => left.localeCompare(right));
 
-      if (rows.length > 0) {
-        const machineNames = [...new Set(rows.map((m) => m.machine_name).filter(Boolean))];
-        setFilteredMachines(machineNames);
-      } else {
-        setFilteredMachines([]);
-      }
+      setFilteredMachines(machineNames);
     } catch (error) {
       console.error("Machine fetch error:", error);
+      setFilteredMachines([]);
       toast.error(getApiErrorMessage(error, "Failed to fetch machines"));
+    } finally {
+      setLoaderSheetData(false);
     }
-  };
-
-
-
-  // Filter machines based on selected department
-  const filterMachinesByDepartment = () => {
-    if (selectedDepartment && sheetData.length > 0) {
-      const machines = [...new Set(
-        sheetData
-          .filter((item) => item.department === selectedDepartment)
-          .map((item) => item.machine_name)
-      )].filter(Boolean).sort();
-      setFilteredMachines(machines);
-    } else {
-      const allMachines = [...new Set(sheetData.map((item) => item.machine_name))].filter(Boolean).sort();
-      setFilteredMachines(allMachines);
-    }
-  };
-
-  // Handle department change
-  // Handle department change for Maintenance tasks
-  const handleDepartmentChange = async (department) => {
-    setSelectedDepartment(department);
-
-    try {
-      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`, {
-        params: { department },
-      });
-
-      if (result.success) {
-        setGivenByData(result.data.givenBy);
-        setTaskStatusData(result.data.taskStatus);
-        setPriorityData(result.data.priority);
-        // Doer names should come from doer department, not machine department
-      }
-    } catch (err) {
-      console.error("Department fetch error:", err);
-      toast.error(getApiErrorMessage(err, "Failed to fetch dropdown data"));
-    }
-
-    // Fetch machines for this department
-    fetchMachinesByDepartment(department);
   };
 
 
@@ -342,7 +309,6 @@ function AssignTask() {
     setSelectedMachine("");
     setSelectedSerialNo("");
     setFilteredSerials([]);
-    setSelectedDepartment(department);
 
     if (!department) {
       setFilteredMachines([]);
@@ -407,10 +373,6 @@ function AssignTask() {
     fetchDivisions();
   }, []);
 
-  useEffect(() => {
-    filterMachinesByDepartment();
-  }, [selectedDepartment, sheetData]);
-
   // const fetchWorkingDaysCalendar = async () => {
   //   try {
   //     const res = await fetch("http://18.60.212.185:5050/api/working-days");
@@ -463,19 +425,6 @@ function AssignTask() {
     fetchAllTasks();
   }, [selectedTaskType]);
 
-  // Machine list and department data now come from backend
-  const fetchSheetData = async () => {
-    setLoaderSheetData(true);
-    try {
-      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/form-responses`);
-      setSheetData(getArrayPayload(result));
-    } catch (err) {
-      console.error("❌ Fetch error:", err);
-    } finally {
-      setLoaderSheetData(false);
-    }
-  };
-
   const fetchWorkingDaysCalendar = async () => {
     try {
       const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/working-days`);
@@ -492,12 +441,6 @@ function AssignTask() {
       return [];
     }
   };
-
-
-  useEffect(() => {
-    fetchSheetData();          // still loads machine list etc.
-  }, []);
-
 
   const formatDateTimeForStorage = (date, time) => {
     if (!date || !time) return "";
@@ -920,7 +863,7 @@ function AssignTask() {
                       disabled={!machineDepartment}
                     >
                       <option value="">Select Machine</option>
-                      {loaderMasterSheetData ? (
+                      {loaderSheetData ? (
                         <option value="" disabled>
                           Loading machines...
                         </option>
