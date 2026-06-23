@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { X, UserPlus, Shield, User, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { createProjectUser } from '../../../api/project/userApi';
+import { createProjectUser, getProjectUserGivenByList } from '../../../api/project/userApi';
 
 const emptyFormState = {
     username: '',
     password: '',
     name: '',
-    role: 'user'
+    role: 'user',
+    given_by: ''
 };
 
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
@@ -14,6 +15,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [givenByOptions, setGivenByOptions] = useState([]);
     const primaryButtonClass =
         "inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_18px_30px_-18px_rgba(249,115,22,0.85)] transition hover:brightness-105 disabled:opacity-50 sm:w-auto sm:min-w-[220px]";
     const secondaryButtonClass =
@@ -29,6 +31,16 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
             setError('');
             setSuccess(false);
             setLoading(false);
+        } else {
+            const fetchOptions = async () => {
+                try {
+                    const data = await getProjectUserGivenByList();
+                    setGivenByOptions(data);
+                } catch (err) {
+                    console.error("Error fetching given_by options:", err);
+                }
+            };
+            void fetchOptions();
         }
     }, [isOpen]);
 
@@ -151,7 +163,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
+                             <div className="space-y-2">
                                 <label className={fieldLabelClass}>Role</label>
                                 <div className="relative">
                                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -163,6 +175,26 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                                         <option value="user">Staff</option>
                                         <option value="manager">Manager</option>
                                         <option value="admin">Administrator</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className={fieldLabelClass}>Given By</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                    <select
+                                        required
+                                        className={`${inputClass} appearance-none`}
+                                        value={formData.given_by}
+                                        onChange={(e) => setFormData({ ...formData, given_by: e.target.value })}
+                                    >
+                                        <option value="">Select Given By</option>
+                                        {givenByOptions.map((name) => (
+                                            <option key={name} value={name}>
+                                                {name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

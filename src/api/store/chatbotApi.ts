@@ -243,5 +243,167 @@ export const chatbotApi = {
       resolvedApiKey
     );
   },
+
+  async queryUsers(queryText: string, userToken: string | null, apiKey?: string) {
+    const resolvedApiKey = apiKey || (await getChatbotApiKey());
+    return chatbotFetch<{
+      success: boolean;
+      users?: Array<{
+        user_name: string;
+        employee_id: string | null;
+        role: string | null;
+        designation: string | null;
+        department: string | null;
+        division: string | null;
+        status: string | null;
+      }>;
+      message?: string;
+      error?: string;
+    }>(
+      `${CHATBOT_BASE_PATH}/users/query`,
+      {
+        method: "POST",
+        body: JSON.stringify({ queryText }),
+        headers: userToken ? { "Authorization-User": `Bearer ${userToken}` } : {},
+      },
+      resolvedApiKey
+    );
+  },
+
+  async queryTasks(queryText: string, userToken: string | null, apiKey?: string) {
+    const resolvedApiKey = apiKey || (await getChatbotApiKey());
+    return chatbotFetch<{
+      success: boolean;
+      isDiagnostic: boolean;
+      isCount?: boolean;
+      totalNotDone?: number;
+      breakdown?: Array<{
+        module: string;
+        count: number;
+      }>;
+      message?: string;
+      latestTask?: {
+        source: string;
+        task_name: string;
+        task_start_date: string;
+        submission_date: string;
+        status: string;
+      };
+      diagnosis?: string;
+      targetDate?: string;
+      summary?: Array<{
+        module: string;
+        total: number;
+        completed: number;
+        pending: number;
+      }>;
+      tasksList?: Array<{
+        source: string;
+        task_name: string;
+        given_by: string | null;
+        frequency: string | null;
+        status: string;
+        completed_at: string | null;
+        delay: string | null;
+        task_start_date: string;
+      }>;
+      isScore?: boolean;
+      startDate?: string;
+      endDate?: string;
+      scoreData?: {
+        division: string;
+        department: string;
+        doer: string;
+        employee_id: string | null;
+        total_tasks: number;
+        total_completed_tasks: number;
+        not_completed_tasks: number;
+        completion_score: number;
+      };
+      error?: string;
+    }>(
+      `${CHATBOT_BASE_PATH}/tasks/query`,
+      {
+        method: "POST",
+        body: JSON.stringify({ queryText }),
+        headers: userToken ? { "Authorization-User": `Bearer ${userToken}` } : {},
+      },
+      resolvedApiKey
+    );
+  },
+
+  async queryGeneral(queryText: string, userToken: string | null, apiKey?: string) {
+    const resolvedApiKey = apiKey || (await getChatbotApiKey());
+    return chatbotFetch<{
+      success: boolean;
+      resultType: "users" | "tasks" | "tasksSummary" | "taskDiagnostic" | "tasksCountBreakdown" | "scoreData" | "items" | "general";
+      message?: string;
+      error?: string;
+      items?: ChatbotItem[];
+      users?: Array<{
+        user_name: string;
+        employee_id: string | null;
+        role: string | null;
+        designation: string | null;
+        department: string | null;
+        division: string | null;
+        status: string | null;
+      }>;
+      tasksList?: Array<{
+        source: string;
+        task_name: string;
+        given_by: string | null;
+        frequency: string | null;
+        status: string;
+        completed_at: string | null;
+        delay: string | null;
+        task_start_date: string;
+      }>;
+      summary?: Array<{
+        module: string;
+        total: number;
+        completed: number;
+        pending: number;
+      }>;
+      latestTask?: {
+        source: string;
+        task_name: string;
+        task_start_date: string;
+        submission_date: string;
+        status: string;
+      };
+      diagnosis?: string;
+      breakdown?: Array<{
+        module: string;
+        count: number;
+      }>;
+      totalNotDone?: number;
+      countType?: "total" | "completed" | "pending_today" | "notdone";
+      isCount?: boolean;
+      isDiagnostic?: boolean;
+      isScore?: boolean;
+      startDate?: string;
+      endDate?: string;
+      scoreData?: {
+        division: string;
+        department: string;
+        doer: string;
+        employee_id: string | null;
+        total_tasks: number;
+        total_completed_tasks: number;
+        not_completed_tasks: number;
+        completion_score: number;
+      };
+      targetDate?: string;
+    }>(
+      `${CHATBOT_BASE_PATH}/query`,
+      {
+        method: "POST",
+        body: JSON.stringify({ queryText }),
+        headers: userToken ? { "Authorization-User": `Bearer ${userToken}` } : {},
+      },
+      resolvedApiKey
+    );
+  },
 };
 

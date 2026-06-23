@@ -400,6 +400,7 @@ const Setting = () => {
             system_access,
             page_access,
             division: userForm.division || "", // Added division
+            givenBy: userForm.givenBy?.trim() || "", // Added givenBy to update payload
         };
 
         // Only include password if it's not empty
@@ -724,6 +725,15 @@ const Setting = () => {
         return [];
     }, [department, userForm.division]);
 
+    const uniqueGivenByNames = React.useMemo(() => {
+        if (Array.isArray(givenBy)) {
+            return givenBy
+                .map((g) => g.given_by || g.givenBy)
+                .filter((name) => name && name.trim() !== "");
+        }
+        return [];
+    }, [givenBy]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (
@@ -791,7 +801,7 @@ const Setting = () => {
                 : user.department
                     ? [user.department]
                     : [], // Split comma-separated string into array
-            givenBy: user.givenBy || "",
+            givenBy: user.given_by || user.givenBy || "",
             role: user.role || "user",
             status: user.status || "active",
             user_access1: normalizeAccessEntries(user.user_access1),
@@ -1845,6 +1855,29 @@ const Setting = () => {
                                                     <option value="user">User</option>
                                                     <option value="admin">Admin</option>
                                                     <option value="manager">Manager</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="sm:col-span-2 lg:col-span-1">
+                                                <label
+                                                    htmlFor="givenBy"
+                                                    className="block text-sm font-medium text-gray-700 mb-1"
+                                                >
+                                                    Given By
+                                                </label>
+                                                <select
+                                                    id="givenBy"
+                                                    name="givenBy"
+                                                    value={userForm.givenBy}
+                                                    onChange={handleUserInputChange}
+                                                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                    <option value="">Select Given By</option>
+                                                    {uniqueGivenByNames.map((name) => (
+                                                        <option key={name} value={name}>
+                                                            {name}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </div>
 

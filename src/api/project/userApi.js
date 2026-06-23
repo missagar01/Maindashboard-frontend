@@ -96,8 +96,14 @@ export const createProjectUser = async (payload) => {
       remark: "Created from Project module",
       system_access: PROJECT_SYSTEM_ACCESS_VALUE,
       page_access: buildProjectPageAccess(role).join(","),
+      given_by: payload?.given_by || null,
     },
   });
+};
+
+export const getProjectUserGivenByList = async () => {
+  const response = await apiRequest("/api/lead-to-order/users/given-by");
+  return response?.data?.data || [];
 };
 
 export const resetProjectUserPassword = async (userId, newPassword) =>
