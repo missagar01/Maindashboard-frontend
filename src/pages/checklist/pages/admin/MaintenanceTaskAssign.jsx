@@ -150,9 +150,10 @@ function AssignTask() {
   const startTimeInputRef = useRef(null);
   const frequencyOptions = DEFAULT_FREQUENCY_OPTIONS;
 
-  const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const CHECKLIST_API_BASE = `${BACKEND_URL}/api/checklist`;
-  const MAINTENANCE_API_BASE = `${BACKEND_URL}/api/mainatce`;
+  // Keep requests relative to the shared axios base so localhost, proxy-based
+  // deploys, and direct backend deploys all resolve consistently.
+  const CHECKLIST_API_BASE = "/api/checklist";
+  const MAINTENANCE_API_BASE = "/api/mainatce";
   const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL || "";
 
   const SHEET_Id = import.meta.env.VITE_SHEET_ID || "";
@@ -162,6 +163,16 @@ function AssignTask() {
     error?.response?.data?.message ||
     error?.message ||
     fallback;
+
+  const logRequestError = (label, error) => {
+    console.error(label, {
+      baseURL: error?.config?.baseURL || "",
+      requestUrl: error?.config?.url || "",
+      status: error?.response?.status,
+      response: error?.response?.data,
+      message: error?.message,
+    });
+  };
 
   const openNativePicker = (inputRef) => {
     const input = inputRef?.current;
@@ -189,7 +200,7 @@ function AssignTask() {
         setDepartmentOptions(result.data);
       }
     } catch (err) {
-      console.error("Department fetch error:", err);
+      logRequestError("Department fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch departments"));
     }
   };
@@ -200,7 +211,7 @@ function AssignTask() {
       const { data: result } = await axiosInstance.get(`${CHECKLIST_API_BASE}/assign-task/divisions`);
       setDivisionOptions(getArrayPayload(result));
     } catch (err) {
-      console.error("Division fetch error:", err);
+      logRequestError("Division fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch divisions"));
     }
   };
@@ -230,7 +241,7 @@ function AssignTask() {
 
       setFilteredMachines(machineNames);
     } catch (error) {
-      console.error("Machine fetch error:", error);
+      logRequestError("Machine fetch error", error);
       setFilteredMachines([]);
       toast.error(getApiErrorMessage(error, "Failed to fetch machines"));
     } finally {
@@ -295,7 +306,7 @@ function AssignTask() {
         toast.error("⚠️ No machine details found");
       }
     } catch (error) {
-      console.error("Tag fetch error:", error);
+      logRequestError("Tag fetch error", error);
       toast.error(getApiErrorMessage(error, "Failed to fetch tag number"));
     }
   };
@@ -337,7 +348,7 @@ function AssignTask() {
         setDoerName(result.data?.doerName || []);
       }
     } catch (err) {
-      console.error("Doer department fetch error:", err);
+      logRequestError("Doer department fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch doer data"));
     }
   };
@@ -360,7 +371,7 @@ function AssignTask() {
         toast.error("Failed to load dropdown data");
       }
     } catch (err) {
-      console.error("Dropdown fetch error:", err);
+      logRequestError("Dropdown fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch dropdowns"));
     } finally {
       setLoaderMasterSheetData(false);
@@ -373,21 +384,6 @@ function AssignTask() {
     fetchDivisions();
   }, []);
 
-  // const fetchWorkingDaysCalendar = async () => {
-  //   try {
-  //     const res = await fetch("http://18.60.212.185:5050/api/working-days");
-  //     const result = await res.json();
-
-  //     if (result.success && result.data.length > 0) {
-  //       setWorkingDaysData(result.data);
-  //       const lastDate = result.data[result.data.length - 1].working_date;
-  //       setEndDate(lastDate);
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching working day calendar:", err);
-  //     toast.error("❌ Failed to fetch working day calendar");
-  //   }
-  // };
 
 
   const fetchAllTasks = async () => {
@@ -436,7 +432,7 @@ function AssignTask() {
       }
       return [];
     } catch (err) {
-      console.error("❌ Error fetching working day calendar:", err);
+      logRequestError("Working day calendar fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch working day calendar"));
       return [];
     }
@@ -787,7 +783,7 @@ function AssignTask() {
       // setMachineDepartment("");
       // setDoerDepartment("");
     } catch (error) {
-      console.error("❌ Submission failed:", error);
+      logRequestError("Maintenance task submission failed", error);
       toast.error(`❌ Failed to assign task: ${getApiErrorMessage(error, "Unknown error")}`);
     } finally {
       setLoaderSubmit(false);
@@ -1326,10 +1322,4 @@ function AssignTask() {
   );
 }
 
-
-
-
 export default AssignTask;
-
-
-

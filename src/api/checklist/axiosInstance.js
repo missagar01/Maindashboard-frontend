@@ -1,10 +1,27 @@
 import axios from "axios";
 import { getStoredToken } from "../apiClient";
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+const resolveApiBaseUrl = () => {
+  const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, "");
+
+  if (!normalizedBaseUrl) {
+    return "";
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    window.location?.protocol === "https:" &&
+    normalizedBaseUrl.startsWith("http://")
+  ) {
+    return normalizedBaseUrl.replace(/^http:\/\//, "https://");
+  }
+
+  return normalizedBaseUrl;
+};
 
 const axiosInstance = axios.create({
-  baseURL: apiBaseUrl,
+  baseURL: resolveApiBaseUrl(),
 });
 
 // Request interceptor to add the JWT token to headers
