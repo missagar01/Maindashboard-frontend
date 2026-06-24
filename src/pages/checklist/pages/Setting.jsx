@@ -19,8 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import { useAuth } from "../context/AuthContext";
+import { fetchUniqueDivisionDataApi } from "@/api/checklist/assignTaskApi.js";
 import { patchVerifyAccessApi, patchVerifyAccessDeptApi } from "@/api/checklist/settingApi.js";
-import axiosInstance from "@/api/checklist/axiosInstance.js";
 import {
     SYSTEM_OPTIONS,
     getPageOptionGroupsForSystems,
@@ -244,15 +244,36 @@ const Setting = () => {
         return fallbackDepartment?.trim() || "";
     };
 
+    const normalizeDivisionOptions = (payload) => {
+        const divisions = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.data)
+                ? payload.data
+                : [];
+
+        return Array.from(
+            new Set(
+                divisions
+                    .map((value) =>
+                        typeof value === "string" ? value.trim() : ""
+                    )
+                    .filter(Boolean)
+            )
+        ).sort((left, right) => left.localeCompare(right));
+    };
+
     const fetchDivisions = async () => {
         try {
-            const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-            const { data: result } = await axiosInstance.get(`${BACKEND_URL}/api/checklist/assign-task/divisions`);
-            if (Array.isArray(result)) {
-                setDivisionOptions(result);
-            }
+            const result = await fetchUniqueDivisionDataApi();
+            setDivisionOptions(normalizeDivisionOptions(result));
         } catch (err) {
-            console.error("Division fetch error:", err);
+            console.error("Division fetch error:", {
+                message: err?.message,
+                status: err?.response?.status,
+                response: err?.response?.data,
+                requestUrl: err?.config?.url,
+                baseURL: err?.config?.baseURL,
+            });
         }
     };
 
