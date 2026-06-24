@@ -163,7 +163,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                                 </div>
                             </div>
 
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <label className={fieldLabelClass}>Role</label>
                                 <div className="relative">
                                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -180,7 +180,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className={fieldLabelClass}>Given By</label>
+                                <label className={fieldLabelClass}>HOD</label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                     <select
@@ -189,7 +189,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                                         value={formData.given_by}
                                         onChange={(e) => setFormData({ ...formData, given_by: e.target.value })}
                                     >
-                                        <option value="">Select Given By</option>
+                                        <option value="">Select HOD</option>
                                         {givenByOptions.map((name) => (
                                             <option key={name} value={name}>
                                                 {name}
