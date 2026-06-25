@@ -2,6 +2,7 @@ export type PortalNavKey =
   | "home"
   | "checklist"
   | "store"
+  | "chatbot"
   | "transport"
   | "iot"
   | "sales"
@@ -58,6 +59,12 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
       "inventory",
       "storefms",
     ],
+  },
+  {
+    key: "chatbot",
+    label: "CHATBOT",
+    path: "/chatbot",
+    aliases: ["chatbot", "chat", "assistant", "aiassistant"],
   },
   {
     key: "transport",
@@ -145,6 +152,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "home", label: "HOME", path: "/" },
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
+  { key: "chatbot", label: "CHATBOT", path: "/chatbot" },
   { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
   { key: "iot", label: "IOT", path: "/iot/dashboard" },
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
@@ -200,6 +208,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
 
   if (normalized.startsWith("/checklist")) return "checklist";
   if (normalized.startsWith("/store")) return "store";
+  if (normalized.startsWith("/chatbot")) return "chatbot";
   if (normalized.startsWith("/transport")) return "transport";
   if (normalized.startsWith("/iot")) return "iot";
   if (normalized.startsWith("/o2d")) return "sales";

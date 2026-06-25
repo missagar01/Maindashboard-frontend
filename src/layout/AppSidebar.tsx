@@ -289,6 +289,21 @@ const storeSection: SidebarSection = {
   ],
 };
 
+const chatbotSection: SidebarSection = {
+  key: "chatbot",
+  title: "Chatbot",
+  caption: "AI Assistant",
+  icon: Bot,
+  homeItem: {
+    kind: "link",
+    key: "chatbot-home",
+    name: "Assistant",
+    path: "/chatbot",
+    icon: Bot,
+  },
+  nodes: [],
+};
+
 const transportSection: SidebarSection = {
   key: "transport",
   title: "Transport",
@@ -352,6 +367,7 @@ const visitorSection: SidebarSection = {
 
 const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   checklist: checklistSection,
+  chatbot: chatbotSection,
   transport: transportSection,
   iot: iotSection,
   sales: salesWorkspaceSection,

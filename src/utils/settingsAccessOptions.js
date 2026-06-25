@@ -10,6 +10,7 @@ export const SYSTEM_OPTIONS = [
   { value: "MAINTENANCE", label: "MAINTENANCE" },
   { value: "HOUSEKEEPING", label: "HOUSEKEEPING" },
   { value: "STORE AND PURCHASE", label: "STORE AND PURCHASE" },
+  { value: "CHATBOT", label: "CHATBOT" },
   { value: "TRANSPORT", label: "TRANSPORT" },
   { value: "IOT", label: "IOT" },
   { value: "HRFMS", label: "HRFMS" },
@@ -182,7 +183,15 @@ export const PAGE_ROUTES = {
     createPageOption("Requested Indent", "Requested Indent", "/store/user-indent-list-indent", ["User Indent Details", "/store/user-indent-list-indent"]),
     createPageOption("Requisition", "Requisition", "/store/user-requisition", ["User Requisitions", "/store/user-requisition"]),
     createPageOption("Create Indent", "Create Indent", "/store/user-indent", ["User Indent", "/store/user-indent"]),
-    createPageOption("Store ChatBot", "Store ChatBot", "/store/chatbot", ["Store ChatBot", "ChatBot", "/store/chatbot"]),
+  ],
+  CHATBOT: [
+    createPageOption("ChatBot", "ChatBot", "/chatbot", [
+      "ChatBot",
+      "Chatbot",
+      "Store ChatBot",
+      "/chatbot",
+      "/store/chatbot",
+    ]),
   ],
   TRANSPORT: [
     createPageOption("Transport Dashboard", "Dashboard", "/transport/dashboard", [
@@ -310,6 +319,9 @@ const SYSTEM_ALIASES = {
   storefms: "STORE AND PURCHASE",
   inventory: "STORE AND PURCHASE",
   purchase: "STORE AND PURCHASE",
+  chatbot: "CHATBOT",
+  chat: "CHATBOT",
+  assistant: "CHATBOT",
   hrms: "HRFMS",
   transport: "TRANSPORT",
   transports: "TRANSPORT",

@@ -13,6 +13,7 @@ type SystemKey =
   | "hrfms"
   | "document"
   | "store"
+  | "chatbot"
   | "transport"
   | "iot"
   | "project"
@@ -305,10 +306,11 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Administration: "/store/administration",
   Settings: "/store/settings",
   "Store Settings": "/store/settings",
-  "Store ChatBot": "/store/chatbot",
-  "Store Chatbot": "/store/chatbot",
-  ChatBot: "/store/chatbot",
-  Chatbot: "/store/chatbot",
+  "Store ChatBot": "/chatbot",
+  "Store Chatbot": "/chatbot",
+  ChatBot: "/chatbot",
+  Chatbot: "/chatbot",
+  "Chatbot Dashboard": "/chatbot",
   "User Indent": "/store/user-indent",
   "Create Indent": "/store/user-indent",
   "My Indent": "/store/erp-indent",
@@ -331,13 +333,17 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
 
 const STORE_OUT_ONLY_EMPLOYEE_IDS = new Set(["S07632", "S08088"]);
 const APPROVE_INDENT_ONLY_EMPLOYEE_IDS = new Set(["S00116"]);
+const CHATBOT_LEGACY_STORE_ACCESS_KEYS = new Set([
+  "CHATBOT",
+  "STORE CHATBOT",
+  "STORE CHAT BOT",
+]);
 
 const STORE_USER_BASE_ROUTES = [
   "/store/erp-indent",
   "/store/user-indent-list-indent", // My Indent — always accessible
   "/store/user-requisition",         // Requisition — always accessible
   "/store/user-indent",              // Create Indent — always accessible
-  "/store/chatbot",
 ];
 
 const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
@@ -361,9 +367,6 @@ const STORE_ACCESS_ROUTE_MAP: Record<string, string[]> = {
   "RECEIVE ITEMS": ["/store/receive-items"],
   "RATE APPROVAL": ["/store/rate-approval"],
   "VENDOR UPDATE": ["/store/vendor-update"],
-  CHATBOT: ["/store/chatbot"],
-  "STORE CHATBOT": ["/store/chatbot"],
-  "STORE CHAT BOT": ["/store/chatbot"],
   ADMINISTRATION: ["/store/administration"],
   SETTINGS: ["/store/settings"],
   "REPAIR GATE PASS": ["/store/repair-gate-pass"],
@@ -416,7 +419,6 @@ const STORE_ADMIN_ROUTE_ALLOWLIST = [
   "/store/store-grn-gm",
   "/store/store-grn-close",
   "/store/rate-approval",
-  "/store/chatbot",
 ];
 
 const normalizePath = (path: string): string => {
@@ -471,6 +473,18 @@ const parseStoreAccess = (user: UserAccess | null | undefined): string[] => {
     .filter(Boolean);
 };
 
+const parseStoreOperationalAccess = (user: UserAccess | null | undefined): string[] => {
+  return parseStoreAccess(user).filter(
+    (entry) => !CHATBOT_LEGACY_STORE_ACCESS_KEYS.has(entry)
+  );
+};
+
+const hasChatbotLegacyStoreAccess = (user: UserAccess | null | undefined): boolean => {
+  return parseStoreAccess(user).some((entry) =>
+    CHATBOT_LEGACY_STORE_ACCESS_KEYS.has(entry)
+  );
+};
+
 const getStoreAllowedRoutes = (user: UserAccess | null | undefined): string[] => {
   if (!user) {
     return [];
@@ -489,7 +503,9 @@ const getStoreAllowedRoutes = (user: UserAccess | null | undefined): string[] =>
     return ["/store/approve-indent-data"];
   }
 
-  const mappedRoutes = parseStoreAccess(user).flatMap((entry) => STORE_ACCESS_ROUTE_MAP[entry] || []);
+  const mappedRoutes = parseStoreOperationalAccess(user).flatMap(
+    (entry) => STORE_ACCESS_ROUTE_MAP[entry] || []
+  );
   if (mappedRoutes.length === 0) {
     return [];
   }
@@ -506,7 +522,7 @@ export const hasStoreModuleAccess = (user: UserAccess | null | undefined): boole
   // "Store and Purchase" in DB normalizes to "storeandpurchase"
   return (
     isAdminUser(user) ||
-    parseStoreAccess(user).length > 0 ||
+    parseStoreOperationalAccess(user).length > 0 ||
     STORE_OUT_ONLY_EMPLOYEE_IDS.has(employeeId) ||
     APPROVE_INDENT_ONLY_EMPLOYEE_IDS.has(employeeId) ||
     parseSystemAccess(user).some((value) =>
@@ -587,6 +603,12 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
   if (required === "store") {
     return systems.some((value) =>
       ["store", "stores", "storefms", "store-fms", "inventory", "storeandpurchase", "storepurchase", "purchase"].includes(value)
+    );
+  }
+
+  if (required === "chatbot") {
+    return systems.some((value) =>
+      ["chatbot", "chat", "assistant", "aiassistant", "ai-assistant"].includes(value)
     );
   }
 
@@ -691,6 +713,10 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "store";
   }
 
+  if (normalizedPath.startsWith("/chatbot") || lowerPath.includes("tab=chatbot")) {
+    return "chatbot";
+  }
+
   if (normalizedPath.startsWith("/transport") || lowerPath.includes("tab=transport")) {
     return "transport";
   }
@@ -772,6 +798,9 @@ const normalizePageEntryToRoute = (
     if (normalized === "/document") return "/document/dashboard";
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
+    if (normalized === "/store/chatbot") return "/chatbot";
+    if (normalized === "/chatbot") return "/chatbot";
+    if (normalized === "/chatbot/dashboard") return "/chatbot";
     if (normalized === "/transport") return "/transport/dashboard";
     if (normalized === "/iot") return "/iot/doordrishti";
     if (normalized === "/iot/dashboard") return "/iot/dashboard";
@@ -835,6 +864,12 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   if (hasStoreModuleAccess(user)) {
     getStoreAllowedRoutes(user).forEach((route) => routes.add(route));
   }
+  if (
+    hasSystemAccess(availableSystems, "chatbot") ||
+    hasChatbotLegacyStoreAccess(user)
+  ) {
+    routes.add("/chatbot");
+  }
 
   const hasExplicitPageAccessConfig = source.length > 0;
 
@@ -846,6 +881,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
+  if (hasSystemAccess(availableSystems, "chatbot")) routes.add("/chatbot");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {
     routes.add("/document/dashboard");
   }
