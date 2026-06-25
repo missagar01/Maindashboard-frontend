@@ -634,7 +634,7 @@ const AppHeader: React.FC = () => {
         <div className="flex shrink-0 items-center gap-2 xl:gap-[clamp(0.5rem,0.3rem+0.2vw,0.875rem)]">
           <div className="hidden max-w-[220px] items-center gap-2 text-right min-[1800px]:flex">
             <p className="truncate text-[clamp(0.875rem,0.82rem+0.12vw,1rem)] font-semibold text-slate-600">
-              Welcome,{" "}
+             
               <span className="font-bold capitalize text-slate-900">
                 {user?.username || user?.user_name || "User"}
               </span>
