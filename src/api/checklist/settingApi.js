@@ -159,3 +159,79 @@ export const patchVerifyAccessDeptApi = async ({ id, verify_access_dept }) => {
     throw new Error(getApiErrorMessage(error, "Failed to update verify access department"));
   }
 };
+
+// =======================================================
+// 🔟 DIVISIONS CRUD APIs
+// =======================================================
+export const fetchDivisionsApi = async () => {
+  try {
+    const response = await axiosInstance.get(`${BASE_URL}/divisions`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching divisions", error);
+    return [];
+  }
+};
+
+export const createDivisionApi = async (newDiv) => {
+  try {
+    const response = await axiosInstance.post(`${BASE_URL}/divisions`, newDiv);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating division", error);
+    throw new Error(getApiErrorMessage(error, "Failed to create division"));
+  }
+};
+
+export const updateDivisionApi = async ({ id, name }) => {
+  try {
+    const response = await axiosInstance.put(`${BASE_URL}/divisions/${id}`, { name });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating division", error);
+    throw new Error(getApiErrorMessage(error, "Failed to update division"));
+  }
+};
+
+export const deleteDivisionApi = async (id) => {
+  try {
+    const response = await axiosInstance.delete(`${BASE_URL}/divisions/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting division", error);
+    throw new Error(getApiErrorMessage(error, "Failed to delete division"));
+  }
+};
+
+// =======================================================
+// 11️⃣ MANAGERS (GIVEN BY) CRUD APIs
+// =======================================================
+export const createGivenByApi = async (newManager) => {
+  try {
+    const response = await axiosInstance.post(`${BASE_URL}/given-by`, newManager);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating manager", error);
+    throw new Error(getApiErrorMessage(error, "Failed to create manager"));
+  }
+};
+
+export const updateGivenByApi = async ({ id, name }) => {
+  try {
+    const response = await axiosInstance.put(`${BASE_URL}/given-by/${id}`, { name });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating manager", error);
+    throw new Error(getApiErrorMessage(error, "Failed to update manager"));
+  }
+};
+
+export const deleteGivenByApi = async (id) => {
+  try {
+    const response = await axiosInstance.delete(`${BASE_URL}/given-by/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting manager", error);
+    throw new Error(getApiErrorMessage(error, "Failed to delete manager"));
+  }
+};

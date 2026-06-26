@@ -313,6 +313,38 @@ function AssignTask() {
 
 
 
+  const handleDivisionChange = async (division) => {
+    setSelectedDivision(division);
+    setMachineDepartment("");
+    setDoerDepartment("");
+    setFilteredMachines([]);
+    setDoerName([]);
+    setSelectedMachine("");
+    setSelectedSerialNo("");
+    setFilteredSerials([]);
+
+    if (!division) {
+      try {
+        const { data: result } = await axiosInstance.get(`/api/checklist/settings/departments`);
+        const depts = Array.isArray(result) ? result.map(d => d.department).filter(Boolean) : [];
+        setDepartmentOptions(depts);
+      } catch (err) {
+        logRequestError("Failed to fetch departments", err);
+      }
+      return;
+    }
+
+    try {
+      const { data: result } = await axiosInstance.get(`/api/checklist/settings/departments`, {
+        params: { division }
+      });
+      const depts = Array.isArray(result) ? result.map(d => d.department).filter(Boolean) : [];
+      setDepartmentOptions(depts);
+    } catch (err) {
+      logRequestError("Failed to fetch filtered departments", err);
+    }
+  };
+
   // 🧠 Fetch dropdown data from backend API (Postgres)
   // Machine department change for Maintenance
   const handleMachineDepartmentChange = async (department) => {
@@ -357,16 +389,19 @@ function AssignTask() {
   const fetchDropdownData = async () => {
     setLoaderMasterSheetData(true);
     try {
-      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`);
-      const dropdownData = result?.data || {};
+      const [result, givenByResult] = await Promise.all([
+        axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`),
+        axiosInstance.get(`/api/checklist/settings/given-by`)
+      ]);
+      const dropdownData = result?.data?.data || {};
+      const managers = Array.isArray(givenByResult?.data)
+        ? givenByResult.data.map(m => m.given_by).filter(Boolean)
+        : [];
 
-      if (result.success && result.data) {
-        setDepartmentOptions(dropdownData.departments || []);
-        // These should come from machine department selection
-        setGivenByData(dropdownData.givenBy || []);
+      if (result.data?.success) {
+        setGivenByData(managers.length > 0 ? managers : (dropdownData.givenBy || []));
         setTaskStatusData(dropdownData.taskStatus || []);
         setPriorityData(dropdownData.priority || []);
-        // Don't set doerName here - it should come from doer department
       } else {
         toast.error("Failed to load dropdown data");
       }
@@ -379,9 +414,9 @@ function AssignTask() {
   };
 
   useEffect(() => {
-    // fetchDepartments();   // <-- Fetch departments from correct route
-    fetchDropdownData();  // <-- Fetch other dropdowns
+    fetchDropdownData();
     fetchDivisions();
+    handleDivisionChange("");
   }, []);
 
 
@@ -803,7 +838,7 @@ function AssignTask() {
                 <DropdownField
                   id="division" label="Division Name"
                   value={selectedDivision}
-                  onChange={(e) => setSelectedDivision(e.target.value)}
+                  onChange={(e) => handleDivisionChange(e.target.value)}
                   required
                   loading={loaderMasterSheetData}
                   placeholder="Select Division"

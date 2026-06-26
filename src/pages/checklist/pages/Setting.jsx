@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-// import { Plus, User, Building, X, Save, Edit, Trash2, Settings, Search, ChevronDown, Calendar, RefreshCw } from 'lucide-react';
 import {
     Plus,
     User,
@@ -15,7 +14,12 @@ import {
     RefreshCw,
     Eye,
     EyeOff,
-    Delete
+    Delete,
+    LayoutDashboard,
+    Building2,
+    GitFork,
+    UserCheck,
+    Users
 } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import { useAuth } from "../context/AuthContext";
@@ -30,34 +34,73 @@ import {
 } from "@/utils/settingsAccessOptions.js";
 
 const Setting = () => {
-    const [activeTab, setActiveTab] = useState("users");
+    const [activeTab, setActiveTab] = useState("dashboard");
     const [showUserModal, setShowUserModal] = useState(false);
     const [showDeptModal, setShowDeptModal] = useState(false);
+    const [showDivModal, setShowDivModal] = useState(false);
+    const [showManagerModal, setShowManagerModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentUserId, setCurrentUserId] = useState(null);
     const [currentDeptId, setCurrentDeptId] = useState(null);
+    const [currentDivId, setCurrentDivId] = useState(null);
+    const [currentManagerId, setCurrentManagerId] = useState(null);
     const [usernameFilter, setUsernameFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [usernameDropdownOpen, setUsernameDropdownOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const [activeDeptSubTab, setActiveDeptSubTab] = useState("departments");
     const [showPasswords, setShowPasswords] = useState({}); // Track which passwords are visibl
     const [showModalPassword, setShowModalPassword] = useState(false);
     const [showDeptDropdown, setShowDeptDropdown] = useState(false);
     const [showUserAccess1Dropdown, setShowUserAccess1Dropdown] = useState(false);
+    
     const [updateMessage, setUpdateMessage] = useState({ type: "", text: "" }); // Success/Error message
     const [isUpdating, setIsUpdating] = useState(false); // Loading state for update
+    
     const [deptUpdateMessage, setDeptUpdateMessage] = useState({ type: "", text: "" }); // Department success/error message
     const [isDeptUpdating, setIsDeptUpdating] = useState(false); // Loading state for department update
+
+    const [divForm, setDivForm] = useState({ name: "" });
+    const [divUpdateMessage, setDivUpdateMessage] = useState({ type: "", text: "" });
+    const [isDivUpdating, setIsDivUpdating] = useState(false);
+
+    const [managerForm, setManagerForm] = useState({ name: "" });
+    const [managerUpdateMessage, setManagerUpdateMessage] = useState({ type: "", text: "" });
+    const [isManagerUpdating, setIsManagerUpdating] = useState(false);
+
     const [verifyAccessValue, setVerifyAccessValue] = useState("");
     const [verifyAccessDepts, setVerifyAccessDepts] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
     const deptDropdownRef = useRef(null);
     const userAccess1DropdownRef = useRef(null);
 
-    const { settingState, fetchSettingsData, createSettingDepartment, createSettingUser, deleteSettingUser, updateSettingDepartment, updateSettingUser, fetchSettingUserDetails, fetchSettingDepartmentDetails } = useAuth();
-    const { settingUserData: userData, settingDepartment: department, settingDepartmentsOnly: departmentsOnly, settingGivenBy: givenBy, settingLoading: loading, settingError: error } = settingState;
+    const { 
+        settingState, 
+        fetchSettingsData, 
+        createSettingDepartment, 
+        createSettingUser, 
+        deleteSettingUser, 
+        updateSettingDepartment, 
+        updateSettingUser, 
+        fetchSettingUserDetails, 
+        fetchSettingDepartmentDetails,
+        createSettingDivision,
+        updateSettingDivision,
+        deleteSettingDivision,
+        createSettingGivenBy,
+        updateSettingGivenBy,
+        deleteSettingGivenBy
+    } = useAuth();
+    
+    const { 
+        settingUserData: userData, 
+        settingDepartment: department, 
+        settingDepartmentsOnly: departmentsOnly, 
+        settingGivenBy: givenBy, 
+        settingDivisions: divisions,
+        settingLoading: loading, 
+        settingError: error 
+    } = settingState;
 
     const loadUserList = async () => {
         setUsersLoading(true);
@@ -103,6 +146,12 @@ const Setting = () => {
         } else if (activeTab === "departments") {
             resetDeptForm();
             setShowDeptModal(true);
+        } else if (activeTab === "divisions") {
+            resetDivForm();
+            setShowDivModal(true);
+        } else if (activeTab === "managers") {
+            resetManagerForm();
+            setShowManagerModal(true);
         }
     };
 
@@ -130,7 +179,7 @@ const Setting = () => {
         if (tab === "users") {
             loadUserList();
             fetchSettingDepartmentDetails(); // Ensure departments are fetched
-        } else if (tab === "departments") {
+        } else if (tab === "departments" || tab === "divisions" || tab === "managers") {
             fetchSettingDepartmentDetails();
         }
     };
@@ -510,7 +559,6 @@ const Setting = () => {
 
         const newDept = {
             name: deptForm.name.trim(),
-            givenBy: deptForm.givenBy?.trim() || null,
             division: deptForm.division || null,
         };
 
@@ -577,7 +625,6 @@ const Setting = () => {
 
         const updatedDept = {
             department: deptForm.name.trim(),
-            given_by: deptForm.givenBy?.trim() || null,
             division: deptForm.division || null,
         };
 
@@ -613,6 +660,120 @@ const Setting = () => {
                 text: `Error: ${errorMessage}`,
             });
             setIsDeptUpdating(false);
+        }
+    };
+
+    // Division handlers
+    const handleAddDivision = async (e) => {
+        e.preventDefault();
+        setIsDivUpdating(true);
+        setDivUpdateMessage({ type: "", text: "" });
+
+        if (!divForm.name || divForm.name.trim() === "") {
+            setDivUpdateMessage({ type: "error", text: "Please enter a division name" });
+            setIsDivUpdating(false);
+            return;
+        }
+
+        try {
+            const result = await createSettingDivision({ name: divForm.name.trim() });
+            if (result) {
+                setDivUpdateMessage({ type: "success", text: "Division created successfully! ✅" });
+                fetchSettingDepartmentDetails();
+                setTimeout(() => {
+                    resetDivForm();
+                    setShowDivModal(false);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error(err);
+            setDivUpdateMessage({ type: "error", text: err.message || "Failed to create division" });
+            setIsDivUpdating(false);
+        }
+    };
+
+    const handleUpdateDivision = async (e) => {
+        e.preventDefault();
+        setIsDivUpdating(true);
+        setDivUpdateMessage({ type: "", text: "" });
+
+        if (!divForm.name || divForm.name.trim() === "") {
+            setDivUpdateMessage({ type: "error", text: "Please enter a division name" });
+            setIsDivUpdating(false);
+            return;
+        }
+
+        try {
+            const result = await updateSettingDivision({ id: currentDivId, name: divForm.name.trim() });
+            if (result) {
+                setDivUpdateMessage({ type: "success", text: "Division updated successfully! ✅" });
+                fetchSettingDepartmentDetails();
+                setTimeout(() => {
+                    resetDivForm();
+                    setShowDivModal(false);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error(err);
+            setDivUpdateMessage({ type: "error", text: err.message || "Failed to update division" });
+            setIsDivUpdating(false);
+        }
+    };
+
+    // Manager handlers
+    const handleAddManager = async (e) => {
+        e.preventDefault();
+        setIsManagerUpdating(true);
+        setManagerUpdateMessage({ type: "", text: "" });
+
+        if (!managerForm.name || managerForm.name.trim() === "") {
+            setManagerUpdateMessage({ type: "error", text: "Please enter a manager name" });
+            setIsManagerUpdating(false);
+            return;
+        }
+
+        try {
+            const result = await createSettingGivenBy({ name: managerForm.name.trim() });
+            if (result) {
+                setManagerUpdateMessage({ type: "success", text: "Manager created successfully! ✅" });
+                fetchSettingDepartmentDetails();
+                setTimeout(() => {
+                    resetManagerForm();
+                    setShowManagerModal(false);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error(err);
+            setManagerUpdateMessage({ type: "error", text: err.message || "Failed to create manager" });
+            setIsManagerUpdating(false);
+        }
+    };
+
+    const handleUpdateManager = async (e) => {
+        e.preventDefault();
+        setIsManagerUpdating(true);
+        setManagerUpdateMessage({ type: "", text: "" });
+
+        if (!managerForm.name || managerForm.name.trim() === "") {
+            setManagerUpdateMessage({ type: "error", text: "Please enter a manager name" });
+            setIsManagerUpdating(false);
+            return;
+        }
+
+        try {
+            const result = await updateSettingGivenBy({ id: currentManagerId, name: managerForm.name.trim() });
+            if (result) {
+                setManagerUpdateMessage({ type: "success", text: "Manager updated successfully! ✅" });
+                fetchSettingDepartmentDetails();
+                setTimeout(() => {
+                    resetManagerForm();
+                    setShowManagerModal(false);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error(err);
+            setManagerUpdateMessage({ type: "error", text: err.message || "Failed to update manager" });
+            setIsManagerUpdating(false);
         }
     };
 
@@ -839,16 +1000,37 @@ const Setting = () => {
         setShowUserModal(true);
     };
 
+    const handleEditDivision = (divId) => {
+        const div = divisions.find((d) => d.id === divId);
+        if (div) {
+            setDivForm({
+                name: div.division || "",
+            });
+            setCurrentDivId(divId);
+            setShowDivModal(true);
+        }
+    };
+
     const handleEditDepartment = (deptId) => {
         const dept = department.find((d) => d.id === deptId);
         if (dept) {
             setDeptForm({
                 name: dept.department || "",
-                givenBy: dept.given_by || "",
                 division: dept.division || "",
             });
             setCurrentDeptId(deptId);
             setShowDeptModal(true);
+        }
+    };
+
+    const handleEditManager = (managerId) => {
+        const mgr = givenBy.find((m) => m.id === managerId);
+        if (mgr) {
+            setManagerForm({
+                name: mgr.given_by || "",
+            });
+            setCurrentManagerId(managerId);
+            setShowManagerModal(true);
         }
     };
 
@@ -879,16 +1061,22 @@ const Setting = () => {
         setVerifyAccessDepts([]);
     };
 
-    // Department form handlers
+    // Form handlers
     const handleDeptInputChange = (e) => {
         const { name, value } = e.target;
         setDeptForm((prev) => ({ ...prev, [name]: value }));
     };
 
+    const resetDivForm = () => {
+        setDivForm({ name: "" });
+        setCurrentDivId(null);
+        setIsDivUpdating(false);
+        setDivUpdateMessage({ type: "", text: "" });
+    };
+
     const resetDeptForm = () => {
         setDeptForm({
             name: "",
-            givenBy: "",
             division: "",
         });
         setCurrentDeptId(null);
@@ -896,27 +1084,49 @@ const Setting = () => {
         setDeptUpdateMessage({ type: "", text: "" });
     };
 
-    // Modified handleDeleteDepartment
+    const resetManagerForm = () => {
+        setManagerForm({ name: "" });
+        setCurrentManagerId(null);
+        setIsManagerUpdating(false);
+        setManagerUpdateMessage({ type: "", text: "" });
+    };
+
+    const handleDeleteDivision = async (divId) => {
+        if (!window.confirm("Are you sure you want to delete this division?")) {
+            return;
+        }
+        try {
+            await deleteSettingDivision(divId);
+            alert("Division deleted successfully! ✅");
+        } catch (error) {
+            console.error("Error deleting division:", error);
+            alert(`Error: ${error?.message || "Failed to delete division"}`);
+        }
+    };
+
     const handleDeleteDepartment = async (deptId) => {
         if (!window.confirm("Are you sure you want to delete this department?")) {
             return;
         }
-
         try {
-            const result = await dispatch(deleteDepartment(deptId)).unwrap();
-
-            if (result) {
-                // Refresh department data
-                dispatch(departmentDetails());
-                dispatch(departmentOnlyDetails());
-                dispatch(givenByDetails());
-
-                alert("Department deleted successfully! ✅");
-            }
+            await deleteSettingDepartment(deptId);
+            alert("Department deleted successfully! ✅");
         } catch (error) {
             console.error("Error deleting department:", error);
-            const errorMessage = error?.message || error?.error || "Failed to delete department. Please try again.";
-            alert(`Error: ${errorMessage}`);
+            alert(`Error: ${error?.message || "Failed to delete department"}`);
+        }
+    };
+
+    const handleDeleteManager = async (managerId) => {
+        if (!window.confirm("Are you sure you want to delete this manager?")) {
+            return;
+        }
+        try {
+            await deleteSettingGivenBy(managerId);
+            alert("Manager deleted successfully! ✅");
+        } catch (error) {
+            console.error("Error deleting manager:", error);
+            alert(`Error: ${error?.message || "Failed to delete manager"}`);
         }
     };
 
@@ -1005,60 +1215,73 @@ const Setting = () => {
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
                             <div className="flex border border-purple-200 rounded-md overflow-hidden w-full sm:w-auto">
                                 <button
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "users"
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "dashboard"
                                         ? "bg-purple-600 text-white"
                                         : "bg-white text-purple-600 hover:bg-purple-50"
                                         }`}
-                                    onClick={() => {
-                                        handleTabChange("users");
-                                    }}
+                                    onClick={() => handleTabChange("dashboard")}
                                 >
-                                    <User size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                    <span className="hidden xs:inline">Users</span>
+                                    <LayoutDashboard size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    <span className="hidden xs:inline">Dashboard</span>
+                                </button>
+                                <button
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "divisions"
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-white text-purple-600 hover:bg-purple-50"
+                                        }`}
+                                    onClick={() => handleTabChange("divisions")}
+                                >
+                                    <Building2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    <span className="hidden xs:inline">Division</span>
                                 </button>
                                 <button
                                     className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "departments"
                                         ? "bg-purple-600 text-white"
                                         : "bg-white text-purple-600 hover:bg-purple-50"
                                         }`}
-                                    onClick={() => {
-                                        handleTabChange("departments");
-                                    }}
+                                    onClick={() => handleTabChange("departments")}
                                 >
-                                    <Building size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                    <span className="hidden xs:inline">Departments</span>
+                                    <GitFork size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    <span className="hidden xs:inline">Department</span>
+                                </button>
+                                <button
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "managers"
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-white text-purple-600 hover:bg-purple-50"
+                                        }`}
+                                    onClick={() => handleTabChange("managers")}
+                                >
+                                    <UserCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    <span className="hidden xs:inline">Managers</span>
+                                </button>
+                                <button
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium ${activeTab === "users"
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-white text-purple-600 hover:bg-purple-50"
+                                        }`}
+                                    onClick={() => handleTabChange("users")}
+                                >
+                                    <Users size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    <span className="hidden xs:inline">Users</span>
                                 </button>
                             </div>
 
-                            {/* <button
-                                onClick={fetchDeviceLogsAndUpdateStatus}
-                                disabled={isRefreshing}
-                                className="w-full sm:w-auto rounded-md bg-green-600 py-2 px-3 sm:px-4 text-white hover:bg-green-700 text-xs sm:text-sm"
-                            >
-                                <div className="flex items-center justify-center">
-                                    <RefreshCw
-                                        size={16}
-                                        className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-                                    />
-                                    <span className="hidden sm:inline">
-                                        {isRefreshing ? "Refreshing..." : "Refresh Status"}
-                                    </span>
-                                    <span className="sm:hidden">Refresh</span>
-                                </div>
-                            </button> */}
-
                             {/* Add button */}
-                            <button
-                                onClick={handleAddButtonClick}
-                                className="w-full sm:w-auto rounded-md bg-red-600 py-2 px-3 sm:px-4 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-xs sm:text-sm"
-                            >
-                                <div className="flex items-center justify-center">
-                                    <Plus size={16} className="mr-2" />
-                                    <span>
-                                        {activeTab === "users" ? "Add User" : "Add Department"}
-                                    </span>
-                                </div>
-                            </button>
+                            {activeTab !== "dashboard" && (
+                                <button
+                                    onClick={handleAddButtonClick}
+                                    className="w-full sm:w-auto rounded-md bg-red-600 py-2 px-3 sm:px-4 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-xs sm:text-sm"
+                                >
+                                    <div className="flex items-center justify-center">
+                                        <Plus size={16} className="mr-2" />
+                                        <span>
+                                            {activeTab === "users" ? "Add User" : 
+                                             activeTab === "departments" ? "Add Department" : 
+                                             activeTab === "divisions" ? "Add Division" : "Add Manager"}
+                                        </span>
+                                    </div>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1415,220 +1638,233 @@ const Setting = () => {
                     </div>
                 )}
 
-                {/* Departments Tab */}
-                {activeTab === "departments" && (
-                    <div className="bg-white shadow rounded-lg overflow-hidden border border-purple-200">
-                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple px-3 sm:px-6 py-3 sm:py-4 border-gray-200">
-                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
-                                <h2 className="text-base sm:text-lg font-medium text-purple-700">
-                                    Department Management
-                                </h2>
+                {/* Dashboard Tab */}
+                {activeTab === "dashboard" && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                            {/* Users Card */}
+                            <div 
+                                onClick={() => handleTabChange("users")}
+                                className="bg-white p-6 rounded-xl shadow-md border border-purple-100 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1 duration-200 flex items-center justify-between"
+                            >
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Users</p>
+                                    <p className="text-3xl font-bold text-purple-700">{userData ? userData.filter(u => u.user_name !== "admin").length : 0}</p>
+                                </div>
+                                <div className="p-3 bg-purple-100 rounded-lg text-purple-600">
+                                    <Users size={24} />
+                                </div>
+                            </div>
 
-                                {/* Sub-tabs for Departments and Given By */}
-                                <div className="flex border border-purple-200 rounded-md overflow-hidden w-full sm:w-auto">
-                                    <button
-                                        className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium ${activeDeptSubTab === "departments"
-                                            ? "bg-purple-600 text-white"
-                                            : "bg-white text-purple-600 hover:bg-purple-50"
-                                            }`}
-                                        onClick={() => setActiveDeptSubTab("departments")}
-                                    >
-                                        Departments
-                                    </button>
-                                    <button
-                                        className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium ${activeDeptSubTab === "givenBy"
-                                            ? "bg-purple-600 text-white"
-                                            : "bg-white text-purple-600 hover:bg-purple-50"
-                                            }`}
-                                        onClick={() => setActiveDeptSubTab("givenBy")}
-                                    >
-                                        Given By
-                                    </button>
+                            {/* Divisions Card */}
+                            <div 
+                                onClick={() => handleTabChange("divisions")}
+                                className="bg-white p-6 rounded-xl shadow-md border border-blue-100 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1 duration-200 flex items-center justify-between"
+                            >
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Divisions</p>
+                                    <p className="text-3xl font-bold text-blue-700">{divisions ? divisions.length : 0}</p>
+                                </div>
+                                <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
+                                    <Building2 size={24} />
+                                </div>
+                            </div>
+
+                            {/* Departments Card */}
+                            <div 
+                                onClick={() => handleTabChange("departments")}
+                                className="bg-white p-6 rounded-xl shadow-md border border-green-100 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1 duration-200 flex items-center justify-between"
+                            >
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Departments</p>
+                                    <p className="text-3xl font-bold text-green-700">{department ? department.length : 0}</p>
+                                </div>
+                                <div className="p-3 bg-green-100 rounded-lg text-green-600">
+                                    <GitFork size={24} />
+                                </div>
+                            </div>
+
+                            {/* Managers Card */}
+                            <div 
+                                onClick={() => handleTabChange("managers")}
+                                className="bg-white p-6 rounded-xl shadow-md border border-pink-100 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1 duration-200 flex items-center justify-between"
+                            >
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Managers</p>
+                                    <p className="text-3xl font-bold text-pink-700">{givenBy ? givenBy.length : 0}</p>
+                                </div>
+                                <div className="p-3 bg-pink-100 rounded-lg text-pink-600">
+                                    <UserCheck size={24} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Loading State */}
-                        {loading && (
-                            <div className="p-8 text-center">
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                                <p className="mt-2 text-gray-600">Loading...</p>
+                        {/* Quick Actions Panel */}
+                        <div className="bg-white p-6 rounded-xl shadow border border-purple-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4">Quick Management Actions</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                <button
+                                    onClick={() => { setActiveTab("users"); handleAddButtonClick(); }}
+                                    className="flex items-center justify-center gap-2 p-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 font-semibold text-sm transition-all"
+                                >
+                                    <Plus size={16} /> Add User
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab("divisions"); handleAddButtonClick(); }}
+                                    className="flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-semibold text-sm transition-all"
+                                >
+                                    <Plus size={16} /> Add Division
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab("departments"); handleAddButtonClick(); }}
+                                    className="flex items-center justify-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 font-semibold text-sm transition-all"
+                                >
+                                    <Plus size={16} /> Add Department
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab("managers"); handleAddButtonClick(); }}
+                                    className="flex items-center justify-center gap-2 p-3 bg-pink-50 text-pink-700 rounded-lg hover:bg-pink-100 font-semibold text-sm transition-all"
+                                >
+                                    <Plus size={16} /> Add Manager
+                                </button>
                             </div>
-                        )}
+                        </div>
+                    </div>
+                )}
 
-                        {/* Error State */}
-                        {error && (
-                            <div className="p-4 bg-red-50 border border-red-200 rounded-md m-4">
-                                <p className="text-red-600">Error: {error}</p>
-                            </div>
-                        )}
-
-                        {/* Departments Sub-tab - Show only department names */}
-                        {activeDeptSubTab === "departments" && !loading && (
-                            <div className="h-[calc(100vh-275px)] sm:h-[calc(100vh-250px)] overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                ID
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                Department Name
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {department && department.length > 0 ? (
-                                            // Get unique departments and show them
-                                            Array.from(
-                                                new Map(
-                                                    department.map((dept) => [dept.department, dept])
-                                                ).values()
-                                            )
-                                                .filter(
-                                                    (dept) =>
-                                                        dept?.department && dept.department.trim() !== ""
-                                                )
-                                                .map((dept, index) => (
-                                                    <tr key={dept.id} className="hover:bg-gray-50">
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                                                            {index + 1}
-                                                        </td>
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                                                            {dept.department}
-                                                        </td>
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-
-
-                                                            <div className="flex space-x-1 sm:space-x-2 justify-end">
-                                                                <button
-                                                                    onClick={() => handleEditDepartment(dept.id)}
-                                                                    className="text-blue-600 hover:text-blue-900"
-                                                                    title="Edit User"
-                                                                >
-                                                                    <Edit
-                                                                        size={16}
-                                                                        className="sm:w-[18px] sm:h-[18px]"
-                                                                    />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteDepartment(dept.id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                    title="Delete User"
-                                                                >
-                                                                    <Trash2
-                                                                        size={16}
-                                                                        className="sm:w-[18px] sm:h-[18px]"
-                                                                    />
-                                                                </button>
-                                                            </div>
-
-
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                        ) : (
-                                            <tr>
-                                                <td
-                                                    colSpan="3"
-                                                    className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500"
-                                                >
-                                                    No departments found
+                {/* Divisions Tab */}
+                {activeTab === "divisions" && (
+                    <div className="bg-white shadow rounded-lg overflow-hidden border border-purple-200">
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple px-3 sm:px-6 py-3 sm:py-4 border-gray-200">
+                            <h2 className="text-base sm:text-lg font-medium text-purple-700 font-bold">
+                                Division Management
+                            </h2>
+                        </div>
+                        <div className="h-[calc(100vh-275px)] sm:h-[calc(100vh-250px)] overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division Name</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {divisions && divisions.length > 0 ? (
+                                        divisions.map((div, index) => (
+                                            <tr key={div.id || index} className="hover:bg-gray-50">
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{index + 1}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{div.division}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                                                    <span className="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{div.status || 'active'}</span>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div className="flex space-x-2">
+                                                        <button onClick={() => handleEditDivision(div.id)} className="text-blue-600 hover:text-blue-900"><Edit size={16} /></button>
+                                                        <button onClick={() => handleDeleteDivision(div.id)} className="text-red-600 hover:text-red-900"><Trash2 size={16} /></button>
+                                                    </div>
                                                 </td>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {/* Given By Sub-tab - Show only given_by values */}
-                        {activeDeptSubTab === "givenBy" && !loading && (
-                            <div className="h-[calc(100vh-275px)] sm:h-[calc(100vh-250px)] overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                        ))
+                                    ) : (
                                         <tr>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                ID
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                Given By
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                Actions
-                                            </th>
+                                            <td colSpan="4" className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500">No divisions found</td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {department && department.length > 0 ? (
-                                            // Get unique given_by values and show them
-                                            Array.from(
-                                                new Map(
-                                                    department.map((dept) => [dept.given_by, dept])
-                                                ).values()
-                                            )
-                                                .filter(
-                                                    (dept) =>
-                                                        dept?.given_by && dept.given_by.trim() !== ""
-                                                )
-                                                .map((dept, index) => (
-                                                    <tr key={dept.id} className="hover:bg-gray-50">
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                                                            {index + 1}
-                                                        </td>
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                                                            {dept.given_by}
-                                                        </td>
-                                                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                            <div className="flex space-x-2 justify-end">
-                                                                <button
-                                                                    onClick={() => handleEditDepartment(dept.id)}
-                                                                    className="text-blue-600 hover:text-blue-900"
-                                                                >
-                                                                    <Edit
-                                                                        size={16}
-                                                                        className="sm:w-[18px] sm:h-[18px]"
-                                                                    />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                        ) : (
-                                            <tr>
-                                                <td
-                                                    colSpan="3"
-                                                    className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500"
-                                                >
-                                                    No given by data found
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Departments Tab */}
+                {activeTab === "departments" && (
+                    <div className="bg-white shadow rounded-lg overflow-hidden border border-purple-200">
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple px-3 sm:px-6 py-3 sm:py-4 border-gray-200">
+                            <h2 className="text-base sm:text-lg font-medium text-purple-700 font-bold">
+                                Department Management
+                            </h2>
+                        </div>
+                        <div className="h-[calc(100vh-275px)] sm:h-[calc(100vh-250px)] overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department Name</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {department && department.length > 0 ? (
+                                        department.map((dept, index) => (
+                                            <tr key={dept.id || index} className="hover:bg-gray-50">
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{index + 1}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{dept.department}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{dept.division || "N/A"}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div className="flex space-x-2">
+                                                        <button onClick={() => handleEditDepartment(dept.id)} className="text-blue-600 hover:text-blue-900"><Edit size={16} /></button>
+                                                        <button onClick={() => handleDeleteDepartment(dept.id)} className="text-red-600 hover:text-red-900"><Trash2 size={16} /></button>
+                                                    </div>
                                                 </td>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="4" className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500">No departments found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Managers Tab */}
+                {activeTab === "managers" && (
+                    <div className="bg-white shadow rounded-lg overflow-hidden border border-purple-200">
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple px-3 sm:px-6 py-3 sm:py-4 border-gray-200">
+                            <h2 className="text-base sm:text-lg font-medium text-purple-700 font-bold">
+                                Managers Management
+                            </h2>
+                        </div>
+                        <div className="h-[calc(100vh-275px)] sm:h-[calc(100vh-250px)] overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manager Name</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {givenBy && givenBy.length > 0 ? (
+                                        givenBy.map((mgr, index) => (
+                                            <tr key={mgr.id || index} className="hover:bg-gray-50">
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{index + 1}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{mgr.given_by}</td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                                                    <span className="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{mgr.status || 'active'}</span>
+                                                </td>
+                                                <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div className="flex space-x-2">
+                                                        <button onClick={() => handleEditManager(mgr.id)} className="text-blue-600 hover:text-blue-900"><Edit size={16} /></button>
+                                                        <button onClick={() => handleDeleteManager(mgr.id)} className="text-red-600 hover:text-red-900"><Trash2 size={16} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="4" className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500">No managers found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 
@@ -2423,6 +2659,7 @@ const Setting = () => {
                         onClick={(e) => {
                             if (e.target === e.currentTarget) {
                                 setShowDeptModal(false);
+                                resetDeptForm();
                             }
                         }}
                     >
@@ -2448,6 +2685,11 @@ const Setting = () => {
                                     </button>
                                 </div>
                                 <div className="px-4 sm:px-6 py-4 bg-white">
+                                    {deptUpdateMessage.text && (
+                                        <div className={`mb-4 p-3 rounded-md ${deptUpdateMessage.type === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                                            <span className="text-sm font-medium">{deptUpdateMessage.text}</span>
+                                        </div>
+                                    )}
                                     <form
                                         onSubmit={
                                             currentDeptId
@@ -2477,23 +2719,6 @@ const Setting = () => {
 
                                             <div>
                                                 <label
-                                                    htmlFor="givenBy"
-                                                    className="block text-sm font-medium text-gray-700 mb-1"
-                                                >
-                                                    Given By
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="givenBy"
-                                                    name="givenBy"
-                                                    value={deptForm.givenBy}
-                                                    onChange={handleDeptInputChange}
-                                                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    placeholder="Enter Given By"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label
                                                     htmlFor="division"
                                                     className="block text-sm font-medium text-gray-700 mb-1"
                                                 >
@@ -2507,9 +2732,9 @@ const Setting = () => {
                                                     className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 >
                                                     <option value="">Select Division</option>
-                                                    {divisionOptions.map((div) => (
-                                                        <option key={div} value={div}>
-                                                            {div}
+                                                    {divisions && divisions.map((div) => (
+                                                        <option key={div.id} value={div.division}>
+                                                            {div.division}
                                                         </option>
                                                     ))}
                                                 </select>
@@ -2530,12 +2755,174 @@ const Setting = () => {
                                             </button>
                                             <button
                                                 type="submit"
-                                                className="w-full sm:w-auto inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                disabled={isDeptUpdating}
+                                                className="w-full sm:w-auto inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                                             >
-                                                <Save size={18} className="mr-2" />
+                                                {isDeptUpdating ? <RefreshCw size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />}
                                                 {currentDeptId
                                                     ? "Update Department"
                                                     : "Save Department"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Division Modal */}
+                {showDivModal && (
+                    <div
+                        className="fixed z-50 inset-y-0 right-0 left-0 xl:left-[240px] overflow-y-auto"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) {
+                                setShowDivModal(false);
+                                resetDivForm();
+                            }
+                        }}
+                    >
+                        <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 py-4">
+                            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                                <div className="sticky top-0 bg-white z-10 border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center">
+                                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                                        {currentDivId ? "Edit Division" : "Create New Division"}
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowDivModal(false);
+                                            resetDivForm();
+                                        }}
+                                        className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded p-1"
+                                        aria-label="Close"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                                <div className="px-4 sm:px-6 py-4 bg-white">
+                                    {divUpdateMessage.text && (
+                                        <div className={`mb-4 p-3 rounded-md ${divUpdateMessage.type === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                                            <span className="text-sm font-medium">{divUpdateMessage.text}</span>
+                                        </div>
+                                    )}
+                                    <form onSubmit={currentDivId ? handleUpdateDivision : handleAddDivision} className="bg-white">
+                                        <div className="space-y-4 bg-white">
+                                            <div>
+                                                <label htmlFor="divName" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Division Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="divName"
+                                                    value={divForm.name}
+                                                    onChange={(e) => setDivForm({ name: e.target.value })}
+                                                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setShowDivModal(false);
+                                                    resetDivForm();
+                                                }}
+                                                className="w-full sm:w-auto bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={isDivUpdating}
+                                                className="w-full sm:w-auto inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                            >
+                                                {isDivUpdating ? <RefreshCw size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />}
+                                                {currentDivId ? "Update Division" : "Save Division"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Manager Modal */}
+                {showManagerModal && (
+                    <div
+                        className="fixed z-50 inset-y-0 right-0 left-0 xl:left-[240px] overflow-y-auto"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) {
+                                setShowManagerModal(false);
+                                resetManagerForm();
+                            }
+                        }}
+                    >
+                        <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 py-4">
+                            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                                <div className="sticky top-0 bg-white z-10 border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center">
+                                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                                        {currentManagerId ? "Edit Manager" : "Create New Manager"}
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowManagerModal(false);
+                                            resetManagerForm();
+                                        }}
+                                        className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded p-1"
+                                        aria-label="Close"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                                <div className="px-4 sm:px-6 py-4 bg-white">
+                                    {managerUpdateMessage.text && (
+                                        <div className={`mb-4 p-3 rounded-md ${managerUpdateMessage.type === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                                            <span className="text-sm font-medium">{managerUpdateMessage.text}</span>
+                                        </div>
+                                    )}
+                                    <form onSubmit={currentManagerId ? handleUpdateManager : handleAddManager} className="bg-white">
+                                        <div className="space-y-4 bg-white">
+                                            <div>
+                                                <label htmlFor="managerName" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Manager Name
+                                                    <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="managerName"
+                                                    value={managerForm.name}
+                                                    onChange={(e) => setManagerForm({ name: e.target.value })}
+                                                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setShowManagerModal(false);
+                                                    resetManagerForm();
+                                                }}
+                                                className="w-full sm:w-auto bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={isManagerUpdating}
+                                                className="w-full sm:w-auto inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                            >
+                                                {isManagerUpdating ? <RefreshCw size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />}
+                                                {currentManagerId ? "Update Manager" : "Save Manager"}
                                             </button>
                                         </div>
                                     </form>

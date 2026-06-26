@@ -169,6 +169,7 @@ export const useChecklistCompatibility = () => {
     settingDepartment: [] as any[],
     settingDepartmentsOnly: [] as any[],
     settingGivenBy: [] as any[],
+    settingDivisions: [] as any[],
     settingLoading: false,
     settingError: null as string | null,
   });
@@ -1153,11 +1154,12 @@ export const useChecklistCompatibility = () => {
     }));
 
     try {
-      const [users, departments, departmentsOnly, givenBy] = await Promise.all([
+      const [users, departments, departmentsOnly, givenBy, divisions] = await Promise.all([
         settingApi.fetchUserDetailsApi(),
         settingApi.fetchDepartmentDataApi(),
         settingApi.fetchDepartmentsOnlyApi(),
         settingApi.fetchGivenByDataApi(),
+        settingApi.fetchDivisionsApi(),
       ]);
 
       setSettingState((previous) => ({
@@ -1166,6 +1168,7 @@ export const useChecklistCompatibility = () => {
         settingDepartment: Array.isArray(departments) ? departments : [],
         settingDepartmentsOnly: Array.isArray(departmentsOnly) ? departmentsOnly : [],
         settingGivenBy: Array.isArray(givenBy) ? givenBy : [],
+        settingDivisions: Array.isArray(divisions) ? divisions : [],
         settingLoading: false,
       }));
     } catch (error) {
@@ -1188,10 +1191,11 @@ export const useChecklistCompatibility = () => {
   }, []);
 
   const fetchSettingDepartmentDetails = useCallback(async () => {
-    const [departments, departmentsOnly, givenBy] = await Promise.all([
+    const [departments, departmentsOnly, givenBy, divisions] = await Promise.all([
       settingApi.fetchDepartmentDataApi(),
       settingApi.fetchDepartmentsOnlyApi(),
       settingApi.fetchGivenByDataApi(),
+      settingApi.fetchDivisionsApi(),
     ]);
 
     setSettingState((previous) => ({
@@ -1199,6 +1203,7 @@ export const useChecklistCompatibility = () => {
       settingDepartment: Array.isArray(departments) ? departments : [],
       settingDepartmentsOnly: Array.isArray(departmentsOnly) ? departmentsOnly : [],
       settingGivenBy: Array.isArray(givenBy) ? givenBy : [],
+      settingDivisions: Array.isArray(divisions) ? divisions : [],
     }));
   }, []);
 
@@ -1225,6 +1230,30 @@ export const useChecklistCompatibility = () => {
     await fetchSettingUserDetails();
   };
 
+  const createSettingDivision = async (division: any) => {
+    const data = await settingApi.createDivisionApi(division);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const updateSettingDivision = async ({
+    id,
+    name,
+  }: {
+    id: string | number;
+    name: string;
+  }) => {
+    const data = await settingApi.updateDivisionApi({ id, name });
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const deleteSettingDivision = async (id: string | number) => {
+    const data = await settingApi.deleteDivisionApi(id);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
   const createSettingDepartment = async (department: any) => {
     const data = await settingApi.createDepartmentApi(department);
     await fetchSettingDepartmentDetails();
@@ -1245,6 +1274,30 @@ export const useChecklistCompatibility = () => {
 
   const deleteSettingDepartment = async (id: string | number) => {
     const data = await settingApi.deleteDepartmentDataApi(id);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const createSettingGivenBy = async (manager: any) => {
+    const data = await settingApi.createGivenByApi(manager);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const updateSettingGivenBy = async ({
+    id,
+    name,
+  }: {
+    id: string | number;
+    name: string;
+  }) => {
+    const data = await settingApi.updateGivenByApi({ id, name });
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const deleteSettingGivenBy = async (id: string | number) => {
+    const data = await settingApi.deleteGivenByApi(id);
     await fetchSettingDepartmentDetails();
     return data;
   };
@@ -1425,9 +1478,15 @@ export const useChecklistCompatibility = () => {
     createSettingUser,
     updateSettingUser,
     deleteSettingUser,
+    createSettingDivision,
+    updateSettingDivision,
+    deleteSettingDivision,
     createSettingDepartment,
     updateSettingDepartment,
     deleteSettingDepartment,
+    createSettingGivenBy,
+    updateSettingGivenBy,
+    deleteSettingGivenBy,
     patchUserVerifyAccess,
     patchUserVerifyAccessDept,
     fetchHousekeepingLocationsTask,
