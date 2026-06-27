@@ -1,5 +1,22 @@
-const RAPROCURE_DASHBOARD_PATH =
+const DEFAULT_RAPROCURE_DASHBOARD_PATH =
   "/raprocure-api/public-buyer-dashboard/eyJpdiI6ImpsaHRLOERhaHV2b2U1MjNleXhhQXc9PSIsInZhbHVlIjoiOHVHNUpSREJ2N1ZUZ05BU3B5NjRFZz09IiwibWFjIjoiMjM5N2ZhZTllNTVlYmZjODk4NWIxZmY2YmNhNTA2NzBiZGVhMmJkM2JjZTAwNzkxOGYxNjM2MTZjMjMwOGYwNSIsInRhZyI6IiJ9";
+
+const normalizeRaprocureDashboardPath = (value: string) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return DEFAULT_RAPROCURE_DASHBOARD_PATH;
+  }
+
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return `/${trimmedValue.replace(/^\/+/, "")}`;
+};
+
+const RAPROCURE_DASHBOARD_PATH = normalizeRaprocureDashboardPath(
+  String(import.meta.env.VITE_RAPROCURE_API_BASE_URL || "")
+);
 
 export interface RaprocureDashboardMetrics {
   totalRfqSent: number;
