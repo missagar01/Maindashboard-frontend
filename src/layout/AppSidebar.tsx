@@ -674,6 +674,31 @@ const AppSidebar: FC = () => {
         </nav>
 
         <div className="shrink-0 border-t border-[#e2e8f0]/80 bg-white/88 px-2 py-2 backdrop-blur">
+          {showText && (
+            <div className="mb-3 flex items-center gap-3 px-3 py-2 bg-slate-50/50 rounded-xl border border-slate-100">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ee1c23]/10 font-bold text-[#ee1c23] border border-[#ee1c23]/10 text-sm">
+                {(user?.user_name || user?.username || "U").charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className={`truncate font-semibold text-[#0f172a] ${TEXT_ITEM}`}>
+                  {user?.user_name || user?.username || "User"}
+                </p>
+                <p className={`truncate text-slate-500 capitalize ${TEXT_CHILD}`}>
+                  {user?.designation || "No Designation"}
+                </p>
+              </div>
+            </div>
+          )}
+          {!showText && (
+            <div className="mb-3 flex justify-center">
+              <div 
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ee1c23]/10 font-bold text-[#ee1c23] border border-[#ee1c23]/10 text-xs" 
+                title={`${user?.user_name || user?.username || "User"} - ${user?.designation || "No Designation"}`}
+              >
+                {(user?.user_name || user?.username || "U").charAt(0).toUpperCase()}
+              </div>
+            </div>
+          )}
           <button
             onClick={logout}
             title="Sign Out"

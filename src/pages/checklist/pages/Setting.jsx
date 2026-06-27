@@ -190,6 +190,7 @@ const Setting = () => {
         password: "",
         phone: "",
         employee_id: "",
+        designation: "",
         department: "", // Single selection for department column
         departments: [], // Change from single department to array
         givenBy: "",
@@ -353,6 +354,7 @@ const Setting = () => {
             password: userForm.password?.trim() || "",
             phone: userForm.phone?.trim() || "",
             employee_id: userForm.employee_id?.trim() || null,
+            designation: userForm.designation?.trim() || "",
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
@@ -451,6 +453,7 @@ const Setting = () => {
             email_id: userForm.email?.trim() || "",
             number: userForm.phone?.trim() || "",
             employee_id: userForm.employee_id?.trim() || null,
+            designation: userForm.designation?.trim() || "",
             role: userForm.role || "user",
             status: userForm.status || "active",
             user_access: departmentsString, // Join array into comma-separated string
@@ -974,6 +977,7 @@ const Setting = () => {
             password: "", // Leave empty initially, user can change if needed
             phone: user.number || "",
             employee_id: user.employee_id || "",
+            designation: user.designation || "",
             department: user.department || "",
             departments: user.user_access
                 ? user.user_access
@@ -1041,6 +1045,7 @@ const Setting = () => {
             password: "",
             phone: "",
             employee_id: "",
+            designation: "",
             department: "",
             departments: [], // Reset to empty array
             givenBy: "",
@@ -2051,6 +2056,24 @@ const Setting = () => {
 
                                             <div className="sm:col-span-2 lg:col-span-1">
                                                 <label
+                                                    htmlFor="designation"
+                                                    className="block text-sm font-medium text-gray-700 mb-1"
+                                                >
+                                                    Designation
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="designation"
+                                                    id="designation"
+                                                    value={userForm.designation}
+                                                    onChange={handleUserInputChange}
+                                                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder="Enter Designation"
+                                                />
+                                            </div>
+
+                                            <div className="sm:col-span-2 lg:col-span-1">
+                                                <label
                                                     htmlFor="division"
                                                     className="block text-sm font-medium text-gray-700 mb-1"
                                                 >
@@ -2139,11 +2162,84 @@ const Setting = () => {
                                             </div>
 
                                             <div className="sm:col-span-2 lg:col-span-3">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    System Access
+                                                </label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                    {SYSTEM_OPTIONS.map((option) => (
+                                                        <label
+                                                            key={option.value}
+                                                            className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSystemAccess.includes(option.value)}
+                                                                onChange={() =>
+                                                                    toggleSystemAccessOption(option.value)
+                                                                }
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                            <span>{option.label}</span>
+                                                        </label>
+                                                    ))}
+                                                    {SYSTEM_OPTIONS.length === 0 && (
+                                                        <p className="text-xs text-gray-500">
+                                                            No system access options available
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="sm:col-span-2 lg:col-span-3">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Page Access
+                                                </label>
+                                                <div className={`rounded-lg border p-4 ${selectedSystemAccess.length > 0
+                                                    ? "border-gray-200 bg-white"
+                                                    : "border-gray-200 bg-gray-50"
+                                                    }`}>
+                                                    {availablePageAccessGroups.length > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {availablePageAccessGroups.map((group) => (
+                                                                <div key={group.systemLabel} className="space-y-2">
+                                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-2">
+                                                                        {group.systemLabel}
+                                                                    </h4>
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                                                        {group.pages.map((option) => (
+                                                                            <label
+                                                                                key={`${group.systemLabel}-${option.value}`}
+                                                                                className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={selectedPageAccess.includes(option.value)}
+                                                                                    onChange={() =>
+                                                                                        togglePageAccessOption(option.value)
+                                                                                    }
+                                                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                                />
+                                                                                <span>{option.label}</span>
+                                                                            </label>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-gray-500">
+                                                            Select system access first to enable page access.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="sm:col-span-2 lg:col-span-3">
                                                 <label
                                                     htmlFor="user_access1"
                                                     className="block text-sm font-medium text-gray-700 mb-1"
                                                 >
-                                                    User Access 1
+                                                    House Keeping Location Access
                                                 </label>
                                                 <div className="relative mt-1" ref={userAccess1DropdownRef}>
                                                     <button
@@ -2156,8 +2252,8 @@ const Setting = () => {
                                                         <div className="flex justify-between items-center gap-3">
                                                             <span className="block truncate">
                                                                 {selectedUserAccess1Values.length === 0
-                                                                    ? "Select User Access 1"
-                                                                    : `${selectedUserAccess1Values.length} user access item(s) selected`}
+                                                                    ? "Select House Keeping Location Access"
+                                                                    : `${selectedUserAccess1Values.length} housekeeping location item(s) selected`}
                                                             </span>
                                                             <ChevronDown
                                                                 size={16}
@@ -2219,7 +2315,7 @@ const Setting = () => {
 
                                                                 {userAccess1Options.length === 0 && (
                                                                     <div className="p-3 text-center text-sm text-gray-500">
-                                                                        No user access options available
+                                                                        No housekeeping location options available
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -2228,7 +2324,7 @@ const Setting = () => {
                                                 </div>
                                                 <div className="mt-2">
                                                     <p className="text-xs font-medium text-gray-700 mb-1">
-                                                        Selected User Access 1:
+                                                        Selected House Keeping Location Access:
                                                     </p>
                                                     <div className="flex flex-wrap gap-1">
                                                         {selectedUserAccess1Values.length > 0 ? (
@@ -2249,17 +2345,15 @@ const Setting = () => {
                                                             ))
                                                         ) : (
                                                             <span className="text-xs text-gray-500">
-                                                                No user access selected
+                                                                No housekeeping location selected
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
                                                 <p className="mt-1 text-xs text-gray-500">
-                                                    Existing `user_access1` items from users table are shown here.
+                                                    Existing housekeeping location access items from users table are shown here.
                                                 </p>
                                             </div>
-
-
 
                                             <div className="sm:col-span-2 lg:col-span-3">
                                                 <label
@@ -2422,79 +2516,6 @@ const Setting = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="sm:col-span-2 lg:col-span-3">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    System Access
-                                                </label>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                    {SYSTEM_OPTIONS.map((option) => (
-                                                        <label
-                                                            key={option.value}
-                                                            className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedSystemAccess.includes(option.value)}
-                                                                onChange={() =>
-                                                                    toggleSystemAccessOption(option.value)
-                                                                }
-                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                            />
-                                                            <span>{option.label}</span>
-                                                        </label>
-                                                    ))}
-                                                    {SYSTEM_OPTIONS.length === 0 && (
-                                                        <p className="text-xs text-gray-500">
-                                                            No system access options available
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="sm:col-span-2 lg:col-span-3">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Page Access
-                                                </label>
-                                                <div className={`rounded-lg border p-4 ${selectedSystemAccess.length > 0
-                                                    ? "border-gray-200 bg-white"
-                                                    : "border-gray-200 bg-gray-50"
-                                                    }`}>
-                                                    {availablePageAccessGroups.length > 0 ? (
-                                                        <div className="space-y-4">
-                                                            {availablePageAccessGroups.map((group) => (
-                                                                <div key={group.systemLabel} className="space-y-2">
-                                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-2">
-                                                                        {group.systemLabel}
-                                                                    </h4>
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                                                        {group.pages.map((option) => (
-                                                                            <label
-                                                                                key={`${group.systemLabel}-${option.value}`}
-                                                                                className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
-                                                                            >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={selectedPageAccess.includes(option.value)}
-                                                                                    onChange={() =>
-                                                                                        togglePageAccessOption(option.value)
-                                                                                    }
-                                                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                                                />
-                                                                                <span>{option.label}</span>
-                                                                            </label>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <p className="text-sm text-gray-500">
-                                                            Select system access first to enable page access.
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
                                             {/* Verification Access */}
                                             <div className="sm:col-span-2 lg:col-span-1">
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2520,8 +2541,8 @@ const Setting = () => {
                                                         }
                                                     }}
                                                     className="w-full bg-white border border-gray-300 rounded-md shadow-sm
-               py-2 px-3 text-sm focus:outline-none
-               focus:ring-2 focus:ring-blue-500"
+                py-2 px-3 text-sm focus:outline-none
+                focus:ring-2 focus:ring-blue-500"
                                                 >
                                                     <option value="">Select</option>
                                                     <option value="hod">HOD</option>
@@ -2546,8 +2567,8 @@ const Setting = () => {
                                                         e.target.value = "";
                                                     }}
                                                     className="w-full bg-white border border-gray-300 rounded-md shadow-sm
-               py-2 px-3 text-sm focus:outline-none
-               focus:ring-2 focus:ring-blue-500"
+                py-2 px-3 text-sm focus:outline-none
+                focus:ring-2 focus:ring-blue-500"
                                                 >
                                                     <option value="">Add department access</option>
                                                     {availableDepartments
@@ -2566,8 +2587,8 @@ const Setting = () => {
                                                             <span
                                                                 key={dept}
                                                                 className="inline-flex items-center gap-1 px-2 py-1
-                     rounded-full text-xs font-medium
-                     bg-blue-100 text-blue-800"
+                      rounded-full text-xs font-medium
+                      bg-blue-100 text-blue-800"
                                                             >
                                                                 {dept}
                                                                 <button
