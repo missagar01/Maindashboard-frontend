@@ -69,6 +69,7 @@ export default function HrManager() {
             task?.due_date ??
             "-").split("T")[0],
         remarks: task?.remark ?? task?.remarks ?? "-",
+        machineName: task?.machine_name ?? task?.machineName ?? "-",
       };
     });
   }, [hrChecklist]);
@@ -395,6 +396,9 @@ export default function HrManager() {
                         Description
                       </th>
                       <th className="sticky top-0 px-3 py-2 text-left font-medium tracking-wide text-blue-600 bg-gray-50">
+                        Machine Name/ Mill No.
+                      </th>
+                      <th className="sticky top-0 px-3 py-2 text-left font-medium tracking-wide text-blue-600 bg-gray-50">
                         Department
                       </th>
                       <th className="sticky top-0 px-3 py-2 text-left font-medium tracking-wide text-blue-600 bg-gray-50">
@@ -408,11 +412,11 @@ export default function HrManager() {
                       </th>
                     </tr>
                   </thead>
-
+ 
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
+                        <td colSpan={10} className="px-3 py-6 text-center text-gray-500">
                           {hrLoading
                             ? "Looking for checklist responses..."
                             : "No checklist entries found."}
@@ -433,6 +437,7 @@ export default function HrManager() {
                           <td className="px-3 py-3 font-semibold text-blue-700">{row.taskId}</td>
                           <td className="px-3 py-3 text-gray-600">{row.doerName}</td>
                           <td className="px-3 py-3 text-gray-700">{row.description}</td>
+                          <td className="px-3 py-3 text-gray-600">{row.machineName}</td>
                           <td className="px-3 py-3 text-gray-600">{row.department}</td>
                           <td className="px-3 py-3">
                             <span

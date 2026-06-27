@@ -45,13 +45,14 @@ type ChatMessage = {
     stock: number;
     um: string;
   };
-  summaryCard?: ChatbotIndentPayload;
+  summaryCard?: ChatbotIndentPayload & { items?: any[] };
   successCard?: {
     vrNo?: string;
     message?: string;
   };
   indentForm?: boolean;
   formItem?: ChatbotItem;
+  isAdditionalItemForm?: boolean;
   disabledForm?: boolean;
   usersList?: Array<{
     user_name: string;
@@ -177,6 +178,27 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [chatState, setChatState] = useState<"idle" | "awaiting_search_term">("idle");
 
+  // Multi-item indent states
+  const [cartItems, setCartItems] = useState<Array<{
+    itemCode: string;
+    itemName: string;
+    um: string;
+    qty: number;
+    make: string;
+    makeName: string;
+    specs: string;
+    purpose: string;
+  }>>([]);
+  const [headerData, setHeaderData] = useState<{
+    userCode: string;
+    empName: string;
+    deptCode: string;
+    series: string;
+    divCode: string | null;
+    costCode: string;
+    dueDate: string;
+  } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedRef = useRef(false);
   const activeConnectionMeta = connectionMeta[connectionState];
@@ -251,7 +273,11 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
 
       const displayName = user?.user_name || "User";
       addBotMessage(
-        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Pipe Agent</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`
+        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Store Assistant</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
+        [
+          { label: "📦 Create Procurement Indent / नया इंडेंट", action: () => handleInitiateIndent() },
+          { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
+        ]
       );
     } catch (error) {
       console.error("Chatbot bootstrap failed:", error);
@@ -260,6 +286,11 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
         "⚠️ Store chatbot backend se connection initialize nahi ho paya. Backend, route, ya Oracle connectivity check karein."
       );
     }
+  };
+
+  const handleInitiateIndent = () => {
+    addUserMessage("Create Procurement Indent / नया इंडेंट");
+    promptSearchItem();
   };
 
   const promptSearchItem = () => {
@@ -327,7 +358,11 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     if (greetingRegex.test(cleanText)) {
       const displayName = user?.user_name || "User";
       addBotMessage(
-        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Pipe Agent</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ? आप स्टॉक सर्च या नया इंडेंट करने के लिए बोल सकते हैं।`
+        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Store Assistant</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
+        [
+          { label: "📦 Create Procurement Indent / नया इंडेंट", action: () => handleInitiateIndent() },
+          { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
+        ]
       );
       return;
     }
@@ -511,8 +546,31 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     setIsSubmittingSearch(true);
     setChatState("idle"); // reset state after initiating search
 
+    let cleanSearchValue = searchValue.trim();
+    const cleanLower = cleanSearchValue.toLowerCase();
+
+    // Check if it's just a command to start indenting
+    const indentTriggerRegex = /^(indent|create indent|new indent|indent karna hai|mujhe indent karna hai|नया इंडेंट|इंडेंट|इंडेंट डालना है|procurement indent)$/i;
+    if (indentTriggerRegex.test(cleanLower)) {
+      setIsSubmittingSearch(false);
+      promptSearchItem();
+      return;
+    }
+
+    // Clean trigger keywords to search for the actual item name/code
+    cleanSearchValue = cleanSearchValue
+      .replace(/(indent|item|stock|purchase|procurement|इन्डेंट|स्टॉक)/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleanSearchValue) {
+      setIsSubmittingSearch(false);
+      promptSearchItem();
+      return;
+    }
+
     try {
-      const items = await chatbotApi.searchItems(searchValue, apiKey);
+      const items = await chatbotApi.searchItems(cleanSearchValue, apiKey);
 
       if (items.length > 0) {
         addBotMessage(
@@ -524,7 +582,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
         );
       } else {
         addBotMessage(
-          `⚠️ मुझे "<strong>${searchValue}</strong>" naam ya code se koi item nahi mila. Kripya dobara try karein.`
+          `⚠️ मुझे "<strong>${cleanSearchValue}</strong>" naam ya code se koi item nahi mila. Kripya dobara try karein.`
         );
       }
     } catch (error) {
@@ -587,14 +645,27 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
 
   const showIndentForm = (item: ChatbotItem) => {
     addUserMessage("हाँ, indent डालें");
+    const isAdditional = cartItems.length > 0;
     addBotMessage(
-      "कृपया नीचे दिए गए form में indent details भरें:",
+      isAdditional
+        ? `कृपया <strong>${item.itemName}</strong> ke लिए details भरें:`
+        : "कृपया नीचे दिए गए form में indent details भरें:",
       null,
       {
         indentForm: true,
         formItem: item,
+        isAdditionalItemForm: isAdditional,
       }
     );
+  };
+
+  const resetCart = () => {
+    setCartItems([]);
+    setHeaderData(null);
+    addUserMessage("Discard Indent & Reset");
+    addBotMessage("Indent process cancel kar di gayi hai. Cart reset ho gaya hai.", [
+      { label: "Search Item Again", action: promptSearchItem },
+    ]);
   };
 
   const handleFormCancel = (messageId: string) => {
@@ -606,9 +677,30 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       )
     );
     addUserMessage("Cancel");
-    addBotMessage("Indent process cancel kar di gayi hai.", [
-      { label: "Search Item Again", action: promptSearchItem },
-    ]);
+
+    if (cartItems.length > 0 && headerData) {
+      addBotMessage(
+        `Naye item ki entry cancel kar di gayi. Aapke paas list me pehle se <strong>${cartItems.length} item(s)</strong> hain.`,
+        [
+          {
+            label: `Submit Indent (${cartItems.length} items)`,
+            action: () => showFinalSummary(headerData, cartItems),
+          },
+          {
+            label: "➕ Add Another Item",
+            action: promptSearchItem,
+          },
+          {
+            label: "❌ Discard Indent & Reset",
+            action: resetCart,
+          },
+        ]
+      );
+    } else {
+      addBotMessage("Indent process cancel kar di gayi hai.", [
+        { label: "Search Item Again", action: promptSearchItem },
+      ]);
+    }
   };
 
   const handleFormSubmit = (messageId: string, formData: ChatbotIndentPayload) => {
@@ -620,34 +712,122 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       )
     );
 
-    addUserMessage("Submit Indent Form");
+    // Save header data if it's the first item
+    let currentHeader = headerData;
+    if (!currentHeader) {
+      currentHeader = {
+        userCode: formData.userCode,
+        empName: formData.empName,
+        deptCode: formData.deptCode,
+        series: formData.series,
+        divCode: formData.divCode || null,
+        costCode: formData.costCode,
+        dueDate: formData.dueDate,
+      };
+      setHeaderData(currentHeader);
+    }
+
+    // Save item to cart
+    const newItem = {
+      itemCode: formData.itemCode,
+      itemName: formData.itemName || formData.itemCode,
+      um: formData.um || "NOS",
+      qty: formData.qty,
+      make: formData.make,
+      makeName: formData.makeName || formData.make,
+      specs: formData.specs,
+      purpose: formData.purpose,
+    };
+    const updatedCart = [...cartItems, newItem];
+    setCartItems(updatedCart);
+
+    addUserMessage(`Added: ${newItem.itemName} (${newItem.itemCode}) to Indent List`);
+
+    addBotMessage(
+      `<strong>${newItem.itemName}</strong> aapki Indent list me add ho gaya hai. Aapke paas list me <strong>${updatedCart.length} item(s)</strong> hain.<br/>Kya aap isme koi aur item add karna chahte hain ya indent finalise karna chahte hain?`,
+      [
+        {
+          label: "➕ Add Another Item",
+          action: promptSearchItem,
+        },
+        {
+          label: `Submit Indent (${updatedCart.length} items)`,
+          action: () => showFinalSummary(currentHeader!, updatedCart),
+        },
+      ]
+    );
+  };
+
+  const showFinalSummary = (
+    header: NonNullable<typeof headerData>,
+    items: typeof cartItems
+  ) => {
+    addUserMessage("Finalise & Submit Indent");
     addBotMessage(
       "कृपया details verify karein aur database me bhejne ke liye <strong>Confirm</strong> karein:",
       [
         {
           label: "Confirm & Send to DB",
-          action: () => void submitIndentToDb(formData),
+          action: () => void submitIndentToDb(header, items),
         },
         {
-          label: "Edit / Cancel",
+          label: "➕ Add Another Item",
           action: promptSearchItem,
+        },
+        {
+          label: "❌ Discard Indent & Reset",
+          action: resetCart,
         },
       ],
       {
-        summaryCard: formData,
+        summaryCard: {
+          ...header,
+          itemCode: items[0].itemCode,
+          itemName: items[0].itemName,
+          qty: items[0].qty,
+          um: items[0].um,
+          make: items[0].make,
+          makeName: items[0].makeName,
+          specs: items[0].specs,
+          purpose: items[0].purpose,
+          items: items.map(item => ({
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            qty: item.qty,
+            um: item.um,
+            make: item.make,
+            makeName: item.makeName,
+            specs: item.specs,
+            purpose: item.purpose
+          }))
+        },
       }
     );
   };
 
-  const submitIndentToDb = async (formData: ChatbotIndentPayload) => {
+  const submitIndentToDb = async (
+    header: NonNullable<typeof headerData>,
+    items: typeof cartItems
+  ) => {
     addUserMessage("Confirm & Send to DB");
 
     try {
-      const result = await chatbotApi.createIndent(formData, apiKey);
+      const payload = {
+        ...header,
+        items: items.map(item => ({
+          itemCode: item.itemCode,
+          qty: item.qty,
+          make: item.make,
+          specs: item.specs,
+          purpose: item.purpose
+        }))
+      };
+
+      const result = await chatbotApi.createIndent(payload as any, apiKey);
 
       if (result.success) {
         addBotMessage(
-          "बधाई हो! Indent safalta se raise ho gaya hai aur database me submit kar diya gaya hai.",
+          `बधाई हो! ${items.length} item(s) ka Indent safalta se raise ho gaya hai aur database me submit kar diya gaya hai.`,
           [{ label: "Raise Another Indent", action: promptSearchItem }],
           {
             successCard: {
@@ -656,6 +836,9 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
             },
           }
         );
+        // Reset cart and header
+        setCartItems([]);
+        setHeaderData(null);
         return;
       }
 
@@ -710,6 +893,30 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Departments, series, employees aur makes load ho rahe hain.
               </p>
+            </div>
+          </div>
+        ) : null}
+
+        {messages.length === 0 && connectionState === "failed" ? (
+          <div className="flex h-full min-h-[320px] items-center justify-center p-4">
+            <div className="rounded-[20px] border border-rose-100 bg-white/95 px-6 py-6 text-center shadow-sm dark:border-rose-900/30 dark:bg-slate-900/90 sm:rounded-[24px] sm:px-8 sm:py-7 max-w-md">
+              <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500 text-white sm:mb-4 sm:h-12 sm:w-12">
+                <AlertTriangle className="size-5" />
+              </div>
+              <p className="text-sm font-bold text-slate-950 dark:text-white">
+                Store Oracle Database Connection Failed
+              </p>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Store backend Oracle database se connection establish nahi kar pa raha hai. Kripya check karein ki aapka <strong>Office VPN connected</strong> hai aur <strong>Database Server online</strong> hai.
+              </p>
+              <button
+                type="button"
+                onClick={retryConnection}
+                className="mt-4.5 inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 text-white px-5 text-xs font-semibold shadow-sm transition sm:mt-5"
+              >
+                <RefreshCcw className="size-3.5" />
+                Retry Connection
+              </button>
             </div>
           </div>
         ) : null}
@@ -805,6 +1012,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                       makesList={makesList}
                       onSubmit={(payload) => handleFormSubmit(message.id, payload)}
                       onCancel={() => handleFormCancel(message.id)}
+                      isAdditionalItem={message.isAdditionalItemForm}
                     />
                   ) : null}
 
@@ -1394,21 +1602,13 @@ function StockCard({
   );
 }
 
-function SummaryCard({ summary }: { summary: ChatbotIndentPayload }) {
+function SummaryCard({ summary }: { summary: ChatbotIndentPayload & { items?: any[] } }) {
   const rows = [
-    ["Item Name", summary.itemName || summary.itemCode],
-    ["Quantity", String(summary.qty)],
     ["Requested By", `${summary.empName} (${summary.userCode})`],
     ["Department", summary.deptCode],
     ["Series", summary.series],
     ["Division", summary.divCode || "N/A"],
     ["Cost Center", summary.costCode],
-    [
-      "Make",
-      summary.makeName ? `${summary.makeName} (${summary.make})` : summary.make,
-    ],
-    ["Specs", summary.specs],
-    ["Purpose", summary.purpose],
     ["Required By", formatToDdMmYyyy(summary.dueDate)],
   ];
 
@@ -1430,6 +1630,39 @@ function SummaryCard({ summary }: { summary: ChatbotIndentPayload }) {
             </span>
           </div>
         ))}
+
+        <div className="mt-2 space-y-2">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Items List</span>
+          {summary.items && summary.items.length > 0 ? (
+            <div className="space-y-2">
+              {summary.items.map((item, idx) => (
+                <div key={idx} className="rounded-xl border border-slate-200 bg-white/80 p-3 dark:border-slate-800 dark:bg-slate-900/60 space-y-1">
+                  <div className="flex justify-between font-semibold text-slate-900 dark:text-slate-100">
+                    <span>{idx + 1}. {item.itemName || item.itemCode}</span>
+                    <span>{item.qty} {item.um || 'NOS'}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                    <p>Make: <strong className="text-slate-700 dark:text-slate-350">{item.makeName || item.make}</strong></p>
+                    <p>Specs: {item.specs}</p>
+                    <p>Purpose: {item.purpose}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white/80 p-3 dark:border-slate-800 dark:bg-slate-900/60 space-y-1">
+              <div className="flex justify-between font-semibold text-slate-900 dark:text-slate-100">
+                <span>{summary.itemName || summary.itemCode}</span>
+                <span>{summary.qty} {summary.um || 'NOS'}</span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                <p>Make: <strong className="text-slate-700 dark:text-slate-350">{summary.makeName || summary.make}</strong></p>
+                <p>Specs: {summary.specs}</p>
+                <p>Purpose: {summary.purpose}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1469,6 +1702,7 @@ function IndentForm({
   makesList,
   onSubmit,
   onCancel,
+  isAdditionalItem = false,
 }: {
   item: ChatbotItem;
   departments: ChatbotDepartment[];
@@ -1478,6 +1712,7 @@ function IndentForm({
   makesList: ChatbotMake[];
   onSubmit: (payload: ChatbotIndentPayload) => void;
   onCancel: () => void;
+  isAdditionalItem?: boolean;
 }) {
   const [qty, setQty] = useState("");
   const [deptCode, setDeptCode] = useState("");
@@ -1606,28 +1841,31 @@ function IndentForm({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!empCode) {
-      alert("Please select an Employee.");
-      return;
+    if (!isAdditionalItem) {
+      if (!empCode) {
+        alert("Please select an Employee.");
+        return;
+      }
+      if (!deptCode) {
+        alert("Please select a Department.");
+        return;
+      }
+      if (!series) {
+        alert("Please select an Indent Series.");
+        return;
+      }
+      if (series === "I5" && !selectedDivCode) {
+        alert("Please select a Division.");
+        return;
+      }
+      if (!costCode) {
+        alert("Please select a Cost Center.");
+        return;
+      }
     }
+
     if (!qty || Number.isNaN(Number(qty)) || Number(qty) <= 0) {
       alert("Please enter a valid positive quantity.");
-      return;
-    }
-    if (!deptCode) {
-      alert("Please select a Department.");
-      return;
-    }
-    if (!series) {
-      alert("Please select an Indent Series.");
-      return;
-    }
-    if (series === "I5" && !selectedDivCode) {
-      alert("Please select a Division.");
-      return;
-    }
-    if (!costCode) {
-      alert("Please select a Cost Center.");
       return;
     }
     if (!makeCode) {
@@ -1651,17 +1889,17 @@ function IndentForm({
       itemName: item.itemName,
       qty: Number(qty),
       um: item.um,
-      deptCode,
-      series,
-      divCode: selectedDivCode || null,
-      costCode,
-      userCode: empCode,
-      empName: selectedEmployee?.empName || "",
+      deptCode: isAdditionalItem ? "" : deptCode,
+      series: isAdditionalItem ? "" : series,
+      divCode: isAdditionalItem ? null : (selectedDivCode || null),
+      costCode: isAdditionalItem ? "" : costCode,
+      userCode: isAdditionalItem ? "" : empCode,
+      empName: isAdditionalItem ? "" : (selectedEmployee?.empName || ""),
       make: makeCode,
       makeName: selectedMake?.makeName || "",
       specs: specs.trim(),
       purpose: purpose.trim(),
-      dueDate,
+      dueDate: isAdditionalItem ? "" : dueDate,
     });
   };
 
@@ -1680,44 +1918,46 @@ function IndentForm({
       </div>
 
       <div className="grid gap-2.5 sm:gap-3 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <label className={labelClassName}>Employee (Requested By) *</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={empSearch}
-              onChange={(event) => handleEmpSearchChange(event.target.value)}
-              onFocus={() => setIsEmpFocused(true)}
-              onBlur={() => {
-                window.setTimeout(() => setIsEmpFocused(false), 150);
-              }}
-              placeholder="Search employee by name or code..."
-              className={inputClassName}
-              required
-            />
-            {isEmpFocused && filteredEmployees.length > 0 ? (
-              <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950 sm:mt-1.5 sm:max-h-52 sm:rounded-2xl">
-                {filteredEmployees.slice(0, 50).map((employee) => (
-                  <button
-                    key={employee.empCode}
-                    type="button"
-                    onMouseDown={() => {
-                      setEmpCode(employee.empCode);
-                      setEmpSearch(`${employee.empName} (${employee.empCode})`);
-                      setIsEmpFocused(false);
-                    }}
-                    className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm transition hover:bg-slate-50 last:border-b-0 dark:border-slate-800 dark:hover:bg-slate-900"
-                  >
-                    <span className="truncate">{employee.empName}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                      {employee.empCode}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+        {!isAdditionalItem && (
+          <div className="md:col-span-2">
+            <label className={labelClassName}>Employee (Requested By) *</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={empSearch}
+                onChange={(event) => handleEmpSearchChange(event.target.value)}
+                onFocus={() => setIsEmpFocused(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setIsEmpFocused(false), 150);
+                }}
+                placeholder="Search employee by name or code..."
+                className={inputClassName}
+                required
+              />
+              {isEmpFocused && filteredEmployees.length > 0 ? (
+                <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950 sm:mt-1.5 sm:max-h-52 sm:rounded-2xl">
+                  {filteredEmployees.slice(0, 50).map((employee) => (
+                    <button
+                      key={employee.empCode}
+                      type="button"
+                      onMouseDown={() => {
+                        setEmpCode(employee.empCode);
+                        setEmpSearch(`${employee.empName} (${employee.empCode})`);
+                        setIsEmpFocused(false);
+                      }}
+                      className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm transition hover:bg-slate-50 last:border-b-0 dark:border-slate-800 dark:hover:bg-slate-900"
+                    >
+                      <span className="truncate">{employee.empName}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                        {employee.empCode}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="md:col-span-2">
           <label className={labelClassName}>Item Name</label>
@@ -1740,87 +1980,91 @@ function IndentForm({
           />
         </div>
 
-        <div>
-          <label className={labelClassName}>Department *</label>
-          <div className="relative">
-            <select
-              value={deptCode}
-              onChange={(event) => setDeptCode(event.target.value)}
-              className={selectClassName}
-              required
-            >
-              <option value="">Select Department...</option>
-              {departments.map((department) => (
-                <option key={department.deptCode} value={department.deptCode}>
-                  {department.deptName} ({department.deptCode})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          </div>
-        </div>
-
-        <div>
-          <label className={labelClassName}>Indent Series *</label>
-          <div className="relative">
-            <select
-              value={series}
-              onChange={(event) => setSeries(event.target.value)}
-              className={selectClassName}
-              required
-            >
-              <option value="">Select Indent Series...</option>
-              {seriesList.map((entry) => (
-                <option key={entry.series} value={entry.series}>
-                  {entry.series} - {entry.descr} ({entry.entityCode})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          </div>
-        </div>
-
-        {series === "I5" ? (
-          <div>
-            <label className={labelClassName}>Division *</label>
-            <div className="relative">
-              <select
-                value={selectedDivCode}
-                onChange={(event) => setSelectedDivCode(event.target.value)}
-                className={selectClassName}
-                required
-              >
-                <option value="">Select Division...</option>
-                <option value="CO">CORPORATE/COMMON (CO)</option>
-                <option value="SM">STEEL MELTING SHOP (SMS) (SM)</option>
-                <option value="RM">TMT ROLLING MILL (RM)</option>
-                <option value="RP">PATRA ROLLING MILL (RP)</option>
-                <option value="PM">PIPE MILL (PM)</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        {!isAdditionalItem && (
+          <>
+            <div>
+              <label className={labelClassName}>Department *</label>
+              <div className="relative">
+                <select
+                  value={deptCode}
+                  onChange={(event) => setDeptCode(event.target.value)}
+                  className={selectClassName}
+                  required
+                >
+                  <option value="">Select Department...</option>
+                  {departments.map((department) => (
+                    <option key={department.deptCode} value={department.deptCode}>
+                      {department.deptName} ({department.deptCode})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
             </div>
-          </div>
-        ) : null}
 
-        <div>
-          <label className={labelClassName}>Cost Center (Cost Code) *</label>
-          <div className="relative">
-            <select
-              value={costCode}
-              onChange={(event) => setCostCode(event.target.value)}
-              className={selectClassName}
-              required
-            >
-              <option value="">Select Cost Center...</option>
-              {costCodesList.map((entry) => (
-                <option key={entry.costCode} value={entry.costCode}>
-                  {entry.costName} ({entry.costCode})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          </div>
-        </div>
+            <div>
+              <label className={labelClassName}>Indent Series *</label>
+              <div className="relative">
+                <select
+                  value={series}
+                  onChange={(event) => setSeries(event.target.value)}
+                  className={selectClassName}
+                  required
+                >
+                  <option value="">Select Indent Series...</option>
+                  {seriesList.map((entry) => (
+                    <option key={entry.series} value={entry.series}>
+                      {entry.series} - {entry.descr} ({entry.entityCode})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+            </div>
+
+            {series === "I5" ? (
+              <div>
+                <label className={labelClassName}>Division *</label>
+                <div className="relative">
+                  <select
+                    value={selectedDivCode}
+                    onChange={(event) => setSelectedDivCode(event.target.value)}
+                    className={selectClassName}
+                    required
+                  >
+                    <option value="">Select Division...</option>
+                    <option value="CO">CORPORATE/COMMON (CO)</option>
+                    <option value="SM">STEEL MELTING SHOP (SMS) (SM)</option>
+                    <option value="RM">TMT ROLLING MILL (RM)</option>
+                    <option value="RP">PATRA ROLLING MILL (RP)</option>
+                    <option value="PM">PIPE MILL (PM)</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                </div>
+              </div>
+            ) : null}
+
+            <div>
+              <label className={labelClassName}>Cost Center (Cost Code) *</label>
+              <div className="relative">
+                <select
+                  value={costCode}
+                  onChange={(event) => setCostCode(event.target.value)}
+                  className={selectClassName}
+                  required
+                >
+                  <option value="">Select Cost Center...</option>
+                  {costCodesList.map((entry) => (
+                    <option key={entry.costCode} value={entry.costCode}>
+                      {entry.costName} ({entry.costCode})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="md:col-span-2">
           <label className={labelClassName}>Preferred Make/Brand *</label>
@@ -1883,16 +2127,18 @@ function IndentForm({
           />
         </div>
 
-        <div>
-          <label className={labelClassName}>Required By (Due Date) *</label>
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-            className={inputClassName}
-            required
-          />
-        </div>
+        {!isAdditionalItem && (
+          <div>
+            <label className={labelClassName}>Required By (Due Date) *</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className={inputClassName}
+              required
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col-reverse gap-2 pt-0.5 sm:flex-row sm:justify-end sm:gap-2.5">
