@@ -5,6 +5,7 @@ import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 const DEFAULT_FREQUENCY_OPTIONS = [
   "one-time",
+  "one-day",
   "Daily",
   "15 Days",
   "Weekly",
@@ -136,7 +137,7 @@ function AssignTask() {
   const [loaderMasterSheetData, setLoaderMasterSheetData] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState([]);
   const [showTaskPreview, setShowTaskPreview] = useState(false);
-  const [frequency, setFrequency] = useState("");
+  const [frequency, setFrequency] = useState("one-day");
   const [workingDaysData, setWorkingDaysData] = useState([]);
 
   const [enableReminder, setEnableReminder] = useState(false);
@@ -544,7 +545,7 @@ function AssignTask() {
 
 
   const generateTasks = async () => {
-    const isOneTimeTask = (frequency || "").toLowerCase() === "one-time";
+    const isOneTimeTask = (frequency || "").toLowerCase() === "one-time" || (frequency || "").toLowerCase() === "one-day";
 
     if (
       !startDate ||
@@ -792,7 +793,7 @@ function AssignTask() {
       // Don't reset selectedTaskType - let user continue with the same task type
       // setSelectedTaskType("Select Task Type");
       setStartDate("");
-      setFrequency("");
+      setFrequency("one-day");
       setWorkDescription("");
       setSelectedPriority("");
       setShowTaskPreview(false);
@@ -1230,7 +1231,11 @@ function AssignTask() {
                     <option value="">Select Frequency</option>
                     {frequencyOptions.map((freq, idx) => (
                       <option key={idx} value={freq.toLowerCase()}>
-                        {freq}
+                        {freq === "one-time"
+                          ? "One Time (No Recurrence)"
+                          : freq === "one-day"
+                            ? "One Day"
+                            : freq}
                       </option>
                     ))}
                   </select>
@@ -1254,7 +1259,7 @@ function AssignTask() {
               {showTaskPreview && (
                 <div className="bg-blue-50 border border-blue-300 p-4 rounded-lg">
                   <div className="text-blue-800 font-semibold mb-2">
-                    {generatedTasks.length} Tasks Generated (Will be stored in Checklist sheet)
+                    {generatedTasks.length} Tasks Generated (Will be stored in Maintenance Task Assign table)
                   </div>
                   <div className="max-h-[300px] overflow-y-auto space-y-3">
                     {generatedTasks.slice(0, 10).map((task, idx) => (

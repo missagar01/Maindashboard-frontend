@@ -250,7 +250,7 @@ export const normalizeChecklistTask = (task, isHistory = false) => {
         title: task.task_description || '—',
         context: buildContext(task.department, null, null),
         department: task.department || '—',
-        machineName: '—',
+        machineName: task.machine_name || '—',
         location: '—',
         assignedTo: task.name || task.assigned_to || '—',
         assignedToSecondary: task.doer_name2 || '—',

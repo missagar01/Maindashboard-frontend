@@ -36,6 +36,7 @@ const TaskRow = memo(function TaskRow({
   seqNo = 0, // Sequence number for housekeeping table
   userRole = "admin", // User role to show DOER2 select box for user role
   loggedInUser = "",
+  activeSystem = "unified",
 }) {
   // Determine if this is a completed task (from history)
   const isCompleted =
@@ -175,8 +176,8 @@ const TaskRow = memo(function TaskRow({
               type="checkbox"
               className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${(task.sourceSystem === "housekeeping" &&
                 (userRole?.toLowerCase() === "user"
-                ? (task.originalData?.attachment === "confirmed" ||
-                  task.confirmedByHOD === "Confirmed" ||
+                  ? (task.originalData?.attachment === "confirmed" ||
+                    task.confirmedByHOD === "Confirmed" ||
                     task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
                   : task.originalData?.attachment !== "confirmed" &&
                   task.confirmedByHOD !== "Confirmed" &&
@@ -587,6 +588,27 @@ const TaskRow = memo(function TaskRow({
           </span>
         </td>
       )}
+      {/* Machine Name - User role: input field for pending checklist tasks, Admin: show data only */}
+      {activeSystem === 'checklist' && (
+        <td className="px-2 sm:px-3 py-2 sm:py-4">
+          {userRole?.toLowerCase() === "user" && !isCompleted ? (
+            <input
+              type="text"
+              placeholder="Enter machine name"
+              value={rowData.machineName || ""}
+              onChange={(e) => handleDataChange("machineName", e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-500"
+            />
+          ) : (
+            <span
+              className="text-xs text-gray-700 max-w-[100px] truncate block"
+              title={task.machineName || task.originalData?.machine_name || ""}
+            >
+              {task.machineName || task.originalData?.machine_name || "—"}
+            </span>
+          )}
+        </td>
+      )}
 
       {/* Remarks - User role: input field for pending housekeeping/checklist tasks, Admin: show data only */}
       <td className="px-2 sm:px-3 py-2 sm:py-4">
@@ -637,6 +659,7 @@ export const TaskCard = memo(function TaskCard({
   userRole = "admin",
   loggedInUser = "",
   onImageClick,
+  activeSystem = "unified",
 }) {
   const isCompleted =
     task.status === "Completed" ||
@@ -954,6 +977,27 @@ export const TaskCard = memo(function TaskCard({
             </div>
           </div>
 
+          {/* Machine Name - User role: input field for pending checklist tasks, Admin: show data only */}
+          {activeSystem === 'checklist' && (
+            <div className="pt-0.5">
+              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Machine Name</span>
+              {userRole?.toLowerCase() === "user" && !isCompleted ? (
+                <input
+                  type="text"
+                  placeholder="Enter machine name..."
+                  value={rowData.machineName || ""}
+                  onChange={(e) => handleDataChange("machineName", e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 mt-0.5 shadow-sm"
+                  disabled={!isSelected}
+                />
+              ) : (
+                <p className="text-[11px] text-gray-700 mt-0.5 break-words">
+                  {task.machineName || task.originalData?.machine_name || "—"}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Remarks Input */}
           <div className="pt-0.5">
             <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Remarks</span>
@@ -1129,6 +1173,11 @@ export const TaskTableHeader = memo(function TaskTableHeader({
         {!isMaintenanceOnly && (
           <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
             Admin Done
+          </th>
+        )}
+        {activeSystem === 'checklist' && (
+          <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Machine Name/ Mill No.
           </th>
         )}
         <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
