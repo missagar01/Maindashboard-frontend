@@ -289,6 +289,16 @@ const storeSection: SidebarSection = {
   ],
 };
 
+const raprocureSection: SidebarSection = {
+  key: "raprocure",
+  title: "Raprocure",
+  caption: "Buyer Dashboard",
+  icon: ShoppingCart,
+  nodes: [
+    { kind: "link", key: "raprocure-dashboard", name: "Dashboard", path: "/raprocure/dashboard", icon: LayoutDashboard },
+  ],
+};
+
 const chatbotSection: SidebarSection = {
   key: "chatbot",
   title: "Chatbot",
@@ -375,6 +385,7 @@ const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   batchcode: salesWorkspaceSection,
   hrms: hrmsSection,
   store: storeSection,
+  raprocure: raprocureSection,
   project: projectSection,
   subscription: subscriptionSection,
   "visitor-gate-pass": visitorSection,

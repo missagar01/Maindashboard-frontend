@@ -2,6 +2,7 @@ export type PortalNavKey =
   | "home"
   | "checklist"
   | "store"
+  | "raprocure"
   | "chatbot"
   | "transport"
   | "iot"
@@ -58,6 +59,22 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
       "purchase",
       "inventory",
       "storefms",
+    ],
+  },
+  {
+    key: "raprocure",
+    label: "RAPROCURE",
+    path: "/raprocure/dashboard",
+    aliases: [
+      "raprocure",
+      "rprocure",
+      "rporquer",
+      "eprocure",
+      "procurement",
+      "procure",
+      "buyerdashboard",
+      "publicbuyerdashboard",
+      "buyerprocurement",
     ],
   },
   {
@@ -152,6 +169,7 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "home", label: "HOME", path: "/" },
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
+  { key: "raprocure", label: "RAPROCURE", path: "/raprocure/dashboard" },
   { key: "chatbot", label: "CHATBOT", path: "/chatbot" },
   { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
   { key: "iot", label: "IOT", path: "/iot/dashboard" },
@@ -208,6 +226,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
 
   if (normalized.startsWith("/checklist")) return "checklist";
   if (normalized.startsWith("/store")) return "store";
+  if (normalized.startsWith("/raprocure")) return "raprocure";
   if (normalized.startsWith("/chatbot")) return "chatbot";
   if (normalized.startsWith("/transport")) return "transport";
   if (normalized.startsWith("/iot")) return "iot";
@@ -253,7 +272,7 @@ export const getSidebarModuleForPath = (path: string): PortalNavKey | null => {
   }
 
   const key = getActivePortalNavKey(path);
-  return key === "home" ? null : key;
+  return key === "home" || key === "raprocure" ? null : key;
 };
 
 export const shouldShowSidebarForPath = (path: string) =>

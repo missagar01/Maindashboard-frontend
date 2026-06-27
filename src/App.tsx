@@ -101,6 +101,7 @@ import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
+import RaprocureDashboard from "./pages/raprocure/RaprocureDashboard";
 import ChatbotPage from "./pages/chatbot/ChatBot";
 import TransportDashboard from "./pages/transport/pages/TransportDashboard";
 import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation";
@@ -314,6 +315,9 @@ export default function App() {
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
               <Route path="/store/chatbot" element={<Navigate to="/chatbot" replace />} />
             </Route>
+
+            <Route path="/raprocure" element={<RouteGuard><Navigate to="/raprocure/dashboard" replace /></RouteGuard>} />
+            <Route path="/raprocure/dashboard" element={<RouteGuard><RaprocureDashboard /></RouteGuard>} />
 
             <Route path="/chatbot" element={<RouteGuard><ChatbotPage /></RouteGuard>} />
             <Route path="/chatbot/dashboard" element={<RouteGuard><Navigate to="/chatbot" replace /></RouteGuard>} />

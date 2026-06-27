@@ -13,6 +13,7 @@ type SystemKey =
   | "hrfms"
   | "document"
   | "store"
+  | "raprocure"
   | "chatbot"
   | "transport"
   | "iot"
@@ -329,6 +330,12 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Store GRN Admin Approval": "/store/store-grn-admin",
   "Store GRN GM Approval": "/store/store-grn-gm",
   "Store GRN Close": "/store/store-grn-close",
+  Raprocure: "/raprocure/dashboard",
+  RaproCure: "/raprocure/dashboard",
+  "Raprocure Dashboard": "/raprocure/dashboard",
+  "RaproCure Dashboard": "/raprocure/dashboard",
+  "Buyer Dashboard": "/raprocure/dashboard",
+  "Public Buyer Dashboard": "/raprocure/dashboard",
 };
 
 const STORE_OUT_ONLY_EMPLOYEE_IDS = new Set(["S07632", "S08088"]);
@@ -606,6 +613,26 @@ const hasSystemAccess = (systems: string[], required: SystemKey): boolean => {
     );
   }
 
+  if (required === "raprocure") {
+    return systems.some((value) =>
+      [
+        "raprocure",
+        "r-procure",
+        "rprocure",
+        "rporquer",
+        "eprocure",
+        "procure",
+        "procurement",
+        "buyer-dashboard",
+        "buyerdashboard",
+        "public-buyer-dashboard",
+        "publicbuyerdashboard",
+        "buyer-procurement",
+        "buyerprocurement",
+      ].includes(value)
+    );
+  }
+
   if (required === "chatbot") {
     return systems.some((value) =>
       ["chatbot", "chat", "assistant", "aiassistant", "ai-assistant"].includes(value)
@@ -713,6 +740,10 @@ const getSystemForPath = (fullPath: string, normalizedPath: string): SystemKey =
     return "store";
   }
 
+  if (normalizedPath.startsWith("/raprocure") || lowerPath.includes("tab=raprocure")) {
+    return "raprocure";
+  }
+
   if (normalizedPath.startsWith("/chatbot") || lowerPath.includes("tab=chatbot")) {
     return "chatbot";
   }
@@ -749,6 +780,7 @@ const normalizePageEntryToRoute = (
     const hasSales = hasSystemAccess(availableSystems, "sales");
     const hasHrfms = hasSystemAccess(availableSystems, "hrfms");
     const hasStore = hasSystemAccess(availableSystems, "store");
+    const hasRaprocure = hasSystemAccess(availableSystems, "raprocure");
     const hasTransport = hasSystemAccess(availableSystems, "transport");
     const hasIot = hasSystemAccess(availableSystems, "iot");
     const hasProject = hasSystemAccess(availableSystems, "project");
@@ -759,6 +791,7 @@ const normalizePageEntryToRoute = (
     if (hasSales) return "/o2d/dashboard";
     if (hasHrfms) return "/hrfms/dashboard";
     if (hasStore) return "/store/dashboard";
+    if (hasRaprocure) return "/raprocure/dashboard";
     if (hasTransport) return "/transport/dashboard";
     if (hasIot) return "/iot/doordrishti";
     if (hasProject) return "/project/dashboard";
@@ -798,6 +831,7 @@ const normalizePageEntryToRoute = (
     if (normalized === "/document") return "/document/dashboard";
     if (normalized === "/subscription") return "/subscription/all";
     if (normalized === "/store") return "/store/dashboard";
+    if (normalized === "/raprocure") return "/raprocure/dashboard";
     if (normalized === "/store/chatbot") return "/chatbot";
     if (normalized === "/chatbot") return "/chatbot";
     if (normalized === "/chatbot/dashboard") return "/chatbot";
@@ -880,6 +914,7 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
+  if (hasSystemAccess(availableSystems, "raprocure")) routes.add("/raprocure/dashboard");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (hasSystemAccess(availableSystems, "chatbot")) routes.add("/chatbot");
   if (!hasExplicitPageAccessConfig && hasSystemAccess(availableSystems, "document")) {

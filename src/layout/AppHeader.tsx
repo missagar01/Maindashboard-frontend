@@ -188,6 +188,12 @@ const AppHeader: React.FC = () => {
         getFirstAllowedPathForModule("/store", user) || "/store/dashboard"
       );
     }
+    if (allowedPageRoutes.some((route) => route.startsWith("/raprocure"))) {
+      pushNavItem(
+        resolvePortalNavItem("raprocure"),
+        getFirstAllowedPathForModule("/raprocure", user) || "/raprocure/dashboard"
+      );
+    }
     if (allowedPageRoutes.some((route) => route.startsWith("/chatbot"))) {
       pushNavItem(
         resolvePortalNavItem("chatbot"),
