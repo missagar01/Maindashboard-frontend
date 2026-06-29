@@ -198,7 +198,7 @@ const buildDashboardCards = (
   return [
     {
       key: "snapshot",
-      title: "Buyer Dashboard",
+      title: "Dashboard",
       subtitle: snapshotSubtitle,
       score: snapshotScore,
       scoreLabel: formatPercent(snapshotScore),
