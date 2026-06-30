@@ -1,5 +1,5 @@
 const DEFAULT_RAPROCURE_DASHBOARD_PATH =
-  "/raprocure-api/public-buyer-dashboard/eyJpdiI6ImpsaHRLOERhaHV2b2U1MjNleXhhQXc9PSIsInZhbHVlIjoiOHVHNUpSREJ2N1ZUZ05BU3B5NjRFZz09IiwibWFjIjoiMjM5N2ZhZTllNTVlYmZjODk4NWIxZmY2YmNhNTA2NzBiZGVhMmJkM2JjZTAwNzkxOGYxNjM2MTZjMjMwOGYwNSIsInRhZyI6IiJ9";
+  "https://e.raprocure.com/api/public-buyer-dashboard/eyJpdiI6IkZXN1NjZi9DWWdra2ZwMUNKVTdqVHc9PSIsInZhbHVlIjoiOE0velltYlRONFFUTTlDNWZXenlmQT09IiwibWFjIjoiYmNiODAyZmQwMjc2MzhkMDA5ODRiNGJlOTYzZDgzMmY4NDIwOTVmMjczNzU2ZTcxY2NkMTdlNmZlYTRjZmEwMiIsInRhZyI6IiJ9";
 
 const normalizeRaprocureDashboardPath = (value: string) => {
   const trimmedValue = value.trim();
@@ -81,14 +81,14 @@ export async function fetchRaprocureDashboard(
     }
 
     throw new Error(
-      "Raprocure API request failed. If you are running locally, start the app with the Vite dev server so /raprocure-api proxy is available."
+      "Raprocure API request failed. Check VITE_RAPROCURE_API_BASE_URL or ensure your local proxy is configured correctly."
     );
   }
 
   const rawBody = await response.text();
   if (response.status === 404) {
     throw new Error(
-      "Raprocure proxy route not found. Run the frontend with Vite dev server or configure your web server to proxy /raprocure-api to the upstream API."
+      "Raprocure dashboard endpoint was not found. Check VITE_RAPROCURE_API_BASE_URL or your local proxy configuration."
     );
   }
 

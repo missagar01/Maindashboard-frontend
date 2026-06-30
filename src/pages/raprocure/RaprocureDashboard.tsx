@@ -84,27 +84,12 @@ const METRIC_DEFINITIONS: Array<{
     label: "Total Orders Confirmed",
     dotClass: "bg-[#8b5cf6]",
   },
-  {
-    key: "pendingFeedbackRequestToVendors",
-    label: "Pending Feedback Request To Vendors",
-    dotClass: "bg-[#f97316]",
-  },
-  {
-    key: "unreadVendorMessages",
-    label: "Unread Vendor Messages",
-    dotClass: "bg-[#dc2626]",
-  },
+ 
 ];
 
 const ALL_METRIC_KEYS: RaprocureMetricKey[] = METRIC_DEFINITIONS.map(
   (metricDefinition) => metricDefinition.key
 );
-
-const SNAPSHOT_METRIC_KEYS = new Set<RaprocureMetricKey>([
-  "totalProducts",
-  "pendingFeedbackRequestToVendors",
-  "unreadVendorMessages",
-]);
 
 const calculateRatio = (value: number, total: number) => {
   if (total <= 0) {
@@ -112,27 +97,6 @@ const calculateRatio = (value: number, total: number) => {
   }
 
   return (value / total) * 100;
-};
-
-const projectMetricValue = (
-  key: RaprocureMetricKey,
-  rawValue: number,
-  factor: number
-) => {
-  if (SNAPSHOT_METRIC_KEYS.has(key) || factor === 1) {
-    return rawValue;
-  }
-
-  const projectedValue = rawValue * factor;
-  if (projectedValue === 0) {
-    return 0;
-  }
-
-  if (projectedValue < 1) {
-    return Number(projectedValue.toFixed(1));
-  }
-
-  return Math.max(1, Math.round(projectedValue));
 };
 
 const formatMetricValue = (value: number) =>
@@ -153,11 +117,8 @@ const getSafeSnapshotDate = (value: string | null | undefined) => {
   return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 };
 
-const getWeekOfMonth = (value: Date) => Math.max(1, Math.ceil(value.getDate() / 7));
-
 const buildCardMetrics = (
   metrics: RaprocureDashboardMetrics,
-  factor: number,
   metricKeys: RaprocureMetricKey[]
 ): CardMetric[] =>
   metricKeys.map((metricKey) => {
@@ -169,7 +130,7 @@ const buildCardMetrics = (
       return {
         key: metricKey,
         label: metricKey,
-        value: formatMetricValue(projectMetricValue(metricKey, metrics[metricKey], factor)),
+        value: formatMetricValue(metrics[metricKey]),
         dotClass: "bg-slate-300",
       };
     }
@@ -177,34 +138,12 @@ const buildCardMetrics = (
     return {
       key: metricDefinition.key,
       label: metricDefinition.label,
-      value: formatMetricValue(
-        projectMetricValue(metricDefinition.key, metrics[metricDefinition.key], factor)
-      ),
+      value: formatMetricValue(metrics[metricDefinition.key]),
       dotClass: metricDefinition.dotClass,
     };
   });
 
-const projectAggregateValue = (rawValue: number, factor: number) => {
-  if (factor === 1) {
-    return rawValue;
-  }
-
-  const projectedValue = rawValue * factor;
-  if (projectedValue === 0) {
-    return 0;
-  }
-
-  if (projectedValue < 1) {
-    return Number(projectedValue.toFixed(1));
-  }
-
-  return Math.max(1, Math.round(projectedValue));
-};
-
-const buildActivityTotal = (
-  metrics: RaprocureDashboardMetrics,
-  factor: number
-) => {
+const buildActivityTotal = (metrics: RaprocureDashboardMetrics) => {
   const activityKeys: RaprocureMetricKey[] = [
     "totalRfqSent",
     "totalOfferReceived",
@@ -218,7 +157,7 @@ const buildActivityTotal = (
     0
   );
 
-  return projectAggregateValue(rawTotal, factor);
+  return rawTotal;
 };
 
 const buildDashboardCards = (
@@ -235,10 +174,6 @@ const buildDashboardCards = (
     metrics.totalOrdersConfirmed,
     Math.max(metrics.totalRfqSent, 1)
   );
-  const counterRate = calculateRatio(
-    metrics.totalCounterOfferSent,
-    Math.max(metrics.totalOfferReceived, metrics.totalRfqSent, 1)
-  );
   const auctionShare = calculateRatio(
     metrics.totalAuctionsDone,
     Math.max(metrics.totalRfqSent, 1)
@@ -247,66 +182,31 @@ const buildDashboardCards = (
     attentionLoad,
     Math.max(metrics.totalOfferReceived, metrics.totalRfqSent, 1)
   );
-  const currentDayFactor = 1 / 30;
-  const weeklyFactor = 7 / 30;
-  const monthlyFactor = 1;
-  const currentDayScore = clampValue(
-    offerCoverage * 0.45 + counterRate * 0.15 + (100 - feedbackRatio) * 0.4
-  );
-  const weeklyScore = clampValue(
-    orderShare * 0.5 + auctionShare * 0.15 + (100 - feedbackRatio) * 0.35
-  );
-  const monthlyScore = clampValue(
+  const snapshotScore = clampValue(
     offerCoverage * 0.35 + orderShare * 0.35 + (100 - feedbackRatio) * 0.3
   );
   const snapshotDate = getSafeSnapshotDate(snapshot.fetchedAt);
-  const currentDaySubtitle = `${formatUpperDateLabel(snapshotDate, {
-    month: "short",
-  })} ${String(snapshotDate.getDate()).padStart(2, "0")} | TODAY`;
-  const weeklySubtitle = `WEEK ${getWeekOfMonth(snapshotDate)} | ${formatUpperDateLabel(
+  const snapshotSubtitle = `${String(snapshot.filter || "Snapshot").toUpperCase()} | ${formatUpperDateLabel(
     snapshotDate,
-    { month: "long" }
+    {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }
   )}`;
-  const monthlySubtitle = `${formatUpperDateLabel(snapshotDate, {
-    month: "long",
-  })} ${snapshotDate.getFullYear()}`;
 
   return [
     {
-      key: "current-day",
-      title: "Current Day",
-      subtitle: currentDaySubtitle,
-      score: currentDayScore,
-      scoreLabel: formatPercent(currentDayScore),
-      totalLabel: formatMetricValue(buildActivityTotal(metrics, currentDayFactor)),
-      primaryColor: "#ee1c23",
-      accentColor: "#f59e0b",
-      accentShare: clampValue(counterRate, 0, 18),
-      metrics: buildCardMetrics(metrics, currentDayFactor, ALL_METRIC_KEYS),
-    },
-    {
-      key: "weekly",
-      title: "Weekly",
-      subtitle: weeklySubtitle,
-      score: weeklyScore,
-      scoreLabel: formatPercent(weeklyScore),
-      totalLabel: formatMetricValue(buildActivityTotal(metrics, weeklyFactor)),
-      primaryColor: "#ff6a00",
-      accentColor: "#0f172a",
-      accentShare: clampValue(feedbackRatio, 0, 18),
-      metrics: buildCardMetrics(metrics, weeklyFactor, ALL_METRIC_KEYS),
-    },
-    {
-      key: "monthly",
-      title: "Monthly",
-      subtitle: monthlySubtitle,
-      score: monthlyScore,
-      scoreLabel: formatPercent(monthlyScore),
-      totalLabel: formatMetricValue(buildActivityTotal(metrics, monthlyFactor)),
+      key: "snapshot",
+      title: "Dashboard",
+      subtitle: snapshotSubtitle,
+      score: snapshotScore,
+      scoreLabel: formatPercent(snapshotScore),
+      totalLabel: formatMetricValue(buildActivityTotal(metrics)),
       primaryColor: "#10b981",
       accentColor: "#f59e0b",
       accentShare: clampValue(auctionShare, 0, 18),
-      metrics: buildCardMetrics(metrics, monthlyFactor, ALL_METRIC_KEYS),
+      metrics: buildCardMetrics(metrics, ALL_METRIC_KEYS),
     },
   ];
 };
@@ -399,15 +299,15 @@ const ProgressRing = ({
   }
 
   return (
-    <div className="relative flex h-[82px] w-[82px] shrink-0 items-center justify-center sm:h-[118px] sm:w-[118px] xl:h-[118px] xl:w-[118px]">
-      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+    <div className="relative flex h-[94px] w-[94px] shrink-0 items-center justify-center overflow-visible sm:h-[126px] sm:w-[126px] xl:h-[126px] xl:w-[126px]">
+      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90 overflow-visible">
         {circles}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
         <span className="text-[8px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[9px] sm:tracking-[0.22em]">
           Score
         </span>
-        <span className="mt-0.5 text-[14px] font-black leading-none tracking-tight text-slate-900 sm:mt-1 sm:text-[21px]">
+        <span className="mt-0.5 w-full whitespace-nowrap px-1 text-center text-[13px] font-black leading-none text-slate-900 sm:mt-1 sm:text-[19px]">
           {scoreLabel}
         </span>
       </div>
@@ -463,7 +363,7 @@ const SummaryCard = ({
         </div>
 
         <div className="space-y-2.5 sm:space-y-4">
-          <div className="grid grid-cols-[82px_minmax(0,1fr)] items-center gap-2.5 sm:grid-cols-[118px_minmax(0,1fr)] sm:gap-5">
+          <div className="grid grid-cols-[94px_minmax(0,1fr)] items-center gap-2.5 sm:grid-cols-[126px_minmax(0,1fr)] sm:gap-5">
             <div className="flex justify-start">
               <ProgressRing
                 score={card.score}
@@ -620,7 +520,7 @@ export default function RaprocureDashboard() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+            <div className="mx-auto max-w-[560px]">
               {cards.map((card) => (
                 <SummaryCard
                   key={card.key}
