@@ -65,9 +65,10 @@ export const updateUserDataApi = async ({ id, updatedUser }) => {
 // =======================================================
 // 5️⃣ DELETE USER
 // =======================================================
-export const deleteUserByIdApi = async (id) => {
+export const deleteUserByIdApi = async (id, deleteTasks) => {
   try {
-    await axiosInstance.delete(`${BASE_URL}/users/${id}`);
+    const url = `${BASE_URL}/users/${id}` + (deleteTasks ? "?deleteTasks=true" : "");
+    await axiosInstance.delete(url);
   } catch (error) {
     console.error("Error deleting user", error);
   }

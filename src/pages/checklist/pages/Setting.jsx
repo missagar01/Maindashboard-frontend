@@ -782,8 +782,12 @@ const Setting = () => {
 
     // Modified handleDeleteUser
     const handleDeleteUser = async (userId) => {
+        if (!window.confirm("Are you sure you want to delete this user?")) {
+            return;
+        }
+        const deleteTasks = window.confirm("क्या इस यूजर के टास्क भी डिलीट करने हैं?");
         try {
-            await deleteSettingUser(userId);
+            await deleteSettingUser(userId, deleteTasks);
             setTimeout(() => window.location.reload(), 1000);
         } catch (error) {
             console.error("Error deleting user:", error);

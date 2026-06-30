@@ -1225,8 +1225,8 @@ export const useChecklistCompatibility = () => {
     return data;
   };
 
-  const deleteSettingUser = async (id: string | number) => {
-    await settingApi.deleteUserByIdApi(id);
+  const deleteSettingUser = async (id: string | number, deleteTasks?: boolean) => {
+    await settingApi.deleteUserByIdApi(id, deleteTasks);
     await fetchSettingUserDetails();
   };
 

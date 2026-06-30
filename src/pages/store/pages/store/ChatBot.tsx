@@ -1496,8 +1496,8 @@ function TasksCountBreakdownCard({
 }) {
   const config = {
     total: {
-      label: "Monthly Total Tasks",
-      sublabel: "Tasks This Month",
+      label: "Tasks Status Summary",
+      sublabel: "Total Tasks (aaj tak)",
       borderClass: "border-blue-100 dark:border-blue-500/20",
       bgClass: "bg-blue-50/50 dark:bg-blue-500/5",
       titleClass: "text-blue-500 dark:text-blue-400",
@@ -1758,18 +1758,41 @@ function IndentForm({
 
   const filteredEmployees = useMemo(() => {
     const term = empSearch.toLowerCase().trim();
+    console.log("[DEBUG] empSearch:", JSON.stringify(empSearch), "term:", JSON.stringify(term));
     if (!term) {
+      console.log("[DEBUG] returning full list, count:", employeesList.length);
       return employeesList;
     }
 
-    return employeesList.filter((employee) => {
-      const full = `${employee.empName} (${employee.empCode})`.toLowerCase();
-      return (
-        full === term ||
-        employee.empName.toLowerCase().includes(term) ||
-        employee.empCode.toLowerCase().includes(term)
-      );
+    const matches = employeesList.filter((employee) => {
+      const name = employee.empName.toLowerCase();
+      const code = employee.empCode.toLowerCase();
+      return name.includes(term) || code.includes(term);
     });
+
+    console.log("[DEBUG] matches count:", matches.length, "matches:", matches.slice(0, 10));
+
+    const sorted = matches.sort((a, b) => {
+      const aName = a.empName.toLowerCase();
+      const bName = b.empName.toLowerCase();
+      const aCode = a.empCode.toLowerCase();
+      const bCode = b.empCode.toLowerCase();
+
+      const aNameStart = aName.startsWith(term);
+      const bNameStart = bName.startsWith(term);
+      const aCodeStart = aCode.startsWith(term);
+      const bCodeStart = bCode.startsWith(term);
+
+      if ((aNameStart || aCodeStart) && !(bNameStart || bCodeStart)) {
+        return -1;
+      }
+      if (!(aNameStart || aCodeStart) && (bNameStart || bCodeStart)) {
+        return 1;
+      }
+      return aName.localeCompare(bName);
+    });
+
+    return sorted;
   }, [empSearch, employeesList]);
 
   const filteredMakes = useMemo(() => {
@@ -1778,31 +1801,32 @@ function IndentForm({
       return makesList;
     }
 
-    return makesList.filter((make) => {
-      const full = `${make.makeName} (${make.makeCode})`.toLowerCase();
-      return (
-        full === term ||
-        make.makeName.toLowerCase().includes(term) ||
-        make.makeCode.toLowerCase().includes(term)
-      );
+    const matches = makesList.filter((make) => {
+      const name = make.makeName.toLowerCase();
+      const code = make.makeCode.toLowerCase();
+      return name.includes(term) || code.includes(term);
+    });
+
+    return matches.sort((a, b) => {
+      const aName = a.makeName.toLowerCase();
+      const bName = b.makeName.toLowerCase();
+      const aCode = a.makeCode.toLowerCase();
+      const bCode = b.makeCode.toLowerCase();
+
+      const aNameStart = aName.startsWith(term);
+      const bNameStart = bName.startsWith(term);
+      const aCodeStart = aCode.startsWith(term);
+      const bCodeStart = bCode.startsWith(term);
+
+      if ((aNameStart || aCodeStart) && !(bNameStart || bCodeStart)) {
+        return -1;
+      }
+      if (!(aNameStart || aCodeStart) && (bNameStart || bCodeStart)) {
+        return 1;
+      }
+      return aName.localeCompare(bName);
     });
   }, [makeSearch, makesList]);
-
-  useEffect(() => {
-    if (filteredEmployees.length === 1 && !empCode) {
-      const employee = filteredEmployees[0];
-      setEmpCode(employee.empCode);
-      setEmpSearch(`${employee.empName} (${employee.empCode})`);
-    }
-  }, [filteredEmployees, empCode]);
-
-  useEffect(() => {
-    if (filteredMakes.length === 1 && !makeCode) {
-      const make = filteredMakes[0];
-      setMakeCode(make.makeCode);
-      setMakeSearch(`${make.makeName} (${make.makeCode})`);
-    }
-  }, [filteredMakes, makeCode]);
 
   const inputClassName =
     "h-10 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-3 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:h-11 sm:rounded-2xl sm:px-3.5 sm:focus:ring-4";
@@ -1930,15 +1954,15 @@ function IndentForm({
                 onBlur={() => {
                   window.setTimeout(() => setIsEmpFocused(false), 150);
                 }}
-                placeholder="Search employee by name or code..."
+                placeholder="Search employee by name or passport number..."
                 className={inputClassName}
                 required
               />
               {isEmpFocused && filteredEmployees.length > 0 ? (
                 <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950 sm:mt-1.5 sm:max-h-52 sm:rounded-2xl">
-                  {filteredEmployees.slice(0, 50).map((employee) => (
+                  {filteredEmployees.slice(0, 50).map((employee, index) => (
                     <button
-                      key={employee.empCode}
+                      key={`${employee.empCode}-${index}`}
                       type="button"
                       onMouseDown={() => {
                         setEmpCode(employee.empCode);
@@ -2083,9 +2107,9 @@ function IndentForm({
             />
             {isMakeFocused && filteredMakes.length > 0 ? (
               <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950 sm:mt-1.5 sm:max-h-52 sm:rounded-2xl">
-                {filteredMakes.slice(0, 50).map((make) => (
+                {filteredMakes.slice(0, 50).map((make, index) => (
                   <button
-                    key={make.makeCode}
+                    key={`${make.makeCode}-${index}`}
                     type="button"
                     onMouseDown={() => {
                       setMakeCode(make.makeCode);
