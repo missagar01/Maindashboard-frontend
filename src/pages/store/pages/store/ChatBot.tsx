@@ -866,16 +866,14 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
               {activeConnectionMeta.label}
             </span>
 
-            {connectionState !== "connected" ? (
-              <button
-                type="button"
-                onClick={retryConnection}
-                className="inline-flex h-8 items-center gap-2 rounded-full border border-slate-300 bg-white/90 px-3 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                <RefreshCcw className="size-3.5" />
-                Retry connection
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={retryConnection}
+              className="inline-flex h-8 items-center gap-2 rounded-full border border-slate-300 bg-white/90 px-3 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <RefreshCcw className="size-3.5" />
+              Retry connection
+            </button>
           </div>
         )}
 
