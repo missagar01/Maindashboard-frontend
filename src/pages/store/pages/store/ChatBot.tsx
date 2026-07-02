@@ -150,7 +150,7 @@ const connectionMeta: Record<
     panelClass: "bg-amber-500",
   },
   connected: {
-    label: "Connected to Store Oracle chatbot API",
+    label: "Connected to Sagar Vision Assistant",
     badgeClass:
       "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200",
     panelClass: "bg-emerald-500",
@@ -273,7 +273,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
 
       const displayName = user?.user_name || "User";
       addBotMessage(
-        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Store Assistant</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
+        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Vision</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
         [
           { label: "📦 Create Procurement Indent / नया इंडेंट", action: () => handleInitiateIndent() },
           { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
@@ -283,7 +283,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       console.error("Chatbot bootstrap failed:", error);
       setConnectionState("failed");
       addBotMessage(
-        "⚠️ Store chatbot backend se connection initialize nahi ho paya. Backend, route, ya Oracle connectivity check karein."
+        "⚠️ कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।"
       );
     }
   };
@@ -431,7 +431,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     const isGeneralQuery = (text: string) => {
       const words = text.trim().split(/\s+/);
       if (words.length > 2) return true; // Sentences are general queries
-      
+
       const queryIndicators = /(show|list|view|get|find|why|who|what|how|where|when|kya|kaise|kab|kon|kaun|kisne|kiske|dikhao|batao|check|detail|status|report|score|performance|task|user|employee|repair|followup)/i;
       return queryIndicators.test(text);
     };
@@ -531,11 +531,11 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
             addBotMessage(res.message || "⚠️ कोई परिणाम नहीं मिला।");
           }
         } else {
-          addBotMessage(res.message || res.error || "⚠️ जानकारी लोड करने में असमर्थ।");
+          addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
         }
       } catch (err) {
         console.error("General query failed:", err);
-        addBotMessage("⚠️ क्वेरी करते समय कोई त्रुटि हुई।");
+        addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
       } finally {
         setIsSubmittingSearch(false);
       }
@@ -587,7 +587,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       }
     } catch (error) {
       console.error("Item search failed:", error);
-      addBotMessage("⚠️ Item search karte waqt koi error aa gaya.");
+      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
     } finally {
       setIsSubmittingSearch(false);
     }
@@ -632,7 +632,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       );
     } catch (error) {
       console.error("Stock lookup failed:", error);
-      addBotMessage("⚠️ Stock check karte waqt koi error aa gaya.");
+      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
     }
   };
 
@@ -842,12 +842,10 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
         return;
       }
 
-      addBotMessage(`❌ Indent create nahi ho paya: ${result.error || "Unknown error"}`);
+      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
     } catch (error) {
       console.error("Indent submission failed:", error);
-      const message =
-        error instanceof Error ? error.message : "डेटाबेस में indent डालते समय त्रुटि हुई।";
-      addBotMessage(`⚠️ ${message}`);
+      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
     }
   };
 
@@ -859,7 +857,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
   const renderInnerContent = () => (
     <div className={isFloating ? "flex h-full w-full flex-col overflow-hidden bg-[#efeae2] dark:bg-slate-950" : "mx-auto flex h-[calc(100dvh-56px)] w-full max-w-4xl flex-col overflow-hidden bg-[#efeae2] shadow-[0_24px_70px_-30px_rgba(15,23,42,0.35)] dark:bg-slate-950 sm:h-[calc(100dvh-112px)] sm:min-h-[620px] sm:rounded-[28px] sm:border sm:border-slate-200 dark:sm:border-slate-800"}>
       <div className={`flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,0.58),rgba(255,255,255,0.74)),radial-gradient(circle_at_top,rgba(16,185,129,0.08),transparent_38%)] px-2 py-2.5 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.96)),radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_34%)] ${isFloating ? "" : "sm:px-4 sm:py-5"}`}>
-        {(!isFloating || connectionState !== "connected") && (
+        {connectionState !== "connected" && (
           <div className="sticky top-0 z-10 mb-2 flex flex-col items-center gap-1.5 pb-0 sm:mb-4 sm:gap-2 sm:pb-1">
             <span
               className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-medium backdrop-blur sm:px-3 sm:text-[11px] ${activeConnectionMeta.badgeClass}`}
@@ -904,10 +902,10 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                 <AlertTriangle className="size-5" />
               </div>
               <p className="text-sm font-bold text-slate-950 dark:text-white">
-                Store Oracle Database Connection Failed
+                Technical Error / तकनीकी खराबी
               </p>
               <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                Store backend Oracle database se connection establish nahi kar pa raha hai. Kripya check karein ki aapka <strong>Office VPN connected</strong> hai aur <strong>Database Server online</strong> hai.
+                कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।
               </p>
               <button
                 type="button"
@@ -928,20 +926,18 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
               className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`space-y-1.5 ${
-                  message.indentForm
-                    ? "w-full max-w-full md:max-w-[96%] lg:max-w-[92%]"
-                    : message.summaryCard
-                      ? "max-w-[96%] sm:max-w-[90%] lg:max-w-[84%]"
-                      : "max-w-[92%] sm:max-w-[84%] lg:max-w-[76%]"
-                }`}
+                className={`space-y-1.5 ${message.indentForm
+                  ? "w-full max-w-full md:max-w-[96%] lg:max-w-[92%]"
+                  : message.summaryCard
+                    ? "max-w-[96%] sm:max-w-[90%] lg:max-w-[84%]"
+                    : "max-w-[92%] sm:max-w-[84%] lg:max-w-[76%]"
+                  }`}
               >
                 <div
-                  className={`rounded-[20px] px-3 py-2.5 shadow-sm sm:rounded-[22px] sm:px-4 sm:py-3 ${
-                    message.sender === "user"
-                      ? "rounded-br-md bg-emerald-600 text-white"
-                      : "rounded-bl-md border border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  }`}
+                  className={`rounded-[20px] px-3 py-2.5 shadow-sm sm:rounded-[22px] sm:px-4 sm:py-3 ${message.sender === "user"
+                    ? "rounded-br-md bg-emerald-600 text-white"
+                    : "rounded-bl-md border border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                    }`}
                 >
                   <div
                     className="text-sm leading-6"
@@ -1036,9 +1032,8 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                 </div>
 
                 <p
-                  className={`px-1 text-[11px] text-slate-400 ${
-                    message.sender === "user" ? "text-right" : ""
-                  }`}
+                  className={`px-1 text-[11px] text-slate-400 ${message.sender === "user" ? "text-right" : ""
+                    }`}
                 >
                   {message.time}
                 </p>
@@ -1129,7 +1124,7 @@ function TasksListCard({
       ) : (
         tasks.map((task, i) => {
           const isCompleted = task.completed_at !== null || String(task.status).trim().toLowerCase() === "yes";
-          
+
           // Format start date and completion time to dd/mm/yyyy HH:MM
           const formatDateTime = (dateStr: string | null) => {
             if (!dateStr) return "";
@@ -1146,11 +1141,10 @@ function TasksListCard({
           return (
             <div
               key={`${task.task_name}-${i}`}
-              className={`rounded-2xl border p-3.5 transition duration-200 ${
-                isCompleted
-                  ? "border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/55 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
-                  : "border-amber-100 bg-amber-50/30 hover:bg-amber-50/55 dark:border-amber-500/20 dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
-              }`}
+              className={`rounded-2xl border p-3.5 transition duration-200 ${isCompleted
+                ? "border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/55 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
+                : "border-amber-100 bg-amber-50/30 hover:bg-amber-50/55 dark:border-amber-500/20 dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
+                }`}
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="space-y-1 min-w-0">
@@ -1172,11 +1166,10 @@ function TasksListCard({
 
                 {/* Status Badge */}
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                    isCompleted
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-                  }`}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isCompleted
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+                    }`}
                 >
                   {isCompleted ? (
                     <>
@@ -1251,7 +1244,7 @@ function TasksScoreCard({
     completion_score: number;
   };
 }) {
-  const completionPercentage = score.total_tasks > 0 
+  const completionPercentage = score.total_tasks > 0
     ? Math.round((score.total_completed_tasks / score.total_tasks) * 100)
     : 0;
   const displayPercentage = Math.min(completionPercentage, 100);
@@ -1264,7 +1257,7 @@ function TasksScoreCard({
       <div className="mb-3 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">
         Performance Score Report ({formatToDdMmYyyy(startDate)} - {formatToDdMmYyyy(endDate)})
       </div>
-      
+
       <div className="flex flex-col sm:flex-row items-center gap-5 mb-4">
         {/* Circular Gauge / Large Score display */}
         <div className="relative flex size-24 shrink-0 items-center justify-center rounded-full bg-white dark:bg-slate-900 border-4 border-indigo-500/10 shadow-sm">
@@ -1285,9 +1278,9 @@ function TasksScoreCard({
           </p>
           <div className="flex items-center gap-2 mt-1">
             <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-indigo-600 rounded-full" 
-                style={{ width: `${displayPercentage}%` }} 
+              <div
+                className="h-full bg-indigo-600 rounded-full"
+                style={{ width: `${displayPercentage}%` }}
               />
             </div>
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
@@ -1302,7 +1295,7 @@ function TasksScoreCard({
           <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Total</span>
           <strong className="text-base text-slate-800 dark:text-slate-200">{score.total_tasks}</strong>
         </div>
-        
+
         <div className="rounded-xl bg-white/70 px-3 py-2.5 text-center dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/40">
           <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Completed</span>
           <strong className="text-base text-emerald-600 dark:text-emerald-400">{score.total_completed_tasks}</strong>
@@ -1344,11 +1337,10 @@ function UsersListCard({
                 {u.user_name}
               </span>
               <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
-                  isActive
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    : "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                }`}
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                  : "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                  }`}
               >
                 {u.status || "Unknown"}
               </span>
@@ -1412,7 +1404,7 @@ function TasksSummaryCard({
                 {m.completed}/{m.total} Done
               </span>
             </div>
-            
+
             {/* Progress bar */}
             <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden mb-2.5">
               <div
@@ -1573,11 +1565,10 @@ function StockCard({
 
   return (
     <div
-      className={`mt-4 rounded-2xl border p-4 ${
-        hasStock
-          ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
-          : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
-      }`}
+      className={`mt-4 rounded-2xl border p-4 ${hasStock
+        ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
+        : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+        }`}
     >
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
         {hasStock ? (
@@ -1686,7 +1677,7 @@ function SuccessCard({
         <p>
           Voucher Number (VRNO): <strong>{success.vrNo || "N/A"}</strong>
         </p>
-        <p>Status: <strong>Inserted in Oracle DB</strong></p>
+        <p>Status: <strong>Submitted Successfully / सफलतापूर्वक सबमिट किया गया</strong></p>
         {success.message ? <p>{success.message}</p> : null}
       </div>
     </div>

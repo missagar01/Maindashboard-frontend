@@ -123,7 +123,13 @@ export const useChecklistCompatibility = () => {
     delegationTasks: [] as any[],
     maintenanceTasks: [] as any[],
     housekeepingTasks: [] as any[],
-    users: [] as any[],
+    users: {
+      checklistNames: [] as string[],
+      delegationNames: [] as string[],
+      maintenanceDoers: [] as string[],
+      housekeepingDepartments: [] as string[]
+    } as any,
+    departments: [] as any[],
     checklistPage: 0,
     checklistTotal: 0,
     checklistHasMore: true,
@@ -380,13 +386,38 @@ export const useChecklistCompatibility = () => {
   const fetchQuickTaskUsers = useCallback(async () => {
     try {
       const users = await quickTaskApi.fetchUsersData();
+      console.log("Loaded checklist users data:", JSON.stringify(users));
       setQuickTaskState((previous) => ({
         ...previous,
-        users: Array.isArray(users) ? users : [],
+        users: users && typeof users === "object" ? users : {
+          checklistNames: [],
+          delegationNames: [],
+          maintenanceDoers: [],
+          housekeepingDepartments: []
+        },
       }));
       return users;
     } catch (error) {
       console.error("Checklist quick-task users error:", error);
+      return {
+        checklistNames: [],
+        delegationNames: [],
+        maintenanceDoers: [],
+        housekeepingDepartments: []
+      };
+    }
+  }, []);
+
+  const fetchQuickTaskDepartments = useCallback(async () => {
+    try {
+      const depts = await quickTaskApi.fetchDepartmentsData();
+      setQuickTaskState((previous) => ({
+        ...previous,
+        departments: Array.isArray(depts) ? depts : [],
+      }));
+      return depts;
+    } catch (error) {
+      console.error("Checklist quick-task departments error:", error);
       return [];
     }
   }, []);
@@ -1424,6 +1455,7 @@ export const useChecklistCompatibility = () => {
     fetchAssignTaskGivenBy,
     fetchAssignTaskDoerNames,
     fetchQuickTaskUsers,
+    fetchQuickTaskDepartments,
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
     resetQuickTaskMaintenancePagination,

@@ -131,10 +131,6 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
   };
 
   const handleDeleteTask = async (task) => {
-    if (!isCurrentDayDateValue(task?.task_start_date)) {
-      setError("Only current day tasks can be deleted.");
-      return;
-    }
 
     const shouldDelete = window.confirm(
       `Delete this delegation task?\n\n${task?.task_description || `task #${task?.task_id || ""}`}`
@@ -213,7 +209,7 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
   }, [delegationTasks, searchTerm, nameFilter, freqFilter]);
 
   const selectableTasks = useMemo(
-    () => filteredTasks.filter((task) => isCurrentDayDateValue(task.task_start_date)),
+    () => filteredTasks,
     [filteredTasks]
   );
 
@@ -238,30 +234,29 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
             type="checkbox"
             checked={selectedTasks.includes(task.task_id)}
             onChange={() => handleCheckboxChange(task.task_id)}
-            disabled={!isCurrentDayDateValue(task.task_start_date)}
+            disabled={deletingTaskId === task.task_id}
             className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
           />
           <button
             onClick={() => onEditTask?.(task, "delegation")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id}
+            disabled={deletingTaskId === task.task_id}
             className={getActionButtonClasses(
               "edit",
-              isCurrentDayDateValue(task.task_start_date) && deletingTaskId !== task.task_id
+              deletingTaskId !== task.task_id
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+            title="Edit Task"
           >
             <Edit size={14} />
           </button>
           <button
             onClick={() => handleDeleteTask(task)}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id || isDeleting}
+            disabled={deletingTaskId === task.task_id || isDeleting}
             className={getActionButtonClasses(
               "delete",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskId !== task.task_id &&
+              deletingTaskId !== task.task_id &&
                 !isDeleting
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+            title="Delete Task"
           >
             {deletingTaskId === task.task_id ? (
               <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -436,17 +431,17 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => onEditTask?.(task, "delegation")}
-                            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id}
-                            className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date) && deletingTaskId !== task.task_id)}
-                            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                            disabled={deletingTaskId === task.task_id}
+                            className={getActionButtonClasses("edit", deletingTaskId !== task.task_id)}
+                            title="Edit Task"
                           >
                             <Edit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteTask(task)}
-                            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskId === task.task_id || isDeleting}
-                            className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskId !== task.task_id && !isDeleting)}
-                            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                            disabled={deletingTaskId === task.task_id || isDeleting}
+                            className={getActionButtonClasses("delete", deletingTaskId !== task.task_id && !isDeleting)}
+                            title="Delete Task"
                           >
                             {deletingTaskId === task.task_id ? (
                               <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -461,7 +456,7 @@ function DelegationPage({ searchTerm, nameFilter, freqFilter, onEditTask }) {
                           type="checkbox"
                           checked={selectedTasks.includes(task.task_id)}
                           onChange={() => handleCheckboxChange(task.task_id)}
-                          disabled={!isCurrentDayDateValue(task.task_start_date)}
+                          disabled={deletingTaskId === task.task_id}
                           className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                         />
                       </td>

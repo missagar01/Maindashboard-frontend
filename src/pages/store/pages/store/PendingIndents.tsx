@@ -86,11 +86,11 @@ const getExportRows = (rows: POData[]) =>
     "S.No": index + 1,
     "Indent No": row.INDENT_NO || "",
     Indenter: row.INDENTER || "",
+    "Division Name": row.DIVISION_NAME || "",
+    "Department Name": row.DEPARTMENT_NAME || "",
     "PO No.": row.VRNO || "",
     "Planned Time Stamp": formatDateTime(row.PLANNED_TIMESTAMP),
     "PO Date": formatDate(row.VRDATE),
-    "Division Name": row.DIVISION_NAME || "",
-    "Department Name": row.DEPARTMENT_NAME || "",
     "Vendor Name": row.VENDOR_NAME || "",
     "Item Name": row.ITEM_NAME || "",
     UOM: row.UM || "",
@@ -101,20 +101,20 @@ const getExportRows = (rows: POData[]) =>
 const downloadRowsAsExcel = (rows: POData[], fileName: string, sheetName: string) => {
   const worksheet = XLSX.utils.json_to_sheet(getExportRows(rows));
   worksheet["!cols"] = [
-    { wch: 8 },
-    { wch: 18 },
-    { wch: 24 },
-    { wch: 16 },
-    { wch: 24 },
-    { wch: 14 },
+    { wch: 8 },  // S.No
+    { wch: 18 }, // Indent No
+    { wch: 24 }, // Indenter
     { wch: 22 }, // Division Name
     { wch: 28 }, // Department Name
-    { wch: 28 },
-    { wch: 40 },
-    { wch: 10 },
-    { wch: 12 },
-    { wch: 13 },
-    { wch: 12 },
+    { wch: 16 }, // PO No.
+    { wch: 24 }, // Planned Time Stamp
+    { wch: 14 }, // PO Date
+    { wch: 28 }, // Vendor Name
+    { wch: 40 }, // Item Name
+    { wch: 10 }, // UOM
+    { wch: 12 }, // Ordered Qty
+    { wch: 13 }, // Executed Qty
+    { wch: 12 }, // Balance Qty
   ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
@@ -253,9 +253,9 @@ function PurchaseOrderCard({ row, index, title }: { row: POData; index: number; 
       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
         <MobileInfoRow label="PO No." value={row.VRNO} />
         <MobileInfoRow label="Indenter" value={row.INDENTER} hideIfEmpty />
-        <MobileInfoRow label="PO Date" value={formatDate(row.VRDATE)} />
         <MobileInfoRow label="Division Name" value={row.DIVISION_NAME} hideIfEmpty />
         <MobileInfoRow label="Department Name" value={row.DEPARTMENT_NAME} hideIfEmpty />
+        <MobileInfoRow label="PO Date" value={formatDate(row.VRDATE)} />
         <MobileInfoRow label="UOM" value={row.UM} />
         <MobileInfoRow label="Ordered Qty" value={row.QTYORDER} />
         <MobileInfoRow label="Executed Qty" value={row.QTYEXECUTE} />
@@ -383,8 +383,8 @@ export default function PendingIndents() {
           <div className="relative hidden w-full md:block">
             <div className="max-h-[calc(100vh-350px)] overflow-x-auto overflow-y-auto rounded-xl border bg-white shadow-sm">
               <table className="min-w-[1000px] border-collapse text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm"><tr><th className="sticky left-0 z-30 border-b bg-slate-100 px-3 py-2 text-left font-semibold">Indent No</th><th className="border-b px-3 py-2 text-center font-semibold">S.No</th><th className="border-b px-3 py-2 font-semibold">Indenter</th><th className="border-b px-3 py-2 font-semibold">PO No.</th><th className="border-b px-3 py-2 font-semibold">Planned Time Stamp</th><th className="border-b px-3 py-2 font-semibold">PO Date</th><th className="border-b px-3 py-2 font-semibold">Division Name</th><th className="border-b px-3 py-2 font-semibold">Department Name</th><th className="border-b px-3 py-2 font-semibold">Vendor Name</th><th className="border-b px-3 py-2 font-semibold">Item Name</th><th className="border-b px-3 py-2 font-semibold">UOM</th><th className="border-b px-3 py-2 font-semibold">Ordered Qty</th><th className="border-b px-3 py-2 font-semibold">Executed Qty</th><th className="border-b px-3 py-2 font-semibold">Balance Qty</th></tr></thead>
-                <tbody>{pendingPageRows.length === 0 ? <tr><td colSpan={14} className="py-6 text-center text-sm text-slate-400">{pendingSearch.trim() ? `No Pending POs found for "${pendingSearch.trim()}"` : "No Pending POs Found"}</td></tr> : pendingPageRows.map((row, index) => <tr key={`${row.VRNO}-${index}`} className="hover:bg-slate-50"><td className="sticky left-0 z-10 border-b bg-white px-3 py-1 text-left font-medium">{row.INDENT_NO}</td><td className="border-b px-2 py-1 text-center">{pendingStartIndex + index + 1}</td><td className="border-b px-2 py-1">{row.INDENTER}</td><td className="border-b px-2 py-1">{row.VRNO}</td><td className="border-b px-2 py-1">{formatDateTime(row.PLANNED_TIMESTAMP)}</td><td className="border-b px-2 py-1">{formatDate(row.VRDATE)}</td><td className="border-b px-2 py-1">{row.DIVISION_NAME}</td><td className="border-b px-2 py-1">{row.DEPARTMENT_NAME}</td><td className="border-b px-2 py-1">{row.VENDOR_NAME}</td><td className="border-b px-2 py-1">{row.ITEM_NAME}</td><td className="border-b px-2 py-1">{row.UM}</td><td className="border-b px-2 py-1">{row.QTYORDER}</td><td className="border-b px-2 py-1">{row.QTYEXECUTE}</td><td className="border-b px-2 py-1">{row.BALANCE_QTY ?? 0}</td></tr>)}</tbody>
+                <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm"><tr><th className="sticky left-0 z-30 border-b bg-slate-100 px-3 py-2 text-left font-semibold">Indent No</th><th className="border-b px-3 py-2 text-center font-semibold">S.No</th><th className="border-b px-3 py-2 font-semibold">Indenter</th><th className="border-b px-3 py-2 font-semibold">Division Name</th><th className="border-b px-3 py-2 font-semibold">Department Name</th><th className="border-b px-3 py-2 font-semibold">PO No.</th><th className="border-b px-3 py-2 font-semibold">Planned Time Stamp</th><th className="border-b px-3 py-2 font-semibold">PO Date</th><th className="border-b px-3 py-2 font-semibold">Vendor Name</th><th className="border-b px-3 py-2 font-semibold">Item Name</th><th className="border-b px-3 py-2 font-semibold">UOM</th><th className="border-b px-3 py-2 font-semibold">Ordered Qty</th><th className="border-b px-3 py-2 font-semibold">Executed Qty</th><th className="border-b px-3 py-2 font-semibold">Balance Qty</th></tr></thead>
+                <tbody>{pendingPageRows.length === 0 ? <tr><td colSpan={14} className="py-6 text-center text-sm text-slate-400">{pendingSearch.trim() ? `No Pending POs found for "${pendingSearch.trim()}"` : "No Pending POs Found"}</td></tr> : pendingPageRows.map((row, index) => <tr key={`${row.VRNO}-${index}`} className="hover:bg-slate-50"><td className="sticky left-0 z-10 border-b bg-white px-3 py-1 text-left font-medium">{row.INDENT_NO}</td><td className="border-b px-2 py-1 text-center">{pendingStartIndex + index + 1}</td><td className="border-b px-2 py-1">{row.INDENTER}</td><td className="border-b px-2 py-1">{row.DIVISION_NAME}</td><td className="border-b px-2 py-1">{row.DEPARTMENT_NAME}</td><td className="border-b px-2 py-1">{row.VRNO}</td><td className="border-b px-2 py-1">{formatDateTime(row.PLANNED_TIMESTAMP)}</td><td className="border-b px-2 py-1">{formatDate(row.VRDATE)}</td><td className="border-b px-2 py-1">{row.VENDOR_NAME}</td><td className="border-b px-2 py-1">{row.ITEM_NAME}</td><td className="border-b px-2 py-1">{row.UM}</td><td className="border-b px-2 py-1">{row.QTYORDER}</td><td className="border-b px-2 py-1">{row.QTYEXECUTE}</td><td className="border-b px-2 py-1">{row.BALANCE_QTY ?? 0}</td></tr>)}</tbody>
               </table>
             </div>
           </div>
@@ -413,8 +413,8 @@ export default function PendingIndents() {
           <div className="relative hidden w-full md:block">
             <div className="max-h-[calc(100vh-350px)] overflow-x-auto overflow-y-auto rounded-xl border bg-white shadow-sm">
               <table className="min-w-[1000px] border-collapse text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm"><tr><th className="sticky left-0 z-30 border-b bg-slate-100 px-3 py-2 text-left font-semibold">Indent No.</th><th className="border-b px-3 py-2 text-center font-semibold">S.No</th><th className="border-b px-3 py-2 font-semibold">PO No.</th><th className="border-b px-3 py-2 font-semibold">Indenter</th><th className="border-b px-3 py-2 font-semibold">Planned Time Stamp</th><th className="border-b px-3 py-2 font-semibold">PO Date</th><th className="border-b px-3 py-2 font-semibold">Division Name</th><th className="border-b px-3 py-2 font-semibold">Department Name</th><th className="border-b px-3 py-2 font-semibold">Vendor Name</th><th className="border-b px-3 py-2 font-semibold">Item Name</th><th className="border-b px-3 py-2 font-semibold">UOM</th><th className="border-b px-3 py-2 font-semibold">Ordered Qty</th><th className="border-b px-3 py-2 font-semibold">Executed Qty</th><th className="border-b px-3 py-2 font-semibold">Balance Qty</th></tr></thead>
-                <tbody>{historyPageRows.length === 0 ? <tr><td colSpan={14} className="py-6 text-center text-sm text-slate-400">{historySearch.trim() ? `No Received POs found for "${historySearch.trim()}"` : "No Received POs Found"}</td></tr> : historyPageRows.map((row, index) => <tr key={`${row.VRNO}-${index}`} className="hover:bg-slate-50"><td className="sticky left-0 z-10 border-b bg-white px-3 py-1 text-left font-medium">{row.INDENT_NO}</td><td className="border-b px-2 py-1 text-center">{historyStartIndex + index + 1}</td><td className="border-b px-2 py-1">{row.VRNO}</td><td className="border-b px-2 py-1">{row.INDENTER}</td><td className="border-b px-2 py-1">{formatDateTime(row.PLANNED_TIMESTAMP)}</td><td className="border-b px-2 py-1">{formatDate(row.VRDATE)}</td><td className="border-b px-2 py-1">{row.DIVISION_NAME}</td><td className="border-b px-2 py-1">{row.DEPARTMENT_NAME}</td><td className="border-b px-2 py-1">{row.VENDOR_NAME}</td><td className="border-b px-2 py-1">{row.ITEM_NAME}</td><td className="border-b px-2 py-1">{row.UM}</td><td className="border-b px-2 py-1">{row.QTYORDER}</td><td className="border-b px-2 py-1">{row.QTYEXECUTE}</td><td className="border-b px-2 py-1">{row.BALANCE_QTY ?? 0}</td></tr>)}</tbody>
+                <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm"><tr><th className="sticky left-0 z-30 border-b bg-slate-100 px-3 py-2 text-left font-semibold">Indent No.</th><th className="border-b px-3 py-2 text-center font-semibold">S.No</th><th className="border-b px-3 py-2 font-semibold">PO No.</th><th className="border-b px-3 py-2 font-semibold">Indenter</th><th className="border-b px-3 py-2 font-semibold">Division Name</th><th className="border-b px-3 py-2 font-semibold">Department Name</th><th className="border-b px-3 py-2 font-semibold">Planned Time Stamp</th><th className="border-b px-3 py-2 font-semibold">PO Date</th><th className="border-b px-3 py-2 font-semibold">Vendor Name</th><th className="border-b px-3 py-2 font-semibold">Item Name</th><th className="border-b px-3 py-2 font-semibold">UOM</th><th className="border-b px-3 py-2 font-semibold">Ordered Qty</th><th className="border-b px-3 py-2 font-semibold">Executed Qty</th><th className="border-b px-3 py-2 font-semibold">Balance Qty</th></tr></thead>
+                <tbody>{historyPageRows.length === 0 ? <tr><td colSpan={14} className="py-6 text-center text-sm text-slate-400">{historySearch.trim() ? `No Received POs found for "${historySearch.trim()}"` : "No Received POs Found"}</td></tr> : historyPageRows.map((row, index) => <tr key={`${row.VRNO}-${index}`} className="hover:bg-slate-50"><td className="sticky left-0 z-10 border-b bg-white px-3 py-1 text-left font-medium">{row.INDENT_NO}</td><td className="border-b px-2 py-1 text-center">{historyStartIndex + index + 1}</td><td className="border-b px-2 py-1">{row.VRNO}</td><td className="border-b px-2 py-1">{row.INDENTER}</td><td className="border-b px-2 py-1">{row.DIVISION_NAME}</td><td className="border-b px-2 py-1">{row.DEPARTMENT_NAME}</td><td className="border-b px-2 py-1">{formatDateTime(row.PLANNED_TIMESTAMP)}</td><td className="border-b px-2 py-1">{formatDate(row.VRDATE)}</td><td className="border-b px-2 py-1">{row.VENDOR_NAME}</td><td className="border-b px-2 py-1">{row.ITEM_NAME}</td><td className="border-b px-2 py-1">{row.UM}</td><td className="border-b px-2 py-1">{row.QTYORDER}</td><td className="border-b px-2 py-1">{row.QTYEXECUTE}</td><td className="border-b px-2 py-1">{row.BALANCE_QTY ?? 0}</td></tr>)}</tbody>
               </table>
             </div>
           </div>

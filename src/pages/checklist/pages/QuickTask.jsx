@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import {
   Search,
@@ -126,6 +126,8 @@ export default function QuickTask() {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [activeTab, setActiveTab] = useState("checklist");
   const [nameFilter, setNameFilter] = useState("");
@@ -147,6 +149,7 @@ export default function QuickTask() {
   const {
     quickTaskState,
     fetchQuickTaskUsers,
+    fetchQuickTaskDepartments,
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
     resetQuickTaskMaintenancePagination,
@@ -172,6 +175,7 @@ export default function QuickTask() {
     maintenanceTasks,
     housekeepingTasks,
     users,
+    departments,
     checklistPage,
     checklistHasMore,
     delegationPage,
@@ -182,28 +186,97 @@ export default function QuickTask() {
     housekeepingHasMore,
   } = quickTaskState;
 
-  const allNames = [...new Set([
-    ...users.map((user) => typeof user?.user_name === "string" ? user.user_name.trim() : ""),
-    ...quickTask.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
-    ...delegationTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
-    ...maintenanceTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
-    ...housekeepingTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : "")
-  ])]
-    .filter((name) => name && typeof name === "string" && name.trim() !== "")
-    .sort();
+  const allNames = useMemo(() => {
+    if (!users) return [];
+    return [...new Set([
+      ...(users.checklistNames || []),
+      ...(users.delegationNames || []),
+      ...(users.maintenanceDoers || []),
+      ...quickTask.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+      ...delegationTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+      ...maintenanceTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : ""),
+      ...housekeepingTasks.map((task) => typeof task?.name === "string" ? task.name.trim() : "")
+    ])]
+      .filter((name) => name && typeof name === "string" && name.trim() !== "")
+      .sort((a, b) => a.localeCompare(b));
+  }, [users, quickTask, delegationTasks, maintenanceTasks, housekeepingTasks]);
 
-  const appliedNameFilter = nameFilter ? (allNames.find(
+  const activeTabFilterOptions = useMemo(() => {
+    console.log("QuickTask render - users state:", JSON.stringify(users));
+    if (!users) return [];
+    if (activeTab === "checklist") {
+      return [...new Set([
+        ...(users.checklistNames || []),
+        ...quickTask.map((t) => typeof t?.name === "string" ? t.name.trim() : "")
+      ])]
+        .filter((n) => n && n.trim())
+        .sort((a, b) => a.localeCompare(b));
+    }
+    if (activeTab === "delegation") {
+      return [...new Set([
+        ...(users.delegationNames || []),
+        ...delegationTasks.map((t) => typeof t?.name === "string" ? t.name.trim() : "")
+      ])]
+        .filter((n) => n && n.trim())
+        .sort((a, b) => a.localeCompare(b));
+    }
+    if (activeTab === "maintenance") {
+      return [...new Set([
+        ...(users.maintenanceDoers || []),
+        ...maintenanceTasks.map((t) => typeof t?.name === "string" ? t.name.trim() : "")
+      ])]
+        .filter((n) => n && n.trim())
+        .sort((a, b) => a.localeCompare(b));
+    }
+    if (activeTab === "housekeeping") {
+      return [...new Set([
+        ...(users.housekeepingDepartments || []),
+        ...housekeepingTasks.map((t) => typeof t?.department === "string" ? t.department.trim() : "")
+      ])]
+        .filter((n) => n && n.trim())
+        .sort((a, b) => a.localeCompare(b));
+    }
+    return [];
+  }, [activeTab, users, quickTask, delegationTasks, maintenanceTasks, housekeepingTasks]);
+
+  const appliedNameFilter = nameFilter ? (activeTabFilterOptions.find(
     (name) => name.toLowerCase() === nameFilter.trim().toLowerCase()
   ) || nameFilter.trim()) : "";
+
+  const uniqueDepartments = useMemo(() => {
+    return [...new Set([
+      ...departments.map((d) => typeof d?.department === "string" ? d.department.trim() : ""),
+      ...quickTask.map((t) => typeof t?.department === "string" ? t.department.trim() : ""),
+      ...delegationTasks.map((t) => typeof t?.department === "string" ? t.department.trim() : ""),
+      ...maintenanceTasks.map((t) => typeof t?.department === "string" ? t.department.trim() : ""),
+      ...housekeepingTasks.map((t) => typeof t?.department === "string" ? t.department.trim() : "")
+    ])]
+      .filter((dept) => dept && typeof dept === "string" && dept.trim() !== "")
+      .sort((a, b) => a.localeCompare(b));
+  }, [departments, quickTask, delegationTasks, maintenanceTasks, housekeepingTasks]);
+
+  const matchedDepartments = useMemo(() => {
+    if (!searchTerm) return [];
+    const query = searchTerm.toLowerCase().trim();
+    return uniqueDepartments.filter((d) => d.toLowerCase().includes(query));
+  }, [searchTerm, uniqueDepartments]);
+
+  const matchedDoers = useMemo(() => {
+    if (!searchTerm) return [];
+    const query = searchTerm.toLowerCase().trim();
+    return allNames.filter((d) => d.toLowerCase().includes(query));
+  }, [searchTerm, allNames]);
 
   const getFetchParams = useCallback(
     (taskType, overrides = {}) => {
       const params = { ...overrides };
+      const activeFilter = overrides.nameFilter !== undefined ? overrides.nameFilter : nameFilter;
 
       if (
-        taskType === "checklist" ||
-        taskType === "maintenance" ||
-        taskType === "housekeeping"
+        !activeFilter &&
+        (taskType === "checklist" ||
+          taskType === "maintenance" ||
+          taskType === "housekeeping")
       ) {
         return {
           ...params,
@@ -213,7 +286,7 @@ export default function QuickTask() {
 
       return params;
     },
-    []
+    [nameFilter]
   );
 
   useEffect(() => {
@@ -224,20 +297,7 @@ export default function QuickTask() {
       resetQuickTaskChecklistPagination();
 
       await fetchQuickTaskUsers();
-
-      try {
-        await fetchUniqueChecklistTaskData(
-          getFetchParams("checklist", { page: 0, pageSize: 100, nameFilter: "" })
-        );
-      } catch (loadError) {
-        if (!isActive) return;
-        const errorMessage =
-          loadError?.message ||
-          loadError?.error ||
-          (typeof loadError === "string" ? loadError : null) ||
-          "Failed to load quick tasks. Please check the API connection.";
-        setError(errorMessage);
-      }
+      await fetchQuickTaskDepartments();
     };
 
     initializeQuickTask();
@@ -245,7 +305,7 @@ export default function QuickTask() {
     return () => {
       isActive = false;
     };
-  }, [fetchQuickTaskUsers, resetQuickTaskChecklistPagination, fetchUniqueChecklistTaskData, getFetchParams]);
+  }, [fetchQuickTaskUsers, fetchQuickTaskDepartments, resetQuickTaskChecklistPagination]);
 
   // Infinite scroll - load more data when user scrolls to bottom
   const handleScroll = useCallback(() => {
@@ -353,10 +413,6 @@ export default function QuickTask() {
   };
 
   const handleEditClick = (task, taskType = activeTab) => {
-    if (!isCurrentDayDateValue(task?.task_start_date)) {
-      setError("Only current day tasks can be edited.");
-      return;
-    }
 
     setEditingTaskId(task.task_id);
     setEditingTaskType(taskType);
@@ -483,9 +539,7 @@ export default function QuickTask() {
 
   // Select all
   const handleSelectAll = () => {
-    const selectableTasks = filteredChecklistTasks.filter((task) =>
-      isCurrentDayDateValue(task.task_start_date)
-    );
+    const selectableTasks = filteredChecklistTasks;
     const isAllSelected = selectableTasks.length > 0 &&
       selectableTasks.every(task => selectedTasks.some(t => t.task_id === task.task_id));
 
@@ -499,11 +553,6 @@ export default function QuickTask() {
   // Delete
   const handleDeleteSelected = async () => {
     if (selectedTasks.length === 0) return;
-
-    if (selectedTasks.some((task) => !isCurrentDayDateValue(task.task_start_date))) {
-      setError("Only current day tasks can be deleted.");
-      return;
-    }
 
     setIsDeleting(true);
     try {
@@ -531,10 +580,6 @@ export default function QuickTask() {
   };
 
   const handleDeleteTask = async (task, taskType = activeTab) => {
-    if (!isCurrentDayDateValue(task?.task_start_date)) {
-      setError("Only current day tasks can be deleted.");
-      return;
-    }
 
     const taskLabel = task?.task_description || `task #${task?.task_id || ""}`;
     const shouldDelete = window.confirm(
@@ -660,39 +705,10 @@ export default function QuickTask() {
   const clearNameFilter = () => {
     setNameFilter("");
 
-    if (activeTab === "checklist") {
-      resetQuickTaskChecklistPagination();
-      fetchUniqueChecklistTaskData(getFetchParams("checklist", {
-        page: 0,
-        pageSize: 100,
-        nameFilter: "",
-        append: false,
-      }));
-    } else if (activeTab === "maintenance") {
-      resetQuickTaskMaintenancePagination();
-      fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
-        page: 0,
-        pageSize: 100,
-        nameFilter: "",
-        append: false,
-      }));
-    } else if (activeTab === "housekeeping") {
-      resetQuickTaskHousekeepingPagination();
-      fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
-        page: 0,
-        pageSize: 100,
-        nameFilter: "",
-        append: false,
-      }));
-    } else {
-      resetQuickTaskDelegationPagination();
-      fetchUniqueDelegationTaskData({
-        page: 0,
-        pageSize: 100,
-        nameFilter: "",
-        append: false,
-      });
-    }
+    resetQuickTaskChecklistPagination();
+    resetQuickTaskMaintenancePagination();
+    resetQuickTaskHousekeepingPagination();
+    resetQuickTaskDelegationPagination();
 
     setDropdownOpen((previous) => ({ ...previous, name: false }));
   };
@@ -721,7 +737,7 @@ export default function QuickTask() {
     .filter((task) => {
       if (!task) return false;
 
-      const currentDayPass = isCurrentDayDateValue(task.task_start_date);
+      const currentDayPass = !appliedNameFilter ? isCurrentDayDateValue(task.task_start_date) : true;
       if (!currentDayPass) return false;
 
       const nameFilterPass =
@@ -749,7 +765,12 @@ export default function QuickTask() {
         (task.given_by &&
           task.given_by.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      return nameFilterPass && freqFilterPass && searchTermPass;
+      const deptFilterPass =
+        !selectedDepartment ||
+        (task.department &&
+          task.department.trim().toLowerCase() === selectedDepartment.trim().toLowerCase());
+
+      return nameFilterPass && freqFilterPass && searchTermPass && deptFilterPass;
     })
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -769,9 +790,7 @@ export default function QuickTask() {
       return 0;
     });
 
-  const selectableChecklistTasks = filteredChecklistTasks.filter((task) =>
-    isCurrentDayDateValue(task.task_start_date)
-  );
+  const selectableChecklistTasks = filteredChecklistTasks;
 
   const filteredMaintenanceTasks = maintenanceTasks
     .filter((task) => {
@@ -808,7 +827,12 @@ export default function QuickTask() {
         (task.priority &&
           task.priority.toLowerCase().includes(query));
 
-      return nameFilterPass && freqFilterPass && searchTermPass;
+      const deptFilterPass =
+        !selectedDepartment ||
+        (task.department &&
+          task.department.trim().toLowerCase() === selectedDepartment.trim().toLowerCase());
+
+      return nameFilterPass && freqFilterPass && searchTermPass && deptFilterPass;
     })
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -834,8 +858,8 @@ export default function QuickTask() {
 
       const nameFilterPass =
         !appliedNameFilter ||
-        (task.name &&
-          task.name.trim().toLowerCase() ===
+        (task.department &&
+          task.department.trim().toLowerCase() ===
           appliedNameFilter.trim().toLowerCase());
 
       const freqFilterPass =
@@ -863,7 +887,12 @@ export default function QuickTask() {
         (task.status &&
           String(task.status).toLowerCase().includes(query));
 
-      return nameFilterPass && freqFilterPass && searchTermPass;
+      const deptFilterPass =
+        !selectedDepartment ||
+        (task.department &&
+          task.department.trim().toLowerCase() === selectedDepartment.trim().toLowerCase());
+
+      return nameFilterPass && freqFilterPass && searchTermPass && deptFilterPass;
     })
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -933,26 +962,25 @@ export default function QuickTask() {
             type="checkbox"
             checked={selectedTasks.some((selectedTask) => selectedTask.task_id === task.task_id)}
             onChange={() => handleCheckboxChange(task)}
-            disabled={!isCurrentDayDateValue(task.task_start_date)}
+            disabled={deletingTaskKey === `checklist:${task.task_id}`}
             className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
           />
           <button
             onClick={() => handleEditClick(task)}
-            disabled={!isCurrentDayDateValue(task.task_start_date)}
-            className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date))}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+            disabled={deletingTaskKey === `checklist:${task.task_id}`}
+            className={getActionButtonClasses("edit", deletingTaskKey !== `checklist:${task.task_id}`)}
+            title="Edit Task"
           >
             <Edit size={14} />
           </button>
           <button
             onClick={() => handleDeleteTask(task, "checklist")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `checklist:${task.task_id}`}
+            disabled={deletingTaskKey === `checklist:${task.task_id}`}
             className={getActionButtonClasses(
               "delete",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskKey !== `checklist:${task.task_id}`
+              deletingTaskKey !== `checklist:${task.task_id}`
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+            title="Delete Task"
           >
             {deletingTaskKey === `checklist:${task.task_id}` ? (
               <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -1015,25 +1043,23 @@ export default function QuickTask() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => handleEditClick(task, "housekeeping")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+            disabled={deletingTaskKey === `housekeeping:${task.task_id}`}
             className={getActionButtonClasses(
               "edit",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskKey !== `housekeeping:${task.task_id}`
+              deletingTaskKey !== `housekeeping:${task.task_id}`
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+            title="Edit Task"
           >
             <Edit size={14} />
           </button>
           <button
             onClick={() => handleDeleteTask(task, "housekeeping")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
+            disabled={deletingTaskKey === `housekeeping:${task.task_id}`}
             className={getActionButtonClasses(
               "delete",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskKey !== `housekeeping:${task.task_id}`
+              deletingTaskKey !== `housekeeping:${task.task_id}`
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+            title="Delete Task"
           >
             {deletingTaskKey === `housekeeping:${task.task_id}` ? (
               <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -1103,25 +1129,23 @@ export default function QuickTask() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => handleEditClick(task, "maintenance")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+            disabled={deletingTaskKey === `maintenance:${task.task_id}`}
             className={getActionButtonClasses(
               "edit",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskKey !== `maintenance:${task.task_id}`
+              deletingTaskKey !== `maintenance:${task.task_id}`
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+            title="Edit Task"
           >
             <Edit size={14} />
           </button>
           <button
             onClick={() => handleDeleteTask(task, "maintenance")}
-            disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
+            disabled={deletingTaskKey === `maintenance:${task.task_id}`}
             className={getActionButtonClasses(
               "delete",
-              isCurrentDayDateValue(task.task_start_date) &&
-                deletingTaskKey !== `maintenance:${task.task_id}`
+              deletingTaskKey !== `maintenance:${task.task_id}`
             )}
-            title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+            title="Delete Task"
           >
             {deletingTaskKey === `maintenance:${task.task_id}` ? (
               <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -1190,11 +1214,13 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("checklist");
                 resetQuickTaskChecklistPagination();
-                fetchUniqueChecklistTaskData(getFetchParams("checklist", {
-                  page: 0,
-                  pageSize: 50,
-                  nameFilter: appliedNameFilter,
-                }));
+                if (appliedNameFilter) {
+                  fetchUniqueChecklistTaskData(getFetchParams("checklist", {
+                    page: 0,
+                    pageSize: 50,
+                    nameFilter: appliedNameFilter,
+                  }));
+                }
               }}
             >
               Checklist
@@ -1209,11 +1235,13 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("delegation");
                 resetQuickTaskDelegationPagination();
-                fetchUniqueDelegationTaskData({
-                  page: 0,
-                  pageSize: 100,
-                  nameFilter: appliedNameFilter,
-                });
+                if (appliedNameFilter) {
+                  fetchUniqueDelegationTaskData({
+                    page: 0,
+                    pageSize: 100,
+                    nameFilter: appliedNameFilter,
+                  });
+                }
               }}
             >
               Delegation
@@ -1228,11 +1256,13 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("maintenance");
                 resetQuickTaskMaintenancePagination();
-                fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
-                  page: 0,
-                  pageSize: 100,
-                  nameFilter: appliedNameFilter,
-                }));
+                if (appliedNameFilter) {
+                  fetchUniqueMaintenanceTaskData(getFetchParams("maintenance", {
+                    page: 0,
+                    pageSize: 100,
+                    nameFilter: appliedNameFilter,
+                  }));
+                }
               }}
             >
               Maintenance
@@ -1247,11 +1277,13 @@ export default function QuickTask() {
                 handleCancelEdit();
                 setActiveTab("housekeeping");
                 resetQuickTaskHousekeepingPagination();
-                fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
-                  page: 0,
-                  pageSize: 100,
-                  nameFilter: appliedNameFilter,
-                }));
+                if (appliedNameFilter) {
+                  fetchUniqueHousekeepingTaskData(getFetchParams("housekeeping", {
+                    page: 0,
+                    pageSize: 100,
+                    nameFilter: appliedNameFilter,
+                  }));
+                }
               }}
             >
               Housekeeping
@@ -1269,10 +1301,93 @@ export default function QuickTask() {
                 type="text"
                 placeholder="Search tasks, departments..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-600 transition-all bg-white"
-                disabled={loading || delegationLoading}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchTerm(val);
+                  if (val === "") {
+                    setSelectedDepartment("");
+                  }
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-600 transition-all bg-white"
+                disabled={loading}
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedDepartment("");
+                    setShowSearchDropdown(false);
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
+
+              {showSearchDropdown && searchTerm && (
+                <>
+                  <div className="fixed inset-0 z-[40]" onClick={() => setShowSearchDropdown(false)} />
+                  <div className="absolute z-[50] mt-2 w-full rounded-xl bg-white shadow-2xl border border-gray-100 max-h-60 overflow-auto top-full left-0 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    
+                    {matchedDepartments.length > 0 && (
+                      <div className="mb-2">
+                        <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          Departments / विभाग
+                        </div>
+                        {matchedDepartments.map((dept) => (
+                          <button
+                            key={dept}
+                            type="button"
+                            onClick={() => {
+                              setSearchTerm(dept);
+                              setSelectedDepartment(dept);
+                              setShowSearchDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            {dept}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {matchedDoers.length > 0 && (
+                      <div className="mb-2">
+                        <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          Doers / कर्ता
+                        </div>
+                        {matchedDoers.map((doer) => (
+                          <button
+                            key={doer}
+                            type="button"
+                            onClick={() => {
+                              setNameFilter(doer);
+                              handleNameFilterSelect(doer);
+                              setSearchTerm("");
+                              setShowSearchDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            {doer}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {matchedDepartments.length === 0 && matchedDoers.length === 0 && (
+                      <div className="px-3 py-4 text-center text-gray-400 text-[10px] italic">
+                        No matching departments or doers found
+                      </div>
+                    )}
+
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Filters Group */}
@@ -1287,7 +1402,7 @@ export default function QuickTask() {
                     <input
                       type="text"
                       autoComplete="off"
-                      placeholder="Name filter..."
+                      placeholder={activeTab === "housekeeping" ? "Department filter..." : "Name filter..."}
                       value={nameFilter}
                       onChange={(e) => {
                         const typedName = e.target.value;
@@ -1296,7 +1411,7 @@ export default function QuickTask() {
                         if (typedName === "") {
                           clearNameFilter();
                         } else {
-                          const exactName = allNames.find(
+                          const exactName = activeTabFilterOptions.find(
                             (name) =>
                               name.toLowerCase() === typedName.trim().toLowerCase()
                           );
@@ -1309,7 +1424,7 @@ export default function QuickTask() {
                       onFocus={() => setDropdownOpen(prev => ({ ...prev, name: true }))}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
-                          const exactName = allNames.find(
+                          const exactName = activeTabFilterOptions.find(
                             (name) =>
                               name.toLowerCase() === nameFilter.trim().toLowerCase()
                           );
@@ -1348,9 +1463,9 @@ export default function QuickTask() {
                         onClick={clearNameFilter}
                         className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold mb-1 transition-all ${!appliedNameFilter ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"}`}
                       >
-                        All Staff Members
+                        {activeTab === "housekeeping" ? "All Departments" : "All Staff Members"}
                       </button>
-                      {allNames
+                      {activeTabFilterOptions
                         .filter(name =>
                           !nameFilter ||
                           name.toLowerCase().includes(nameFilter.trim().toLowerCase())
@@ -1358,6 +1473,7 @@ export default function QuickTask() {
                         .map((name) => (
                           <button
                             key={name}
+                            type="button"
                             onClick={() => {
                               handleNameFilterSelect(name);
                               setDropdownOpen({ ...dropdownOpen, name: false });
@@ -1368,11 +1484,11 @@ export default function QuickTask() {
                             {appliedNameFilter === name && <div className="w-1.5 h-1.5 rounded-full bg-red-600" />}
                           </button>
                         ))}
-                      {allNames.filter(name =>
+                      {activeTabFilterOptions.filter(name =>
                         name.toLowerCase().includes(nameFilter.trim().toLowerCase())
                       ).length === 0 && (
                           <div className="px-3 py-4 text-center text-gray-400 text-[10px] italic">
-                            No members found
+                            {activeTab === "housekeeping" ? "No departments found" : "No members found"}
                           </div>
                         )}
                     </div>
@@ -1473,21 +1589,21 @@ export default function QuickTask() {
         </div>
       )}
 
-      {loading && activeTab === "delegation" && (
+      {loading && appliedNameFilter && activeTab === "delegation" && (
         <div className="mt-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
           <p className="text-purple-600">Loading delegation data...</p>
         </div>
       )}
 
-      {loading && activeTab === "maintenance" && (
+      {loading && appliedNameFilter && activeTab === "maintenance" && (
         <div className="mt-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
           <p className="text-purple-600">Loading maintenance data...</p>
         </div>
       )}
 
-      {loading && activeTab === "housekeeping" && (
+      {loading && appliedNameFilter && activeTab === "housekeeping" && (
         <div className="mt-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
           <p className="text-purple-600">Loading housekeeping data...</p>
@@ -1496,7 +1612,17 @@ export default function QuickTask() {
 
       {!error && (
         <>
-          {activeTab === "checklist" ? (
+          {!appliedNameFilter ? (
+            <div className="mt-8 text-center py-16 px-4 bg-white rounded-xl border border-gray-100 shadow-sm max-w-md mx-auto">
+              <Filter size={32} className="mx-auto text-gray-300 mb-3" />
+              <h3 className="text-gray-700 font-bold text-sm mb-1">नाम सिलेक्ट करें (Select a Name)</h3>
+              <p className="text-gray-400 text-xs">
+                कृपया कार्य देखने और लोड करने के लिए ऊपर नाम फ़िल्टर में एक नाम चुनें।
+                <br />
+                (Please select a name in the filter dropdown to display tasks.)
+              </p>
+            </div>
+          ) : activeTab === "checklist" ? (
             <div className="mt-6 rounded-xl border border-gray-100 shadow-sm bg-white overflow-hidden">
               <div className="bg-gray-50/50 border-b border-gray-100 p-4 flex justify-between items-center">
                 <div>
@@ -1634,17 +1760,17 @@ export default function QuickTask() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleEditClick(task)}
-                                  disabled={!isCurrentDayDateValue(task.task_start_date)}
-                                  className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date))}
-                                  title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                                  disabled={deletingTaskKey === `checklist:${task.task_id}`}
+                                  className={getActionButtonClasses("edit", deletingTaskKey !== `checklist:${task.task_id}`)}
+                                  title="Edit Task"
                                 >
                                   <Edit size={14} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteTask(task, "checklist")}
-                                  disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `checklist:${task.task_id}`}
-                                  className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `checklist:${task.task_id}`)}
-                                  title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                                  disabled={deletingTaskKey === `checklist:${task.task_id}`}
+                                  className={getActionButtonClasses("delete", deletingTaskKey !== `checklist:${task.task_id}`)}
+                                  title="Delete Task"
                                 >
                                   {deletingTaskKey === `checklist:${task.task_id}` ? (
                                     <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -1660,7 +1786,7 @@ export default function QuickTask() {
                               type="checkbox"
                               checked={selectedTasks.some(t => t.task_id === task.task_id)}
                               onChange={() => handleCheckboxChange(task)}
-                              disabled={!isCurrentDayDateValue(task.task_start_date)}
+                              disabled={deletingTaskKey === `checklist:${task.task_id}`}
                               className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 transition-all"
                             />
                           </td>
@@ -1986,17 +2112,17 @@ export default function QuickTask() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleEditClick(task, "housekeeping")}
-                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
-                                className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `housekeeping:${task.task_id}`)}
-                                title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                                disabled={deletingTaskKey === `housekeeping:${task.task_id}`}
+                                className={getActionButtonClasses("edit", deletingTaskKey !== `housekeeping:${task.task_id}`)}
+                                title="Edit Task"
                               >
                                 <Edit size={14} />
                               </button>
                               <button
                                 onClick={() => handleDeleteTask(task, "housekeeping")}
-                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `housekeeping:${task.task_id}`}
-                                className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `housekeeping:${task.task_id}`)}
-                                title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                                disabled={deletingTaskKey === `housekeeping:${task.task_id}`}
+                                className={getActionButtonClasses("delete", deletingTaskKey !== `housekeeping:${task.task_id}`)}
+                                title="Delete Task"
                               >
                                 {deletingTaskKey === `housekeeping:${task.task_id}` ? (
                                   <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -2186,17 +2312,17 @@ export default function QuickTask() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleEditClick(task, "maintenance")}
-                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
-                                className={getActionButtonClasses("edit", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `maintenance:${task.task_id}`)}
-                                title={isCurrentDayDateValue(task.task_start_date) ? "Edit Task" : "Only current day tasks can be edited"}
+                                disabled={deletingTaskKey === `maintenance:${task.task_id}`}
+                                className={getActionButtonClasses("edit", deletingTaskKey !== `maintenance:${task.task_id}`)}
+                                title="Edit Task"
                               >
                                 <Edit size={14} />
                               </button>
                               <button
                                 onClick={() => handleDeleteTask(task, "maintenance")}
-                                disabled={!isCurrentDayDateValue(task.task_start_date) || deletingTaskKey === `maintenance:${task.task_id}`}
-                                className={getActionButtonClasses("delete", isCurrentDayDateValue(task.task_start_date) && deletingTaskKey !== `maintenance:${task.task_id}`)}
-                                title={isCurrentDayDateValue(task.task_start_date) ? "Delete Task" : "Only current day tasks can be deleted"}
+                                disabled={deletingTaskKey === `maintenance:${task.task_id}`}
+                                className={getActionButtonClasses("delete", deletingTaskKey !== `maintenance:${task.task_id}`)}
+                                title="Delete Task"
                               >
                                 {deletingTaskKey === `maintenance:${task.task_id}` ? (
                                   <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />

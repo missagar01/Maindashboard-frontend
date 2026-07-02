@@ -176,3 +176,12 @@ export const fetchUsersData = async () => {
   const res = await axiosInstance.get(`${BASE_URL}/users`);
   return res.data;
 };
+
+// =========================
+// FETCH DEPARTMENTS
+// =========================
+export const fetchDepartmentsData = async () => {
+  const res = await axiosInstance.get(`${BASE_URL}/departments`);
+  return res.data;
+};
+
