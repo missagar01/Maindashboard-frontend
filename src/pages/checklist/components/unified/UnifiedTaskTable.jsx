@@ -711,6 +711,7 @@ export default function UnifiedTaskTable({
                     soundStatus: taskRowData.soundStatus || "",
                     temperature: taskRowData.temperature || "",
                     remarks: taskRowData.remarks || "",
+                    machineName: taskRowData.machineName || "",
                     doerName2: taskRowData.doerName2 || "",  // Add doerName2 for housekeeping
                     originalData: task?.originalData,
                 };
@@ -865,6 +866,7 @@ export default function UnifiedTaskTable({
                                                         seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
                                                         userRole={userRole}
                                                         loggedInUser={loggedInUser}
+                                                        activeSystem={filters.sourceSystem || "unified"}
                                                     />
                                                 );
                                             })
@@ -898,6 +900,7 @@ export default function UnifiedTaskTable({
                                                 seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
                                                 userRole={userRole}
                                                 loggedInUser={loggedInUser}
+                                                activeSystem={filters.sourceSystem || "unified"}
                                             />
                                         );
                                     })

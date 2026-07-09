@@ -379,8 +379,9 @@ export default function UnifiedTaskPage() {
                 if (normalizedRole === 'user') {
                     await submitChecklistUserStatusAction([{
                         taskId,
-                        remark: remarks || '',   // ✅ only remark
+                        remark: remarks || '',
                         status: status,
+                        machineName: updateData.machineName || '',
                     }]);
                     fetchChecklistDataAction(1)
                 }
@@ -449,8 +450,9 @@ export default function UnifiedTaskPage() {
             if (isChecklistUser) {
                 const payload = tasksBySource.checklist.map((t) => ({
                     taskId: t.taskId,
-                    remark: t.remarks || "",   // ✅ only remark
+                    remark: t.remarks || "",
                     status: t.status,
+                    machineName: t.machineName || "",
                 }));
                 return submitChecklistUserStatusAction(payload);
             }

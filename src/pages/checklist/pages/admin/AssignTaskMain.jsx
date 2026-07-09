@@ -34,7 +34,7 @@ export default function AssignTaskMain() {
   ]
 
   const handleTaskTypeClick = (taskId) => {
-    navigate(`/dashboard/assign-task/${taskId}`)
+    navigate(`/checklist/assign-task/${taskId}`)
   }
 
   return (

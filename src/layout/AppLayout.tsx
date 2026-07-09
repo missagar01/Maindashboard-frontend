@@ -4,7 +4,6 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import { shouldShowSidebarForPath } from "../config/portalNavigation";
-import FloatingChatBot from "../components/FloatingChatBot";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
@@ -40,7 +39,6 @@ const LayoutContent: React.FC = () => {
           <Outlet />
         </div>
       </div>
-      <FloatingChatBot />
     </div>
   );
 };

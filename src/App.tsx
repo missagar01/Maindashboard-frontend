@@ -101,7 +101,8 @@ import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
-import StoreChatBot from "./pages/store/pages/store/ChatBot";
+import RaprocureDashboard from "./pages/raprocure/RaprocureDashboard";
+import ChatbotPage from "./pages/chatbot/ChatBot";
 import TransportDashboard from "./pages/transport/pages/TransportDashboard";
 import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation";
 import TransportTakeover from "./pages/transport/pages/TransportTakeover";
@@ -312,8 +313,14 @@ export default function App() {
               <Route path="/store/store-grn-gm" element={<RouteGuard><StoreGRNGMApproval /></RouteGuard>} />
               <Route path="/store/store-grn-close" element={<RouteGuard><StoreGRNCloseBill /></RouteGuard>} />
               <Route path="/store/erp-indent" element={<RouteGuard><StoreErpIndent /></RouteGuard>} />
-              <Route path="/store/chatbot" element={<RouteGuard><StoreChatBot /></RouteGuard>} />
+              <Route path="/store/chatbot" element={<Navigate to="/chatbot" replace />} />
             </Route>
+
+            <Route path="/raprocure" element={<RouteGuard><Navigate to="/raprocure/dashboard" replace /></RouteGuard>} />
+            <Route path="/raprocure/dashboard" element={<RouteGuard><RaprocureDashboard /></RouteGuard>} />
+
+            <Route path="/chatbot" element={<RouteGuard><ChatbotPage /></RouteGuard>} />
+            <Route path="/chatbot/dashboard" element={<RouteGuard><Navigate to="/chatbot" replace /></RouteGuard>} />
 
             {/* Transport Routes */}
             <Route path="/transport" element={<RouteGuard><Navigate to="/transport/dashboard" replace /></RouteGuard>} />

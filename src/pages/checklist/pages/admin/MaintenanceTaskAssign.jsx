@@ -5,6 +5,7 @@ import axiosInstance from "@/api/checklist/axiosInstance.js";
 
 const DEFAULT_FREQUENCY_OPTIONS = [
   "one-time",
+  "one-day",
   "Daily",
   "15 Days",
   "Weekly",
@@ -136,7 +137,7 @@ function AssignTask() {
   const [loaderMasterSheetData, setLoaderMasterSheetData] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState([]);
   const [showTaskPreview, setShowTaskPreview] = useState(false);
-  const [frequency, setFrequency] = useState("");
+  const [frequency, setFrequency] = useState("one-day");
   const [workingDaysData, setWorkingDaysData] = useState([]);
 
   const [enableReminder, setEnableReminder] = useState(false);
@@ -150,9 +151,10 @@ function AssignTask() {
   const startTimeInputRef = useRef(null);
   const frequencyOptions = DEFAULT_FREQUENCY_OPTIONS;
 
-  const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const CHECKLIST_API_BASE = `${BACKEND_URL}/api/checklist`;
-  const MAINTENANCE_API_BASE = `${BACKEND_URL}/api/mainatce`;
+  // Keep requests relative to the shared axios base so localhost, proxy-based
+  // deploys, and direct backend deploys all resolve consistently.
+  const CHECKLIST_API_BASE = "/api/checklist";
+  const MAINTENANCE_API_BASE = "/api/mainatce";
   const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL || "";
 
   const SHEET_Id = import.meta.env.VITE_SHEET_ID || "";
@@ -162,6 +164,16 @@ function AssignTask() {
     error?.response?.data?.message ||
     error?.message ||
     fallback;
+
+  const logRequestError = (label, error) => {
+    console.error(label, {
+      baseURL: error?.config?.baseURL || "",
+      requestUrl: error?.config?.url || "",
+      status: error?.response?.status,
+      response: error?.response?.data,
+      message: error?.message,
+    });
+  };
 
   const openNativePicker = (inputRef) => {
     const input = inputRef?.current;
@@ -189,7 +201,7 @@ function AssignTask() {
         setDepartmentOptions(result.data);
       }
     } catch (err) {
-      console.error("Department fetch error:", err);
+      logRequestError("Department fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch departments"));
     }
   };
@@ -200,7 +212,7 @@ function AssignTask() {
       const { data: result } = await axiosInstance.get(`${CHECKLIST_API_BASE}/assign-task/divisions`);
       setDivisionOptions(getArrayPayload(result));
     } catch (err) {
-      console.error("Division fetch error:", err);
+      logRequestError("Division fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch divisions"));
     }
   };
@@ -230,7 +242,7 @@ function AssignTask() {
 
       setFilteredMachines(machineNames);
     } catch (error) {
-      console.error("Machine fetch error:", error);
+      logRequestError("Machine fetch error", error);
       setFilteredMachines([]);
       toast.error(getApiErrorMessage(error, "Failed to fetch machines"));
     } finally {
@@ -295,12 +307,44 @@ function AssignTask() {
         toast.error("⚠️ No machine details found");
       }
     } catch (error) {
-      console.error("Tag fetch error:", error);
+      logRequestError("Tag fetch error", error);
       toast.error(getApiErrorMessage(error, "Failed to fetch tag number"));
     }
   };
 
 
+
+  const handleDivisionChange = async (division) => {
+    setSelectedDivision(division);
+    setMachineDepartment("");
+    setDoerDepartment("");
+    setFilteredMachines([]);
+    setDoerName([]);
+    setSelectedMachine("");
+    setSelectedSerialNo("");
+    setFilteredSerials([]);
+
+    if (!division) {
+      try {
+        const { data: result } = await axiosInstance.get(`/api/checklist/settings/departments`);
+        const depts = Array.isArray(result) ? result.map(d => d.department).filter(Boolean) : [];
+        setDepartmentOptions(depts);
+      } catch (err) {
+        logRequestError("Failed to fetch departments", err);
+      }
+      return;
+    }
+
+    try {
+      const { data: result } = await axiosInstance.get(`/api/checklist/settings/departments`, {
+        params: { division }
+      });
+      const depts = Array.isArray(result) ? result.map(d => d.department).filter(Boolean) : [];
+      setDepartmentOptions(depts);
+    } catch (err) {
+      logRequestError("Failed to fetch filtered departments", err);
+    }
+  };
 
   // 🧠 Fetch dropdown data from backend API (Postgres)
   // Machine department change for Maintenance
@@ -337,7 +381,7 @@ function AssignTask() {
         setDoerName(result.data?.doerName || []);
       }
     } catch (err) {
-      console.error("Doer department fetch error:", err);
+      logRequestError("Doer department fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch doer data"));
     }
   };
@@ -346,21 +390,24 @@ function AssignTask() {
   const fetchDropdownData = async () => {
     setLoaderMasterSheetData(true);
     try {
-      const { data: result } = await axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`);
-      const dropdownData = result?.data || {};
+      const [result, givenByResult] = await Promise.all([
+        axiosInstance.get(`${MAINTENANCE_API_BASE}/dropdown`),
+        axiosInstance.get(`/api/checklist/settings/given-by`)
+      ]);
+      const dropdownData = result?.data?.data || {};
+      const managers = Array.isArray(givenByResult?.data)
+        ? givenByResult.data.map(m => m.given_by).filter(Boolean)
+        : [];
 
-      if (result.success && result.data) {
-        setDepartmentOptions(dropdownData.departments || []);
-        // These should come from machine department selection
-        setGivenByData(dropdownData.givenBy || []);
+      if (result.data?.success) {
+        setGivenByData(managers.length > 0 ? managers : (dropdownData.givenBy || []));
         setTaskStatusData(dropdownData.taskStatus || []);
         setPriorityData(dropdownData.priority || []);
-        // Don't set doerName here - it should come from doer department
       } else {
         toast.error("Failed to load dropdown data");
       }
     } catch (err) {
-      console.error("Dropdown fetch error:", err);
+      logRequestError("Dropdown fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch dropdowns"));
     } finally {
       setLoaderMasterSheetData(false);
@@ -368,26 +415,11 @@ function AssignTask() {
   };
 
   useEffect(() => {
-    // fetchDepartments();   // <-- Fetch departments from correct route
-    fetchDropdownData();  // <-- Fetch other dropdowns
+    fetchDropdownData();
     fetchDivisions();
+    handleDivisionChange("");
   }, []);
 
-  // const fetchWorkingDaysCalendar = async () => {
-  //   try {
-  //     const res = await fetch("http://18.60.212.185:5050/api/working-days");
-  //     const result = await res.json();
-
-  //     if (result.success && result.data.length > 0) {
-  //       setWorkingDaysData(result.data);
-  //       const lastDate = result.data[result.data.length - 1].working_date;
-  //       setEndDate(lastDate);
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching working day calendar:", err);
-  //     toast.error("❌ Failed to fetch working day calendar");
-  //   }
-  // };
 
 
   const fetchAllTasks = async () => {
@@ -436,7 +468,7 @@ function AssignTask() {
       }
       return [];
     } catch (err) {
-      console.error("❌ Error fetching working day calendar:", err);
+      logRequestError("Working day calendar fetch error", err);
       toast.error(getApiErrorMessage(err, "Failed to fetch working day calendar"));
       return [];
     }
@@ -513,7 +545,7 @@ function AssignTask() {
 
 
   const generateTasks = async () => {
-    const isOneTimeTask = (frequency || "").toLowerCase() === "one-time";
+    const isOneTimeTask = (frequency || "").toLowerCase() === "one-time" || (frequency || "").toLowerCase() === "one-day";
 
     if (
       !startDate ||
@@ -761,7 +793,7 @@ function AssignTask() {
       // Don't reset selectedTaskType - let user continue with the same task type
       // setSelectedTaskType("Select Task Type");
       setStartDate("");
-      setFrequency("");
+      setFrequency("one-day");
       setWorkDescription("");
       setSelectedPriority("");
       setShowTaskPreview(false);
@@ -787,7 +819,7 @@ function AssignTask() {
       // setMachineDepartment("");
       // setDoerDepartment("");
     } catch (error) {
-      console.error("❌ Submission failed:", error);
+      logRequestError("Maintenance task submission failed", error);
       toast.error(`❌ Failed to assign task: ${getApiErrorMessage(error, "Unknown error")}`);
     } finally {
       setLoaderSubmit(false);
@@ -807,7 +839,7 @@ function AssignTask() {
                 <DropdownField
                   id="division" label="Division Name"
                   value={selectedDivision}
-                  onChange={(e) => setSelectedDivision(e.target.value)}
+                  onChange={(e) => handleDivisionChange(e.target.value)}
                   required
                   loading={loaderMasterSheetData}
                   placeholder="Select Division"
@@ -1199,7 +1231,11 @@ function AssignTask() {
                     <option value="">Select Frequency</option>
                     {frequencyOptions.map((freq, idx) => (
                       <option key={idx} value={freq.toLowerCase()}>
-                        {freq}
+                        {freq === "one-time"
+                          ? "One Time (No Recurrence)"
+                          : freq === "one-day"
+                            ? "One Day"
+                            : freq}
                       </option>
                     ))}
                   </select>
@@ -1223,7 +1259,7 @@ function AssignTask() {
               {showTaskPreview && (
                 <div className="bg-blue-50 border border-blue-300 p-4 rounded-lg">
                   <div className="text-blue-800 font-semibold mb-2">
-                    {generatedTasks.length} Tasks Generated (Will be stored in Checklist sheet)
+                    {generatedTasks.length} Tasks Generated (Will be stored in Maintenance Task Assign table)
                   </div>
                   <div className="max-h-[300px] overflow-y-auto space-y-3">
                     {generatedTasks.slice(0, 10).map((task, idx) => (

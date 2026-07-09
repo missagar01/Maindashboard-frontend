@@ -123,7 +123,13 @@ export const useChecklistCompatibility = () => {
     delegationTasks: [] as any[],
     maintenanceTasks: [] as any[],
     housekeepingTasks: [] as any[],
-    users: [] as any[],
+    users: {
+      checklistNames: [] as string[],
+      delegationNames: [] as string[],
+      maintenanceDoers: [] as string[],
+      housekeepingDepartments: [] as string[]
+    } as any,
+    departments: [] as any[],
     checklistPage: 0,
     checklistTotal: 0,
     checklistHasMore: true,
@@ -169,6 +175,7 @@ export const useChecklistCompatibility = () => {
     settingDepartment: [] as any[],
     settingDepartmentsOnly: [] as any[],
     settingGivenBy: [] as any[],
+    settingDivisions: [] as any[],
     settingLoading: false,
     settingError: null as string | null,
   });
@@ -379,13 +386,38 @@ export const useChecklistCompatibility = () => {
   const fetchQuickTaskUsers = useCallback(async () => {
     try {
       const users = await quickTaskApi.fetchUsersData();
+      console.log("Loaded checklist users data:", JSON.stringify(users));
       setQuickTaskState((previous) => ({
         ...previous,
-        users: Array.isArray(users) ? users : [],
+        users: users && typeof users === "object" ? users : {
+          checklistNames: [],
+          delegationNames: [],
+          maintenanceDoers: [],
+          housekeepingDepartments: []
+        },
       }));
       return users;
     } catch (error) {
       console.error("Checklist quick-task users error:", error);
+      return {
+        checklistNames: [],
+        delegationNames: [],
+        maintenanceDoers: [],
+        housekeepingDepartments: []
+      };
+    }
+  }, []);
+
+  const fetchQuickTaskDepartments = useCallback(async () => {
+    try {
+      const depts = await quickTaskApi.fetchDepartmentsData();
+      setQuickTaskState((previous) => ({
+        ...previous,
+        departments: Array.isArray(depts) ? depts : [],
+      }));
+      return depts;
+    } catch (error) {
+      console.error("Checklist quick-task departments error:", error);
       return [];
     }
   }, []);
@@ -1153,11 +1185,12 @@ export const useChecklistCompatibility = () => {
     }));
 
     try {
-      const [users, departments, departmentsOnly, givenBy] = await Promise.all([
+      const [users, departments, departmentsOnly, givenBy, divisions] = await Promise.all([
         settingApi.fetchUserDetailsApi(),
         settingApi.fetchDepartmentDataApi(),
         settingApi.fetchDepartmentsOnlyApi(),
         settingApi.fetchGivenByDataApi(),
+        settingApi.fetchDivisionsApi(),
       ]);
 
       setSettingState((previous) => ({
@@ -1166,6 +1199,7 @@ export const useChecklistCompatibility = () => {
         settingDepartment: Array.isArray(departments) ? departments : [],
         settingDepartmentsOnly: Array.isArray(departmentsOnly) ? departmentsOnly : [],
         settingGivenBy: Array.isArray(givenBy) ? givenBy : [],
+        settingDivisions: Array.isArray(divisions) ? divisions : [],
         settingLoading: false,
       }));
     } catch (error) {
@@ -1188,10 +1222,11 @@ export const useChecklistCompatibility = () => {
   }, []);
 
   const fetchSettingDepartmentDetails = useCallback(async () => {
-    const [departments, departmentsOnly, givenBy] = await Promise.all([
+    const [departments, departmentsOnly, givenBy, divisions] = await Promise.all([
       settingApi.fetchDepartmentDataApi(),
       settingApi.fetchDepartmentsOnlyApi(),
       settingApi.fetchGivenByDataApi(),
+      settingApi.fetchDivisionsApi(),
     ]);
 
     setSettingState((previous) => ({
@@ -1199,6 +1234,7 @@ export const useChecklistCompatibility = () => {
       settingDepartment: Array.isArray(departments) ? departments : [],
       settingDepartmentsOnly: Array.isArray(departmentsOnly) ? departmentsOnly : [],
       settingGivenBy: Array.isArray(givenBy) ? givenBy : [],
+      settingDivisions: Array.isArray(divisions) ? divisions : [],
     }));
   }, []);
 
@@ -1220,9 +1256,33 @@ export const useChecklistCompatibility = () => {
     return data;
   };
 
-  const deleteSettingUser = async (id: string | number) => {
-    await settingApi.deleteUserByIdApi(id);
+  const deleteSettingUser = async (id: string | number, deleteTasks?: boolean) => {
+    await settingApi.deleteUserByIdApi(id, deleteTasks);
     await fetchSettingUserDetails();
+  };
+
+  const createSettingDivision = async (division: any) => {
+    const data = await settingApi.createDivisionApi(division);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const updateSettingDivision = async ({
+    id,
+    name,
+  }: {
+    id: string | number;
+    name: string;
+  }) => {
+    const data = await settingApi.updateDivisionApi({ id, name });
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const deleteSettingDivision = async (id: string | number) => {
+    const data = await settingApi.deleteDivisionApi(id);
+    await fetchSettingDepartmentDetails();
+    return data;
   };
 
   const createSettingDepartment = async (department: any) => {
@@ -1245,6 +1305,30 @@ export const useChecklistCompatibility = () => {
 
   const deleteSettingDepartment = async (id: string | number) => {
     const data = await settingApi.deleteDepartmentDataApi(id);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const createSettingGivenBy = async (manager: any) => {
+    const data = await settingApi.createGivenByApi(manager);
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const updateSettingGivenBy = async ({
+    id,
+    name,
+  }: {
+    id: string | number;
+    name: string;
+  }) => {
+    const data = await settingApi.updateGivenByApi({ id, name });
+    await fetchSettingDepartmentDetails();
+    return data;
+  };
+
+  const deleteSettingGivenBy = async (id: string | number) => {
+    const data = await settingApi.deleteGivenByApi(id);
     await fetchSettingDepartmentDetails();
     return data;
   };
@@ -1371,6 +1455,7 @@ export const useChecklistCompatibility = () => {
     fetchAssignTaskGivenBy,
     fetchAssignTaskDoerNames,
     fetchQuickTaskUsers,
+    fetchQuickTaskDepartments,
     resetQuickTaskChecklistPagination,
     resetQuickTaskDelegationPagination,
     resetQuickTaskMaintenancePagination,
@@ -1425,9 +1510,15 @@ export const useChecklistCompatibility = () => {
     createSettingUser,
     updateSettingUser,
     deleteSettingUser,
+    createSettingDivision,
+    updateSettingDivision,
+    deleteSettingDivision,
     createSettingDepartment,
     updateSettingDepartment,
     deleteSettingDepartment,
+    createSettingGivenBy,
+    updateSettingGivenBy,
+    deleteSettingGivenBy,
     patchUserVerifyAccess,
     patchUserVerifyAccessDept,
     fetchHousekeepingLocationsTask,

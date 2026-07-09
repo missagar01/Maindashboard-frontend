@@ -108,7 +108,7 @@ export default function DepartmentTaskPage() {
         const { taskId, sourceSystem, status, remarks, originalData } = updateData
         try {
             if (sourceSystem === 'checklist') {
-                await submitChecklistUserStatusAction([{ taskId, remark: remarks || '', status }]);
+                await submitChecklistUserStatusAction([{ taskId, remark: remarks || '', status, machineName: updateData.machineName || '' }]);
             } else if (sourceSystem === 'maintenance') {
                 await updateMultipleMaintenanceTasksAction([{ taskId, status, remarks }]);
             } else if (sourceSystem === 'housekeeping') {
@@ -122,7 +122,7 @@ export default function DepartmentTaskPage() {
         try {
             await Promise.allSettled(submissionData.map(async t => {
                 if (t.sourceSystem === 'checklist') {
-                    return submitChecklistUserStatusAction([{ taskId: t.taskId, remark: t.remarks || '', status: t.status }]);
+                    return submitChecklistUserStatusAction([{ taskId: t.taskId, remark: t.remarks || '', status: t.status, machineName: t.machineName || '' }]);
                 } else if (t.sourceSystem === 'maintenance') {
                     return updateMultipleMaintenanceTasksAction([{ taskId: t.taskId, status: t.status, remarks: t.remarks || '' }]);
                 } else if (t.sourceSystem === 'housekeeping') {

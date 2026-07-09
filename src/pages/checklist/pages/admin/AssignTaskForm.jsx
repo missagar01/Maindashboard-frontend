@@ -40,7 +40,7 @@ export default function AssignTaskForm() {
           <div className="max-w-2xl mx-auto text-center">
             <h1 className="text-2xl font-bold text-red-600">Invalid Task Type</h1>
             <button
-              onClick={() => navigate("/dashboard/assign-task")}
+              onClick={() => navigate("/checklist/assign-task")}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Go Back
@@ -60,7 +60,7 @@ export default function AssignTaskForm() {
         <div className="w-full max-w-none">
           {/* Back Button */}
           <button
-            onClick={() => navigate("/dashboard/assign-task")}
+            onClick={() => navigate("/checklist/assign-task")}
             className="mb-6 flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
           >
             <ArrowLeft className="h-5 w-5" />

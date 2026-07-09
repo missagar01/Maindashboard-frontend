@@ -57,6 +57,18 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: env.VITE_API_BASE_URL?.startsWith("https"),
         },
+        "/raprocure-api": {
+          target: "https://v82.guruworkwithit.online",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (requestPath) =>
+            requestPath.replace(/^\/raprocure-api/, "/api"),
+          configure: (proxy) => {
+            proxy.on("error", (err) => {
+              console.log("Raprocure proxy error:", err);
+            });
+          },
+        },
       },
     },
   };

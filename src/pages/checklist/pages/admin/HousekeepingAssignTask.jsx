@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
 import { fetchUniqueDivisionDataApi } from "@/api/checklist/assignTaskApi.js";
+import axiosInstance from "@/api/checklist/axiosInstance";
 import { Loader2 } from "lucide-react";
 
 // Reusable dropdown with loading state
@@ -79,6 +80,7 @@ export default function AssignTask() {
   const [departmentUserMap, setDepartmentUserMap] = useState({});
   const [divisionOptions, setDivisionOptions] = useState([]);
   const [selectedDivision, setSelectedDivision] = useState("");
+  const [givenByList, setGivenByList] = useState([]);
 
   const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
 
@@ -116,6 +118,13 @@ export default function AssignTask() {
         // Fetch unique divisions from backend
         const result = await fetchUniqueDivisionDataApi();
         setDivisionOptions(normalizeDivisionOptions(result));
+
+        // Fetch unique managers/given-by from backend
+        const givenByResult = await axiosInstance.get("/api/checklist/settings/given-by");
+        const managers = Array.isArray(givenByResult?.data)
+          ? givenByResult.data.map(m => m.given_by).filter(Boolean)
+          : [];
+        setGivenByList(managers);
       } catch (err) {
         console.error("Initial data fetch error:", err);
       } finally {
@@ -326,10 +335,12 @@ export default function AssignTask() {
     }
   };
 
-  // Get given by options - hardcoded values only
+  // Get given by options
   const givenByOptionsList = useMemo(() => {
-    return ["AAKASH AGRAWAL", "SHEELESH MARELE", "AJIT KUMAR GUPTA", "ADMIN"];
-  }, []);
+    return givenByList.length > 0
+      ? givenByList
+      : ["AAKASH AGRAWAL", "SHEELESH MARELE", "AJIT KUMAR GUPTA", "ADMIN"];
+  }, [givenByList]);
 
   // Get doer names from Redux or fallback
   const doerNamesList = useMemo(() => {

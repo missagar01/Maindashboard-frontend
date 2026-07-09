@@ -26,7 +26,7 @@ interface DesktopNavLayout {
 
 const MIN_DESKTOP_NAV_FONT_SIZE = 10.5;
 const MAX_DESKTOP_NAV_FONT_SIZE = 16;
-const DESKTOP_NAV_GAP = 4;
+const DESKTOP_NAV_GAP = 3;
 const DESKTOP_NAV_FONT_STEP = 0.25;
 const OVERFLOW_NAV_LABEL = "More";
 const DESKTOP_NAV_MIN_HORIZONTAL_PADDING = 10;
@@ -37,6 +37,9 @@ const DESKTOP_NAV_MIN_ICON_SIZE = 14;
 const DESKTOP_NAV_MAX_ICON_SIZE = 16.75;
 const DESKTOP_NAV_MIN_ICON_GAP = 4;
 const DESKTOP_NAV_MAX_ICON_GAP = 5.75;
+const DESKTOP_NAV_WIDTH_SAFETY_BUFFER = 12;
+
+let navTextMeasureContext: CanvasRenderingContext2D | null = null;
 
 const clampValue = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -86,8 +89,22 @@ const getDesktopNavOverflowGapUpperBound = (fontSize: number) =>
 
 const estimateNavButtonWidth = (label: string, fontSize: number) => {
   const normalizedLabel = label.replace(/\s+/g, " ").trim();
-  const totalHorizontalPadding = getDesktopNavHorizontalPaddingUpperBound(fontSize) * 2;
-  return normalizedLabel.length * fontSize * 0.58 + totalHorizontalPadding;
+  const totalHorizontalPadding = getDesktopNavHorizontalPadding(fontSize) * 2;
+
+  if (typeof document === "undefined") {
+    return normalizedLabel.length * fontSize * 0.62 + totalHorizontalPadding + 8;
+  }
+
+  if (!navTextMeasureContext) {
+    navTextMeasureContext = document.createElement("canvas").getContext("2d");
+  }
+
+  if (!navTextMeasureContext) {
+    return normalizedLabel.length * fontSize * 0.62 + totalHorizontalPadding + 8;
+  }
+
+  navTextMeasureContext.font = `700 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  return navTextMeasureContext.measureText(normalizedLabel).width + totalHorizontalPadding + 8;
 };
 
 const parseCsv = (value?: string | null) => {
@@ -171,6 +188,18 @@ const AppHeader: React.FC = () => {
         getFirstAllowedPathForModule("/store", user) || "/store/dashboard"
       );
     }
+    if (allowedPageRoutes.some((route) => route.startsWith("/raprocure"))) {
+      pushNavItem(
+        resolvePortalNavItem("raprocure"),
+        getFirstAllowedPathForModule("/raprocure", user) || "/raprocure/dashboard"
+      );
+    }
+    if (allowedPageRoutes.some((route) => route.startsWith("/chatbot"))) {
+      pushNavItem(
+        resolvePortalNavItem("chatbot"),
+        getFirstAllowedPathForModule("/chatbot", user) || "/chatbot"
+      );
+    }
     if (allowedPageRoutes.some((route) => route.startsWith("/transport"))) {
       pushNavItem(
         resolvePortalNavItem("transport"),
@@ -242,7 +271,10 @@ const AppHeader: React.FC = () => {
     if (!navElement) return;
 
     const updateDesktopNavLayout = () => {
-      const availableWidth = navElement.clientWidth;
+      const availableWidth = Math.max(
+        navElement.clientWidth - DESKTOP_NAV_WIDTH_SAFETY_BUFFER,
+        0
+      );
       const totalItems = visibleNavItems.length;
 
       if (!availableWidth || totalItems === 0) {
@@ -522,7 +554,7 @@ const AppHeader: React.FC = () => {
         <nav className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:flex xl:px-[clamp(0.35rem,0.18rem+0.22vw,0.75rem)]">
           <div
             ref={desktopNavRef}
-            className="flex w-full min-w-0 justify-center"
+            className="flex w-full min-w-0 items-center justify-center gap-1.5"
           >
             <div
               className="flex max-w-full items-center rounded-xl border border-slate-200/80 bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] xl:p-[clamp(0.25rem,0.18rem+0.1vw,0.45rem)]"
@@ -606,9 +638,9 @@ const AppHeader: React.FC = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 xl:gap-[clamp(0.5rem,0.3rem+0.2vw,0.875rem)]">
-          <div className="hidden items-center gap-2 text-right 2xl:flex">
-            <p className="text-[clamp(0.875rem,0.82rem+0.12vw,1rem)] font-semibold text-slate-600">
-              Welcome,{" "}
+          <div className="hidden max-w-[220px] items-center gap-2 text-right min-[1800px]:flex">
+            <p className="truncate text-[clamp(0.875rem,0.82rem+0.12vw,1rem)] font-semibold text-slate-600">
+             
               <span className="font-bold capitalize text-slate-900">
                 {user?.username || user?.user_name || "User"}
               </span>

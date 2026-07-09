@@ -197,6 +197,7 @@ export default function AssignTask() {
 
   const frequencies = [
     { value: "one-time", label: "One Time (No Recurrence)" },
+    { value: "one-day", label: "One Day" },
     { value: "daily", label: "Daily" },
     { value: "weekly", label: "Weekly" },
     { value: "fortnightly", label: "Fortnightly" },
@@ -216,7 +217,7 @@ export default function AssignTask() {
     givenBy: "",
     doer: "",
     description: "",
-    frequency: "daily",
+    frequency: "one-day",
     enableReminders: true,
     requireAttachment: false,
   });
@@ -352,7 +353,7 @@ export default function AssignTask() {
     const tasks = [];
 
     // For one-time tasks
-    if (formData.frequency === "one-time") {
+    if (formData.frequency === "one-time" || formData.frequency === "one-day") {
       const taskDateStr = findNextWorkingDay(selectedDate);
       const taskDateObj = parseDDMMYYYYToDate(taskDateStr);
       const taskDateTimeStr = formatDateTimeForStorage(taskDateObj, time);
@@ -885,7 +886,7 @@ export default function AssignTask() {
                     givenBy: "",
                     doer: "",
                     description: "",
-                    frequency: "daily",
+                    frequency: "one-day",
                     enableReminders: true,
                     requireAttachment: false,
                   });

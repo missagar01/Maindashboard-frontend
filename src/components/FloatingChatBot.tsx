@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router";
-import { MessageCircle, X, Bot } from "lucide-react";
-import StoreChatBot from "../pages/store/pages/store/ChatBot";
+import { X, Bot } from "lucide-react";
+import ChatbotPage from "../pages/chatbot/ChatBot";
 
 export default function FloatingChatBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,7 +9,7 @@ export default function FloatingChatBot() {
   const location = useLocation();
 
   // If we are on the dedicated chatbot page, do not show the floating widget
-  if (location.pathname === "/store/chatbot") {
+  if (location.pathname.startsWith("/chatbot")) {
     return null;
   }
 
@@ -28,7 +28,7 @@ export default function FloatingChatBot() {
         className={`fixed bottom-6 right-6 z-[999] flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all duration-300 hover:bg-emerald-500 hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-500/30 ${
           isOpen ? "rotate-90 bg-slate-800 hover:bg-slate-700 focus:ring-slate-500/30" : ""
         }`}
-        title={isOpen ? "Close Store ChatBot" : "Open Store ChatBot"}
+        title={isOpen ? "Close ChatBot" : "Open ChatBot"}
       >
         {isOpen ? <X className="size-6" /> : <Bot className="size-6 animate-pulse" />}
       </button>
@@ -72,7 +72,7 @@ export default function FloatingChatBot() {
 
           {/* ChatBot Content */}
           <div className="flex-1 overflow-hidden">
-            <StoreChatBot isFloating={true} />
+            <ChatbotPage isFloating={true} />
           </div>
         </div>
       )}
