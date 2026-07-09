@@ -393,8 +393,10 @@ export default function AssignTask() {
 
   const formatDateTimeForStorage = (date, time) => {
     if (!date || !time) return "";
-    const dateString = date.toISOString().split("T")[0];
-    return `${dateString}T${time}:00`;
+    const [hours, minutes] = time.split(":").map(Number);
+    const d = new Date(date);
+    d.setHours(hours, minutes, 0, 0);
+    return d.toISOString();
   };
 
   const findNextWorkingDay = (targetDate) => {
@@ -448,6 +450,12 @@ export default function AssignTask() {
     return weekDays ? weekDays[weekDays.length - 1] : monthDays[monthDays.length - 1];
   };
 
+  const parseDDMMYYYYToDate = (str) => {
+    if (!str) return null;
+    const [d, m, y] = str.split("/").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   const generateTasks = async () => {
     if (
       !date ||
@@ -472,10 +480,8 @@ export default function AssignTask() {
     // For one-time tasks
     if (formData.frequency === "one-time") {
       const taskDateStr = findNextWorkingDay(selectedDate);
-      const taskDateTimeStr = formatDateTimeForStorage(
-        new Date(taskDateStr.split("/").reverse().join("-")),
-        time
-      );
+      const taskDateObj = parseDDMMYYYYToDate(taskDateStr);
+      const taskDateTimeStr = formatDateTimeForStorage(taskDateObj, time);
 
       tasks.push({
         description: formData.description,
@@ -502,32 +508,32 @@ export default function AssignTask() {
         switch (formData.frequency) {
           case "daily":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 1);
+            currentDate = addDays(parseDDMMYYYYToDate(taskDate), 1);
             break;
 
           case "weekly":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 7);
+            currentDate = addDays(parseDDMMYYYYToDate(taskDate), 7);
             break;
 
           case "fortnightly":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addDays(new Date(taskDate.split("/").reverse().join("-")), 14);
+            currentDate = addDays(parseDDMMYYYYToDate(taskDate), 14);
             break;
 
           case "monthly":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            currentDate = addMonths(parseDDMMYYYYToDate(taskDate), 1);
             break;
 
           case "quarterly":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 3);
+            currentDate = addMonths(parseDDMMYYYYToDate(taskDate), 3);
             break;
 
           case "yearly":
             taskDate = findNextWorkingDay(currentDate);
-            currentDate = addYears(new Date(taskDate.split("/").reverse().join("-")), 1);
+            currentDate = addYears(parseDDMMYYYYToDate(taskDate), 1);
             break;
 
           case "end-of-1st-week":
@@ -536,12 +542,12 @@ export default function AssignTask() {
           case "end-of-4th-week":
             const weekNum = parseInt(formData.frequency.split("-")[2]);
             taskDate = findEndOfWeekDate(currentDate, weekNum);
-            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            currentDate = addMonths(parseDDMMYYYYToDate(taskDate), 1);
             break;
 
           case "end-of-last-week":
             taskDate = findEndOfWeekDate(currentDate, -1);
-            currentDate = addMonths(new Date(taskDate.split("/").reverse().join("-")), 1);
+            currentDate = addMonths(parseDDMMYYYYToDate(taskDate), 1);
             break;
 
           default:
@@ -550,10 +556,8 @@ export default function AssignTask() {
         }
 
         if (taskDate) {
-          const taskDateTimeStr = formatDateTimeForStorage(
-            new Date(taskDate.split("/").reverse().join("-")),
-            time
-          );
+          const taskDateObj = parseDDMMYYYYToDate(taskDate);
+          const taskDateTimeStr = formatDateTimeForStorage(taskDateObj, time);
 
           tasks.push({
             description: formData.description,
@@ -576,6 +580,7 @@ export default function AssignTask() {
     setGeneratedTasks(tasks);
     setAccordionOpen(true);
   };
+
 
   useEffect(() => {
     if (userRole !== "admin") {
