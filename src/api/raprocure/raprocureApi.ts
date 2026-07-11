@@ -79,6 +79,7 @@ export async function fetchRaprocureDashboard(
     if (error instanceof DOMException && error.name === "AbortError") {
       throw error;
     }
+    
 
     throw new Error(
       "Raprocure API request failed. Check VITE_RAPROCURE_API_BASE_URL or ensure your local proxy is configured correctly."

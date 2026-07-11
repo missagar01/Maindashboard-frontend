@@ -292,7 +292,7 @@ const Setting = () => {
         }
 
         return fallbackDepartment?.trim() || "";
-    };
+    };  
 
     const normalizeDivisionOptions = (payload) => {
         const divisions = Array.isArray(payload)
@@ -357,7 +357,7 @@ const Setting = () => {
             designation: userForm.designation?.trim() || "",
             role: userForm.role || "user",
             status: userForm.status || "active",
-            user_access: departmentsString, // Join array into comma-separated string
+            user_access: departmentsString, // Join array into comma    -separated string
             departments: Array.isArray(userForm.departments) ? userForm.departments : [],
             department: userForm.department || "", // From single select dropdown
             givenBy: userForm.givenBy?.trim() || "", // Add givenBy field
@@ -543,6 +543,8 @@ const Setting = () => {
         }
     };
 
+
+
     // Modified handleAddDepartment
     const handleAddDepartment = async (e) => {
         e.preventDefault();
@@ -643,7 +645,7 @@ const Setting = () => {
 
                 // Refresh department data
                 fetchSettingDepartmentDetails();
-
+ 
                 // Keep modal open for 2 seconds to show success message, then close
                 setTimeout(() => {
                     resetDeptForm();
