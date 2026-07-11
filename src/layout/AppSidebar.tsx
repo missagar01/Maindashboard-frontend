@@ -253,6 +253,8 @@ const storeSection: SidebarSection = {
   key: "store", title: "Store and Purchase", caption: "Material Operations", icon: ShoppingCart,
   nodes: [
     { kind: "link", key: "store-dashboard", name: "Dashboard", path: "/store/dashboard", icon: LayoutDashboard },
+    { kind: "link", key: "store-raprocure-dashboard", name: "Raprocure", path: "/raprocure/dashboard", icon: LayoutDashboard },
+  
     { kind: "link", key: "store-vendor-registration", name: "Vendor Request", path: "/store/vendor-registration", icon: Building2 },
     { kind: "link", key: "store-pending-gate-entry", name: "Pending Gate Entry", path: "/store/pending-gate-entry", icon: Truck },
     //  { kind: "link", key: "store-create-po", name: "Create PO", path: "/store/create-po", icon: ShoppingCart },
@@ -286,16 +288,6 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-my-indent", name: "My Indent", path: "/store/erp-indent", icon: FileText },
     { kind: "link", key: "store-user-indent-list", name: "User Indent List", path: "/store/user-indent-list", icon: Files },
 
-  ],
-};
-
-const raprocureSection: SidebarSection = {
-  key: "raprocure",
-  title: "Raprocure",
-  caption: "Buyer Dashboard",
-  icon: ShoppingCart,
-  nodes: [
-    { kind: "link", key: "raprocure-dashboard", name: "Dashboard", path: "/raprocure/dashboard", icon: LayoutDashboard },
   ],
 };
 
@@ -385,7 +377,7 @@ const moduleSections: Record<Exclude<PortalNavKey, "home">, SidebarSection> = {
   batchcode: salesWorkspaceSection,
   hrms: hrmsSection,
   store: storeSection,
-  raprocure: raprocureSection,
+  raprocure: storeSection,
   project: projectSection,
   subscription: subscriptionSection,
   "visitor-gate-pass": visitorSection,

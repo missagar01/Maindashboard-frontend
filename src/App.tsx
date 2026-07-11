@@ -101,7 +101,7 @@ import StoreGRNGMApproval from "./pages/store/pages/store/StoreGRNGMApproval";
 import StoreGRNCloseBill from "./pages/store/pages/store/StoreGRNCloseBill";
 import StorePendingGateEntry from "./pages/store/pages/store/PendingGateEntry";
 import StoreErpIndent from "./pages/store/pages/store/ErpIndent";
-import RaprocureDashboard from "./pages/raprocure/RaprocureDashboard";
+import RaprocureDashboard from "./pages/store/pages/store/RaprocureDashboard.js";
 import ChatbotPage from "./pages/chatbot/ChatBot";
 import TransportDashboard from "./pages/transport/pages/TransportDashboard";
 import TransportLiveLocation from "./pages/transport/pages/TransportLiveLocation";

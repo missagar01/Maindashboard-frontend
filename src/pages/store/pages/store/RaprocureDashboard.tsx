@@ -9,7 +9,7 @@ import {
   fetchRaprocureDashboard,
   type RaprocureDashboardMetrics,
   type RaprocureDashboardSnapshot,
-} from "../../api/raprocure/raprocureApi";
+} from "../../../../api/raprocure/raprocureApi";
 
 interface CardMetric {
   key: string;

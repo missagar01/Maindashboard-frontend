@@ -169,7 +169,6 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "home", label: "HOME", path: "/" },
   { key: "checklist", label: "CHECKLIST COMBINED", path: "/checklist" },
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
-  { key: "raprocure", label: "RAPROCURE", path: "/raprocure/dashboard" },
   { key: "chatbot", label: "CHATBOT", path: "/chatbot" },
   { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
   { key: "iot", label: "IOT", path: "/iot/dashboard" },
@@ -225,8 +224,7 @@ export const getActivePortalNavKey = (path: string): PortalNavKey => {
   const normalized = normalizePath(path);
 
   if (normalized.startsWith("/checklist")) return "checklist";
-  if (normalized.startsWith("/store")) return "store";
-  if (normalized.startsWith("/raprocure")) return "raprocure";
+  if (normalized.startsWith("/store") || normalized.startsWith("/raprocure")) return "store";
   if (normalized.startsWith("/chatbot")) return "chatbot";
   if (normalized.startsWith("/transport")) return "transport";
   if (normalized.startsWith("/iot")) return "iot";
@@ -271,8 +269,12 @@ export const getSidebarModuleForPath = (path: string): PortalNavKey | null => {
     return "project";
   }
 
+  if (normalized.startsWith("/raprocure")) {
+    return "store";
+  }
+
   const key = getActivePortalNavKey(path);
-  return key === "home" || key === "raprocure" ? null : key;
+  return key === "home" ? null : key;
 };
 
 export const shouldShowSidebarForPath = (path: string) =>

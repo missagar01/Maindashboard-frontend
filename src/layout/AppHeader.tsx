@@ -176,22 +176,28 @@ const AppHeader: React.FC = () => {
       }
 
       const item = resolvePortalNavItem(accessName);
+      if (item?.key === "raprocure") {
+        return;
+      }
+
       if (item) {
         pushNavItem(item, item.path);
       }
     });
 
     const allowedPageRoutes = getAllowedPageRoutes(user);
-    if (allowedPageRoutes.some((route) => route.startsWith("/store"))) {
+    const hasStoreRoutes = allowedPageRoutes.some((route) => route.startsWith("/store"));
+    const hasRaprocureRoutes = allowedPageRoutes.some((route) => route.startsWith("/raprocure"));
+
+    if (hasStoreRoutes || hasRaprocureRoutes) {
+      const storeLandingPath =
+        getFirstAllowedPathForModule("/store", user) ||
+        getFirstAllowedPathForModule("/raprocure", user) ||
+        (hasRaprocureRoutes ? "/raprocure/dashboard" : "/store/dashboard");
+
       pushNavItem(
         resolvePortalNavItem("store"),
-        getFirstAllowedPathForModule("/store", user) || "/store/dashboard"
-      );
-    }
-    if (allowedPageRoutes.some((route) => route.startsWith("/raprocure"))) {
-      pushNavItem(
-        resolvePortalNavItem("raprocure"),
-        getFirstAllowedPathForModule("/raprocure", user) || "/raprocure/dashboard"
+        storeLandingPath
       );
     }
     if (allowedPageRoutes.some((route) => route.startsWith("/chatbot"))) {

@@ -2149,7 +2149,7 @@ const Setting = () => {
                                                     htmlFor="givenBy"
                                                     className="block text-sm font-medium text-gray-700 mb-1"
                                                 >
-                                                    Given By
+                                                    HOD
                                                 </label>
                                                 <select
                                                     id="givenBy"
@@ -2158,7 +2158,7 @@ const Setting = () => {
                                                     onChange={handleUserInputChange}
                                                     className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 >
-                                                    <option value="">Select Given By</option>
+                                                    <option value="">Select HOD</option>
                                                     {uniqueGivenByNames.map((name) => (
                                                         <option key={name} value={name}>
                                                             {name}
