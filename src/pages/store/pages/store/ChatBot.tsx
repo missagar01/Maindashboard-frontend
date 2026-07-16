@@ -11,6 +11,8 @@ import {
   Clock,
   User,
   Calendar,
+  X,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -89,6 +91,7 @@ type ChatMessage = {
   tasksList?: Array<{
     source: string;
     task_name: string;
+    doer_name: string | null;
     given_by: string | null;
     frequency: string | null;
     status: string;
@@ -106,8 +109,19 @@ type ChatMessage = {
     employee_id: string | null;
     total_tasks: number;
     total_completed_tasks: number;
-    not_completed_tasks: number;
+    not_done_tasks: number;
+    pending_tasks: number;
     completion_score: number;
+  };
+  exportRows?: Array<Record<string, string | number>> | null;
+  exportFilename?: string | null;
+  profileCard?: {
+    displayName: string;
+    empId: string;
+    designation: string;
+    department: string;
+    division: string;
+    role: string;
   };
 };
 
@@ -177,6 +191,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
   const [suggestions, setSuggestions] = useState<ChatbotItem[]>([]);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [chatState, setChatState] = useState<"idle" | "awaiting_search_term">("idle");
+  const [showIntro, setShowIntro] = useState(false);
 
   // Multi-item indent states
   const [cartItems, setCartItems] = useState<Array<{
@@ -259,6 +274,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     setSuggestions([]);
     setMessages([]);
     setChatState("idle");
+    setShowIntro(false);
 
     try {
       const data: ChatbotBootstrapData = await chatbotApi.getBootstrapData(true);
@@ -270,23 +286,50 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       setEmployeesList(data.employeesList);
       setMakesList(data.makesList);
       setConnectionState("connected");
-
-      const displayName = user?.user_name || "User";
-      addBotMessage(
-        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Vision</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
-        [
-          { label: "📦 Create Procurement Indent / नया इंडेंट", action: () => handleInitiateIndent() },
-          { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
-        ]
-      );
+      setShowIntro(true);
     } catch (error) {
       console.error("Chatbot bootstrap failed:", error);
       setConnectionState("failed");
       addBotMessage(
-        "⚠️ कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।"
+        "⚠️ क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।"
       );
     }
   };
+
+  const isAdmin = (user?.role || "").trim().toLowerCase() === "admin";
+
+  // Admin/owner accounts are here to oversee everyone else's work, not their own
+  // personal checklist/profile/score — swap those out for team-oriented actions.
+  const introOptions: ChatOption[] = [
+    { label: "📦 Create Indent / नया इंडेंट", action: () => { setShowIntro(false); handleInitiateIndent(); } },
+    { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => { setShowIntro(false); promptSearchItem(); } },
+    ...(isAdmin ? [
+      { label: "👥 All Employees", action: () => { setShowIntro(false); requestAllEmployees(); } },
+      { label: "🏢 Department Report", action: () => { setShowIntro(false); void showDepartmentPicker(); } },
+      { label: "⚠️ Defaulters List", action: () => { setShowIntro(false); requestChronicDefaulters(); } },
+      { label: "🏆 Department Leaderboard", action: () => { setShowIntro(false); requestDepartmentLeaderboard(); } },
+      { label: "📈 Monthly Trend", action: () => { setShowIntro(false); requestMonthlyTrend(); } },
+      { label: "📊 Department Score", action: () => { setShowIntro(false); requestDepartmentWiseScore(); } },
+      { label: "👤 Doer Wise Score", action: () => { setShowIntro(false); requestDoerWiseScore(); } }
+    ] : [
+      { label: "📋 My Tasks", action: () => { setShowIntro(false); addUserMessage("📋 My Tasks / Checklist Status"); showTaskDateMenu(); } },
+      { label: "👤 My Profile", action: () => { setShowIntro(false); addUserMessage("👤 My Profile"); showMyProfile(); } },
+      { label: "📊 My Score", action: () => { setShowIntro(false); requestMyScore(); } }
+    ])
+  ];
+
+  // Posted as its own chat bubble (unlike introOptions, which only backs the
+  // dismissible top banner) so "ok"/"menu" mid-conversation, and the "Main
+  // Menu" exit button on report results, both have a way to bring the full
+  // option list back into the visible chat log.
+  const showMainMenu = () => {
+    addBotMessage(
+      "ठीक है! नीचे दिए गए options में से चुनें:",
+      introOptions
+    );
+  };
+
+  const mainMenuExitOption: ChatOption = { label: "🏠 Main Menu", action: showMainMenu };
 
   const handleInitiateIndent = () => {
     addUserMessage("Create Procurement Indent / नया इंडेंट");
@@ -298,6 +341,108 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     addBotMessage(
       "स्टॉक चेक करने या indent डालने के लिए item ka naam ya code type karein. उदाहरण: <strong>BOLT</strong>."
     );
+  };
+
+  const showTaskDateMenu = () => {
+    addBotMessage(
+      "Aap kis date (तारीख) ya category ke tasks dekhna chahte hain? Kripya select karein या date type karein (e.g., YYYY-MM-DD):",
+      [
+        { label: "📅 Today / आज", action: () => { addUserMessage("Today / आज"); void executeGeneralQuery("today's tasks"); } },
+        { label: "📅 Yesterday / कल", action: () => { addUserMessage("Yesterday / कल"); void executeGeneralQuery("yesterday's tasks"); } },
+        { label: "📅 Tomorrow / कल (आने वाला)", action: () => { addUserMessage("Tomorrow / कल (आने वाला)"); void executeGeneralQuery("tomorrow's tasks"); } },
+        { label: "🕒 Pending / लंबित (आज तक)", action: () => { addUserMessage("Pending Tasks / लंबित कार्य"); void executeGeneralQuery("pending tasks"); } },
+        { label: "❌ Not Done / नहीं हुए", action: () => { addUserMessage("Not Done Tasks / नहीं हुए कार्य"); void executeGeneralQuery("not done tasks"); } },
+        { label: "📅 This Month / इस महीने", action: () => { addUserMessage("This Month / इस महीने"); void executeGeneralQuery("this month's tasks"); } }
+      ]
+    );
+  };
+
+  const showMyProfile = () => {
+    const displayName = user?.user_name || "User";
+    const empId = user?.employee_id || "N/A";
+    const role = user?.role || "user";
+    const designation = user?.designation || "N/A";
+    const department = user?.department || "N/A";
+    const division = user?.division || "N/A";
+
+    addBotMessage(
+      `आपकी प्रोफाइल details niche di gayi hai:`,
+      null,
+      { profileCard: { displayName, empId, designation, department, division, role } }
+    );
+  };
+
+  const requestMyScore = () => {
+    addUserMessage("📊 My Score / Performance");
+    void executeGeneralQuery("mera performance score dikhao");
+  };
+
+  const requestAllEmployees = () => {
+    addUserMessage("👥 All Employees");
+    void executeGeneralQuery("sabhi active employees ki list dikhao", true);
+  };
+
+  const requestChronicDefaulters = () => {
+    addUserMessage("⚠️ Defaulters List");
+    void executeGeneralQuery("chronic defaulters report dikhao", true);
+  };
+
+  const requestDepartmentLeaderboard = () => {
+    addUserMessage("🏆 Department Leaderboard");
+    void executeGeneralQuery("department leaderboard dikhao", true);
+  };
+
+  const requestMonthlyTrend = () => {
+    addUserMessage("📈 Monthly Trend");
+    void executeGeneralQuery("monthly trend comparison dikhao", true);
+  };
+
+  // Shared date-range picker for the score reports — the backend defaults to
+  // "current month" when no period is mentioned, so without this prompt the
+  // admin had no way to ask for last month or a custom range at all. Typing a
+  // custom range must repeat `triggerBase` (there's no session memory of which
+  // report the menu was shown for), so the hint spells out the full phrase.
+  const showScoreDateMenu = (triggerBase: string, reportLabel: string) => {
+    addBotMessage(
+      `Aap kis period ka ${reportLabel} dekhna chahte hain? Neeche se select karein, ya custom range ke liye is tarah type karein: "${triggerBase} 01-07-2026 se 10-07-2026 tak":`,
+      [
+        { label: "📅 This Month / इस महीने", action: () => { addUserMessage("This Month / इस महीने"); void executeGeneralQuery(`${triggerBase} is mahine ka`, true); } },
+        { label: "📅 Last Month / पिछला महीना", action: () => { addUserMessage("Last Month / पिछला महीना"); void executeGeneralQuery(`${triggerBase} pichle mahine ka`, true); } }
+      ]
+    );
+  };
+
+  const requestDepartmentWiseScore = () => {
+    addUserMessage("📊 Department Score");
+    showScoreDateMenu("department wise score", "department-wise score");
+  };
+
+  const requestDoerWiseScore = () => {
+    addUserMessage("👤 Doer Wise Score");
+    showScoreDateMenu("doer wise score", "doer-wise score");
+  };
+
+  const showDepartmentPicker = async () => {
+    addUserMessage("🏢 Department Report");
+    try {
+      const depts = await chatbotApi.getTaskDepartments(apiKey);
+      const options = (depts || []).map((dept) => ({
+        label: dept,
+        action: () => {
+          addUserMessage(dept);
+          void executeGeneralQuery(`${dept} department ke is mahine ke tasks dikhao`, true);
+        }
+      }));
+      addBotMessage(
+        "Kis department ka task report dekhna hai? Neeche list me se select karein ya department ka naam type karke bhejein:",
+        options.length > 0 ? [...options, mainMenuExitOption] : [mainMenuExitOption]
+      );
+    } catch (error) {
+      console.error("Task departments fetch failed:", error);
+      addBotMessage(
+        "Kis department ka task report dekhna hai? Department ka naam type karke bhejein (jaise: Automation, SMS Production, Store, Security, HR)."
+      );
+    }
   };
 
   const handleInputChange = async (value: string) => {
@@ -337,6 +482,165 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     }
   };
 
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+  const downloadCsv = (rows: Array<Record<string, string | number>>, filename: string) => {
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const escapeCell = (value: string | number) => {
+      const str = String(value ?? "");
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csvLines = [
+      headers.join(","),
+      ...rows.map((row) => headers.map((h) => escapeCell(row[h])).join(",")),
+    ];
+    const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filename}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const buildChatHistory = (): Array<{ role: "user" | "assistant"; content: string }> => {
+    const MAX_TURNS = 6;
+    return messages
+      .filter((m) => m.text && m.text.trim())
+      .slice(-MAX_TURNS * 2)
+      .map((m) => ({
+        role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
+        content: stripHtml(m.text).slice(0, 500),
+      }));
+  };
+
+  // `appendMenuExit` adds a "Main Menu" button to whatever the backend
+  // returns, for entry points (admin report buttons) that would otherwise be
+  // a dead end — the only way back was typing something, which is also what
+  // prompted adding the "ok"/"menu" text recognition above.
+  const executeGeneralQuery = async (queryVal: string, appendMenuExit: boolean = false) => {
+    setIsSubmittingSearch(true);
+    const token = localStorage.getItem("token");
+    const history = buildChatHistory();
+    const withMenuExit = (options: ChatOption[] | null): ChatOption[] | null =>
+      appendMenuExit ? [...(options || []), mainMenuExitOption] : options;
+
+    try {
+      const res = await chatbotApi.queryGeneral(queryVal, token, apiKey, history);
+      if (res.success) {
+        if (res.resultType === "items") {
+          if (res.items && res.items.length > 0) {
+            addBotMessage(
+              "Mujhe ye items mile hain. Kripya ek item select karein:",
+              res.items.slice(0, 10).map((item) => ({
+                label: `${item.itemName} (${item.itemCode})`,
+                action: () => handleSelectSearchItem(item),
+              }))
+            );
+          } else {
+            addBotMessage(
+              `⚠️ मुझे "<strong>${queryVal}</strong>" naam ya code se koi item nahi mila. Kripya dobara try karein.`
+            );
+          }
+        } else if (res.resultType === "users") {
+          if (!res.users || res.users.length === 0) {
+            addBotMessage(res.message || "डेटाबेस में कोई यूजर नहीं मिला।", withMenuExit(null));
+          } else {
+            addBotMessage(
+              res.message || `मुझे निम्नलिखित ${res.users.length} यूजर रिकॉर्ड मिले हैं:`,
+              withMenuExit(null),
+              { usersList: res.users }
+            );
+          }
+        } else if (res.resultType === "tasks") {
+          if (!res.tasksList || res.tasksList.length === 0) {
+            addBotMessage(res.message || "मुझे आपके कोई tasks नहीं मिले।", withMenuExit(null));
+          } else {
+            addBotMessage(
+              res.message || `यहाँ आपके tasks का विवरण है:`,
+              withMenuExit(null),
+              {
+                tasksSummary: res.summary,
+                tasksTargetDate: res.targetDate,
+                tasksList: res.tasksList
+              }
+            );
+          }
+        } else if (res.resultType === "tasksSummary") {
+          addBotMessage(
+            res.message || `यहाँ tasks का summary है:`,
+            withMenuExit(null),
+            {
+              tasksSummary: res.summary,
+              tasksTargetDate: res.targetDate
+            }
+          );
+        } else if (res.resultType === "taskDiagnostic") {
+          if (res.latestTask) {
+            addBotMessage(
+              res.message || `आपके <strong>${res.latestTask.source}</strong> task का status <strong>'Not Done'</strong> होने का कारण:`,
+              withMenuExit(null),
+              {
+                taskDiagnostic: {
+                  latestTask: res.latestTask,
+                  diagnosis: res.diagnosis || ""
+                }
+              }
+            );
+          } else {
+            addBotMessage(res.message || "मुझे आपके कोई 'Not Done' tasks नहीं मिले।", withMenuExit(null));
+          }
+        } else if (res.resultType === "tasksCountBreakdown") {
+          addBotMessage(
+            res.message || `इस महीने आपके tasks का विवरण है:`,
+            withMenuExit(null),
+            {
+              tasksCountBreakdown: res.breakdown,
+              totalNotDoneTasks: res.totalNotDone,
+              countType: res.countType || "notdone"
+            }
+          );
+        } else if (res.resultType === "scoreData") {
+          addBotMessage(
+            res.message || `यहाँ आपके कार्यों का स्कोर है:`,
+            withMenuExit(null),
+            {
+              isScore: true,
+              scoreStartDate: res.startDate,
+              scoreEndDate: res.endDate,
+              scoreData: res.scoreData
+            }
+          );
+        } else {
+          // General conversation / SQL response
+          const options = Array.isArray((res as any).options)
+            ? (res as any).options.map((opt: any) => ({
+                label: opt.label,
+                action: () => {
+                  addUserMessage(opt.label);
+                  void executeGeneralQuery(opt.action, appendMenuExit);
+                }
+              }))
+            : null;
+          addBotMessage(res.message || "⚠️ कोई परिणाम नहीं मिला।", withMenuExit(options), {
+            exportRows: res.exportRows || null,
+            exportFilename: res.exportFilename || null
+          });
+        }
+      } else {
+        addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।", withMenuExit(null));
+      }
+    } catch (err) {
+      console.error("General query failed:", err);
+      addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।", withMenuExit(null));
+    } finally {
+      setIsSubmittingSearch(false);
+    }
+  };
+
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -345,59 +649,54 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       return;
     }
 
+    const wasAwaitingSearchTerm = chatState === "awaiting_search_term";
+
     setInputValue("");
     setSuggestions([]);
+    setShowIntro(false);
     addUserMessage(searchValue);
 
     const cleanText = searchValue.toLowerCase();
     const words = cleanText.split(/\s+/);
     const isSentence = words.length > 2;
 
-    // 1. Greetings (Multilingual support: sat sri akal, kem cho, kasakai, veere, paji, bro, etc.)
+    // 1. Greetings
     const greetingRegex = /^(hi|hello|hey|namaste|नमस्ते|pranam|ram ram|hello bot|hii|hiii|yo|greeting|satsriakal|sat sri akal|kem cho|kemcho|kasakai|vanakkam|namaskara|veere|paji|bro)$/i;
     if (greetingRegex.test(cleanText)) {
       const displayName = user?.user_name || "User";
       addBotMessage(
-        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Store Assistant</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
-        [
-          { label: "📦 Create Procurement Indent / नया इंडेंट", action: () => handleInitiateIndent() },
-          { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
-        ]
+        `नमस्ते <strong>${displayName}</strong>! मैं <strong>Sagar Vision</strong> हूँ। मैं आपकी क्या मदद कर सकता हूँ?`,
+        introOptions
       );
       return;
     }
 
-    // 1b. User profile / identity check ("main kon hu", "who am i", etc.)
-    const profileRegex = /^(who am i|main kon hu|main kaun hoon|mera naam kya hai|mera naam|about me|my profile|meri profile|my details|detail meri|mere details|मैं कौन हूँ|मेरा नाम क्या है|मेरा नाम|मेरी प्रोफाइल|प्रोफाइल)$/i;
+    // 1a. Explicit "back to menu" requests (ok, menu, main menu, home, etc.) —
+    // these aren't greetings but should show the same full option list rather
+    // than falling through to the generic "didn't understand" fallback below.
+    const menuRegex = /^(ok|okay|k|thik hai|theek hai|thik|theek|main menu|menu|home|start|restart|options?|wapas|back|shuru|मेनू|मुख्य मेनू|वापस)$/i;
+    if (menuRegex.test(cleanText)) {
+      showMainMenu();
+      return;
+    }
+
+    // 1b. User profile / identity check
+    const profileRegex = /^(who am i|main kon hu|main kaun hoon|mera naam kya hai|mera naam|about me|my profile|meri profile|my details|detail meri|mere details|mere details|मैं कौन हूँ|मेरा नाम क्या है|मेरा नाम|मेरी प्रोफाइल|प्रोफाइल)$/i;
     if (profileRegex.test(cleanText)) {
-      const displayName = user?.user_name || "User";
-      const empId = user?.employee_id || "N/A";
-      const role = user?.role || "user";
-      const designation = user?.designation || "N/A";
-      const department = user?.department || "N/A";
-      const division = user?.division || "N/A";
-
-      addBotMessage(
-        `आप **${displayName}** हैं। आपका विवरण निम्नलिखित है:<br/>` +
-        `• **Employee ID**: ${empId}<br/>` +
-        `• **Designation**: <span class="capitalize">${designation}</span><br/>` +
-        `• **Department**: <span class="uppercase">${department}</span><br/>` +
-        `• **Division**: <span class="uppercase">${division}</span><br/>` +
-        `• **Role**: <span class="capitalize">${role}</span>`
-      );
+      showMyProfile();
       return;
     }
 
-    // 1c. Bot identity check ("who are you", "tum kaun ho", "what is your name", etc.)
+    // 1c. Bot identity check
     const botIdentityRegex = /^(who are you|what is your name|tum kaun ho|tum kon ho|aap kaun hain|aap kon ho|tera naam kya hai|apka naam|aapka naam|what's your name|tell me about yourself|तुम कौन हो|तुम्हारा नाम क्या है|तुम्हारा नाम|आप कौन हैं|आपका नाम क्या है)$/i;
     if (botIdentityRegex.test(cleanText)) {
       addBotMessage(
-        `मैं **Sagar Pipe Agent** हूँ, आपका स्टोर असिस्टेंट। मैं आपकी **स्टोर स्टॉक चेक करने**, **इंडेंट डालने**, और **टास्क व स्कोर परफॉरमेंस** देखने में मदद कर सकता हूँ।`
+        `मैं <strong>Sagar Vision</strong> हूँ, आपका स्टोर असिस्टेंट। मैं आपकी <strong>स्टोर स्टॉक चेक करने</strong>, <strong>इंडेंट डालने</strong>, और <strong>टास्क व स्कोर परफॉरमेंस</strong> देखने में मदद कर सकता हूँ।`
       );
       return;
     }
 
-    // 1d. Gratitude check ("thanks", "thank you", "dhanyawad", etc.)
+    // 1d. Gratitude check
     const gratitudeRegex = /^(thanks|thank you|dhanyawad|dhanyavaad|shukriya|shukran|धन्यवाद|शुक्रिया)$/i;
     if (gratitudeRegex.test(cleanText)) {
       addBotMessage(
@@ -406,11 +705,11 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       return;
     }
 
-    // 2. Unsupported / Future domains (HRMS, Gatepass, Transport etc.)
+    // 2. Unsupported / Future domains
     const unsupportedRegex = /(salary|attendance|leave|payslip|gatepass|visitor|transport|vehicle|lorry|bilty|lr|invoice|bill|audit|project|dpr|machinery)/i;
     if (unsupportedRegex.test(cleanText)) {
       addBotMessage(
-        `मुझे क्षमा करें, अभी मैं केवल **स्टोर स्टॉक चेक करने** और **नया इंडेंट (Procurement Indent) डालने** में आपकी मदद कर सकता हूँ। जल्द ही अन्य फीचर्स (जैसे सैलरी, अटेंडेंस, ट्रांसपोर्ट, गेटपास आदि) भी जोड़े जायेंगे।`
+        `मुझे क्षमा करें, अभी मैं केवल <strong>स्टोर स्टॉक चेक करने</strong> और <strong>नया इंडेंट (Procurement Indent) डालने</strong> में आपकी मदद कर सकता हूँ। जल्द ही अन्य फीचर्स (जैसे सैलरी, अटेंडेंस, ट्रांसपोर्ट, गेटपास आदि) भी जोड़े जायेंगे।`
       );
       return;
     }
@@ -418,7 +717,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     // 3. Block database write / modify requests
     const modifyKeywords = /(update|delete|insert|alter|drop|set|change|remove|modify|edit|write|बदलो|अपडेट|हटाओ|जोड़ो|एडिट|संशोधन|बदलाव)/i;
     const usersQueryKeywords = /(user|employee|member|staff|designation|role|department|division|status|username|login|profile|information|record|database|table|admin|manager|hod|यूजर|कर्मचारी|स्टाफ़|लोगो|विवरण|प्रोफ़ाइल|जानकारी)/i;
-    const tasksQueryKeywords = /(task|tasks|checklist|maintenance|housekeeping|kaam|काम|ड्यूटी|duty|schedule|not done|uncompleted|incomplete|missed|fail|क्यों गया|क्यो गया|score|performance|marks|points|स्कोर|प्रदर्शन|मार्क्स)/i;
+    const tasksQueryKeywords = /(task|tasks|checklist|maintenance|housekeeping|delegation|kaam|काम|ड्यूटी|duty|schedule|not done|uncompleted|incomplete|missed|fail|score|performance|marks|points|स्कोर|प्रदर्शन|मार्क्स)/i;
 
     if (modifyKeywords.test(cleanText) && (usersQueryKeywords.test(cleanText) || tasksQueryKeywords.test(cleanText))) {
       addBotMessage(
@@ -427,124 +726,43 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       return;
     }
 
-    // Helper to determine if query is a natural language question or action command
+    // 3b. Score / performance queries go straight to the backend (no date needed,
+    // backend infers the period like "this month" / "last month" from the text).
+    const scoreQueryKeywords = /(score|performance|marks|points|स्कोर|प्रदर्शन|मार्क्स)/i;
+    if (scoreQueryKeywords.test(cleanText)) {
+      void executeGeneralQuery(searchValue);
+      return;
+    }
+
+    // 3c. Intercept general task queries. Forward the raw text to the backend
+    // (rather than a static local menu) so any staff name/department/module
+    // named in the message (e.g. "manoj ojha ke tasks") isn't discarded before
+    // the backend's own date/category prompt — whose follow-up buttons DO carry
+    // that scope forward — ever gets a chance to see it.
+    const isTaskQuery = tasksQueryKeywords.test(cleanText);
+    const dateRegex = /(today|yesterday|tomorrow|aaj|kal|parso|month|mahina|mahine|date|tarikh|tarik|pending|losh|incomplete|uncompleted|not[\s-]*done|nahi\s+hua|nahi\s+kiya|असफल|फेल|\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\bse\b.*\btak\b|\bto\b.*\d|jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|\bmay\b|jun(e)?|jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?)/i;
+    if (isTaskQuery && !dateRegex.test(cleanText)) {
+      void executeGeneralQuery(searchValue);
+      return;
+    }
+
+    // Helper to determine if query is a natural language question
     const isGeneralQuery = (text: string) => {
       const words = text.trim().split(/\s+/);
-      if (words.length > 2) return true; // Sentences are general queries
+      if (words.length > 2) return true;
 
       const queryIndicators = /(show|list|view|get|find|why|who|what|how|where|when|kya|kaise|kab|kon|kaun|kisne|kiske|dikhao|batao|check|detail|status|report|score|performance|task|user|employee|repair|followup)/i;
       return queryIndicators.test(text);
     };
 
     if (isGeneralQuery(searchValue)) {
-      setIsSubmittingSearch(true);
-      const token = localStorage.getItem("token");
-
-      try {
-        const res = await chatbotApi.queryGeneral(searchValue, token, apiKey);
-        if (res.success) {
-          if (res.resultType === "items") {
-            if (res.items && res.items.length > 0) {
-              addBotMessage(
-                "Mujhe ye items mile hain. Kripya ek item select karein:",
-                res.items.slice(0, 10).map((item) => ({
-                  label: `${item.itemName} (${item.itemCode})`,
-                  action: () => handleSelectSearchItem(item),
-                }))
-              );
-            } else {
-              addBotMessage(
-                `⚠️ मुझे "<strong>${searchValue}</strong>" naam ya code se koi item nahi mila. Kripya dobara try karein.`
-              );
-            }
-          } else if (res.resultType === "users") {
-            if (!res.users || res.users.length === 0) {
-              addBotMessage(res.message || "डेटाबेस में कोई यूजर नहीं मिला।");
-            } else {
-              addBotMessage(
-                res.message || `मुझे निम्नलिखित ${res.users.length} यूजर रिकॉर्ड मिले हैं:`,
-                null,
-                { usersList: res.users }
-              );
-            }
-          } else if (res.resultType === "tasks") {
-            if (!res.tasksList || res.tasksList.length === 0) {
-              addBotMessage(res.message || "मुझे आपके कोई tasks नहीं मिले।");
-            } else {
-              addBotMessage(
-                res.message || `यहाँ आपके tasks का विवरण है:`,
-                null,
-                {
-                  tasksSummary: res.summary,
-                  tasksTargetDate: res.targetDate,
-                  tasksList: res.tasksList
-                }
-              );
-            }
-          } else if (res.resultType === "tasksSummary") {
-            addBotMessage(
-              res.message || `यहाँ tasks का summary है:`,
-              null,
-              {
-                tasksSummary: res.summary,
-                tasksTargetDate: res.targetDate
-              }
-            );
-          } else if (res.resultType === "taskDiagnostic") {
-            if (res.latestTask) {
-              addBotMessage(
-                res.message || `आपके **${res.latestTask.source}** task का status **'Not Done'** होने का कारण:`,
-                null,
-                {
-                  taskDiagnostic: {
-                    latestTask: res.latestTask,
-                    diagnosis: res.diagnosis || ""
-                  }
-                }
-              );
-            } else {
-              addBotMessage(res.message || "मुझे आपके कोई 'Not Done' tasks नहीं मिले।");
-            }
-          } else if (res.resultType === "tasksCountBreakdown") {
-            addBotMessage(
-              res.message || `इस महीने आपके tasks का विवरण है:`,
-              null,
-              {
-                tasksCountBreakdown: res.breakdown,
-                totalNotDoneTasks: res.totalNotDone,
-                countType: res.countType || "notdone"
-              }
-            );
-          } else if (res.resultType === "scoreData") {
-            addBotMessage(
-              res.message || `यहाँ आपके कार्यों का स्कोर है:`,
-              null,
-              {
-                isScore: true,
-                scoreStartDate: res.startDate,
-                scoreEndDate: res.endDate,
-                scoreData: res.scoreData
-              }
-            );
-          } else {
-            // General conversation / SQL response
-            addBotMessage(res.message || "⚠️ कोई परिणाम नहीं मिला।");
-          }
-        } else {
-          addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
-        }
-      } catch (err) {
-        console.error("General query failed:", err);
-        addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
-      } finally {
-        setIsSubmittingSearch(false);
-      }
+      void executeGeneralQuery(searchValue);
       return;
     }
 
     // Default: Run Search in Database directly for short codes / terms
     setIsSubmittingSearch(true);
-    setChatState("idle"); // reset state after initiating search
+    setChatState("idle");
 
     let cleanSearchValue = searchValue.trim();
     const cleanLower = cleanSearchValue.toLowerCase();
@@ -554,6 +772,23 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
     if (indentTriggerRegex.test(cleanLower)) {
       setIsSubmittingSearch(false);
       promptSearchItem();
+      return;
+    }
+
+    // Only treat this text as an item code/name search if the user was explicitly
+    // prompted to type one (after Check Stock / Create Indent), or their message
+    // itself mentions indent/stock/item/purchase. Otherwise a stray reply like
+    // "ok" or "yes" would get searched against the item database, which is wrong.
+    const hasItemStockIntent = /(indent|item|stock|purchase|procurement|इन्डेंट|स्टॉक|इंडेंट)/i.test(cleanLower);
+    if (!wasAwaitingSearchTerm && !hasItemStockIntent) {
+      setIsSubmittingSearch(false);
+      addBotMessage(
+        "माफ़ कीजिए, मुझे ठीक से समझ नहीं आया। Item stock check karne ya indent daalne ke liye 'stock check karo' ya 'indent daalna hai' likhein, ya niche diye options use karein.",
+        [
+          { label: "📦 Create Indent / नया इंडेंट", action: () => handleInitiateIndent() },
+          { label: "🔍 Check Stock / स्टॉक चेक करें", action: () => promptSearchItem() }
+        ]
+      );
       return;
     }
 
@@ -587,7 +822,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       }
     } catch (error) {
       console.error("Item search failed:", error);
-      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
+      addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।");
     } finally {
       setIsSubmittingSearch(false);
     }
@@ -632,7 +867,7 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       );
     } catch (error) {
       console.error("Stock lookup failed:", error);
-      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
+      addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।");
     }
   };
 
@@ -842,10 +1077,10 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
         return;
       }
 
-      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
+      addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।");
     } catch (error) {
       console.error("Indent submission failed:", error);
-      addBotMessage("कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।");
+      addBotMessage("क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।");
     }
   };
 
@@ -900,10 +1135,10 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                 <AlertTriangle className="size-5" />
               </div>
               <p className="text-sm font-bold text-slate-950 dark:text-white">
-                Technical Error / तकनीकी खराबी
+                Error / समस्या
               </p>
               <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                कुछ टेक्निकल खराबी के वजह से मैं response देने में असमर्थ हूँ।
+                क्षमा करें, कुछ समस्या आ रही है। कृपया बाद में प्रयास करें।
               </p>
               <button
                 type="button"
@@ -913,6 +1148,22 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                 <RefreshCcw className="size-3.5" />
                 Retry Connection
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {messages.length === 0 && connectionState === "connected" ? (
+          <div className="flex h-full min-h-[280px] items-center justify-center p-4 text-center">
+            <div>
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-white sm:h-12 sm:w-12">
+                <Sparkles className="size-5" />
+              </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Sagar Vision se apna sawal poochein
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Neeche diye gaye options ya search box use karein.
+              </p>
             </div>
           </div>
         ) : null}
@@ -953,6 +1204,10 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
 
                   {message.usersList ? (
                     <UsersListCard users={message.usersList} />
+                  ) : null}
+
+                  {message.profileCard ? (
+                    <ProfileCard profile={message.profileCard} />
                   ) : null}
 
                   {message.tasksSummary ? (
@@ -1010,9 +1265,9 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                     />
                   ) : null}
 
-                  {message.options?.length ? (
+                  {message.options?.length || message.exportRows?.length ? (
                     <div className="mt-3 flex flex-wrap gap-2 sm:mt-4">
-                      {message.options.map((option, index) => (
+                      {message.options?.map((option, index) => (
                         <button
                           key={`${message.id}-${index}`}
                           type="button"
@@ -1025,6 +1280,15 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
                           {option.label}
                         </button>
                       ))}
+                      {message.exportRows?.length ? (
+                        <button
+                          type="button"
+                          onClick={() => downloadCsv(message.exportRows!, message.exportFilename || "export")}
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                        >
+                          ⬇️ Download CSV
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1044,6 +1308,36 @@ export default function ChatBot({ isFloating = false }: { isFloating?: boolean }
       </div>
 
       <div className={`border-t border-slate-200 bg-white/92 px-2 py-2.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/92 ${isFloating ? "" : "sm:px-4 sm:py-3"}`}>
+        {showIntro ? (
+          <div className="mb-2 rounded-[18px] border border-emerald-200/70 bg-emerald-50/60 px-3 py-2.5 dark:border-emerald-500/20 dark:bg-emerald-500/5 sm:mb-3 sm:rounded-[20px]">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs leading-5 text-slate-700 dark:text-slate-200 sm:text-sm">
+                नमस्ते <strong>{user?.user_name || "User"}</strong>! मैं <strong>Sagar Vision</strong> हूँ। नीचे दिए गए options try karein:
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowIntro(false)}
+                aria-label="Dismiss"
+                className="shrink-0 rounded-full p-1 text-slate-400 transition hover:bg-white/70 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
+              {introOptions.map((option, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={option.action}
+                  className="whitespace-nowrap rounded-full border border-emerald-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800 sm:px-3 sm:text-xs"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {suggestions.length > 0 ? (
           <div className="mb-2 max-h-52 overflow-y-auto rounded-[20px] border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900 sm:mb-3 sm:rounded-[22px]">
             {suggestions.map((item) => (
@@ -1105,6 +1399,7 @@ function TasksListCard({
   tasks: Array<{
     source: string;
     task_name: string;
+    doer_name?: string | null;
     given_by: string | null;
     frequency: string | null;
     status: string;
@@ -1121,7 +1416,23 @@ function TasksListCard({
         </div>
       ) : (
         tasks.map((task, i) => {
-          const isCompleted = task.completed_at !== null || String(task.status).trim().toLowerCase() === "yes";
+          // Status is the source of truth: "yes" = done, "no" = not done (submitted
+          // but failed), anything else (usually null, never submitted) = pending.
+          const statusLower = String(task.status).trim().toLowerCase();
+          const isDone = statusLower === "yes";
+          const isNotDone = statusLower === "no";
+
+          const cardTone = isDone
+            ? "border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/55 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
+            : isNotDone
+              ? "border-rose-100 bg-rose-50/30 hover:bg-rose-50/55 dark:border-rose-500/20 dark:bg-rose-500/5 dark:hover:bg-rose-500/10"
+              : "border-amber-100 bg-amber-50/30 hover:bg-amber-50/55 dark:border-amber-500/20 dark:bg-amber-500/5 dark:hover:bg-amber-500/10";
+
+          const badgeTone = isDone
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : isNotDone
+              ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+              : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300";
 
           // Format start date and completion time to dd/mm/yyyy HH:MM
           const formatDateTime = (dateStr: string | null) => {
@@ -1139,10 +1450,7 @@ function TasksListCard({
           return (
             <div
               key={`${task.task_name}-${i}`}
-              className={`rounded-2xl border p-3.5 transition duration-200 ${isCompleted
-                ? "border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/55 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
-                : "border-amber-100 bg-amber-50/30 hover:bg-amber-50/55 dark:border-amber-500/20 dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
-                }`}
+              className={`rounded-2xl border p-3.5 transition duration-200 ${cardTone}`}
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="space-y-1 min-w-0">
@@ -1164,14 +1472,15 @@ function TasksListCard({
 
                 {/* Status Badge */}
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isCompleted
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-                    }`}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${badgeTone}`}
                 >
-                  {isCompleted ? (
+                  {isDone ? (
                     <>
                       <CheckCircle2 className="size-3 animate-pulse text-emerald-600 dark:text-emerald-400" /> Done
+                    </>
+                  ) : isNotDone ? (
+                    <>
+                      <XCircle className="size-3 text-rose-600 dark:text-rose-400" /> Not Done
                     </>
                   ) : (
                     <>
@@ -1182,6 +1491,15 @@ function TasksListCard({
               </div>
 
               <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 border-t border-slate-100 dark:border-slate-800/40 pt-2 text-xs text-slate-600 dark:text-slate-300">
+                {task.doer_name && (
+                  <div className="flex items-center gap-1.5">
+                    <User className="size-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">
+                      Doer: <strong className="text-slate-800 dark:text-slate-200">{task.doer_name}</strong>
+                    </span>
+                  </div>
+                )}
+
                 {task.given_by && (
                   <div className="flex items-center gap-1.5">
                     <User className="size-3.5 text-slate-400 shrink-0" />
@@ -1198,11 +1516,20 @@ function TasksListCard({
                   </span>
                 </div>
 
-                {isCompleted && task.completed_at && (
+                {isDone && task.completed_at && (
                   <div className="flex items-center gap-1.5 sm:col-span-2">
                     <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
                     <span>
                       Completed at: <strong className="text-slate-800 dark:text-slate-200">{formatDateTime(task.completed_at)}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {isNotDone && task.completed_at && (
+                  <div className="flex items-center gap-1.5 sm:col-span-2">
+                    <XCircle className="size-3.5 text-rose-500 shrink-0" />
+                    <span>
+                      Marked not done at: <strong className="text-slate-800 dark:text-slate-200">{formatDateTime(task.completed_at)}</strong>
                     </span>
                   </div>
                 )}
@@ -1238,7 +1565,8 @@ function TasksScoreCard({
     employee_id: string | null;
     total_tasks: number;
     total_completed_tasks: number;
-    not_completed_tasks: number;
+    not_done_tasks: number;
+    pending_tasks: number;
     completion_score: number;
   };
 }) {
@@ -1288,7 +1616,7 @@ function TasksScoreCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="rounded-xl bg-white/70 px-3 py-2.5 text-center dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/40">
           <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Total</span>
           <strong className="text-base text-slate-800 dark:text-slate-200">{score.total_tasks}</strong>
@@ -1301,7 +1629,12 @@ function TasksScoreCard({
 
         <div className="rounded-xl bg-white/70 px-3 py-2.5 text-center dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/40">
           <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Pending</span>
-          <strong className="text-base text-amber-600 dark:text-amber-400">{score.not_completed_tasks}</strong>
+          <strong className="text-base text-amber-600 dark:text-amber-400">{score.pending_tasks}</strong>
+        </div>
+
+        <div className="rounded-xl bg-white/70 px-3 py-2.5 text-center dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/40">
+          <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Not Done</span>
+          <strong className="text-base text-rose-600 dark:text-rose-400">{score.not_done_tasks}</strong>
         </div>
       </div>
     </div>
@@ -1366,6 +1699,58 @@ function UsersListCard({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ProfileCard({
+  profile,
+}: {
+  profile: {
+    displayName: string;
+    empId: string;
+    designation: string;
+    department: string;
+    division: string;
+    role: string;
+  };
+}) {
+  const initial = profile.displayName.trim().charAt(0).toUpperCase() || "?";
+
+  return (
+    <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/5 text-left">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-base font-bold text-white shadow-sm">
+          {initial}
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50 text-sm truncate">
+            {profile.displayName}
+          </h4>
+          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-medium capitalize text-emerald-700 dark:border-emerald-500/30 dark:bg-slate-900 dark:text-emerald-300">
+            {profile.role}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-emerald-100 dark:border-emerald-500/10 pt-3 text-xs">
+        <div>
+          <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Employee ID</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">{profile.empId}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Designation</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">{profile.designation}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Department</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{profile.department}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Division</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{profile.division}</span>
+        </div>
+      </div>
     </div>
   );
 }
