@@ -223,6 +223,15 @@ export const chatbotApi = {
     );
   },
 
+  async getTaskDepartments(apiKey?: string) {
+    const resolvedApiKey = apiKey || (await getChatbotApiKey());
+    return chatbotFetch<string[]>(
+      `${CHATBOT_BASE_PATH}/task-departments`,
+      { method: "GET" },
+      resolvedApiKey
+    );
+  },
+
   async getItemStock(itemCode: string, apiKey?: string) {
     const resolvedApiKey = apiKey || (await getChatbotApiKey());
     return chatbotFetch<ChatbotStockResponse>(
@@ -300,6 +309,7 @@ export const chatbotApi = {
       tasksList?: Array<{
         source: string;
         task_name: string;
+        doer_name: string | null;
         given_by: string | null;
         frequency: string | null;
         status: string;
@@ -317,7 +327,8 @@ export const chatbotApi = {
         employee_id: string | null;
         total_tasks: number;
         total_completed_tasks: number;
-        not_completed_tasks: number;
+        not_done_tasks: number;
+        pending_tasks: number;
         completion_score: number;
       };
       error?: string;
@@ -332,7 +343,12 @@ export const chatbotApi = {
     );
   },
 
-  async queryGeneral(queryText: string, userToken: string | null, apiKey?: string) {
+  async queryGeneral(
+    queryText: string,
+    userToken: string | null,
+    apiKey?: string,
+    history?: Array<{ role: "user" | "assistant"; content: string }>
+  ) {
     const resolvedApiKey = apiKey || (await getChatbotApiKey());
     return chatbotFetch<{
       success: boolean;
@@ -352,6 +368,7 @@ export const chatbotApi = {
       tasksList?: Array<{
         source: string;
         task_name: string;
+        doer_name: string | null;
         given_by: string | null;
         frequency: string | null;
         status: string;
@@ -391,15 +408,19 @@ export const chatbotApi = {
         employee_id: string | null;
         total_tasks: number;
         total_completed_tasks: number;
-        not_completed_tasks: number;
+        not_done_tasks: number;
+        pending_tasks: number;
         completion_score: number;
       };
       targetDate?: string;
+      exportRows?: Array<Record<string, string | number>> | null;
+      exportFilename?: string | null;
+      options?: Array<{ label: string; action: string }>;
     }>(
       `${CHATBOT_BASE_PATH}/query`,
       {
         method: "POST",
-        body: JSON.stringify({ queryText }),
+        body: JSON.stringify({ queryText, chatHistory: history || [] }),
         headers: userToken ? { "Authorization-User": `Bearer ${userToken}` } : {},
       },
       resolvedApiKey

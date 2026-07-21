@@ -36,15 +36,11 @@ export default function FloatingChatBot() {
       {/* Popover Chat Window */}
       {hasBeenOpened && (
         <div
-          className={`fixed bottom-24 right-6 z-[999] flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-[#efeae2] shadow-2xl transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 ${
+          className={`fixed bottom-20 right-4 z-[999] flex h-[580px] max-h-[calc(100dvh-104px)] w-[420px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-[#efeae2] shadow-2xl transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 sm:bottom-24 sm:right-6 sm:max-w-[calc(100vw-32px)] ${
             isOpen
               ? "translate-y-0 scale-100 opacity-100 pointer-events-auto"
               : "translate-y-4 scale-95 opacity-0 pointer-events-none"
           }`}
-          style={{
-            height: "580px",
-            maxHeight: "calc(100vh-120px)",
-          }}
         >
           {/* Custom Sleek Header */}
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-2 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90">
@@ -54,7 +50,7 @@ export default function FloatingChatBot() {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">
-                  Sagar Pipe Agent
+                  Sagar Vision
                 </h4>
                 <p className="text-[10px] mt-1 font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 leading-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
