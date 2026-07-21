@@ -62,6 +62,10 @@ export const CHECKLIST_SHARED_PAGES = [
     "Housekeeping Verify",
     "/checklist/housekeeping-verify",
   ]),
+  createPageOption("announcements", "Announcements", "/checklist/announcements", [
+    "Announcements",
+    "/checklist/announcements",
+  ]),
   createPageOption("checklist-department-task", "Department Tasks", "/checklist/department-task", [
     "Department Tasks",
     "/checklist/department-task",

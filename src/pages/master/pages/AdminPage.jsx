@@ -4,6 +4,7 @@ import { fetchAttendanceSummaryApi } from "../../../api/master/attendenceApi";
 import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
 import { Award, Clock3, Mail, MapPin, Phone, Target } from "lucide-react";
 import { apiCache } from "../runtime";
+import AnnouncementsPanel from "../components/AnnouncementsPanel";
 
 const LANDING_SECTION_PADDING = "py-[clamp(1.5rem,0.85rem+2.2vw,3.25rem)]";
 const LANDING_CONTAINER_PADDING = "px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
@@ -175,6 +176,8 @@ const AdminPage = ({ allUsersRef, showAllUsersModal, setShowAllUsersModal }) => 
                             </div>
                         </div>
                     </div>
+
+                    <AnnouncementsPanel ignoreStartDate />
 
                     <div className={`${LANDING_HERO_CARD_WIDTH} ${LANDING_HERO_CARD_MIN_HEIGHT} mx-auto mb-[clamp(2.25rem,1.1rem+3vw,4.5rem)] w-full rounded-none border-y border-gray-100 bg-white ${LANDING_CARD_PADDING_LG} relative overflow-hidden shadow-[0_20px_40px_-18px_rgba(0,0,0,0.1)] transition-all duration-700 sm:rounded-[3rem] sm:border sm:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] group hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_40px_88px_-24px_rgba(185,28,28,0.32)]`}>
                         {/* Decorative element */}

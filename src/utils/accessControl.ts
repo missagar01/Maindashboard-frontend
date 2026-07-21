@@ -59,6 +59,7 @@ const CHECKLIST_PAGE_SLUG_ROUTE_MAP: Record<string, string> = {
   quicktask: "/checklist/quick-task",
   delegation: "/checklist/delegation",
   housekeepingverify: "/checklist/housekeeping-verify",
+  announcements: "/checklist/announcements",
   setting: "/checklist/settings",
   checklistdepartmenttask: "/checklist/department-task",
 };
@@ -182,6 +183,7 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Checklist: "/checklist",
   "Task Verification": "/checklist/hrmanager",
   "Housekeeping Verify": "/checklist/housekeeping-verify",
+  Announcements: "/checklist/announcements",
   "MIS Report": "/checklist/mis-report",
   "Visitor Gate Pass": "/gatepass/approvals",
   Approvals: "/gatepass/approvals",

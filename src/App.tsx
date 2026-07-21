@@ -153,6 +153,7 @@ import ChecklistHrManager from "./pages/checklist/pages/admin/HrManager.jsx";
 import ChecklistSetting from "./pages/checklist/pages/Setting.jsx";
 import ChecklistMisReport from "./pages/checklist/pages/MisReport.jsx";
 import ChecklistHousekeepingVerify from "./pages/checklist/pages/HousekeepingVerify.jsx";
+import ChecklistAnnouncements from "./pages/checklist/pages/user/Announcements.jsx";
 import ChecklistMachines from "./pages/checklist/pages/admin/maintenance/machines.jsx";
 import ChecklistNewMachine from "./pages/checklist/pages/admin/maintenance/newMachine.jsx";
 import ProjectDashboardPage from "./pages/project/pages/ProjectDashboardPage";
@@ -379,6 +380,7 @@ export default function App() {
             <Route path="/checklist/settings" element={<RouteGuard><ChecklistSetting /></RouteGuard>} />
             <Route path="/checklist/mis-report" element={<RouteGuard><ChecklistMisReport /></RouteGuard>} />
             <Route path="/checklist/housekeeping-verify" element={<RouteGuard><ChecklistHousekeepingVerify /></RouteGuard>} />
+            <Route path="/checklist/announcements" element={<RouteGuard><ChecklistAnnouncements /></RouteGuard>} />
 
             {/* Checklist Legacy Redirects */}
             <Route path="/dashboard/admin" element={<Navigate to="/checklist" replace />} />

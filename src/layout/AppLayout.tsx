@@ -4,6 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import { shouldShowSidebarForPath } from "../config/portalNavigation";
+import AnnouncementPopup from "../pages/master/components/AnnouncementPopup";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
@@ -14,6 +15,7 @@ const LayoutContent: React.FC = () => {
 
   return (
     <div className="min-h-screen overflow-x-hidden xl:flex">
+      <AnnouncementPopup />
       {hasSidebar ? (
         <div id="main-nav-container">
           <AppSidebar />

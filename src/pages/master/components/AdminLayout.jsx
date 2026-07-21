@@ -9,6 +9,7 @@ import {
   updateSystemApi,
 } from "../../../api/master/systemsApi";
 import AllUserScore from "../pages/AllUserScore";
+import AnnouncementPopup from "./AnnouncementPopup";
 import { storage } from "../runtime";
 
 // Under Construction Component
@@ -208,6 +209,8 @@ export default function AdminLayout({ children }) {
       className="flex flex-col h-[100dvh] overflow-hidden bg-white bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/bgImage.png')" }}
     >
+
+      {username && <AnnouncementPopup />}
 
       <header className="bg-white/90 border-b border-gray-200 fixed top-0 left-0 right-0 w-full z-50 shadow-sm transition-all duration-300 backdrop-blur-md">
         <div className="flex items-center justify-between gap-2 md:gap-4 px-3 md:px-6 py-2">

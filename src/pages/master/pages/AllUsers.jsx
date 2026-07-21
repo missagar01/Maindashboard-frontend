@@ -24,6 +24,7 @@ import { fetchUserScoreApiByName } from "../../../api/master/userScoreApi";
 import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
 import { apiCache, decodeToken, storage } from "../runtime";
 import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
+import AnnouncementsPanel from "../components/AnnouncementsPanel";
 
 const SECTION_PAD = "py-[clamp(1.5rem,0.9rem+2vw,3rem)]";
 const CONTAINER = "max-w-[86rem] px-0 sm:px-[clamp(1rem,0.7rem+1vw,2rem)] md:px-[clamp(1.5rem,1rem+1.1vw,2.5rem)]";
@@ -445,6 +446,8 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
+
+                    <AnnouncementsPanel />
 
                     <div className={`grid grid-cols-1 xl:grid-cols-2 ${GRID_GAP}`}>
                         <div className={`${CARD} ${PAD}`}>
