@@ -25,6 +25,25 @@ interface DocumentItem {
 const DocumentRenewal = () => {
     const { setTitle, currentUser, renewalHistory, addRenewalHistory, pendingRenewals, setPendingRenewals } = useDocumentAuth();
 
+    const parseDateValue = (dateValue?: string | null) => {
+        if (!dateValue) return null;
+
+        const [year, month, day] = dateValue.split('-').map(Number);
+        if (!year || !month || !day) return null;
+
+        return new Date(year, month - 1, day);
+    };
+
+    const isRenewalDue = (renewalDate?: string) => {
+        const renewalDateValue = parseDateValue(renewalDate);
+        if (!renewalDateValue) return false;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return renewalDateValue < today;
+    };
+
 
     useEffect(() => {
         setTitle('Document Renewal');
@@ -47,6 +66,7 @@ const DocumentRenewal = () => {
 
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
+    const [pendingFilter, setPendingFilter] = useState<'all' | 'due'>('all');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,6 +131,11 @@ const DocumentRenewal = () => {
         if (currentUser?.role !== 'admin' && doc.companyName !== currentUser?.name) {
             return false;
         }
+
+        if (pendingFilter === 'due' && !isRenewalDue(doc.renewalDate)) {
+            return false;
+        }
+
         // Search check
         return (
             doc.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -281,6 +306,19 @@ const DocumentRenewal = () => {
                         />
                     </div>
 
+                    {activeTab === 'pending' && (
+                        <div className="w-full sm:w-48">
+                            <select
+                                value={pendingFilter}
+                                onChange={(e) => setPendingFilter(e.target.value as 'all' | 'due')}
+                                className="w-full border border-gray-200 rounded-lg bg-gray-50 px-4 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                <option value="all">All Renewals</option>
+                                <option value="due">Due Date</option>
+                            </select>
+                        </div>
+                    )}
+
                     {/* Tabs */}
                     <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
                         <button
@@ -426,7 +464,11 @@ const DocumentRenewal = () => {
                                                     <Check size={32} />
                                                 </div>
                                                 <h3 className="text-gray-900 font-bold text-lg">All Caught Up!</h3>
-                                                <p className="text-gray-500 text-sm mt-1">No documents require renewal at this time.</p>
+                                                <p className="text-gray-500 text-sm mt-1">
+                                                    {pendingFilter === 'due'
+                                                        ? 'No overdue renewal documents found.'
+                                                        : 'No documents require renewal at this time.'}
+                                                </p>
                                             </div>
                                         </td>
                                     </tr>
@@ -594,7 +636,7 @@ const DocumentRenewal = () => {
                         </div>
                     )) : (
                         <div className="bg-white p-8 rounded-xl text-center text-gray-500">
-                            <p>No documents pending renewal</p>
+                            <p>{pendingFilter === 'due' ? 'No overdue renewal documents found' : 'No documents pending renewal'}</p>
                         </div>
                     )
                 ) : (
