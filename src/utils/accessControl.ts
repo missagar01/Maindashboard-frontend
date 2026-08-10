@@ -132,6 +132,8 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   Permissions: "/o2d/permissions",
   Enquiry: "/o2d/enquiry",
   "Enquiry List": "/o2d/enquiry-list",
+  "Sales FMS": "/o2d/sales-fms",
+  "CRM FMS": "/o2d/crm-fms",
   "Hot Coil": "/batchcode/hot-coil",
   "QC Lab": "/batchcode/qc-lab",
   "SMS Register": "/batchcode/sms-register",

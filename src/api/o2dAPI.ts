@@ -106,5 +106,32 @@ export const getFollowupStats = (params?: any) =>
 
 export const getClientCount = () => apiRequest('/api/o2d/client/count');
 
+export const getPipelineEnquiries = () => apiRequest('/api/o2d/enquiry-pipeline');
+export const getPipelineEnquiry = (id: number | string) =>
+  apiRequest(`/api/o2d/enquiry-pipeline/${id}`);
+
+export const createPipelineEnquiry = (data: any) =>
+  apiRequest('/api/o2d/enquiry-pipeline', {
+    method: 'POST',
+    body: data,
+  });
+
+export const completePipelineStage = (id: number | string, stage: string) =>
+  apiRequest(`/api/o2d/enquiry-pipeline/${id}/stage/${stage}/complete`, {
+    method: 'PATCH',
+  });
+
+export const getPaymentFollowup = (fromDate?: string) =>
+  apiRequest('/api/o2d/payment-followup', { params: fromDate ? { fromDate } : undefined });
+
+export const updatePaymentFollowupStatus = (
+  vrno: string,
+  data: { payment_status: string; remarks?: string }
+) =>
+  apiRequest(`/api/o2d/payment-followup/${encodeURIComponent(vrno)}`, {
+    method: 'PUT',
+    body: data,
+  });
+
 
 

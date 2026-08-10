@@ -86,6 +86,8 @@ export const PAGE_ROUTES = {
     createPageOption("Orders", "Orders", "/o2d/orders", ["/o2d/orders"]),
     createPageOption("Enquiry", "Enquiry", "/o2d/enquiry", ["/o2d/enquiry"]),
     createPageOption("Enquiry List", "Enquiry List", "/o2d/enquiry-list", ["/o2d/enquiry-list"]),
+    createPageOption("Sales FMS", "Sales FMS", "/o2d/sales-fms", ["/o2d/sales-fms"]),
+    createPageOption("CRM FMS", "CRM FMS", "/o2d/crm-fms", ["/o2d/crm-fms"]),
     createPageOption("Pending Vehicles", "Pending Vehicles", "/o2d/process", ["/o2d/process"]),
     createPageOption("Today Vehicles", "Today Vehicles", "/o2d/todays-vehicles", ["/o2d/todays-vehicles"]),
     createPageOption("Customers", "Customers", "/o2d/customers", ["/o2d/customers"]),
