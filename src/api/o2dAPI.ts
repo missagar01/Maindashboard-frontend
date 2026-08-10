@@ -133,5 +133,14 @@ export const updatePaymentFollowupStatus = (
     body: data,
   });
 
+export const bulkUpdatePaymentFollowupStatus = (
+  vrnos: string[],
+  data: { payment_status: string; remarks?: string }
+) =>
+  apiRequest('/api/o2d/payment-followup/bulk', {
+    method: 'PUT',
+    body: { vrnos, ...data },
+  });
+
 
 
