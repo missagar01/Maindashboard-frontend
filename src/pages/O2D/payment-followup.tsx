@@ -18,14 +18,18 @@ interface InvoiceFollowup {
     updated_at: string | null;
 }
 
-const STATUS_OPTIONS: { value: InvoiceFollowup["payment_status"]; label: string }[] = [
+const ALL_STATUS_OPTIONS: { value: InvoiceFollowup["payment_status"]; label: string }[] = [
     { value: "pending", label: "Pending" },
     { value: "advance", label: "Advance Received" },
     { value: "half", label: "Half Received" },
     { value: "full", label: "Full Received" },
 ];
 
-const STATUS_LABEL: Record<string, string> = Object.fromEntries(STATUS_OPTIONS.map((o) => [o.value, o.label]));
+// "Pending" is just the default for invoices with no entry yet — it should never be
+// explicitly selectable/savable, so it's excluded from the editable dropdowns.
+const STATUS_OPTIONS = ALL_STATUS_OPTIONS.filter((o) => o.value !== "pending");
+
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(ALL_STATUS_OPTIONS.map((o) => [o.value, o.label]));
 
 const PaymentFollowup = () => {
     const [loading, setLoading] = useState(false);
@@ -42,12 +46,16 @@ const PaymentFollowup = () => {
     const [bulkRemarks, setBulkRemarks] = useState("");
     const [bulkSaving, setBulkSaving] = useState(false);
 
+    // vrnos with local edits that haven't been sent to the server yet
+    const [dirty, setDirty] = useState<Set<string>>(new Set());
+
     useEffect(() => { fetchInvoices(); }, []);
 
     const fetchInvoices = async (date?: string) => {
         setLoading(true);
         setError(null);
         setSelected(new Set());
+        setDirty(new Set());
         try {
             const response = await o2dAPI.getPaymentFollowup(date ?? fromDate ?? undefined);
             if (response.data.success) setInvoices(response.data.data);
@@ -97,6 +105,11 @@ const PaymentFollowup = () => {
                         }
                         : inv
                 )));
+                setDirty((prev) => {
+                    const next = new Set(prev);
+                    for (const vrno of Object.keys(updates)) next.delete(vrno);
+                    return next;
+                });
                 setSelected(new Set());
                 setBulkRemarks("");
             }
@@ -107,8 +120,10 @@ const PaymentFollowup = () => {
         }
     };
 
+    // Local-only edit — nothing is sent to the server until Save/Apply is clicked.
     const updateRow = (vrno: string, patch: Partial<InvoiceFollowup>) => {
         setInvoices((prev) => prev.map((inv) => (inv.vrno === vrno ? { ...inv, ...patch } : inv)));
+        setDirty((prev) => new Set(prev).add(vrno));
     };
 
     const handleSave = async (inv: InvoiceFollowup) => {
@@ -120,9 +135,14 @@ const PaymentFollowup = () => {
                 remarks: inv.remarks,
             });
             if (response.data.success) {
-                updateRow(inv.vrno, {
-                    updated_by: response.data.data.updated_by,
-                    updated_at: response.data.data.updated_at,
+                setInvoices((prev) => prev.map((row) => (row.vrno === inv.vrno
+                    ? { ...row, updated_by: response.data.data.updated_by, updated_at: response.data.data.updated_at }
+                    : row
+                )));
+                setDirty((prev) => {
+                    const next = new Set(prev);
+                    next.delete(inv.vrno);
+                    return next;
                 });
             }
         } catch (err: any) {
@@ -322,7 +342,7 @@ const PaymentFollowup = () => {
                                 Select all
                             </label>
                             {filteredInvoices.map((inv) => (
-                                <div key={inv.vrno} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                <div key={inv.vrno} className={cn("bg-white rounded-xl border overflow-hidden", dirty.has(inv.vrno) ? "border-amber-300" : "border-slate-200")}>
                                     <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <input
@@ -363,6 +383,9 @@ const PaymentFollowup = () => {
                                                 onChange={(e) => updateRow(inv.vrno, { payment_status: e.target.value as InvoiceFollowup["payment_status"] })}
                                                 className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
                                             >
+                                                {inv.payment_status === "pending" && (
+                                                    <option value="pending" disabled hidden>Select Status</option>
+                                                )}
                                                 {STATUS_OPTIONS.map((o) => (
                                                     <option key={o.value} value={o.value}>{o.label}</option>
                                                 ))}
@@ -379,9 +402,13 @@ const PaymentFollowup = () => {
                                             />
                                         </div>
 
+                                        {dirty.has(inv.vrno) && (
+                                            <p className="text-[9px] font-bold text-amber-600 text-center">Unsaved changes — click Save to update</p>
+                                        )}
+
                                         <button
                                             onClick={() => handleSave(inv)}
-                                            disabled={savingVrno === inv.vrno}
+                                            disabled={savingVrno === inv.vrno || inv.payment_status === "pending" || !dirty.has(inv.vrno)}
                                             className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#1e40af] text-white text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                                         >
                                             {savingVrno === inv.vrno
@@ -422,7 +449,7 @@ const PaymentFollowup = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredInvoices.map((inv, i) => (
-                                        <tr key={inv.vrno} className={cn("hover:bg-slate-50/60 transition-colors", selected.has(inv.vrno) && "bg-blue-50/50")}>
+                                        <tr key={inv.vrno} className={cn("hover:bg-slate-50/60 transition-colors", selected.has(inv.vrno) && "bg-blue-50/50", dirty.has(inv.vrno) && "bg-amber-50/60")}>
                                             <td className="px-3 py-2 whitespace-nowrap">
                                                 <input
                                                     type="checkbox"
@@ -444,6 +471,9 @@ const PaymentFollowup = () => {
                                                     onChange={(e) => updateRow(inv.vrno, { payment_status: e.target.value as InvoiceFollowup["payment_status"] })}
                                                     className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
                                                 >
+                                                    {inv.payment_status === "pending" && (
+                                                        <option value="pending" disabled hidden>Select Status</option>
+                                                    )}
                                                     {STATUS_OPTIONS.map((o) => (
                                                         <option key={o.value} value={o.value}>{o.label}</option>
                                                     ))}
@@ -466,16 +496,26 @@ const PaymentFollowup = () => {
                                                 ) : "—"}
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap">
-                                                <button
-                                                    onClick={() => handleSave(inv)}
-                                                    disabled={savingVrno === inv.vrno}
-                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-300 hover:border-slate-400 text-[10px] font-bold text-slate-600 transition-all disabled:opacity-50"
-                                                >
-                                                    {savingVrno === inv.vrno
-                                                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                        : <Save className="w-3 h-3" />}
-                                                    Save
-                                                </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => handleSave(inv)}
+                                                        disabled={savingVrno === inv.vrno || inv.payment_status === "pending" || !dirty.has(inv.vrno)}
+                                                        className={cn(
+                                                            "flex items-center gap-1 px-2.5 py-1.5 rounded-md border text-[10px] font-bold transition-all disabled:opacity-50",
+                                                            dirty.has(inv.vrno)
+                                                                ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                                                : "border-slate-300 text-slate-600 hover:border-slate-400"
+                                                        )}
+                                                    >
+                                                        {savingVrno === inv.vrno
+                                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                            : <Save className="w-3 h-3" />}
+                                                        Save
+                                                    </button>
+                                                    {dirty.has(inv.vrno) && (
+                                                        <span className="text-[9px] font-bold text-amber-600">Unsaved</span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
