@@ -24,16 +24,10 @@ import { apiCache } from '../../master/runtime';
 import {
   extractUploadedFileValues,
   getFileNameFromUrl,
-  isPdfFileUrl
+  isPdfFileUrl,
+  resolveUploadedFileUrl
 } from '../../../utils/fileUrl';
 
-// =========================
-// BASE URL HELPER
-// =========================
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_BASE_URL ||
-  'http://localhost:3004';
 const USER_PROFILE_UPDATED_EVENT = 'user-profile-updated';
 const USER_PROFILE_CACHE_TTL = 30 * 1000;
 const PHONE_NUMBER_LENGTH = 10;
@@ -43,26 +37,6 @@ const MAX_UPLOAD_SIZE_KB = MAX_UPLOAD_SIZE_BYTES / 1024;
 const MAX_DOCUMENT_COUNT = 10;
 const PROFILE_IMAGE_LIMIT_TEXT = `Allowed image formats: JPG, PNG, GIF, WEBP. Max size: ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB).`;
 const DOCUMENT_LIMIT_TEXT = `Allowed document formats: JPG, PNG, GIF, WEBP, PDF. Max size per file: ${MAX_UPLOAD_SIZE_MB} MB (${MAX_UPLOAD_SIZE_KB} KB). Max ${MAX_DOCUMENT_COUNT} documents.`;
-
-const getFullFileUrl = (filePath) => {
-  if (!filePath || typeof filePath !== 'string') return null;
-
-  const trimmedPath = filePath.trim();
-  if (!trimmedPath) return null;
-
-  // Already full URL
-  if (/^https?:\/\//i.test(trimmedPath)) {
-    return trimmedPath;
-  }
-
-  // Handle paths like /uploads/...
-  if (trimmedPath.startsWith('/')) {
-    return `${API_BASE_URL}${trimmedPath}`;
-  }
-
-  // Handle paths like uploads/...
-  return `${API_BASE_URL}/${trimmedPath}`;
-};
 
 // =========================
 // IMAGE FALLBACK COMPONENT
@@ -98,7 +72,7 @@ const ImageWithFallback = ({ src, alt, className, onClick, fallbackIcon: Fallbac
 // DOCUMENT PREVIEW BUILDER
 // =========================
 const buildDocumentPreview = (url) => {
-  const resolvedUrl = getFullFileUrl(url);
+  const resolvedUrl = resolveUploadedFileUrl(url);
   const fileName = getFileNameFromUrl(url) || getFileNameFromUrl(resolvedUrl) || 'Document';
   const isPdf =
     isPdfFileUrl(url) ||
@@ -154,7 +128,7 @@ const MyProfile = () => {
       // full url
       // all handled here
       if (profile.profile_img && (!isEditing || !previewProfileImg)) {
-        setPreviewProfileImg(getFullFileUrl(profile.profile_img));
+        setPreviewProfileImg(resolveUploadedFileUrl(profile.profile_img));
       } else if (!profile.profile_img && !isEditing) {
         setPreviewProfileImg(null);
       }
@@ -180,6 +154,33 @@ const MyProfile = () => {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      const currentUserId = String(user?.id || user?.employee_id || '').trim();
+      const eventUserId = String(event?.detail?.userId || '').trim();
+
+      if (!currentUserId || (eventUserId && eventUserId !== currentUserId)) {
+        return;
+      }
+
+      const nextProfileImage = event?.detail?.profile_img ?? event?.detail?.emp_image ?? null;
+
+      apiCache.invalidate(`user_${currentUserId}`);
+
+      if (!isEditing) {
+        setProfileData((prev) => (prev ? { ...prev, profile_img: nextProfileImage } : prev));
+        setPreviewProfileImg(resolveUploadedFileUrl(nextProfileImage));
+      }
+
+      void fetchProfile(true);
+    };
+
+    window.addEventListener(USER_PROFILE_UPDATED_EVENT, handleProfileUpdate);
+    return () => {
+      window.removeEventListener(USER_PROFILE_UPDATED_EVENT, handleProfileUpdate);
+    };
+  }, [fetchProfile, isEditing, user?.employee_id, user?.id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -303,7 +304,7 @@ const MyProfile = () => {
       apiCache.set(`user_${updatedProfile.id || profileData.id}`, updatedProfile, USER_PROFILE_CACHE_TTL);
 
       if (updatedProfile.profile_img) {
-        setPreviewProfileImg(getFullFileUrl(updatedProfile.profile_img));
+        setPreviewProfileImg(resolveUploadedFileUrl(updatedProfile.profile_img));
       } else {
         setPreviewProfileImg(null);
       }
@@ -339,7 +340,7 @@ const MyProfile = () => {
     setFormData(profileData || {});
 
     if (profileData?.profile_img) {
-      setPreviewProfileImg(getFullFileUrl(profileData.profile_img));
+      setPreviewProfileImg(resolveUploadedFileUrl(profileData.profile_img));
     } else {
       setPreviewProfileImg(null);
     }

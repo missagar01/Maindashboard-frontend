@@ -22,6 +22,7 @@ import { fetchUserDetailsApiById } from "../../../api/master/settingApi";
 import { patchEmpImageApi } from "../../../api/master/userApi";
 import { fetchUserScoreApiByName } from "../../../api/master/userScoreApi";
 import { getStoredToken, isJwtExpired } from "../../../api/apiClient";
+import { getDashboardStats } from "../../../api/hrfms/dashboardApi";
 import { apiCache, decodeToken, storage } from "../runtime";
 import { resolveUploadedFileUrl } from "../../../utils/fileUrl";
 import AnnouncementsPanel from "../components/AnnouncementsPanel";
@@ -84,6 +85,51 @@ const buildMonthOptions = (count = 6) => {
     });
 };
 
+const getCurrentMonthKey = (date = new Date()) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+const getAttendanceStatusMeta = (attendance) => {
+    const code = String(attendance?.today_status || attendance?.status || "").trim().toUpperCase();
+
+    if (code === "P" || code === "IN") {
+        return {
+            label: "Present",
+            cardTone: "border-emerald-100 bg-emerald-50 text-emerald-700",
+            textTone: "text-emerald-600",
+            captionTone: "text-emerald-600/80",
+            message: "You are marked present for today.",
+        };
+    }
+
+    if (code === "L" || code === "AL") {
+        return {
+            label: code === "AL" ? "Approved Leave" : "On Leave",
+            cardTone: "border-violet-100 bg-violet-50 text-violet-700",
+            textTone: "text-violet-600",
+            captionTone: "text-violet-600/80",
+            message: "You are marked on leave for today.",
+        };
+    }
+
+    if (code === "H") {
+        return {
+            label: "Holiday",
+            cardTone: "border-amber-100 bg-amber-50 text-amber-700",
+            textTone: "text-amber-600",
+            captionTone: "text-amber-600/80",
+            message: "Today is marked as a holiday.",
+        };
+    }
+
+    return {
+        label: "Absent",
+        cardTone: "border-red-100 bg-red-50 text-red-700",
+        textTone: "text-red-600",
+        captionTone: "text-red-600/80",
+        message: "Attendance is not marked for today.",
+    };
+};
+
 const HomePage = () => {
     const [userDetails, setUserDetails] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -136,14 +182,49 @@ const HomePage = () => {
                 setUserScore(scoreResponse?.data?.[0] || null);
             }
 
-            const attendanceResponse = await fetchAttendanceSummaryApi();
-            const attendanceList = Array.isArray(attendanceResponse?.data?.data)
-                ? attendanceResponse.data.data
-                : [];
-            const matchedAttendance = attendanceList.find(
-                (entry) => String(entry.employee_id).trim() === String(matchedUser?.employee_id).trim()
-            );
-            setAttendance(matchedAttendance || null);
+            let resolvedAttendance = null;
+            const authToken = getStoredToken();
+
+            if (authToken) {
+                try {
+                    const dashboardResponse = await getDashboardStats(authToken, {
+                        month: getCurrentMonthKey(),
+                    });
+                    const dashboardAttendance =
+                        dashboardResponse?.data?.attendance ??
+                        dashboardResponse?.attendance ??
+                        null;
+
+                    if (dashboardAttendance) {
+                        const todayKey = formatDate(new Date());
+                        const todayStatus = String(dashboardAttendance?.details?.[todayKey] || "").trim().toUpperCase();
+
+                        resolvedAttendance = {
+                            status: todayStatus === "P" ? "IN" : todayStatus || "OUT",
+                            today_status: todayStatus || "OUT",
+                            monthly_attendance: Number(dashboardAttendance.present ?? 0),
+                            total_working_days: Number(dashboardAttendance.totalWorkingDays ?? 0),
+                            absent_count: Number(dashboardAttendance.absent ?? 0),
+                            on_leave_count: Number(dashboardAttendance.onLeave ?? 0),
+                        };
+                    }
+                } catch (attendanceError) {
+                    console.warn("Failed to sync attendance from HRFMS dashboard:", attendanceError);
+                }
+            }
+
+            if (!resolvedAttendance) {
+                const attendanceResponse = await fetchAttendanceSummaryApi();
+                const attendanceList = Array.isArray(attendanceResponse?.data?.data)
+                    ? attendanceResponse.data.data
+                    : [];
+                const matchedAttendance = attendanceList.find(
+                    (entry) => String(entry.employee_id).trim() === String(matchedUser?.employee_id).trim()
+                );
+                resolvedAttendance = matchedAttendance || null;
+            }
+
+            setAttendance(resolvedAttendance);
 
             const cacheKey = `stats_${username}_${selectedMonth.key}`;
             let stats = apiCache.get(cacheKey);
@@ -312,7 +393,9 @@ const HomePage = () => {
     const scoreColor = clampedScore <= -51 ? "#ef4444" : clampedScore <= -26 ? "#f59e0b" : "#10b981";
     const scoreTone = clampedScore <= -51 ? "Needs recovery" : clampedScore <= -26 ? "Watch list" : "On track";
     const taskCompletionRate = completed + pending > 0 ? Math.round((completed / (completed + pending)) * 100) : 0;
-    const attendancePresent = attendance?.status === "IN";
+    const attendanceStatus = getAttendanceStatusMeta(attendance);
+    const attendanceCount = Number(attendance?.monthly_attendance ?? 0);
+    const attendanceDenominator = Number(attendance?.total_working_days ?? new Date().getDate());
     const isActiveUser = userDetails?.status?.toLowerCase() === "active";
 
     const profileCards = [
@@ -503,24 +586,24 @@ const HomePage = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="rounded-[1.7rem] border border-slate-100 bg-slate-50/90 px-4 py-5 text-center">
                                             <div className={`font-black tracking-[-0.04em] text-slate-900 ${VALUE}`}>
-                                                {Number(attendance?.monthly_attendance ?? 0)}
-                                                <span className="ml-1 text-blue-600/90">/{new Date().getDate()}</span>
+                                                {attendanceCount}
+                                                <span className="ml-1 text-blue-600/90">/{attendanceDenominator}</span>
                                             </div>
                                             <div className={`mt-2 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Monthly Count</div>
                                         </div>
                                         <div className="rounded-[1.7rem] border border-slate-100 bg-slate-50/90 px-4 py-5 text-center">
-                                            <div className={`font-black uppercase tracking-[0.14em] ${ROLE} ${attendancePresent ? "text-emerald-600" : "text-red-600"}`}>
-                                                {attendancePresent ? "Present" : "Absent"}
+                                            <div className={`font-black uppercase tracking-[0.14em] ${ROLE} ${attendanceStatus.textTone}`}>
+                                                {attendanceStatus.label}
                                             </div>
                                             <div className={`mt-2 font-bold uppercase tracking-[0.22em] text-slate-400 ${LABEL}`}>Current Status</div>
                                         </div>
                                     </div>
 
-                                    <div className={`flex items-start gap-3 rounded-[1.7rem] border px-4 py-4 ${attendancePresent ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-red-100 bg-red-50 text-red-700"}`}>
+                                    <div className={`flex items-start gap-3 rounded-[1.7rem] border px-4 py-4 ${attendanceStatus.cardTone}`}>
                                         <Clock3 className="mt-0.5 h-5 w-5 shrink-0" />
                                         <div>
-                                            <p className={`font-bold ${BODY}`}>{attendancePresent ? "You are marked present for today." : "No in-time attendance marked for today."}</p>
-                                            <p className={`mt-1 font-bold uppercase tracking-[0.22em] ${LABEL} ${attendancePresent ? "text-emerald-600/80" : "text-red-600/80"}`}>Live attendance snapshot</p>
+                                            <p className={`font-bold ${BODY}`}>{attendanceStatus.message}</p>
+                                            <p className={`mt-1 font-bold uppercase tracking-[0.22em] ${LABEL} ${attendanceStatus.captionTone}`}>Live attendance snapshot</p>
                                         </div>
                                     </div>
                                 </div>
