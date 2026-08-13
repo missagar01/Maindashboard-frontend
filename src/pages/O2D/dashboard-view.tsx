@@ -75,7 +75,143 @@ type PerformanceRow = {
   avgRsSale?: number | string | null
 }
 
+type CachedFeedbackPayload = {
+  customerFeedback: any[]
+  feedbackStats: any[]
+}
+
+type CachedAdditionalStatsPayload = {
+  totalCustomers: number
+  followupStats: { totalFollowUps: number; ordersBooked: number }
+  salesPerformance: PerformanceRow[]
+  dailySalesPerformance: PerformanceRow[]
+  deliveryStats: { monthly: any; daily: any } | null
+  salespersonDeliveryStats: Record<string, any>
+}
+
+type CacheEnvelope<T> = {
+  cachedAt: number
+  data: T
+}
+
 const PERFORMANCE_SUMMARY_LABELS = new Set(["total", "average", "avg"])
+const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000
+const ADDITIONAL_STATS_CACHE_TTL_MS = 5 * 60 * 1000
+const SECONDARY_CACHE_TTL_MS = 15 * 60 * 1000
+const CLIENT_COUNT_CACHE_KEY = "o2d-dashboard:client-count"
+const DASHBOARD_CACHE_PREFIX = "o2d-dashboard:summary"
+const ADDITIONAL_STATS_CACHE_PREFIX = "o2d-dashboard:stats"
+const ENQUIRY_CACHE_PREFIX = "o2d-dashboard:enquiry"
+const FEEDBACK_CACHE_KEY = "o2d-dashboard:feedback"
+const AUTO_REFRESH_INTERVAL_MS = 2 * 60 * 1000
+const AUTO_REFRESH_COOLDOWN_MS = 10 * 1000
+
+function buildCacheKey(prefix: string, values: Record<string, string | null | undefined>) {
+  const params = new URLSearchParams()
+
+  Object.entries(values)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([key, value]) => {
+      if (value != null && value !== "") {
+        params.set(key, value)
+      }
+    })
+
+  const suffix = params.toString()
+  return suffix ? `${prefix}?${suffix}` : prefix
+}
+
+function readCachedValue<T>(key: string, ttlMs: number, allowStale = false): T | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(key)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as CacheEnvelope<T>
+    if (!parsed || typeof parsed.cachedAt !== "number") {
+      return null
+    }
+
+    const isFresh = Date.now() - parsed.cachedAt <= ttlMs
+    if (!isFresh && !allowStale) {
+      return null
+    }
+
+    return parsed.data ?? null
+  } catch (error) {
+    console.error("Error reading dashboard cache:", error)
+    return null
+  }
+}
+
+function writeCachedValue<T>(key: string, data: T) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const payload: CacheEnvelope<T> = {
+      cachedAt: Date.now(),
+      data,
+    }
+
+    window.sessionStorage.setItem(key, JSON.stringify(payload))
+  } catch (error) {
+    console.error("Error writing dashboard cache:", error)
+  }
+}
+
+function getSelectedMonthDateRange(selectedMonth: string) {
+  const [year, month] = selectedMonth.split("-").map(Number)
+  const fromDate = new Date(year, month - 1, 1)
+  const now = new Date()
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
+  const toDate = isCurrentMonth ? now : endOfMonth(fromDate)
+
+  return {
+    fromDate: format(fromDate, "yyyy-MM-dd"),
+    toDate: format(toDate, "yyyy-MM-dd"),
+  }
+}
+
+function buildDashboardParams({
+  selectedParty,
+  selectedItem,
+  selectedSales,
+  selectedState,
+  selectedMonth,
+  startDate,
+  endDate,
+}: {
+  selectedParty: string
+  selectedItem: string
+  selectedSales: string
+  selectedState: string
+  selectedMonth: string
+  startDate: string
+  endDate: string
+}) {
+  const params: Record<string, string> = {}
+
+  if (selectedParty !== "All Parties") params.partyName = selectedParty
+  if (selectedItem !== "All Items") params.itemName = selectedItem
+  if (selectedSales !== "All Salespersons") params.salesPerson = selectedSales
+  if (selectedState !== "All States") params.stateName = selectedState
+
+  if (selectedMonth === "All Months" || selectedMonth === "Custom Range") {
+    params.fromDate = startDate
+    params.toDate = endDate
+  } else {
+    Object.assign(params, getSelectedMonthDateRange(selectedMonth))
+  }
+
+  return params
+}
 
 function getPerformanceDataRows(rows: PerformanceRow[] = []) {
   return rows.filter((row) => {
@@ -194,6 +330,8 @@ export function DashboardView() {
   const [feedbackStats, setFeedbackStats] = useState<any[]>([])
 
   const dashboardRef = useRef<HTMLDivElement | null>(null)
+  const refreshInFlightRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
   // New Stats State
   const [totalCustomers, setTotalCustomers] = useState(0)
@@ -210,6 +348,15 @@ export function DashboardView() {
     () => getPerformanceSummary(dailySalesPerformance),
     [dailySalesPerformance]
   )
+
+  const applyAdditionalStats = useCallback((payload: CachedAdditionalStatsPayload) => {
+    setTotalCustomers(payload.totalCustomers ?? 0)
+    setFollowupStats(payload.followupStats ?? { totalFollowUps: 0, ordersBooked: 0 })
+    setSalesPerformance(payload.salesPerformance ?? [])
+    setDailySalesPerformance(payload.dailySalesPerformance ?? [])
+    setDeliveryStats(payload.deliveryStats ?? null)
+    setSalespersonDeliveryStats(payload.salespersonDeliveryStats ?? {})
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -268,22 +415,45 @@ export function DashboardView() {
     return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
   }, []);
 
-  const fetchEnquiryReport = async () => {
-    setLoadingEnquiry(true)
+  const fetchEnquiryReport = useCallback(async () => {
+    const cacheKey = buildCacheKey(ENQUIRY_CACHE_PREFIX, { month: currentEnquiryMonth })
+    const cachedReport = readCachedValue<any[]>(cacheKey, SECONDARY_CACHE_TTL_MS, true)
+
+    if (cachedReport) {
+      setEnquiryReport(cachedReport)
+      setLoadingEnquiry(false)
+    } else {
+      setLoadingEnquiry(true)
+    }
+
     try {
       const response = await o2dAPI.getCurrentMonthEnquiryReport(currentEnquiryMonth)
       if (response.data?.success) {
-        setEnquiryReport(response.data.data)
+        const nextReport = Array.isArray(response.data.data) ? response.data.data : []
+        setEnquiryReport(nextReport)
+        writeCachedValue(cacheKey, nextReport)
       }
     } catch (err) {
       console.error("Error fetching enquiry report:", err)
     } finally {
       setLoadingEnquiry(false)
     }
-  }
+  }, [currentEnquiryMonth])
 
-  const fetchCustomerFeedback = async () => {
-    setLoadingFeedback(true);
+  const fetchCustomerFeedback = useCallback(async () => {
+    const cachedFeedback = readCachedValue<CachedFeedbackPayload>(
+      FEEDBACK_CACHE_KEY,
+      SECONDARY_CACHE_TTL_MS,
+      true
+    )
+
+    if (cachedFeedback) {
+      setFeedbackStats(cachedFeedback.feedbackStats ?? [])
+      setCustomerFeedback(cachedFeedback.customerFeedback ?? [])
+      setLoadingFeedback(false)
+    } else {
+      setLoadingFeedback(true)
+    }
 
     try {
       const response = await o2dAPI.getCustomerFeedback({ sheetName: "Form Responses 1" });
@@ -376,156 +546,261 @@ export function DashboardView() {
 
       setFeedbackStats(stats);
       setCustomerFeedback(sortedFeedback);
+      writeCachedValue(FEEDBACK_CACHE_KEY, {
+        feedbackStats: stats,
+        customerFeedback: sortedFeedback,
+      })
     } catch (err: any) {
       console.error("Feedback Fetch Failure:", err.message);
       // Let the UI show "No Records Found" with retry option
-      setCustomerFeedback([]);
-      setFeedbackStats([]);
+      if (!cachedFeedback) {
+        setCustomerFeedback([]);
+        setFeedbackStats([]);
+      }
     } finally {
       setLoadingFeedback(false)
     }
-  }
+  }, [getFeedbackTimestampMs])
 
-  const fetchAdditionalStats = async () => {
-    // 1. Fetch Client Count (Independent of date filter)
-    try {
-      const countRes = await o2dAPI.getClientCount()
-      if (countRes.data?.success) {
-        setTotalCustomers(countRes.data.data)
-      }
-    } catch (err) {
-      console.error("Error fetching client count:", err)
+  const fetchAdditionalStats = useCallback(async () => {
+    const additionalStatsCacheKey = buildCacheKey(ADDITIONAL_STATS_CACHE_PREFIX, {
+      startDate,
+      endDate,
+      salesPerson: selectedSales !== "All Salespersons" ? selectedSales : "ALL",
+    })
+    const cachedAdditionalStats = readCachedValue<CachedAdditionalStatsPayload>(
+      additionalStatsCacheKey,
+      ADDITIONAL_STATS_CACHE_TTL_MS,
+      true
+    )
+
+    if (cachedAdditionalStats) {
+      applyAdditionalStats(cachedAdditionalStats)
     }
 
-    // 2. Fetch Sales/Followup Stats (Dependent on date range and salesperson)
     try {
       const params: any = {
         startDate,
         endDate
       }
 
-      // Daily params (Today only)
       const today = format(new Date(), "yyyy-MM-dd");
       const dailyParams: any = {
         startDate: today,
         endDate: today
       };
 
-      // Add salesPerson filter if selected
       if (selectedSales !== "All Salespersons") {
         params.salesPerson = selectedSales
         dailyParams.salesPerson = selectedSales;
       }
 
-      const [statsRes, perfRes, dailyPerfRes, deliveryRes, salespersonStatsRes] = await Promise.all([
-        o2dAPI.getFollowupStats(), // No params = Global Total
-        o2dAPI.getSalesPerformance(params), // Respects filter (Selected Month)
-        o2dAPI.getSalesPerformance(dailyParams), // Today's Stats
-        o2dAPI.getDeliveryStats(params), // Respects filter (now includes salesPerson)
-        o2dAPI.getSalespersonDeliveryStats({ startDate, endDate }) // Get all salesperson stats
+      const cachedClientCount = readCachedValue<number>(CLIENT_COUNT_CACHE_KEY, ADDITIONAL_STATS_CACHE_TTL_MS, true)
+      if (typeof cachedClientCount === "number") {
+        setTotalCustomers(cachedClientCount)
+      }
+
+      const [
+        countRes,
+        statsRes,
+        perfRes,
+        dailyPerfRes,
+        deliveryRes,
+        salespersonStatsRes,
+      ] = await Promise.allSettled([
+        o2dAPI.getClientCount(),
+        o2dAPI.getFollowupStats(),
+        o2dAPI.getSalesPerformance(params),
+        o2dAPI.getSalesPerformance(dailyParams),
+        o2dAPI.getDeliveryStats(params),
+        o2dAPI.getSalespersonDeliveryStats({ startDate, endDate }),
       ])
 
-      if (statsRes.data?.success) setFollowupStats(statsRes.data.data)
-      if (perfRes.data?.success) setSalesPerformance(perfRes.data.data)
-      if (dailyPerfRes.data?.success) setDailySalesPerformance(dailyPerfRes.data.data)
-      if (deliveryRes.data?.success) {
-        setDeliveryStats(deliveryRes.data.data);
-      }
-      if (salespersonStatsRes.data?.success) {
-        setSalespersonDeliveryStats(salespersonStatsRes.data.data);
+      const nextStats: CachedAdditionalStatsPayload = {
+        totalCustomers:
+          countRes.status === "fulfilled" && countRes.value.data?.success
+            ? countRes.value.data.data
+            : cachedAdditionalStats?.totalCustomers ?? cachedClientCount ?? 0,
+        followupStats:
+          statsRes.status === "fulfilled" && statsRes.value.data?.success
+            ? statsRes.value.data.data
+            : cachedAdditionalStats?.followupStats ?? { totalFollowUps: 0, ordersBooked: 0 },
+        salesPerformance:
+          perfRes.status === "fulfilled" && perfRes.value.data?.success
+            ? perfRes.value.data.data
+            : cachedAdditionalStats?.salesPerformance ?? [],
+        dailySalesPerformance:
+          dailyPerfRes.status === "fulfilled" && dailyPerfRes.value.data?.success
+            ? dailyPerfRes.value.data.data
+            : cachedAdditionalStats?.dailySalesPerformance ?? [],
+        deliveryStats:
+          deliveryRes.status === "fulfilled" && deliveryRes.value.data?.success
+            ? deliveryRes.value.data.data
+            : cachedAdditionalStats?.deliveryStats ?? null,
+        salespersonDeliveryStats:
+          salespersonStatsRes.status === "fulfilled" && salespersonStatsRes.value.data?.success
+            ? salespersonStatsRes.value.data.data
+            : cachedAdditionalStats?.salespersonDeliveryStats ?? {},
       }
 
+      applyAdditionalStats(nextStats)
+      writeCachedValue(additionalStatsCacheKey, nextStats)
+
+      if (typeof nextStats.totalCustomers === "number") {
+        writeCachedValue(CLIENT_COUNT_CACHE_KEY, nextStats.totalCustomers)
+      }
     } catch (err) {
       console.error("Error fetching sales/followup stats:", err)
     }
-  }
+  }, [applyAdditionalStats, endDate, selectedSales, startDate])
 
   // Update dates when selectedMonth changes
   useEffect(() => {
     if (selectedMonth === "All Months") {
-      setStartDate("2024-01-01")
-      setEndDate(format(new Date(), "yyyy-MM-dd"))
-    } else if (selectedMonth !== "Custom Range") {
-      const [year, month] = selectedMonth.split("-")
-      const fromDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-      const toDate = endOfMonth(fromDate)
-      setStartDate(format(fromDate, "yyyy-MM-dd"))
-      setEndDate(format(toDate, "yyyy-MM-dd"))
-    }
-  }, [selectedMonth])
+      const nextStartDate = "2024-01-01"
+      const nextEndDate = format(new Date(), "yyyy-MM-dd")
 
-  useEffect(() => {
-    // Fetch stats when dates or salesperson filter change
-    fetchAdditionalStats()
-  }, [startDate, endDate, selectedSales])
+      if (startDate !== nextStartDate) {
+        setStartDate(nextStartDate)
+      }
+      if (endDate !== nextEndDate) {
+        setEndDate(nextEndDate)
+      }
+    } else if (selectedMonth !== "Custom Range") {
+      const { fromDate, toDate } = getSelectedMonthDateRange(selectedMonth)
+
+      if (startDate !== fromDate) {
+        setStartDate(fromDate)
+      }
+      if (endDate !== toDate) {
+        setEndDate(toDate)
+      }
+    }
+  }, [endDate, selectedMonth, startDate])
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true)
+    const params = buildDashboardParams({
+      selectedParty,
+      selectedItem,
+      selectedSales,
+      selectedState,
+      selectedMonth,
+      startDate,
+      endDate,
+    })
+    const dashboardCacheKey = buildCacheKey(DASHBOARD_CACHE_PREFIX, params)
+    const cachedDashboard = readCachedValue<DashboardResponse>(
+      dashboardCacheKey,
+      DASHBOARD_CACHE_TTL_MS,
+      true
+    )
+
+    if (cachedDashboard) {
+      setData(cachedDashboard)
+      setLastUpdated(cachedDashboard.lastUpdated ? new Date(cachedDashboard.lastUpdated) : new Date())
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
     setError(null)
+    window.setTimeout(() => {
+      void fetchEnquiryReport()
+      void fetchCustomerFeedback()
+    }, 0)
+
     try {
-      // Build query params for proper Redis caching
-      const params: any = {}
-      if (selectedParty !== "All Parties") params.partyName = selectedParty
-      if (selectedItem !== "All Items") params.itemName = selectedItem
-      if (selectedSales !== "All Salespersons") params.salesPerson = selectedSales
-      if (selectedState !== "All States") params.stateName = selectedState
-
-      if (selectedMonth === "All Months" || selectedMonth === "Custom Range") {
-        params.fromDate = startDate
-        params.toDate = endDate
-      } else {
-        const [year, month] = selectedMonth.split("-")
-        const fromDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        let toDate = new Date(parseInt(year), parseInt(month), 0)
-
-        // If it's the current month (matching year & month), use today as toDate
-        const now = new Date();
-        if (parseInt(year) === now.getFullYear() && (parseInt(month) - 1) === now.getMonth()) {
-          toDate = now;
-        }
-
-        params.fromDate = format(fromDate, "yyyy-MM-dd")
-        params.toDate = format(toDate, "yyyy-MM-dd")
-      }
-
       const response = await o2dAPI.getDashboardSummary(params)
       const payload = response.data
       if (!payload?.success || !payload?.data) {
         throw new Error("Invalid dashboard response")
       }
-      setData(payload.data as DashboardResponse)
-      setLastUpdated(payload.data.lastUpdated ? new Date(payload.data.lastUpdated) : new Date())
-
-      // Also fetch secondary reports
-      fetchEnquiryReport()
-      fetchCustomerFeedback()
+      const nextData = payload.data as DashboardResponse
+      setData(nextData)
+      setLastUpdated(nextData.lastUpdated ? new Date(nextData.lastUpdated) : new Date())
+      writeCachedValue(dashboardCacheKey, nextData)
     } catch (err: unknown) {
       console.error("Error fetching dashboard:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data"
-      setError(errorMessage)
+      if (!cachedDashboard) {
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
-  }, [selectedSales, selectedMonth, startDate, endDate])
+  }, [
+    endDate,
+    fetchCustomerFeedback,
+    fetchEnquiryReport,
+    selectedItem,
+    selectedMonth,
+    selectedParty,
+    selectedSales,
+    selectedState,
+    startDate,
+  ])
 
-  useEffect(() => {
-    // Reset filters on mount to ensure a clean slate
-    setSelectedParty("All Parties");
-    setSelectedItem("All Items");
-    setSelectedSales("All Salespersons");
-    setSelectedState("All States");
-    setSelectedMonth(format(new Date(), "yyyy-MM"));
-  }, []);
+  const refreshAllSections = useCallback(async (force = false) => {
+    const now = Date.now()
+
+    if (refreshInFlightRef.current) {
+      return
+    }
+
+    if (!force && now - lastRefreshAtRef.current < AUTO_REFRESH_COOLDOWN_MS) {
+      return
+    }
+
+    refreshInFlightRef.current = true
+    lastRefreshAtRef.current = now
+
+    try {
+      await Promise.all([
+        fetchDashboard(),
+        fetchAdditionalStats(),
+      ])
+    } finally {
+      refreshInFlightRef.current = false
+      lastRefreshAtRef.current = Date.now()
+    }
+  }, [fetchAdditionalStats, fetchDashboard])
 
   useEffect(() => {
     if (authLoading) {
       return
     }
 
-    fetchDashboard()
-    const interval = setInterval(fetchDashboard, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [authLoading, fetchDashboard])
+    void refreshAllSections(true)
+
+    const interval = window.setInterval(() => {
+      void refreshAllSections()
+    }, AUTO_REFRESH_INTERVAL_MS)
+
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === "visible") {
+        void refreshAllSections(true)
+      }
+    }
+
+    const handleFocusSync = () => {
+      void refreshAllSections(true)
+    }
+
+    const handleOnlineSync = () => {
+      void refreshAllSections(true)
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilitySync)
+    window.addEventListener("focus", handleFocusSync)
+    window.addEventListener("online", handleOnlineSync)
+
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilitySync)
+      window.removeEventListener("focus", handleFocusSync)
+      window.removeEventListener("online", handleOnlineSync)
+    }
+  }, [authLoading, refreshAllSections])
 
   const filteredData = useMemo(() => {
     const rows = data?.rows || []
