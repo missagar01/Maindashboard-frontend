@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState, type ReactElement } from 'react';
+import { startTransition, useEffect, useRef, useState, type ReactElement } from 'react';
 import {
   fetchSummary,
   fetchLive,
@@ -384,39 +384,87 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
   const [live, setLive] = useState<DashboardLiveResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const summaryRef = useRef<DashboardSummaryResponse | null>(null);
+  const liveRef = useRef<DashboardLiveResponse | null>(null);
+
+  useEffect(() => {
+    summaryRef.current = summary;
+  }, [summary]);
+
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
 
   // Textile MES hydrate effect
   useEffect(() => {
     let isMounted = true;
 
+    const getErrorMessage = (error: unknown, fallback: string) =>
+      error instanceof Error && error.message ? error.message : fallback;
+
     const hydrate = async () => {
-      try {
-        const [summaryResponse, liveResponse] = await Promise.all([
-          fetchSummary(),
-          fetchLive().catch((e) => {
-            console.error('Failed to load live status', e);
-            return null;
-          }),
-        ]);
+      const [summaryResult, liveResult] = await Promise.allSettled([
+        fetchSummary(),
+        fetchLive(),
+      ]);
 
-        if (!isMounted) {
-          return;
-        }
-
-        startTransition(() => {
-          setSummary(summaryResponse);
-          setLive(liveResponse);
-          setErrorMessage(null);
-        });
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to load dashboard');
-        setSummary(null);
-        setLive(null);
+      if (!isMounted) {
+        return;
       }
+
+      const previousSummary = summaryRef.current;
+      const previousLive = liveRef.current;
+      const summaryFailure = summaryResult.status === 'rejected' ? summaryResult.reason : null;
+      const liveFailure = liveResult.status === 'rejected' ? liveResult.reason : null;
+      const summaryError = summaryFailure
+        ? getErrorMessage(summaryFailure, 'Failed to load dashboard summary')
+        : null;
+      const liveError = liveFailure
+        ? getErrorMessage(liveFailure, 'Failed to load live status')
+        : null;
+
+      if (summaryFailure) {
+        console.error('Failed to load dashboard summary', summaryFailure);
+      }
+
+      if (liveFailure) {
+        console.error('Failed to load live status', liveFailure);
+      }
+
+      startTransition(() => {
+        if (summaryResult.status === 'fulfilled') {
+          summaryRef.current = summaryResult.value;
+          setSummary(summaryResult.value);
+          setErrorMessage(null);
+        } else if (!previousSummary) {
+          setSummary(null);
+          setErrorMessage(summaryError || 'Failed to load dashboard');
+        } else {
+          setErrorMessage(null);
+        }
+
+        if (liveResult.status === 'fulfilled') {
+          liveRef.current = liveResult.value;
+          setLive(liveResult.value);
+        } else if (!previousLive && !previousSummary) {
+          setLive(null);
+        }
+
+        const warnings: string[] = [];
+
+        if (summaryError && previousSummary) {
+          warnings.push(`Summary refresh failed. Showing last saved data. ${summaryError}`);
+        }
+
+        if (liveError && previousLive) {
+          warnings.push(`Live status refresh failed. Showing last known status. ${liveError}`);
+        } else if (liveError && !previousSummary) {
+          warnings.push(liveError);
+        }
+
+        setWarningMessage(warnings.length > 0 ? warnings.join(' ') : null);
+      });
     };
 
     hydrate();
@@ -447,6 +495,12 @@ export function DashboardPage() {
 
         {/* Dashboard Content */}
         <div className="space-y-6 sm:space-y-10">
+          {warningMessage && summary ? (
+            <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 shadow-sm">
+              {warningMessage}
+            </div>
+          ) : null}
+
           {!summary && errorMessage ? (
             <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[32px] border border-rose-100 bg-white px-6 text-center shadow-sm">
               <p className="text-[12px] font-black uppercase tracking-[0.3em] text-rose-500">

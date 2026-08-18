@@ -1,3 +1,5 @@
+import { IOT_MQTT_DASHBOARD_ENABLED } from "../config/featureFlags";
+
 export type UserAccess = {
   system_access?: string | null;
   page_access?: string | null;
@@ -267,12 +269,12 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "Equipment Handover List": "/transport/equipment-handover-list",
   "Equipment Takeover List": "/transport/equipment-takeover-list",
   "POD Register": "/transport/pod-register",
-  "IoT Dashboard": "/iot/doordrishti",
-  "IOT Dashboard": "/iot/doordrishti",
-  "IoT Live Dashboard": "/iot/doordrishti",
-  "IOT Live Dashboard": "/iot/doordrishti",
-  "IoT Module": "/iot/doordrishti",
-  "IOT Module": "/iot/doordrishti",
+  "IoT Dashboard": "/iot/pum",
+  "IOT Dashboard": "/iot/pum",
+  "IoT Live Dashboard": "/iot/pum",
+  "IOT Live Dashboard": "/iot/pum",
+  "IoT Module": "/iot/pum",
+  "IOT Module": "/iot/pum",
   Doordrishti: "/iot/doordrishti",
   "Doordrishti Alerts": "/iot/doordrishti",
   "IoT Doordrishti": "/iot/doordrishti",
@@ -285,9 +287,9 @@ export const PAGE_NAME_TO_ROUTE_MAP: Record<string, string> = {
   "IOT Telemetry": "/iot/pum",
   "IoT Telemetry Feed": "/iot/pum",
   "IOT Telemetry Feed": "/iot/pum",
-  "IoT API Dashboard": "/iot/dashboard",
-  "IOT API Dashboard": "/iot/dashboard",
-  "Backend IoT Dashboard": "/iot/dashboard",
+  "IoT API Dashboard": IOT_MQTT_DASHBOARD_ENABLED ? "/iot/dashboard" : "/iot/pum",
+  "IOT API Dashboard": IOT_MQTT_DASHBOARD_ENABLED ? "/iot/dashboard" : "/iot/pum",
+  "Backend IoT Dashboard": IOT_MQTT_DASHBOARD_ENABLED ? "/iot/dashboard" : "/iot/pum",
   "Store Issue": "/store/store-issue",
   Indent: "/store/approve-indent",
   "Approve Indents": "/store/approve-indent",
@@ -797,7 +799,7 @@ const normalizePageEntryToRoute = (
     if (hasStore) return "/store/dashboard";
     if (hasRaprocure) return "/raprocure/dashboard";
     if (hasTransport) return "/transport/dashboard";
-    if (hasIot) return "/iot/doordrishti";
+    if (hasIot) return "/iot/pum";
     if (hasProject) return "/project/dashboard";
     if (hasDocument) return "/document/dashboard";
     if (hasChecklist) return "/checklist";
@@ -840,8 +842,10 @@ const normalizePageEntryToRoute = (
     if (normalized === "/chatbot") return "/chatbot";
     if (normalized === "/chatbot/dashboard") return "/chatbot";
     if (normalized === "/transport") return "/transport/dashboard";
-    if (normalized === "/iot") return "/iot/doordrishti";
-    if (normalized === "/iot/dashboard") return "/iot/dashboard";
+    if (normalized === "/iot") return "/iot/pum";
+    if (normalized === "/iot/dashboard") {
+      return IOT_MQTT_DASHBOARD_ENABLED ? "/iot/dashboard" : "/iot/pum";
+    }
     if (normalized === "/project") return "/project/dashboard";
     if (normalized === "/hrfms") return "/hrfms/dashboard";
     if (normalized === "/gatepass") return "/gatepass/approvals";
@@ -915,9 +919,11 @@ const parsePageRoutes = (user: UserAccess | null | undefined): string[] => {
   // Gatepass is intentionally excluded here because its sidebar should follow explicit page_access entries.
   if (hasSystemAccess(availableSystems, "hrfms")) routes.add("/hrfms/dashboard");
   if (hasSystemAccess(availableSystems, "transport")) routes.add("/transport/dashboard");
-  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
   if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/pum");
-  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/dashboard");
+  if (hasSystemAccess(availableSystems, "iot")) routes.add("/iot/doordrishti");
+  if (hasSystemAccess(availableSystems, "iot") && IOT_MQTT_DASHBOARD_ENABLED) {
+    routes.add("/iot/dashboard");
+  }
   if (hasSystemAccess(availableSystems, "raprocure")) routes.add("/raprocure/dashboard");
   if (hasSystemAccess(availableSystems, "project")) routes.add("/project/dashboard");
   if (hasSystemAccess(availableSystems, "chatbot")) routes.add("/chatbot");

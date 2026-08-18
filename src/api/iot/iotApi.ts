@@ -156,7 +156,18 @@ const buildHeaders = (headers: HeadersInit = {}) => {
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || `Request failed with status ${response.status}`);
+    let message = errorBody || `Request failed with status ${response.status}`;
+
+    if (errorBody) {
+      try {
+        const parsed = JSON.parse(errorBody) as { message?: string; error?: string };
+        message = parsed.message || parsed.error || message;
+      } catch {
+        message = errorBody;
+      }
+    }
+
+    throw new Error(message);
   }
 
   return response.json() as Promise<T>;

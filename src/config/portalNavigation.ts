@@ -1,3 +1,5 @@
+import { IOT_MODULE_ENABLED } from "./featureFlags";
+
 export type PortalNavKey =
   | "home"
   | "checklist"
@@ -92,7 +94,7 @@ const PORTAL_SYSTEM_DEFINITIONS: PortalSystemDefinition[] = [
   {
     key: "iot",
     label: "IOT",
-    path: "/iot/dashboard",
+    path: "/iot/pum",
     aliases: [
       "iot",
       "iote",
@@ -171,7 +173,9 @@ export const DEFAULT_PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "store", label: "STORE AND PURCHASE", path: "/store/dashboard" },
   { key: "chatbot", label: "CHATBOT", path: "/chatbot" },
   { key: "transport", label: "TRANSPORT", path: "/transport/dashboard" },
-  { key: "iot", label: "IOT", path: "/iot/dashboard" },
+  ...(IOT_MODULE_ENABLED
+    ? [{ key: "iot", label: "IOT", path: "/iot/pum" }]
+    : []),
   { key: "sales", label: "SALES MODULE", path: "/o2d/dashboard" },
   { key: "project", label: "PROJECT", path: "/project/dashboard" },
   { key: "subscription", label: "SUBSCRIPTION", path: "/document/dashboard" },
@@ -205,6 +209,10 @@ export const resolvePortalNavItem = (
   const definition = resolvePortalSystemDefinition(systemName);
 
   if (!definition) {
+    return null;
+  }
+
+  if (!IOT_MODULE_ENABLED && definition.key === "iot") {
     return null;
   }
 

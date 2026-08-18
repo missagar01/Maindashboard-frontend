@@ -121,6 +121,10 @@ import TransportPodRegister from "./pages/transport/pages/TransportPodRegister";
 import DoordrishtiPage from "./pages/iot/pages/doordrishti";
 import IotPumPage from "./pages/iot/pages/iotpum";
 import { DashboardPage as IotDashboardPage } from "./pages/iot/pages/DashboardPage";
+import {
+  IOT_MODULE_ENABLED,
+  IOT_MQTT_DASHBOARD_ENABLED,
+} from "./config/featureFlags";
 // Document module pages
 import DocumentDashboard from "./pages/document/pages/Dashboard";
 import DocumentResourceManager from "./pages/document/pages/ResourceManager";
@@ -347,10 +351,23 @@ export default function App() {
             <Route path="/transport/pod-register" element={<RouteGuard><TransportPodRegister /></RouteGuard>} />
 
             {/* IoT Routes */}
-            <Route path="/iot" element={<RouteGuard><Navigate to="/iot/doordrishti" replace /></RouteGuard>} />
-            <Route path="/iot/doordrishti" element={<RouteGuard><DoordrishtiPage /></RouteGuard>} />
-            <Route path="/iot/pum" element={<RouteGuard><IotPumPage /></RouteGuard>} />
-            <Route path="/iot/dashboard" element={<RouteGuard><IotDashboardPage /></RouteGuard>} />
+            {IOT_MODULE_ENABLED ? (
+              <>
+                <Route path="/iot" element={<RouteGuard><Navigate to="/iot/pum" replace /></RouteGuard>} />
+                <Route path="/iot/doordrishti" element={<RouteGuard><DoordrishtiPage /></RouteGuard>} />
+                <Route path="/iot/pum" element={<RouteGuard><IotPumPage /></RouteGuard>} />
+                {IOT_MQTT_DASHBOARD_ENABLED ? (
+                  <Route path="/iot/dashboard" element={<RouteGuard><IotDashboardPage /></RouteGuard>} />
+                ) : (
+                  <Route path="/iot/dashboard" element={<RouteGuard><Navigate to="/iot/pum" replace /></RouteGuard>} />
+                )}
+              </>
+            ) : (
+              <>
+                <Route path="/iot" element={<RouteGuard><Navigate to="/dashboard" replace /></RouteGuard>} />
+                <Route path="/iot/*" element={<RouteGuard><Navigate to="/dashboard" replace /></RouteGuard>} />
+              </>
+            )}
             {/* Project Routes */}
             <Route path="/project" element={<RouteGuard><Navigate to="/project/dashboard" replace /></RouteGuard>} />
             <Route path="/project/dashboard" element={<RouteGuard><ProjectDashboardPage /></RouteGuard>} />
