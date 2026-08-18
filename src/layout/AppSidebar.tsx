@@ -9,6 +9,7 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   ClipboardList,
+  FileStack,
   FileText,
   Files,
   FolderKanban,
@@ -281,6 +282,7 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-pending-pos", name: "Pending POs", path: "/store/pending-pos", icon: Receipt },
 
 
+    { kind: "link", key: "store-grn-report", name: "GRN Report", path: "/store/grn-report", icon: FileStack },
     { kind: "link", key: "store-repair-follow-up", name: "Repair Follow Up", path: "/store/repair-followup", icon: RefreshCw },
     { kind: "link", key: "store-grn", name: "Store GRN", path: "/store/store-grn", icon: FileText },
 

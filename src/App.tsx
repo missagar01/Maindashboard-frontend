@@ -95,6 +95,7 @@ import StoreVendorRegistration from "./pages/store/pages/store/VendorRegistratio
 import StoreRateApproval from "./pages/store/pages/store/RateApproval";
 import StoreRepairGatePass from "./pages/store/pages/store/RepairGatePass";
 import StoreRepairGatePassHistory from "./pages/store/pages/store/RepairGatePassHistory";
+import StoreGrnReport from "./pages/store/pages/store/GrnReport";
 import StoreRepairFollowup from "./pages/store/pages/store/RepairFollowup";
 import StoreReturnable from "./pages/store/pages/store/ReturnablePage";
 import StoreGRN from "./pages/store/pages/store/StoreGRN";
@@ -314,6 +315,7 @@ export default function App() {
               <Route path="/store/rate-approval" element={<RouteGuard><StoreRateApproval /></RouteGuard>} />
               <Route path="/store/repair-gate-pass" element={<RouteGuard><StoreRepairGatePass /></RouteGuard>} />
               <Route path="/store/repair-gate-pass/history" element={<RouteGuard><StoreRepairGatePassHistory /></RouteGuard>} />
+              <Route path="/store/grn-report" element={<RouteGuard><StoreGrnReport /></RouteGuard>} />
               <Route path="/store/repair-followup" element={<RouteGuard><StoreRepairFollowup /></RouteGuard>} />
               <Route path="/store/returnable" element={<RouteGuard><StoreReturnable /></RouteGuard>} />
               <Route path="/store/store-grn" element={<RouteGuard><StoreGRN /></RouteGuard>} />

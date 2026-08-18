@@ -54,6 +54,31 @@ export const storeApi: any = {
   downloadRepairGatePassPending: () =>
     downloadBlob("/api/store/repair-gate-pass/pending/download"),
 
+  getGrnReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) {
+      params.append("fromDate", fromDate);
+    }
+    if (toDate) {
+      params.append("toDate", toDate);
+    }
+
+    const query = params.toString();
+    return storeApiRequest(`/api/store/grn-report${query ? `?${query}` : ""}`);
+  },
+  downloadGrnReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) {
+      params.append("fromDate", fromDate);
+    }
+    if (toDate) {
+      params.append("toDate", toDate);
+    }
+
+    const query = params.toString();
+    return downloadBlob(`/api/store/grn-report/download${query ? `?${query}` : ""}`);
+  },
+
   downloadHistoryIndents: () =>
     downloadBlob("/api/store/store-indent/history/download"),
 

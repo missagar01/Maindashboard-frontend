@@ -601,8 +601,8 @@ export default function ApproveIndent() {
     <div className="w-full px-0 py-2 sm:p-4 md:p-2 lg:p-2">
       <Tabs defaultValue="pending">
         <Heading
-          heading="Approve Indent"
-          subtext={`Approve or Reject Indents | ${rangeLabel}`}
+          heading="Indent"
+          subtext={`Pending and History Indents | ${rangeLabel}`}
           tabs
         >
           <ClipboardCheck size={50} className="text-primary" />
