@@ -5,6 +5,7 @@ import Heading from "../../components/element/Heading";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 
+
 const quickActions = [
   {
     title: "Vendor Updates",
