@@ -296,6 +296,8 @@ const EnquiryPipeline = () => {
                             </div>
                         )}
 
+
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
                             <Field label="Firm Name(New)" icon={Building2} required>
                                 <input
