@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
     Loader2, GitBranch, Plus, X, AlertCircle, CheckCircle2,
-    User, Building2, Phone, Mail, FileText, Search, RefreshCw, Check, ChevronDown,
+    User, Building2, Phone, Mail, FileText, Search, RefreshCw, Check, ChevronDown, MapPin,
 } from "lucide-react";
 import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
@@ -15,6 +15,45 @@ const STAGE_COLUMNS: { key: string; label: string }[] = [
     { key: "negotiation", label: "Negotiation" },
     { key: "close", label: "Closer" },
 ];
+
+const INDIA_STATES = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Ladakh",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+] as const;
 
 type StageStatus = "completed" | "overdue" | "pending" | "not_started";
 
@@ -30,10 +69,12 @@ interface PipelineEnquiry {
     id: number;
     enq_no: string;
     name: string;
-    company_name: string;
+    city: string | null;
+    state: string | null;
+    company_name: string | null;
     mobile: string;
-    email: string;
-    requirement: string;
+    email: string | null;
+    requirement: string | null;
     sales_person: string;
     created_at: string;
     stages: StageInfo[];
@@ -41,8 +82,21 @@ interface PipelineEnquiry {
     overall_status: "completed" | "overdue" | "pending" | "blocked";
 }
 
-const emptyForm = {
+interface EnquiryForm {
+    name: string;
+    city: string;
+    state: string;
+    company_name: string;
+    mobile: string;
+    email: string;
+    requirement: string;
+    sales_person: string;
+}
+
+const emptyForm: EnquiryForm = {
     name: "",
+    city: "",
+    state: "",
     company_name: "",
     mobile: "",
     email: "",
@@ -52,7 +106,8 @@ const emptyForm = {
 
 const EnquiryPipeline = () => {
     const { user } = useAuth();
-    const isAdmin = user?.role === "admin";
+    const currentUserName = user?.user_name || user?.username || "";
+    const isAdmin = ["admin", "all access"].includes((user?.role || "").toLowerCase());
 
     const [loading, setLoading] = useState(false);
     const [enquiries, setEnquiries] = useState<PipelineEnquiry[]>([]);
@@ -61,7 +116,7 @@ const EnquiryPipeline = () => {
     const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
 
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState(emptyForm);
+    const [form, setForm] = useState<EnquiryForm>(emptyForm);
     const [submitting, setSubmitting] = useState(false);
 
     const [completingKey, setCompletingKey] = useState<string | null>(null);
@@ -69,10 +124,10 @@ const EnquiryPipeline = () => {
     const [modeFilter, setModeFilter] = useState<"pending" | "completed">("pending");
 
     useEffect(() => {
-        if (!isAdmin && user?.username) {
-            setForm((f) => ({ ...f, sales_person: user.user_name || user.username || "" }));
+        if (!isAdmin && currentUserName) {
+            setForm((f) => ({ ...f, sales_person: currentUserName }));
         }
-    }, [user, isAdmin]);
+    }, [currentUserName, isAdmin]);
 
     useEffect(() => { if (user) fetchEnquiries(); }, [user]);
 
@@ -101,6 +156,10 @@ const EnquiryPipeline = () => {
         }
     };
 
+    const updateFormField = <K extends keyof EnquiryForm>(field: K, value: EnquiryForm[K]) => {
+        setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setMessage({ type: null, text: "" });
@@ -113,7 +172,7 @@ const EnquiryPipeline = () => {
             const response = await o2dAPI.createPipelineEnquiry(form);
             if (response.data.success) {
                 setMessage({ type: "success", text: "Enquiry created. First Meeting stage is now pending." });
-                setForm({ ...emptyForm, sales_person: !isAdmin ? (user?.user_name || user?.username || "") : "" });
+                setForm({ ...emptyForm, sales_person: !isAdmin ? currentUserName : "" });
                 setShowForm(false);
                 fetchEnquiries();
             }
@@ -184,6 +243,9 @@ const EnquiryPipeline = () => {
         try { return format(new Date(d), "dd MMM, hh:mm a"); } catch { return d; }
     };
 
+    const getLocationText = (city: string | null, state: string | null) =>
+        [city, state].filter((value): value is string => Boolean(value && value.trim())).join(", ");
+
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 p-2 sm:p-4 lg:p-6">
             <div className="w-full mx-auto space-y-4">
@@ -234,70 +296,101 @@ const EnquiryPipeline = () => {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                            <Field label="Name" icon={User} required>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
+                            <Field label="Firm Name(New)" icon={Building2} required>
                                 <input
                                     value={form.name}
-                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    onChange={(e) => updateFormField("name", e.target.value)}
                                     className={inputCls}
-                                    placeholder="Contact name"
+                                    placeholder="Enter firm name"
                                     required
                                 />
                             </Field>
-                            <Field label="Company" icon={Building2}>
+                            <Field label="City" icon={MapPin}>
+                                <input
+                                    value={form.city}
+                                    onChange={(e) => updateFormField("city", e.target.value)}
+                                    className={inputCls}
+                                    placeholder="Enter city"
+                                />
+                            </Field>
+                            <Field label="State" icon={MapPin}>
+                                <div className="relative">
+                                    <select
+                                        value={form.state}
+                                        onChange={(e) => updateFormField("state", e.target.value)}
+                                        className={cn(inputCls, "appearance-none pr-8")}
+                                    >
+                                        <option value="">Select state</option>
+                                        {INDIA_STATES.map((stateName) => (
+                                            <option key={stateName} value={stateName}>{stateName}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                </div>
+                            </Field>
+                            <Field label="Contact Person" icon={User}>
                                 <input
                                     value={form.company_name}
-                                    onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                                    onChange={(e) => updateFormField("company_name", e.target.value)}
                                     className={inputCls}
-                                    placeholder="Company name"
+                                    placeholder="Enter contact person"
                                 />
                             </Field>
-                            <Field label="Mobile" icon={Phone} required>
+                            <Field label="Contact No" icon={Phone} required>
                                 <input
                                     value={form.mobile}
-                                    onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+                                    onChange={(e) => updateFormField("mobile", e.target.value)}
                                     className={inputCls}
-                                    placeholder="10-digit mobile"
+                                    inputMode="tel"
+                                    placeholder="Enter contact number"
                                     required
                                 />
                             </Field>
-                            <Field label="Email" icon={Mail}>
+                            <Field label="E-mail" icon={Mail}>
                                 <input
                                     type="email"
                                     value={form.email}
-                                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                                    onChange={(e) => updateFormField("email", e.target.value)}
                                     className={inputCls}
                                     placeholder="name@company.com"
                                 />
                             </Field>
                             <Field label="Sales Person" icon={User} required>
-                                <div className="relative">
-                                    <select
+                                {isAdmin ? (
+                                    <div className="relative">
+                                        <select
+                                            value={form.sales_person}
+                                            onChange={(e) => updateFormField("sales_person", e.target.value)}
+                                            className={cn(inputCls, "appearance-none pr-8")}
+                                            required
+                                        >
+                                            <option value="">Select Sales Person</option>
+                                            {marketingUsers.map((u) => (
+                                                <option key={u.id} value={u.user_name}>{u.user_name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                    </div>
+                                ) : (
+                                    <input
                                         value={form.sales_person}
-                                        onChange={(e) => setForm({ ...form, sales_person: e.target.value })}
-                                        className={cn(inputCls, "appearance-none pr-6")}
+                                        readOnly
+                                        className={cn(inputCls, "bg-slate-100 text-slate-500 cursor-not-allowed")}
+                                        placeholder="Sales person"
                                         required
-                                    >
-                                        <option value="">Select Sales Person</option>
-                                        {marketingUsers.map((u) => (
-                                            <option key={u.id} value={u.user_name}>{u.user_name}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
-                                </div>
+                                    />
+                                )}
                             </Field>
-                            <div className="col-span-2 space-y-1">
-                                <label className="flex items-center gap-1 text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                                    <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-500" /> Requirement
-                                </label>
+                            <Field label="Description" icon={FileText} className="sm:col-span-2 xl:col-span-4">
                                 <textarea
                                     value={form.requirement}
-                                    onChange={(e) => setForm({ ...form, requirement: e.target.value })}
+                                    onChange={(e) => updateFormField("requirement", e.target.value)}
                                     className={cn(inputCls, "resize-none")}
-                                    rows={1}
-                                    placeholder="What does the customer need?"
+                                    rows={3}
+                                    placeholder="Enter customer requirement"
                                 />
-                            </div>
+                            </Field>
                         </div>
 
                         <div className="flex justify-end">
@@ -394,7 +487,18 @@ const EnquiryPipeline = () => {
 
                                         <div className="px-3 py-2.5 space-y-2.5">
                                             <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500 font-medium">
-                                                {enq.company_name && <span>{enq.company_name}</span>}
+                                                {getLocationText(enq.city, enq.state) && (
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {getLocationText(enq.city, enq.state)}
+                                                    </span>
+                                                )}
+                                                {enq.company_name && (
+                                                    <span className="flex items-center gap-1">
+                                                        <User className="w-3 h-3" />
+                                                        {enq.company_name}
+                                                    </span>
+                                                )}
                                                 <span className="flex items-center gap-1"><User className="w-3 h-3" /> {enq.sales_person}</span>
                                             </div>
 
@@ -442,7 +546,7 @@ const EnquiryPipeline = () => {
                             <table className="w-full border-separate border-spacing-0 text-left">
                                 <thead className="bg-slate-50">
                                     <tr>
-                                        {['#', 'Enq No', 'Name', 'Company', 'Sales Person', ...STAGE_COLUMNS.map((s) => s.label), 'Pending Stage', ''].map((h) => (
+                                        {['#', 'Enq No', 'Firm Name', 'City', 'State', 'Contact Person', 'Sales Person', ...STAGE_COLUMNS.map((s) => s.label), 'Pending Stage', ''].map((h) => (
                                             <th key={h} className="sticky top-0 px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50 z-10 border-b-2 border-slate-200">
                                                 {h}
                                             </th>
@@ -461,6 +565,8 @@ const EnquiryPipeline = () => {
                                                 <td className="px-3 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">{i + 1}</td>
                                                 <td className="px-3 py-2.5 text-xs font-black text-slate-700 whitespace-nowrap">{enq.enq_no}</td>
                                                 <td className="px-3 py-2.5 text-xs font-semibold text-slate-700 whitespace-nowrap">{enq.name}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.city || "—"}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.state || "—"}</td>
                                                 <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.company_name || "—"}</td>
                                                 <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.sales_person}</td>
 
@@ -520,11 +626,23 @@ const EnquiryPipeline = () => {
 
 const inputCls = "w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none font-semibold text-slate-700 shadow-sm text-xs sm:text-sm";
 
-function Field({ label, icon: Icon, required, children }: { label: string; icon: any; required?: boolean; children: React.ReactNode }) {
+function Field({
+    label,
+    icon: Icon,
+    required,
+    children,
+    className,
+}: {
+    label: string;
+    icon: React.ElementType;
+    required?: boolean;
+    children: React.ReactNode;
+    className?: string;
+}) {
     return (
-        <div className="space-y-1">
-            <label className="flex items-center gap-1 text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-500" />
+        <div className={cn("space-y-1", className)}>
+            <label className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                <Icon className="w-4 h-4 text-blue-500" />
                 {label} {required && <span className="text-rose-500">*</span>}
             </label>
             {children}
