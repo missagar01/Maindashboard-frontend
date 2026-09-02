@@ -250,7 +250,6 @@ const PaymentFollowup = () => {
                 {/* Filters */}
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     {([
-                        ["all", "All", counts.all],
                         ["pending", "Pending", counts.pending],
                         ["advance", "Advance", counts.advance],
                         ["half", "Half", counts.half],

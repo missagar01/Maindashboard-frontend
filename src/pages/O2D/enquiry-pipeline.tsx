@@ -1,11 +1,27 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Loader2, GitBranch, Plus, X, AlertCircle, CheckCircle2,
-    User, Building2, Phone, Mail, FileText, Search, RefreshCw, Check, ChevronDown, MapPin,
+    AlertCircle,
+    Building2,
+    Check,
+    CheckCircle2,
+    ChevronDown,
+    FileText,
+    GitBranch,
+    Loader2,
+    Mail,
+    MapPin,
+    Pencil,
+    Phone,
+    Plus,
+    RefreshCw,
+    Search,
+    Trash2,
+    User,
+    X,
 } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
-import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "../../lib/utils";
 
 const STAGE_COLUMNS: { key: string; label: string }[] = [
@@ -113,11 +129,17 @@ const EnquiryPipeline = () => {
     const [enquiries, setEnquiries] = useState<PipelineEnquiry[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [marketingUsers, setMarketingUsers] = useState<{ id: number; user_name: string }[]>([]);
-    const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
+    const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({
+        type: null,
+        text: "",
+    });
 
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState<EnquiryForm>(emptyForm);
+    const [editingEnquiryId, setEditingEnquiryId] = useState<number | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; enq_no: string } | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const [completingKey, setCompletingKey] = useState<string | null>(null);
     const [stageFilter, setStageFilter] = useState<"all" | string>("all");
@@ -125,21 +147,28 @@ const EnquiryPipeline = () => {
 
     useEffect(() => {
         if (!isAdmin && currentUserName) {
-            setForm((f) => ({ ...f, sales_person: currentUserName }));
+            setForm((prev) => ({ ...prev, sales_person: currentUserName }));
         }
     }, [currentUserName, isAdmin]);
 
-    useEffect(() => { if (user) fetchEnquiries(); }, [user]);
+    useEffect(() => {
+        if (user) {
+            fetchEnquiries();
+        }
+    }, [user]);
 
     useEffect(() => {
         const fetchMarketingUsers = async () => {
             try {
                 const response = await o2dAPI.getMarketingUsers();
-                if (response.data.success) setMarketingUsers(response.data.data);
+                if (response.data.success) {
+                    setMarketingUsers(response.data.data);
+                }
             } catch (err) {
                 console.error("Error fetching marketing users:", err);
             }
         };
+
         fetchMarketingUsers();
     }, []);
 
@@ -148,7 +177,9 @@ const EnquiryPipeline = () => {
         setError(null);
         try {
             const response = await o2dAPI.getPipelineEnquiries();
-            if (response.data.success) setEnquiries(response.data.data);
+            if (response.data.success) {
+                setEnquiries(response.data.data);
+            }
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to fetch enquiries");
         } finally {
@@ -160,24 +191,113 @@ const EnquiryPipeline = () => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
 
+    const resetFormState = () => {
+        setEditingEnquiryId(null);
+        setForm({
+            ...emptyForm,
+            sales_person: !isAdmin ? currentUserName : "",
+        });
+    };
+
+    const handleToggleForm = () => {
+        setError(null);
+        setMessage({ type: null, text: "" });
+        setDeleteTarget(null);
+
+        if (showForm) {
+            setShowForm(false);
+            resetFormState();
+            return;
+        }
+
+        resetFormState();
+        setShowForm(true);
+    };
+
+    const handleEditEnquiry = (enq: PipelineEnquiry) => {
+        setError(null);
+        setMessage({ type: null, text: "" });
+        setDeleteTarget(null);
+        setEditingEnquiryId(enq.id);
+        setForm({
+            name: enq.name || "",
+            city: enq.city || "",
+            state: enq.state || "",
+            company_name: enq.company_name || "",
+            mobile: enq.mobile || "",
+            email: enq.email || "",
+            requirement: enq.requirement || "",
+            sales_person: enq.sales_person || (!isAdmin ? currentUserName : ""),
+        });
+        setShowForm(true);
+    };
+
+    const requestDeleteEnquiry = (enq: PipelineEnquiry) => {
+        setError(null);
+        setMessage({ type: null, text: "" });
+        setDeleteTarget({ id: enq.id, enq_no: enq.enq_no });
+    };
+
+    const handleDeleteEnquiry = async () => {
+        if (!deleteTarget) return;
+
+        setDeletingId(deleteTarget.id);
+        setError(null);
+        setMessage({ type: null, text: "" });
+
+        try {
+            const response = await o2dAPI.deletePipelineEnquiry(deleteTarget.id);
+            if (response.data.success) {
+                setMessage({ type: "success", text: `${deleteTarget.enq_no} deleted successfully.` });
+
+                if (editingEnquiryId === deleteTarget.id) {
+                    setShowForm(false);
+                    resetFormState();
+                }
+
+                await fetchEnquiries();
+            }
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Failed to delete enquiry.");
+        } finally {
+            setDeleteTarget(null);
+            setDeletingId(null);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
         setMessage({ type: null, text: "" });
+        setDeleteTarget(null);
+
         if (!form.name || !form.mobile || !form.sales_person) {
             setMessage({ type: "error", text: "Name, Mobile and Sales Person are required." });
             return;
         }
+
         setSubmitting(true);
         try {
-            const response = await o2dAPI.createPipelineEnquiry(form);
+            const response = editingEnquiryId
+                ? await o2dAPI.updatePipelineEnquiry(editingEnquiryId, form)
+                : await o2dAPI.createPipelineEnquiry(form);
+
             if (response.data.success) {
-                setMessage({ type: "success", text: "Enquiry created. First Meeting stage is now pending." });
-                setForm({ ...emptyForm, sales_person: !isAdmin ? currentUserName : "" });
+                setMessage({
+                    type: "success",
+                    text: editingEnquiryId
+                        ? "Enquiry updated successfully."
+                        : "Enquiry created. First Meeting stage is now pending.",
+                });
                 setShowForm(false);
-                fetchEnquiries();
+                resetFormState();
+                await fetchEnquiries();
             }
         } catch (err: any) {
-            setMessage({ type: "error", text: err.response?.data?.message || "Failed to create enquiry." });
+            setMessage({
+                type: "error",
+                text: err.response?.data?.message || `Failed to ${editingEnquiryId ? "update" : "create"} enquiry.`,
+            });
         } finally {
             setSubmitting(false);
         }
@@ -189,7 +309,7 @@ const EnquiryPipeline = () => {
         try {
             const response = await o2dAPI.completePipelineStage(id, stage);
             if (response.data.success) {
-                setEnquiries((prev) => prev.map((e) => (e.id === id ? response.data.data : e)));
+                setEnquiries((prev) => prev.map((item) => (item.id === id ? response.data.data : item)));
             }
         } catch (err: any) {
             setError(err.response?.data?.message || `Failed to complete ${stage} stage`);
@@ -201,21 +321,20 @@ const EnquiryPipeline = () => {
     const filteredEnquiries = useMemo(() => {
         if (stageFilter === "all") {
             return modeFilter === "completed"
-                ? enquiries.filter((e) => e.overall_status === "completed")
-                : enquiries.filter((e) => e.overall_status !== "completed");
+                ? enquiries.filter((enquiry) => enquiry.overall_status === "completed")
+                : enquiries.filter((enquiry) => enquiry.overall_status !== "completed");
         }
 
         if (modeFilter === "pending") {
-            return enquiries.filter((e) => e.current_stage === stageFilter);
+            return enquiries.filter((enquiry) => enquiry.current_stage === stageFilter);
         }
 
-        // completed: that specific stage's actual is set — filtered & sorted by its actual timestamp
         return enquiries
-            .filter((e) => e.stages.find((s) => s.key === stageFilter)?.actual)
+            .filter((enquiry) => enquiry.stages.find((stage) => stage.key === stageFilter)?.actual)
             .slice()
             .sort((a, b) => {
-                const aTime = new Date(a.stages.find((s) => s.key === stageFilter)!.actual!).getTime();
-                const bTime = new Date(b.stages.find((s) => s.key === stageFilter)!.actual!).getTime();
+                const aTime = new Date(a.stages.find((stage) => stage.key === stageFilter)!.actual!).getTime();
+                const bTime = new Date(b.stages.find((stage) => stage.key === stageFilter)!.actual!).getTime();
                 return bTime - aTime;
             });
     }, [enquiries, stageFilter, modeFilter]);
@@ -223,24 +342,33 @@ const EnquiryPipeline = () => {
     const stageCounts = useMemo(() => {
         const counts: Record<string, { pending: number; completed: number }> = {
             all: {
-                pending: enquiries.filter((e) => e.overall_status !== "completed").length,
-                completed: enquiries.filter((e) => e.overall_status === "completed").length,
+                pending: enquiries.filter((enquiry) => enquiry.overall_status !== "completed").length,
+                completed: enquiries.filter((enquiry) => enquiry.overall_status === "completed").length,
             },
         };
-        STAGE_COLUMNS.forEach((s) => {
-            counts[s.key] = {
-                pending: enquiries.filter((e) => e.current_stage === s.key).length,
-                completed: enquiries.filter((e) => e.stages.find((st) => st.key === s.key)?.actual).length,
+
+        STAGE_COLUMNS.forEach((stage) => {
+            counts[stage.key] = {
+                pending: enquiries.filter((enquiry) => enquiry.current_stage === stage.key).length,
+                completed: enquiries.filter((enquiry) => enquiry.stages.find((item) => item.key === stage.key)?.actual).length,
             };
         });
+
         return counts;
     }, [enquiries]);
 
-    const stageFilterLabel = stageFilter === "all" ? "All" : STAGE_COLUMNS.find((s) => s.key === stageFilter)?.label || "";
+    const stageFilterLabel =
+        stageFilter === "all"
+            ? "All"
+            : STAGE_COLUMNS.find((stage) => stage.key === stageFilter)?.label || "";
 
-    const fmtDateTime = (d: string | null) => {
-        if (!d) return "—";
-        try { return format(new Date(d), "dd MMM, hh:mm a"); } catch { return d; }
+    const fmtDateTime = (value: string | null) => {
+        if (!value) return "-";
+        try {
+            return format(new Date(value), "dd MMM, hh:mm a");
+        } catch {
+            return value;
+        }
     };
 
     const getLocationText = (city: string | null, state: string | null) =>
@@ -249,8 +377,6 @@ const EnquiryPipeline = () => {
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 p-2 sm:p-4 lg:p-6">
             <div className="w-full mx-auto space-y-4">
-
-                {/* Header */}
                 <div className="bg-[#1e40af] px-3 py-2.5 sm:px-6 sm:py-4 rounded-t-xl flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2 sm:gap-3">
                         <div className="bg-white/10 p-1.5 sm:p-2 rounded-lg flex-shrink-0">
@@ -263,8 +389,10 @@ const EnquiryPipeline = () => {
                             </p>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-2">
                         <button
+                            type="button"
                             onClick={fetchEnquiries}
                             className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-all border border-white/10"
                             title="Refresh"
@@ -272,7 +400,8 @@ const EnquiryPipeline = () => {
                             <RefreshCw className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", loading && "animate-spin")} />
                         </button>
                         <button
-                            onClick={() => setShowForm((s) => !s)}
+                            type="button"
+                            onClick={handleToggleForm}
                             className="bg-white text-[#1e40af] hover:bg-blue-50 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all"
                         >
                             {showForm ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
@@ -281,25 +410,74 @@ const EnquiryPipeline = () => {
                     </div>
                 </div>
 
-                {/* Form */}
+                {message.type && (
+                    <div
+                        className={cn(
+                            "bg-white p-3 rounded-lg border-l-4 flex items-center gap-3",
+                            message.type === "success"
+                                ? "text-emerald-800 border-emerald-500"
+                                : "text-rose-800 border-rose-500"
+                        )}
+                    >
+                        {message.type === "success" ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                            <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                        )}
+                        <p className="font-semibold text-xs sm:text-sm">{message.text}</p>
+                    </div>
+                )}
+
+                {deleteTarget && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                        onClick={() => {
+                            if (deletingId !== deleteTarget.id) {
+                                setDeleteTarget(null);
+                            }
+                        }}
+                    >
+                        <div
+                            className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-sm p-4 sm:p-5 space-y-4"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm font-semibold text-slate-700">
+                                    Delete enquiry <span className="text-slate-900">{deleteTarget.enq_no}</span>? This action cannot be undone.
+                                </p>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteTarget(null)}
+                                    disabled={deletingId === deleteTarget.id}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteEnquiry}
+                                    disabled={deletingId === deleteTarget.id}
+                                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    {deletingId === deleteTarget.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    )}
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {showForm && (
                     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-3 sm:p-5 space-y-3">
-                        {message.type && (
-                            <div className={cn(
-                                "p-3 rounded-lg border-l-4 flex items-center gap-3",
-                                message.type === "success" ? "bg-emerald-50 text-emerald-800 border-emerald-500" : "bg-rose-50 text-rose-800 border-rose-500"
-                            )}>
-                                {message.type === "success"
-                                    ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                                    : <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />}
-                                <p className="font-semibold text-xs sm:text-sm">{message.text}</p>
-                            </div>
-                        )}
-
-
-
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
-                            <Field label="Firm Name(New)" icon={Building2} required>
+                            <Field label="Firm Name" icon={Building2} required>
                                 <input
                                     value={form.name}
                                     onChange={(e) => updateFormField("name", e.target.value)}
@@ -308,6 +486,7 @@ const EnquiryPipeline = () => {
                                     required
                                 />
                             </Field>
+
                             <Field label="City" icon={MapPin}>
                                 <input
                                     value={form.city}
@@ -316,6 +495,7 @@ const EnquiryPipeline = () => {
                                     placeholder="Enter city"
                                 />
                             </Field>
+
                             <Field label="State" icon={MapPin}>
                                 <div className="relative">
                                     <select
@@ -325,12 +505,15 @@ const EnquiryPipeline = () => {
                                     >
                                         <option value="">Select state</option>
                                         {INDIA_STATES.map((stateName) => (
-                                            <option key={stateName} value={stateName}>{stateName}</option>
+                                            <option key={stateName} value={stateName}>
+                                                {stateName}
+                                            </option>
                                         ))}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                                 </div>
                             </Field>
+
                             <Field label="Contact Person" icon={User}>
                                 <input
                                     value={form.company_name}
@@ -339,6 +522,7 @@ const EnquiryPipeline = () => {
                                     placeholder="Enter contact person"
                                 />
                             </Field>
+
                             <Field label="Contact No" icon={Phone} required>
                                 <input
                                     value={form.mobile}
@@ -349,6 +533,7 @@ const EnquiryPipeline = () => {
                                     required
                                 />
                             </Field>
+
                             <Field label="E-mail" icon={Mail}>
                                 <input
                                     type="email"
@@ -358,6 +543,7 @@ const EnquiryPipeline = () => {
                                     placeholder="name@company.com"
                                 />
                             </Field>
+
                             <Field label="Sales Person" icon={User} required>
                                 {isAdmin ? (
                                     <div className="relative">
@@ -368,8 +554,10 @@ const EnquiryPipeline = () => {
                                             required
                                         >
                                             <option value="">Select Sales Person</option>
-                                            {marketingUsers.map((u) => (
-                                                <option key={u.id} value={u.user_name}>{u.user_name}</option>
+                                            {marketingUsers.map((marketingUser) => (
+                                                <option key={marketingUser.id} value={marketingUser.user_name}>
+                                                    {marketingUser.user_name}
+                                                </option>
                                             ))}
                                         </select>
                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
@@ -384,6 +572,7 @@ const EnquiryPipeline = () => {
                                     />
                                 )}
                             </Field>
+
                             <Field label="Description" icon={FileText} className="sm:col-span-2 xl:col-span-4">
                                 <textarea
                                     value={form.requirement}
@@ -402,18 +591,26 @@ const EnquiryPipeline = () => {
                                 className="h-9 sm:h-10 px-4 sm:px-6 bg-[#1e40af] text-white rounded-lg hover:bg-blue-800 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 active:scale-95"
                             >
                                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                <span>{submitting ? "Saving..." : "Save Enquiry"}</span>
+                                <span>
+                                    {submitting
+                                        ? editingEnquiryId
+                                            ? "Updating..."
+                                            : "Saving..."
+                                        : editingEnquiryId
+                                            ? "Update Enquiry"
+                                            : "Save Enquiry"}
+                                </span>
                             </button>
                         </div>
                     </form>
                 )}
 
-                {/* Filters — stage-wise */}
                 <div className="space-y-1.5 sm:space-y-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        {([{ key: "all", label: "All" }, ...STAGE_COLUMNS] as { key: string; label: string }[]).map(({ key, label }) => (
+                        {[{ key: "all", label: "All" }, ...STAGE_COLUMNS].map(({ key, label }) => (
                             <button
                                 key={key}
+                                type="button"
                                 onClick={() => setStageFilter(key)}
                                 className={cn(
                                     "px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all",
@@ -426,10 +623,12 @@ const EnquiryPipeline = () => {
                             </button>
                         ))}
                     </div>
+
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         {(["pending", "completed"] as const).map((mode) => (
                             <button
                                 key={mode}
+                                type="button"
                                 onClick={() => setModeFilter(mode)}
                                 className={cn(
                                     "px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all",
@@ -452,7 +651,6 @@ const EnquiryPipeline = () => {
                     </div>
                 )}
 
-                {/* List */}
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -466,10 +664,9 @@ const EnquiryPipeline = () => {
                     </div>
                 ) : (
                     <>
-                        {/* ─── Mobile Card List (< lg) — no horizontal scroll ─── */}
                         <div className="lg:hidden space-y-2.5">
                             {filteredEnquiries.map((enq) => {
-                                const activeStage = enq.stages.find((s) => s.key === enq.current_stage);
+                                const activeStage = enq.stages.find((stage) => stage.key === enq.current_stage);
                                 const isOverdue = activeStage?.status === "overdue";
                                 const isBlocked = activeStage?.status === "not_started";
                                 const key = activeStage ? `${enq.id}-${activeStage.key}` : "";
@@ -482,26 +679,61 @@ const EnquiryPipeline = () => {
                                                 <span className="w-px h-3 bg-slate-200 flex-shrink-0" />
                                                 <span className="text-xs font-bold text-slate-800 truncate">{enq.name}</span>
                                             </div>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase flex-shrink-0">
-                                                {activeStage ? activeStage.label : "Completed"}
-                                            </span>
+
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditEnquiry(enq)}
+                                                    className="rounded-md border border-blue-200 bg-blue-50 p-1 text-blue-600 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+                                                    title="Edit enquiry"
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => requestDeleteEnquiry(enq)}
+                                                    disabled={deletingId === enq.id}
+                                                    className="rounded-md border border-rose-200 bg-rose-50 p-1 text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-colors disabled:opacity-50"
+                                                    title="Delete enquiry"
+                                                >
+                                                    {deletingId === enq.id ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="px-3 py-2.5 space-y-2.5">
                                             <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500 font-medium">
+                                                <span className="flex items-center gap-1">
+                                                    <Phone className="w-3 h-3" />
+                                                    {enq.mobile}
+                                                </span>
+
                                                 {getLocationText(enq.city, enq.state) && (
                                                     <span className="flex items-center gap-1">
                                                         <MapPin className="w-3 h-3" />
                                                         {getLocationText(enq.city, enq.state)}
                                                     </span>
                                                 )}
+
                                                 {enq.company_name && (
                                                     <span className="flex items-center gap-1">
                                                         <User className="w-3 h-3" />
                                                         {enq.company_name}
                                                     </span>
                                                 )}
-                                                <span className="flex items-center gap-1"><User className="w-3 h-3" /> {enq.sales_person}</span>
+
+                                                <span className="flex items-center gap-1">
+                                                    <User className="w-3 h-3" />
+                                                    {enq.sales_person}
+                                                </span>
+
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase">
+                                                    {activeStage ? activeStage.label : "Completed"}
+                                                </span>
                                             </div>
 
                                             <div className="rounded-lg border border-slate-100 divide-y divide-slate-100 overflow-hidden">
@@ -509,11 +741,11 @@ const EnquiryPipeline = () => {
                                                     <div key={stage.key} className="flex items-center justify-between px-2.5 py-1.5 text-[10px]">
                                                         <span className="font-bold text-slate-500">{stage.label}</span>
                                                         {stage.actual ? (
-                                                            <span className="text-slate-600">Done — {fmtDateTime(stage.actual)}</span>
+                                                            <span className="text-slate-600">Done - {fmtDateTime(stage.actual)}</span>
                                                         ) : stage.planned ? (
-                                                            <span className="text-slate-600">Pending — {fmtDateTime(stage.planned)}</span>
+                                                            <span className="text-slate-600">Pending - {fmtDateTime(stage.planned)}</span>
                                                         ) : (
-                                                            <span className="text-slate-300">—</span>
+                                                            <span className="text-slate-300">-</span>
                                                         )}
                                                     </div>
                                                 ))}
@@ -527,13 +759,16 @@ const EnquiryPipeline = () => {
 
                                             {modeFilter === "pending" && activeStage && !isBlocked && (
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleCompleteStage(enq.id, activeStage.key)}
                                                     disabled={completingKey === key}
                                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#1e40af] text-white text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                                                 >
-                                                    {completingKey === key
-                                                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                        : <Check className="w-3.5 h-3.5" />}
+                                                    {completingKey === key ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Check className="w-3.5 h-3.5" />
+                                                    )}
                                                     Mark {activeStage.label} Complete
                                                 </button>
                                             )}
@@ -543,43 +778,59 @@ const EnquiryPipeline = () => {
                             })}
                         </div>
 
-                        {/* ─── Desktop Table (lg+) ─── */}
                         <div className="hidden lg:block bg-white border border-slate-200 rounded-xl overflow-x-auto">
                             <table className="w-full border-separate border-spacing-0 text-left">
                                 <thead className="bg-slate-50">
                                     <tr>
-                                        {['#', 'Enq No', 'Firm Name', 'City', 'State', 'Contact Person', 'Sales Person', ...STAGE_COLUMNS.map((s) => s.label), 'Pending Stage', ''].map((h) => (
-                                            <th key={h} className="sticky top-0 px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50 z-10 border-b-2 border-slate-200">
-                                                {h}
+                                        {[
+                                            "#",
+                                            "Enq No",
+                                            "Firm Name",
+                                            "City",
+                                            "State",
+                                            "Contact Person",
+                                            "Contact No",
+                                            "Sales Person",
+                                            ...STAGE_COLUMNS.map((stage) => stage.label),
+                                            "Pending Stage",
+                                            "Actions",
+                                        ].map((header) => (
+                                            <th
+                                                key={header}
+                                                className="sticky top-0 px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50 z-10 border-b-2 border-slate-200"
+                                            >
+                                                {header}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-slate-100">
-                                    {filteredEnquiries.map((enq, i) => {
-                                        const activeStage = enq.stages.find((s) => s.key === enq.current_stage);
+                                    {filteredEnquiries.map((enq, index) => {
+                                        const activeStage = enq.stages.find((stage) => stage.key === enq.current_stage);
                                         const isOverdue = activeStage?.status === "overdue";
                                         const isBlocked = activeStage?.status === "not_started";
                                         const key = activeStage ? `${enq.id}-${activeStage.key}` : "";
 
                                         return (
                                             <tr key={enq.id} className="hover:bg-slate-50/60 transition-colors align-top">
-                                                <td className="px-3 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">{i + 1}</td>
+                                                <td className="px-3 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">{index + 1}</td>
                                                 <td className="px-3 py-2.5 text-xs font-black text-slate-700 whitespace-nowrap">{enq.enq_no}</td>
                                                 <td className="px-3 py-2.5 text-xs font-semibold text-slate-700 whitespace-nowrap">{enq.name}</td>
-                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.city || "—"}</td>
-                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.state || "—"}</td>
-                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.company_name || "—"}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.city || "-"}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.state || "-"}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.company_name || "-"}</td>
+                                                <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.mobile || "-"}</td>
                                                 <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{enq.sales_person}</td>
 
                                                 {enq.stages.map((stage) => (
                                                     <td key={stage.key} className="px-3 py-2.5 text-[11px] text-slate-600 whitespace-nowrap">
                                                         {stage.actual ? (
-                                                            <span>Done — {fmtDateTime(stage.actual)}</span>
+                                                            <span>Done - {fmtDateTime(stage.actual)}</span>
                                                         ) : stage.planned ? (
-                                                            <span>Pending — {fmtDateTime(stage.planned)}</span>
+                                                            <span>Pending - {fmtDateTime(stage.planned)}</span>
                                                         ) : (
-                                                            <span className="text-slate-300">—</span>
+                                                            <span className="text-slate-300">-</span>
                                                         )}
                                                     </td>
                                                 ))}
@@ -600,18 +851,46 @@ const EnquiryPipeline = () => {
                                                 </td>
 
                                                 <td className="px-3 py-2.5 whitespace-nowrap">
-                                                    {modeFilter === "pending" && activeStage && !isBlocked && (
+                                                    <div className="flex items-center gap-2">
+                                                        {modeFilter === "pending" && activeStage && !isBlocked && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCompleteStage(enq.id, activeStage.key)}
+                                                                disabled={completingKey === key}
+                                                                className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 hover:border-slate-400 text-[10px] font-bold text-slate-600 transition-all disabled:opacity-50"
+                                                            >
+                                                                {completingKey === key ? (
+                                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                                ) : (
+                                                                    <Check className="w-3 h-3" />
+                                                                )}
+                                                                Mark Complete
+                                                            </button>
+                                                        )}
+
                                                         <button
-                                                            onClick={() => handleCompleteStage(enq.id, activeStage.key)}
-                                                            disabled={completingKey === key}
-                                                            className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 hover:border-slate-400 text-[10px] font-bold text-slate-600 transition-all disabled:opacity-50"
+                                                            type="button"
+                                                            onClick={() => handleEditEnquiry(enq)}
+                                                            className="rounded-md border border-blue-200 bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+                                                            title="Edit enquiry"
                                                         >
-                                                            {completingKey === key
-                                                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                                : <Check className="w-3 h-3" />}
-                                                            Mark Complete
+                                                            <Pencil className="w-3.5 h-3.5" />
                                                         </button>
-                                                    )}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => requestDeleteEnquiry(enq)}
+                                                            disabled={deletingId === enq.id}
+                                                            className="rounded-md border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-colors disabled:opacity-50"
+                                                            title="Delete enquiry"
+                                                        >
+                                                            {deletingId === enq.id ? (
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -626,7 +905,8 @@ const EnquiryPipeline = () => {
     );
 };
 
-const inputCls = "w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none font-semibold text-slate-700 shadow-sm text-xs sm:text-sm";
+const inputCls =
+    "w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none font-semibold text-slate-700 shadow-sm text-xs sm:text-sm";
 
 function Field({
     label,

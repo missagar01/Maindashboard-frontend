@@ -116,6 +116,17 @@ export const createPipelineEnquiry = (data: any) =>
     body: data,
   });
 
+export const updatePipelineEnquiry = (id: number | string, data: any) =>
+  apiRequest(`/api/o2d/enquiry-pipeline/${id}`, {
+    method: 'PUT',
+    body: data,
+  });
+
+export const deletePipelineEnquiry = (id: number | string) =>
+  apiRequest(`/api/o2d/enquiry-pipeline/${id}`, {
+    method: 'DELETE',
+  });
+
 export const completePipelineStage = (id: number | string, stage: string) =>
   apiRequest(`/api/o2d/enquiry-pipeline/${id}/stage/${stage}/complete`, {
     method: 'PATCH',
