@@ -58,6 +58,8 @@ const normalizePriority = (priority) => {
 // =============================================================================
 // DATE FORMATTING
 // =============================================================================
+const CHECKLIST_TIME_ZONE = 'Asia/Kolkata';
+
 const parseDate = (dateString) => {
     if (!dateString) return null;
     if (dateString instanceof Date) return dateString;
@@ -97,6 +99,29 @@ const parseDate = (dateString) => {
     return null;
 };
 
+const getCalendarDateKey = (dateValue, timeZone = CHECKLIST_TIME_ZONE) => {
+    const date = parseDate(dateValue);
+    if (!date || Number.isNaN(date.getTime())) return null;
+
+    const parts = new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone
+    }).formatToParts(date);
+
+    const values = parts.reduce((acc, part) => {
+        if (part.type !== 'literal') {
+            acc[part.type] = part.value;
+        }
+        return acc;
+    }, {});
+
+    if (!values.year || !values.month || !values.day) return null;
+
+    return `${values.year}-${values.month}-${values.day}`;
+};
+
 /**
  * Formats a date string to DD-MM-YYYY format
  * @param {string|Date} dateString 
@@ -124,7 +149,7 @@ export const formatDate = (dateString) => {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
-            timeZone: 'Asia/Kolkata'
+            timeZone: CHECKLIST_TIME_ZONE
         }).format(date).replace(/\//g, '-');
     } catch (e) {
         return '—';
@@ -132,9 +157,25 @@ export const formatDate = (dateString) => {
 };
 
 /**
+ * Checks whether a date value falls on today's calendar day (local time).
+ * Mirrors the backend's isCurrentDayTaskStartDate check used to gate
+ * housekeeping task edits, so the UI can lock overdue tasks before the
+ * user tries to submit them and hits a guaranteed server-side rejection.
+ * @param {string|Date} dateValue
+ * @returns {boolean}
+ */
+export const isTaskDateToday = (dateValue) => {
+    if (!dateValue || dateValue === '—') return false;
+
+    const taskDay = getCalendarDateKey(dateValue);
+    const todayDay = getCalendarDateKey(new Date());
+    return Boolean(taskDay && todayDay && taskDay === todayDay);
+};
+
+/**
  * Formats a date string to DD-MM-YYYY, HH:MM:SS AM/PM format
- * @param {string|Date} dateString 
- * @param {boolean} includeSeconds 
+ * @param {string|Date} dateString
+ * @param {boolean} includeSeconds
  * @returns {string}
  */
 export const formatDateTime = (dateString, includeSeconds = false) => {
@@ -198,7 +239,7 @@ export const formatDateTime = (dateString, includeSeconds = false) => {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true,
-            timeZone: 'Asia/Kolkata'
+            timeZone: CHECKLIST_TIME_ZONE
         };
 
         if (includeSeconds) {
@@ -376,6 +417,7 @@ export const normalizeHousekeepingTask = (task, isHistory = false) => {
         assignedTo: task.name || task.assigned_to || '—',
         assignedToSecondary: task.doer_name2 || '—',
         dueDate: task.taskStartDate || task.task_start_date || task.task_date || task.date || task.scheduled_date,
+        doerName: task.doer_name2 || task.doer_name || task.name || 'â€”',
         // dueDateFormatted: formatDate(task.task_start_date || task.task_date || task.date || task.scheduled_date),
         // status: getUnifiedStatus(task.status, isHistory || !!task.submission_date),
         status: (task.attachment === 'confirmed' || task.confirmedByHOD === 'Confirmed' || task.confirmedByHOD === 'confirmed')

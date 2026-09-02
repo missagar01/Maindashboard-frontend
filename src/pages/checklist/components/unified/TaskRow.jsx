@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Eye, CheckCircle, X } from "lucide-react";
-import { formatDateTime } from "../../utils/taskNormalizer";
+import { formatDateTime, isTaskDateToday } from "../../utils/taskNormalizer";
 
 const DOER2_OPTIONS = [
   "Sarad Behera",
@@ -50,16 +50,6 @@ const TaskRow = memo(function TaskRow({
   const isAdminRole = normalizedRole === "admin";
   const canVerifyHousekeeping = localStorage.getItem('page_access')?.includes('housekeeping-verify');
   const housekeepingPendingPreviewStatus = isSelected && rowData.status ? rowData.status : "Pending";
-  const isHousekeepingPendingEditable =
-    task.sourceSystem === "housekeeping" &&
-    !isCompleted &&
-    ((isUserRole &&
-      task.originalData?.attachment !== "confirmed" &&
-      task.confirmedByHOD !== "Confirmed" &&
-      task.confirmedByHOD !== "confirmed") ||
-      canVerifyHousekeeping);
-  const shouldShowChecklistRemarkInput =
-    isUserRole && task.sourceSystem === "checklist" && !isCompleted;
 
   const formatTimestampToDDMMYYYYHHMMSS = (timestamp) => {
     return formatDateTime(timestamp, true);
@@ -78,6 +68,27 @@ const TaskRow = memo(function TaskRow({
     formattedStartDate && formattedStartDate !== "—"
       ? formattedStartDate
       : task.dueDateFormatted || "—";
+
+  // The backend rejects edits to any housekeeping task whose task_start_date
+  // isn't today (assignTaskRepository.js: "Only current day housekeeping
+  // tasks can be edited."). Lock those in the UI instead of letting the user
+  // fill in a submission that's guaranteed to fail.
+  const isHousekeepingExpired =
+    task.sourceSystem === "housekeeping" &&
+    !isCompleted &&
+    !isTaskDateToday(rawStartDate);
+
+  const isHousekeepingPendingEditable =
+    task.sourceSystem === "housekeeping" &&
+    !isCompleted &&
+    !isHousekeepingExpired &&
+    ((isUserRole &&
+      task.originalData?.attachment !== "confirmed" &&
+      task.confirmedByHOD !== "Confirmed" &&
+      task.confirmedByHOD !== "confirmed") ||
+      canVerifyHousekeeping);
+  const shouldShowChecklistRemarkInput =
+    isUserRole && task.sourceSystem === "checklist" && !isCompleted;
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -174,29 +185,32 @@ const TaskRow = memo(function TaskRow({
           ) : (
             <input
               type="checkbox"
-              className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${(task.sourceSystem === "housekeeping" &&
-                (userRole?.toLowerCase() === "user"
-                  ? (task.originalData?.attachment === "confirmed" ||
-                    task.confirmedByHOD === "Confirmed" ||
-                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
-                  : task.originalData?.attachment !== "confirmed" &&
-                  task.confirmedByHOD !== "Confirmed" &&
-                  task.confirmedByHOD !== "confirmed"))
+              className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isHousekeepingExpired ||
+                (task.sourceSystem === "housekeeping" &&
+                  (userRole?.toLowerCase() === "user"
+                    ? (task.originalData?.attachment === "confirmed" ||
+                      task.confirmedByHOD === "Confirmed" ||
+                      task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
+                    : task.originalData?.attachment !== "confirmed" &&
+                    task.confirmedByHOD !== "Confirmed" &&
+                    task.confirmedByHOD !== "confirmed"))
                 ? "opacity-50 cursor-not-allowed"
                 : ""
                 }`}
               checked={isSelected}
               onChange={handleCheckboxClick}
               disabled={
-                task.sourceSystem === "housekeeping" &&
-                (userRole?.toLowerCase() === "user"
-                  ? (task.originalData?.attachment === "confirmed" ||
-                    task.confirmedByHOD === "Confirmed" ||
-                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
-                  : task.originalData?.attachment !== "confirmed" &&
-                  task.confirmedByHOD !== "Confirmed" &&
-                  task.confirmedByHOD !== "confirmed")
+                isHousekeepingExpired ||
+                (task.sourceSystem === "housekeeping" &&
+                  (userRole?.toLowerCase() === "user"
+                    ? (task.originalData?.attachment === "confirmed" ||
+                      task.confirmedByHOD === "Confirmed" ||
+                      task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
+                    : task.originalData?.attachment !== "confirmed" &&
+                    task.confirmedByHOD !== "Confirmed" &&
+                    task.confirmedByHOD !== "confirmed"))
               }
+              title={isHousekeepingExpired ? "Not Done — task date has passed; only same-day tasks can be submitted" : undefined}
             />
           )}
         </td>
@@ -224,7 +238,7 @@ const TaskRow = memo(function TaskRow({
 
         {/* Doer Name 2 */}
         <td className="px-2 sm:px-3 py-2 sm:py-4">
-          {userRole?.toLowerCase() === "user" && !isCompleted ? (
+          {userRole?.toLowerCase() === "user" && !isCompleted && !isHousekeepingExpired ? (
             <select
               value={rowData.doerName2 || task.assignedToSecondary || ""}
               onChange={(e) => handleDataChange("doerName2", e.target.value)}
@@ -295,6 +309,13 @@ const TaskRow = memo(function TaskRow({
               <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
                 ✅ {task.originalStatus || "Yes"}
               </span>
+            ) : isHousekeepingExpired ? (
+              <span
+                className="px-2 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-medium"
+                title="Only same-day housekeeping tasks can be submitted"
+              >
+                🔒 Not Done
+              </span>
             ) : (isAdminRole || canVerifyHousekeeping) ? (
               isSelected && rowData.status ? (
                 <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
@@ -316,6 +337,7 @@ const TaskRow = memo(function TaskRow({
           {userRole?.toLowerCase() === "user" &&
             task.sourceSystem === "housekeeping" &&
             !isCompleted &&
+            !isHousekeepingExpired &&
             task.originalData?.attachment !== "confirmed" &&
             task.confirmedByHOD !== "Confirmed" &&
             task.confirmedByHOD !== "confirmed" ? (
@@ -352,14 +374,15 @@ const TaskRow = memo(function TaskRow({
         ) : (
           <input
             type="checkbox"
-            className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${(task.sourceSystem === "housekeeping" &&
-              (userRole?.toLowerCase() === "user"
-                ? (task.originalData?.attachment === "confirmed" ||
-                  task.confirmedByHOD === "Confirmed" ||
-                  task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
-                : task.originalData?.attachment !== "confirmed" &&
-                task.confirmedByHOD !== "Confirmed" &&
-                task.confirmedByHOD !== "confirmed")) ||
+            className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isHousekeepingExpired ||
+              (task.sourceSystem === "housekeeping" &&
+                (userRole?.toLowerCase() === "user"
+                  ? (task.originalData?.attachment === "confirmed" ||
+                    task.confirmedByHOD === "Confirmed" ||
+                    task.confirmedByHOD === "confirmed") && !canVerifyHousekeeping
+                  : task.originalData?.attachment !== "confirmed" &&
+                  task.confirmedByHOD !== "Confirmed" &&
+                  task.confirmedByHOD !== "confirmed")) ||
               (task.sourceSystem === "checklist" && userRole?.toLowerCase() !== "user") ||
               (isAdminRole && task.sourceSystem === "maintenance")
               ? "opacity-50 cursor-not-allowed"
@@ -368,6 +391,7 @@ const TaskRow = memo(function TaskRow({
             checked={isSelected}
             onChange={handleCheckboxClick}
             disabled={
+              isHousekeepingExpired ||
               (task.sourceSystem === "housekeeping" &&
                 (userRole?.toLowerCase() === "user"
                   ? (task.originalData?.attachment === "confirmed" ||
@@ -379,6 +403,7 @@ const TaskRow = memo(function TaskRow({
               (task.sourceSystem === "checklist" && userRole?.toLowerCase() !== "user") ||
               (isAdminRole && task.sourceSystem === "maintenance")
             }
+            title={isHousekeepingExpired ? "Not Done — task date has passed; only same-day tasks can be submitted" : undefined}
           />
         )}
       </td>
@@ -521,6 +546,13 @@ const TaskRow = memo(function TaskRow({
               : 'text-red-600'
               }`}>
               {task.originalData?.status || task.originalStatus || "Pending"}
+            </span>
+          ) : isHousekeepingExpired ? (
+            <span
+              className="px-2 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-medium"
+              title="Only same-day housekeeping tasks can be submitted"
+            >
+              🔒 Not Done
             </span>
           ) : isUserRole ? (
             task.sourceSystem === 'housekeeping' ? (
@@ -673,18 +705,6 @@ export const TaskCard = memo(function TaskCard({
   const canVerifyHousekeeping = localStorage.getItem('page_access')?.includes('housekeeping-verify');
   const housekeepingPendingPreviewStatus = isSelected && rowData.status ? rowData.status : "Pending";
 
-  const isHousekeepingPendingEditable =
-    task.sourceSystem === "housekeeping" &&
-    !isCompleted &&
-    ((isUserRole &&
-      task.originalData?.attachment !== "confirmed" &&
-      task.confirmedByHOD !== "Confirmed" &&
-      task.confirmedByHOD !== "confirmed") ||
-      canVerifyHousekeeping);
-
-  const shouldShowChecklistRemarkInput =
-    isUserRole && task.sourceSystem === "checklist" && !isCompleted;
-
   const formatTimestampToDDMMYYYYHHMMSS = (timestamp) => {
     return formatDateTime(timestamp, true);
   };
@@ -696,6 +716,28 @@ export const TaskCard = memo(function TaskCard({
     task.originalData?.task_start_date ??
     task.originalData?.Task_Start_Date ??
     "";
+
+  // The backend rejects edits to any housekeeping task whose task_start_date
+  // isn't today, so lock those in the UI instead of letting the user fill in
+  // a submission that's guaranteed to fail.
+  const isHousekeepingExpired =
+    task.sourceSystem === "housekeeping" &&
+    !isCompleted &&
+    !isTaskDateToday(rawStartDate);
+
+  const isHousekeepingPendingEditable =
+    task.sourceSystem === "housekeeping" &&
+    !isCompleted &&
+    !isHousekeepingExpired &&
+    ((isUserRole &&
+      task.originalData?.attachment !== "confirmed" &&
+      task.confirmedByHOD !== "Confirmed" &&
+      task.confirmedByHOD !== "confirmed") ||
+      canVerifyHousekeeping);
+
+  const shouldShowChecklistRemarkInput =
+    isUserRole && task.sourceSystem === "checklist" && !isCompleted;
+
   const formattedStartDate =
     rawStartDate && rawStartDate !== "—" ? formatDateTime(rawStartDate) : null;
   const startDateDisplay =
@@ -708,6 +750,7 @@ export const TaskCard = memo(function TaskCard({
   };
 
   const isSelectDisabled =
+    isHousekeepingExpired ||
     (task.sourceSystem === "housekeeping" &&
       (isUserRole
         ? (task.originalData?.attachment === "confirmed" ||
@@ -734,6 +777,7 @@ export const TaskCard = memo(function TaskCard({
             checked={isSelected}
             onChange={(e) => onSelect?.(task.id, e.target.checked)}
             disabled={isSelectDisabled}
+            title={isHousekeepingExpired ? "Not Done — task date has passed; only same-day tasks can be submitted" : undefined}
           />
         </div>
       )}
@@ -792,7 +836,7 @@ export const TaskCard = memo(function TaskCard({
             <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">
               {task.sourceSystem === "housekeeping" ? "Doer 2" : "Doer Name"}
             </span>
-            {task.sourceSystem === "housekeeping" && isUserRole && !isCompleted ? (
+            {task.sourceSystem === "housekeeping" && isUserRole && !isCompleted && !isHousekeepingExpired ? (
               <select
                 value={rowData.doerName2 || task.assignedToSecondary || ""}
                 onChange={(e) => handleDataChange("doerName2", e.target.value)}
@@ -911,6 +955,13 @@ export const TaskCard = memo(function TaskCard({
                     : (task.originalData?.status || task.originalStatus || (task.status === "Completed" ? "Yes" : task.status) || "Pending")
                   }
                 </p>
+              ) : isHousekeepingExpired ? (
+                <span
+                  className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-black rounded-md border border-gray-200 uppercase inline-flex items-center gap-1 mt-0.5"
+                  title="Only same-day housekeeping tasks can be submitted"
+                >
+                  🔒 Not Done
+                </span>
               ) : isUserRole || (isAdminRole && task.sourceSystem === "maintenance") ? (
                 task.sourceSystem === "housekeeping" ? (
                   (isAdminRole || canVerifyHousekeeping) ? (

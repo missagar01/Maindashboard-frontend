@@ -1,10 +1,25 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, Fragment } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { CheckCircle2, X, AlertTriangle } from "lucide-react";
 import TaskRow, { TaskTableHeader, TaskTableEmpty, TaskCard } from "./TaskRow";
 import TaskFilterBar from "./TaskFilterBar";
 import TaskDrawer from "./TaskDrawer";
-import { filterTasks, sortByDate, sortHousekeepingTasks, sortBySubmissionDateDesc } from "../../utils/taskNormalizer";
+import { filterTasks, sortByDate, sortHousekeepingTasks, sortBySubmissionDateDesc, isTaskDateToday } from "../../utils/taskNormalizer";
+
+// Same-day guard mirrored from the backend (assignTaskRepository.js): a
+// housekeeping task can only be edited/confirmed if its task_start_date is
+// today. Overdue pending tasks should never be selectable/submittable.
+const isHousekeepingTaskLocked = (task) => {
+    if (!task || task.sourceSystem !== "housekeeping") return false;
+    const rawStartDate =
+        task.task_start_date ??
+        task.taskStartDate ??
+        task.dueDate ??
+        task.originalData?.task_start_date ??
+        task.originalData?.Task_Start_Date ??
+        "";
+    return !isTaskDateToday(rawStartDate);
+};
 
 /**
  * UnifiedTaskTable - Main unified table component
@@ -76,13 +91,40 @@ export default function UnifiedTaskTable({
                 .replace(/[^a-z0-9]+/g, ""),
         []
     );
+    const normalizeUserIdentity = useCallback(
+        (value) => String(value || "").trim().toLowerCase(),
+        []
+    );
+    const matchesLoggedInUser = useCallback(
+        (task) => {
+            const normalizedLoggedInUser = normalizeUserIdentity(loggedInUser);
+            if (!normalizedLoggedInUser || !task) return false;
+
+            const candidates = [
+                task.assignedTo,
+                task.assignedToSecondary,
+                task.doerName,
+                task.doer_name,
+                task.doer_name2,
+                task.originalData?.assigned_to,
+                task.originalData?.name,
+                task.originalData?.doer_name,
+                task.originalData?.doer_name2,
+                task.originalData?.user_name,
+            ];
+
+            return candidates.some(
+                (candidate) => normalizeUserIdentity(candidate) === normalizedLoggedInUser
+            );
+        },
+        [loggedInUser, normalizeUserIdentity]
+    );
 
 
     // 🔍 1. Filter tasks by IDENTITY/ROLE (Identity-based visibility)
     // This is the core "Who am I and what am I allowed to see?" logic
     const userVisibleTasks = useMemo(() => {
         const normalizedRole = (userRole || localStorage.getItem("role") || "").toLowerCase();
-        const normalizedLoggedInUser = loggedInUser.trim().toLowerCase();
         const userAccess1 = localStorage.getItem("user_access1") || userData?.user_access1 || "";
         const userAccess = localStorage.getItem("user_access") || userData?.user_access || "";
         const verifyAccessDept =
@@ -95,12 +137,9 @@ export default function UnifiedTaskTable({
             // USER Role identity-based filtering
             if (normalizedRole === "user" || normalizedRole === "") {
                 if (task.sourceSystem === "housekeeping") {
-                    // 1. Check direct identity-based assignment
-                    const assignedTo = (task.assignedTo || "").trim().toLowerCase();
-                    const doerName = (task.doerName || "").trim().toLowerCase();
-                    const isAssignedToUser = assignedTo === normalizedLoggedInUser || doerName === normalizedLoggedInUser;
-
-                    if (isAssignedToUser) return true;
+                    // Housekeeping tasks can be tied to the user through
+                    // either the primary assignee or the secondary doer field.
+                    if (matchesLoggedInUser(task)) return true;
 
                     // 2. Check department-based access (user_access1, verify_access_dept, department)
                     const userDepts = [
@@ -140,23 +179,12 @@ export default function UnifiedTaskTable({
                     return false;
                 }
 
-                // Checklist / Maintenance identity check
-                const assignedTo = (task.assignedTo || "").trim().toLowerCase();
-                const doerName = (task.doerName || "").trim().toLowerCase();
-                const doerNameOriginal = (task.doer_name || "").trim().toLowerCase();
-                const originalAssignedTo = (task.originalData?.assigned_to || "").trim().toLowerCase();
-
-                return (
-                    assignedTo === normalizedLoggedInUser ||
-                    doerName === normalizedLoggedInUser ||
-                    doerNameOriginal === normalizedLoggedInUser ||
-                    originalAssignedTo === normalizedLoggedInUser
-                );
+                return matchesLoggedInUser(task);
             }
 
             return true;
         });
-    }, [tasks, userRole, loggedInUser, normalizeDepartmentToken, userData]);
+    }, [tasks, userRole, normalizeDepartmentToken, matchesLoggedInUser, userData]);
 
     // 📊 2. Calculate adjusted counts for each tab
     const systemCounts = useMemo(() => {
@@ -176,7 +204,7 @@ export default function UnifiedTaskTable({
             housekeeping: pendingTotals.housekeeping || 0
         };
 
-        // Proportional Adjustment: If we find that the user can only see a subset 
+        // Proportional Adjustment: If we find that the user can only see a subset
         // of the tasks loaded in memory, we adjust the total count accordingly.
         ["checklist", "maintenance", "housekeeping"].forEach(system => {
             const inMemoryTotal = tasks.filter(t => t.sourceSystem === system).length;
@@ -192,6 +220,15 @@ export default function UnifiedTaskTable({
                 }
             }
         });
+
+        // Housekeeping Pending only counts today's actionable tasks — overdue,
+        // never-submitted ones are shown separately as "Not Done" and can never
+        // be submitted (backend rejects edits to non-today task_start_date).
+        const inMemoryHousekeeping = userVisibleTasks.filter(t => t.sourceSystem === "housekeeping");
+        if (inMemoryHousekeeping.length > 0) {
+            const actionableCount = inMemoryHousekeeping.filter(t => !isHousekeepingTaskLocked(t)).length;
+            counts.housekeeping = Math.round(counts.housekeeping * (actionableCount / inMemoryHousekeeping.length));
+        }
 
         return counts;
     }, [filters.status, tasks, userVisibleTasks, pendingTotals, checklistHistoryTotal, maintenanceHistoryTotal, housekeepingHistoryTotal]);
@@ -393,8 +430,84 @@ export default function UnifiedTaskTable({
         return false;
     }, [filters.sourceSystem, filteredTasks]);
 
-    // Use all filtered tasks for infinite scroll (no client-side pagination)
-    const displayTasks = filteredTasks;
+    // Prefer same-day housekeeping tasks in Pending. If this user has no
+    // current-day housekeeping rows at all, fall back to showing the older
+    // read-only rows instead of rendering an empty table.
+    const {
+        displayTasks,
+        orderedDisplayTasks,
+        notDoneDividerIndex,
+        notDoneCount,
+        isShowingHousekeepingFallback,
+    } = useMemo(() => {
+        if (!(isHousekeepingOnly && filters.status !== "Completed")) {
+            return {
+                displayTasks: filteredTasks,
+                orderedDisplayTasks: filteredTasks,
+                notDoneDividerIndex: -1,
+                notDoneCount: 0,
+                isShowingHousekeepingFallback: false,
+            };
+        }
+
+        const actionable = [];
+        const readOnlyPreviousDays = [];
+
+        filteredTasks.forEach((task) => {
+            if (task.sourceSystem === "housekeeping" && isHousekeepingTaskLocked(task)) {
+                readOnlyPreviousDays.push(task);
+                return;
+            }
+            actionable.push(task);
+        });
+
+        if (actionable.length > 0) {
+            return {
+                displayTasks: actionable,
+                orderedDisplayTasks: actionable,
+                notDoneDividerIndex: -1,
+                notDoneCount: readOnlyPreviousDays.length,
+                isShowingHousekeepingFallback: false,
+            };
+        }
+
+        if (readOnlyPreviousDays.length > 0) {
+            return {
+                displayTasks: readOnlyPreviousDays,
+                orderedDisplayTasks: readOnlyPreviousDays,
+                notDoneDividerIndex: 0,
+                notDoneCount: readOnlyPreviousDays.length,
+                isShowingHousekeepingFallback: true,
+            };
+        }
+
+        return {
+            displayTasks: filteredTasks,
+            orderedDisplayTasks: filteredTasks,
+            notDoneDividerIndex: -1,
+            notDoneCount: 0,
+            isShowingHousekeepingFallback: false,
+        };
+    }, [isHousekeepingOnly, filters.status, filteredTasks]);
+
+    const effectiveSelectedSystemTotal = useMemo(() => {
+        if (
+            filters.status === "Pending" &&
+            filters.sourceSystem === "housekeeping" &&
+            isShowingHousekeepingFallback &&
+            displayTasks.length > 0
+        ) {
+            return displayTasks.length;
+        }
+
+        return selectedSystemTotal;
+    }, [
+        filters.status,
+        filters.sourceSystem,
+        isShowingHousekeepingFallback,
+        displayTasks.length,
+        selectedSystemTotal,
+    ]);
 
     // Check if all visible items are selected
     // For housekeeping tasks: Admin selects confirmed, User selects pending
@@ -402,6 +515,8 @@ export default function UnifiedTaskTable({
 
     const selectableTasks = displayTasks.filter(task => {
         if (task.sourceSystem === 'housekeeping') {
+            if (isHousekeepingTaskLocked(task)) return false;
+
             const isConfirmed = task.originalData?.attachment === "confirmed" || task.confirmedByHOD === "Confirmed" || task.confirmedByHOD === "confirmed";
 
             // Verify page access allows selection of all tasks (unconfirmed)
@@ -557,6 +672,8 @@ export default function UnifiedTaskTable({
         // ✅ HOUSEKEEPING: allow update if doer is selected
         // For Admin: status is auto-set to 'Yes', so always valid if housekeeping
         if (task?.sourceSystem === "housekeeping") {
+            if (isHousekeepingTaskLocked(task)) return false; // Overdue — backend rejects any edit
+
             if (isAdminRole) return true; // Housekeeping admin submission is now just a checkbox
 
             const isConfirmed = task.originalData?.attachment === "confirmed" || task.confirmedByHOD === "Confirmed" || task.confirmedByHOD === "confirmed";
@@ -786,7 +903,7 @@ export default function UnifiedTaskTable({
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0 flex items-center justify-between">
                             <p className="text-blue-600 font-medium text-[11px] sm:text-sm">
-                                Showing {displayTasks.length} of {selectedSystemTotal || displayTasks.length} tasks
+                                Showing {displayTasks.length} of {effectiveSelectedSystemTotal || displayTasks.length} tasks
                             </p>
 
                             <div className="sm:hidden flex items-center bg-white/50 px-2 py-1 rounded-md border border-blue-100 shadow-sm">
@@ -848,26 +965,34 @@ export default function UnifiedTaskTable({
                                         activeSystem={filters.sourceSystem || "unified"}
                                     />
                                     <tbody className="bg-white divide-y divide-gray-100">
-                                        {displayTasks.length > 0 ? (
-                                            displayTasks.map((task, index) => {
+                                        {orderedDisplayTasks.length > 0 ? (
+                                            orderedDisplayTasks.map((task, index) => {
                                                 const activePage = pendingPages[task.sourceSystem] || 1;
                                                 return (
-                                                    <TaskRow
-                                                        key={`${task.sourceSystem}-${task.id}-${index}`}
-                                                        task={task}
-                                                        isSelected={selectedItems.has(task.id)}
-                                                        onSelect={handleSelectItem}
-                                                        onView={handleViewTask}
-                                                        rowData={rowData[task.id] || {}}
-                                                        onRowDataChange={handleRowDataChange}
-                                                        isHistoryMode={filters.status === "Completed"}
-                                                        isHousekeepingOnly={isHousekeepingOnly}
-                                                        isMaintenanceOnly={isMaintenanceOnly}
-                                                        seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
-                                                        userRole={userRole}
-                                                        loggedInUser={loggedInUser}
-                                                        activeSystem={filters.sourceSystem || "unified"}
-                                                    />
+                                                    <Fragment key={`${task.sourceSystem}-${task.id}-${index}`}>
+                                                        {index === notDoneDividerIndex && (
+                                                            <tr>
+                                                                <td colSpan={isHousekeepingOnly ? (isUserRole ? 10 : 13) : (isMaintenanceOnly ? 14 : 13)} className="bg-gray-100 px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                                                    🔒 Previous Days ({notDoneCount}) · read-only
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                        <TaskRow
+                                                            task={task}
+                                                            isSelected={selectedItems.has(task.id)}
+                                                            onSelect={handleSelectItem}
+                                                            onView={handleViewTask}
+                                                            rowData={rowData[task.id] || {}}
+                                                            onRowDataChange={handleRowDataChange}
+                                                            isHistoryMode={filters.status === "Completed"}
+                                                            isHousekeepingOnly={isHousekeepingOnly}
+                                                            isMaintenanceOnly={isMaintenanceOnly}
+                                                            seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
+                                                            userRole={userRole}
+                                                            loggedInUser={loggedInUser}
+                                                            activeSystem={filters.sourceSystem || "unified"}
+                                                        />
+                                                    </Fragment>
                                                 );
                                             })
                                         ) : (
@@ -882,26 +1007,32 @@ export default function UnifiedTaskTable({
 
                             {/* Mobile Card View */}
                             <div className="sm:hidden bg-gray-50/50 p-3 space-y-3">
-                                {displayTasks.length > 0 ? (
-                                    displayTasks.map((task, index) => {
+                                {orderedDisplayTasks.length > 0 ? (
+                                    orderedDisplayTasks.map((task, index) => {
                                         const activePage = pendingPages[task.sourceSystem] || 1;
                                         return (
-                                            <TaskCard
-                                                key={`card-${task.sourceSystem}-${task.id}-${index}`}
-                                                task={task}
-                                                isSelected={selectedItems.has(task.id)}
-                                                onSelect={handleSelectItem}
-                                                onView={handleViewTask}
-                                                rowData={rowData[task.id] || {}}
-                                                onRowDataChange={handleRowDataChange}
-                                                isHistoryMode={filters.status === "Completed"}
-                                                isHousekeepingOnly={isHousekeepingOnly}
-                                                isMaintenanceOnly={isMaintenanceOnly}
-                                                seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
-                                                userRole={userRole}
-                                                loggedInUser={loggedInUser}
-                                                activeSystem={filters.sourceSystem || "unified"}
-                                            />
+                                            <Fragment key={`card-${task.sourceSystem}-${task.id}-${index}`}>
+                                                {index === notDoneDividerIndex && (
+                                                    <div className="bg-gray-100 rounded-lg px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                                        🔒 Previous Days ({notDoneCount}) · read-only
+                                                    </div>
+                                                )}
+                                                <TaskCard
+                                                    task={task}
+                                                    isSelected={selectedItems.has(task.id)}
+                                                    onSelect={handleSelectItem}
+                                                    onView={handleViewTask}
+                                                    rowData={rowData[task.id] || {}}
+                                                    onRowDataChange={handleRowDataChange}
+                                                    isHistoryMode={filters.status === "Completed"}
+                                                    isHousekeepingOnly={isHousekeepingOnly}
+                                                    isMaintenanceOnly={isMaintenanceOnly}
+                                                    seqNo={index + 1 + (filters.status === "Pending" ? (activePage - 1) * 50 : 0)}
+                                                    userRole={userRole}
+                                                    loggedInUser={loggedInUser}
+                                                    activeSystem={filters.sourceSystem || "unified"}
+                                                />
+                                            </Fragment>
                                         );
                                     })
                                 ) : (
@@ -932,9 +1063,16 @@ export default function UnifiedTaskTable({
                     <div className="bg-gray-50 border-t border-gray-200 px-2 sm:px-4 py-2 sm:py-3 sticky bottom-0 z-10">
                         {(() => {
                             const activePage = pendingPages[filters.sourceSystem] || 1;
-                            const activeTotal = filters.sourceSystem
-                                ? (systemCounts[filters.sourceSystem] || pendingTotals[filters.sourceSystem] || 0)
-                                : selectedSystemTotal;
+                            const activeTotal = (
+                                filters.status === "Pending" &&
+                                filters.sourceSystem === "housekeeping" &&
+                                isShowingHousekeepingFallback &&
+                                displayTasks.length > 0
+                            )
+                                ? displayTasks.length
+                                : filters.sourceSystem
+                                    ? (systemCounts[filters.sourceSystem] || pendingTotals[filters.sourceSystem] || 0)
+                                    : effectiveSelectedSystemTotal;
                             const isPending = filters.status === "Pending";
 
                             return (
