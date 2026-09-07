@@ -59,8 +59,14 @@ const FollowUpModal: React.FC<FollowUpModalProps> = ({ isOpen, onClose, customer
             await o2dAPI.createFollowup(payload);
             onSuccess();
             onClose();
-        } catch (error) {
-            alert('Failed to save follow-up');
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || error?.message || 'Failed to save follow-up';
+            alert(msg);
+            // If it was already followed up today, refresh so the card reflects it.
+            if (error?.response?.status === 409) {
+                onSuccess();
+                onClose();
+            }
         } finally {
             setLoading(false);
         }
