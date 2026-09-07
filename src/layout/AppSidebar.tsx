@@ -279,7 +279,6 @@ const storeSection: SidebarSection = {
     { kind: "link", key: "store-approve-indent-hod", name: "Approve Indent HOD", path: "/store/approve-indent-data", icon: BadgeCheck },
     { kind: "link", key: "store-approve-indent-gm", name: "Approve Indent GM", path: "/store/approve-indent-gm", icon: BadgeCheck },
     { kind: "link", key: "store-purchase-order", name: "Purchase Order", path: "/store/pending-indents", icon: ShoppingCart },
-    { kind: "link", key: "store-pending-pos", name: "Pending POs", path: "/store/pending-pos", icon: Receipt },
 
 
     { kind: "link", key: "store-grn-report", name: "GRN Report", path: "/store/grn-report", icon: FileStack },

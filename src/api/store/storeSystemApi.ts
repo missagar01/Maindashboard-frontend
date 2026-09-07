@@ -17,10 +17,16 @@ export const storeApi: any = {
       body: data,
     }),
 
-  getPendingIndents: () =>
-    storeApiRequest("/api/store/store-indent/pending", { bypassCache: true }),
-  getHistoryIndents: () =>
-    storeApiRequest("/api/store/store-indent/history", { bypassCache: true }),
+  getPendingIndents: (entity?: string) =>
+    storeApiRequest(
+      `/api/store/store-indent/pending${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`,
+      { bypassCache: true }
+    ),
+  getHistoryIndents: (entity?: string) =>
+    storeApiRequest(
+      `/api/store/store-indent/history${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`,
+      { bypassCache: true }
+    ),
 
   approveStoreIndent: (data: unknown) =>
     storeApiRequest("/api/store/store-indent/approve", {
@@ -32,8 +38,10 @@ export const storeApi: any = {
   getAllVendors: () => storeApiRequest("/api/store/store-indent/vendors"),
   getAllProducts: () => storeApiRequest("/api/store/store-indent/products"),
 
-  downloadPendingIndents: () =>
-    downloadBlob("/api/store/store-indent/pending/download"),
+  downloadPendingIndents: (entity?: string) =>
+    downloadBlob(
+      `/api/store/store-indent/pending/download${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`
+    ),
 
   getRepairGatePassPending: () => storeApiRequest("/api/store/repair-gate-pass/pending"),
   getRepairGatePassReceived: () => storeApiRequest("/api/store/repair-gate-pass/received"),
@@ -79,8 +87,10 @@ export const storeApi: any = {
     return downloadBlob(`/api/store/grn-report/download${query ? `?${query}` : ""}`);
   },
 
-  downloadHistoryIndents: () =>
-    downloadBlob("/api/store/store-indent/history/download"),
+  downloadHistoryIndents: (entity?: string) =>
+    downloadBlob(
+      `/api/store/store-indent/history/download${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`
+    ),
 
   getIndents: () => storeApiRequest("/api/store/indent"),
   getAllIndents: () => storeApiRequest("/api/store/indent/all"),
@@ -115,18 +125,32 @@ export const storeApi: any = {
   getIndentsByStatus: (statusType: string) =>
     storeApiRequest(`/api/store/indent/status/${statusType}`),
 
-  getPoPending: (fromDate?: string) =>
-    storeApiRequest(
-      `/api/store/po/pending${fromDate ? `?fromDate=${encodeURIComponent(fromDate)}` : ""}`,
-      { bypassCache: true }
+  getPoPending: (fromDate?: string, entity?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (entity) params.append("entity", entity);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/po/pending${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
+  },
+  getPoHistory: (fromDate?: string, entity?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append("fromDate", fromDate);
+    if (entity) params.append("entity", entity);
+    const query = params.toString();
+    return storeApiRequest(`/api/store/po/history${query ? `?${query}` : ""}`, {
+      bypassCache: true,
+    });
+  },
+  downloadPoPending: (entity?: string) =>
+    downloadBlob(
+      `/api/store/po/pending/download${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`
     ),
-  getPoHistory: (fromDate?: string) =>
-    storeApiRequest(
-      `/api/store/po/history${fromDate ? `?fromDate=${encodeURIComponent(fromDate)}` : ""}`,
-      { bypassCache: true }
+  downloadPoHistory: (entity?: string) =>
+    downloadBlob(
+      `/api/store/po/history/download${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`
     ),
-  downloadPoPending: () => downloadBlob("/api/store/po/pending/download"),
-  downloadPoHistory: () => downloadBlob("/api/store/po/history/download"),
 
   getItems: () => storeApiRequest("/api/store/items"),
 

@@ -6,6 +6,8 @@ import * as XLSX from "xlsx";
 
 import { storeApi } from "@/api/store/storeSystemApi";
 import Heading from "../../components/element/Heading";
+import EntitySelect from "../../components/element/EntitySelect";
+import { DEFAULT_ENTITY, type EntityCode } from "../../utils/entityOptions";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
@@ -278,10 +280,11 @@ export default function PendingIndents() {
   const [loading, setLoading] = useState(false);
   const [downloadingPending, setDownloadingPending] = useState(false);
   const [downloadingHistory, setDownloadingHistory] = useState(false);
+  const [entity, setEntity] = useState<EntityCode>(DEFAULT_ENTITY);
   const rangeLabel = `${formatDate(DEFAULT_PO_FROM_DATE)} to ${formatDate(getTodayDateString())}`;
 
   const fetchPendingAll = async () => {
-    const res = await storeApi.getPoPending(DEFAULT_PO_FROM_DATE);
+    const res = await storeApi.getPoPending(DEFAULT_PO_FROM_DATE, entity);
     const rows = res && typeof res === "object" && "data" in res && Array.isArray((res as Record<string, unknown>).data) ? ((res as { data: unknown[] }).data) : Array.isArray(res) ? res : [];
     const normalized = rows.map((row) => normalize(row)).sort((a, b) => compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP));
     setPendingAll(normalized);
@@ -289,7 +292,7 @@ export default function PendingIndents() {
   };
 
   const fetchHistoryAll = async () => {
-    const res = await storeApi.getPoHistory(DEFAULT_PO_FROM_DATE);
+    const res = await storeApi.getPoHistory(DEFAULT_PO_FROM_DATE, entity);
     const rows = res && typeof res === "object" && "data" in res && Array.isArray((res as Record<string, unknown>).data) ? ((res as { data: unknown[] }).data) : Array.isArray(res) ? res : [];
     const normalized = rows.map((row) => normalize(row)).sort((a, b) => compareDateDesc(a.VRDATE || a.PLANNED_TIMESTAMP, b.VRDATE || b.PLANNED_TIMESTAMP));
     setHistoryAll(normalized);
@@ -309,14 +312,15 @@ export default function PendingIndents() {
       }
     };
     fetchInitial();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity]);
 
   const handleDownload = async (type: "pending" | "history", rows: POData[], query: string) => {
     const setLoadingState = type === "pending" ? setDownloadingPending : setDownloadingHistory;
     const hasQuery = query.trim().length > 0;
     const fileName = type === "pending"
-      ? hasQuery ? "pending-purchase-orders-filtered.xlsx" : "pending-purchase-orders.xlsx"
-      : hasQuery ? "received-purchase-orders-filtered.xlsx" : "received-purchase-orders.xlsx";
+      ? hasQuery ? `pending-purchase-orders-${entity}-filtered.xlsx` : `pending-purchase-orders-${entity}.xlsx`
+      : hasQuery ? `received-purchase-orders-${entity}-filtered.xlsx` : `received-purchase-orders-${entity}.xlsx`;
     const sheetName = type === "pending" ? "Pending POs" : "Received POs";
     try {
       setLoadingState(true);
@@ -351,6 +355,12 @@ export default function PendingIndents() {
   return (
     <div className="w-full space-y-4 px-0 py-2 sm:p-4 md:p-6 lg:p-8">
       <Heading heading="Purchase Orders" subtext={`Pending and received purchase orders | ${rangeLabel}`}><ListTodo size={50} className="text-primary" /></Heading>
+      <div className="mt-3 flex items-center justify-end gap-2 px-1.5 sm:px-0">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Entity</span>
+        <div className="w-[130px]">
+          <EntitySelect value={entity} onChange={setEntity} disabled={loading} label="" />
+        </div>
+      </div>
       <Tabs defaultValue="pending" className="mt-4 w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           <TabsTrigger value="pending" className="w-full rounded-xl py-2.5 font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">

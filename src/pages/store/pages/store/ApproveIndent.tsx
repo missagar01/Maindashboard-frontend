@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as XLSX from "xlsx";
 
 import Heading from "../../components/element/Heading";
+import EntitySelect from "../../components/element/EntitySelect";
+import { DEFAULT_ENTITY, type EntityCode } from "../../utils/entityOptions";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import {
@@ -449,6 +451,7 @@ export default function ApproveIndent() {
   const [downloadingHistory, setDownloadingHistory] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState<IndentRow | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [entity, setEntity] = useState<EntityCode>(DEFAULT_ENTITY);
   const rangeLabel = `${formatDate(DEFAULT_INDENT_FROM_DATE)} to ${formatDate(
     getTodayDateString()
   )}`;
@@ -460,7 +463,7 @@ export default function ApproveIndent() {
   const vendorType = form.watch("vendorType");
 
   const fetchPending = async () => {
-    const res = await storeApi.getPendingIndents();
+    const res = await storeApi.getPendingIndents(entity);
     const resData = (res as { data?: unknown })?.data;
     const raw = Array.isArray(resData) ? resData : Array.isArray(res) ? (res as unknown[]) : [];
     const data = raw as Record<string, unknown>[];
@@ -469,7 +472,7 @@ export default function ApproveIndent() {
   };
 
   const fetchHistory = async () => {
-    const res = await storeApi.getHistoryIndents();
+    const res = await storeApi.getHistoryIndents(entity);
     const resData = (res as { data?: unknown })?.data;
     const raw = Array.isArray(resData) ? resData : Array.isArray(res) ? (res as unknown[]) : [];
     const data = raw as Record<string, unknown>[];
@@ -493,7 +496,7 @@ export default function ApproveIndent() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [entity]);
 
   const handleDownload = async (type: "pending" | "history") => {
     try {
@@ -503,14 +506,14 @@ export default function ApproveIndent() {
           toast.error("No pending indents available to download.");
           return;
         }
-        downloadRowsAsExcel(pendingFiltered, "pending", "pending-indents.xlsx");
+        downloadRowsAsExcel(pendingFiltered, "pending", `pending-indents-${entity}.xlsx`);
       } else {
         setDownloadingHistory(true);
         if (!historyFiltered.length) {
           toast.error("No history indents available to download.");
           return;
         }
-        downloadRowsAsExcel(historyFiltered, "history", "history-indents.xlsx");
+        downloadRowsAsExcel(historyFiltered, "history", `history-indents-${entity}.xlsx`);
       }
     } catch (err) {
       console.error(err);
@@ -603,15 +606,33 @@ export default function ApproveIndent() {
         <Heading
           heading="Indent"
           subtext={`Pending and History Indents | ${rangeLabel}`}
-          tabs
         >
           <ClipboardCheck size={50} className="text-primary" />
         </Heading>
 
-        {/* <TabsList>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList> */}
+        <div className="mt-2 flex items-center justify-end gap-2 px-1.5 sm:px-0">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+            Entity
+          </span>
+          <div className="w-[130px]">
+            <EntitySelect value={entity} onChange={setEntity} disabled={loading} label="" />
+          </div>
+        </div>
+
+        <TabsList className="mt-2 grid h-auto w-full grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+          <TabsTrigger
+            value="pending"
+            className="w-full rounded-xl py-2.5 font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+          >
+            Pending
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="w-full rounded-xl py-2.5 font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+          >
+            History
+          </TabsTrigger>
+        </TabsList>
 
         {/* Pending Tab */}
         <TabsContent value="pending">

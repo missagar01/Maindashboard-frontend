@@ -76,7 +76,6 @@ import StoreIssue from "./pages/store/pages/store/StoreIssue";
 import StoreIndentAll from "./pages/store/pages/store/IndentAll";
 import StoreOutApproval from "./pages/store/pages/store/StoreOutApproval";
 
-import StorePendingPOs from "./pages/store/pages/store/PendingPOs";
 import StoreCreatePO from "./pages/store/pages/store/CreatePO";
 import StoreApproveIndent from "./pages/store/pages/store/ApproveIndent";
 import StoreApproveIndentData from "./pages/store/pages/store/ApprowIndentData";
@@ -296,7 +295,6 @@ export default function App() {
               <Route path="/store/store-issue" element={<RouteGuard><StoreIssue /></RouteGuard>} />
               <Route path="/store/indent" element={<RouteGuard><StoreIndentAll /></RouteGuard>} />
               <Route path="/store/store-out-approval" element={<RouteGuard><StoreOutApproval /></RouteGuard>} />
-              <Route path="/store/pending-pos" element={<RouteGuard><StorePendingPOs /></RouteGuard>} />
               <Route path="/store/create-po" element={<RouteGuard><StoreCreatePO /></RouteGuard>} />
               <Route path="/store/approve-indent" element={<RouteGuard><StoreApproveIndent /></RouteGuard>} />
               <Route path="/store/approve-indent-data" element={<RouteGuard><StoreApproveIndentData /></RouteGuard>} />
