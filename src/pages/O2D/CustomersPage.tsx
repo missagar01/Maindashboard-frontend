@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, PhoneCall, MapPin, User, Building, Tag, Briefcase, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, PhoneCall, MapPin, User, Building, Tag, Briefcase, X, CheckCircle2 } from 'lucide-react';
 import * as o2dAPI from "../../api/o2dAPI";
 import { useAuth } from "../../context/AuthContext";
 import CustomerModal from './CustomerModal';
@@ -16,6 +16,7 @@ interface Customer {
     "Status": string;
     sales_person: string;
     sales_person_id: number | null;
+    followed_up_today: boolean;
 }
 
 interface MarketingUser {
@@ -60,7 +61,8 @@ const CustomersPage: React.FC = () => {
                     id: c.client_id, "Client Name": c.client_name, "City": c.city,
                     "Contact Person": c.contact_person, "Contact Details": c.contact_details,
                     "Sales Person": c.sales_person_id, "Client Type": c.client_type,
-                    "Status": c.status, sales_person: c.sales_person, sales_person_id: c.sales_person_id
+                    "Status": c.status, sales_person: c.sales_person, sales_person_id: c.sales_person_id,
+                    followed_up_today: c.followed_up_today === true || c.followed_up_today === 'true' || c.followed_up_today === 't'
                 }));
                 data.sort((a, b) => (a["Client Name"]?.toLowerCase() || "").localeCompare(b["Client Name"]?.toLowerCase() || ""));
                 setCustomers(data);
@@ -244,10 +246,18 @@ const CustomersPage: React.FC = () => {
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => { setSelectedCustomer(customer); setIsFollowUpModalOpen(true); }}
-                                            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all active:scale-95">
-                                            Follow Up
-                                        </button>
+                                        {customer.followed_up_today ? (
+                                            <button disabled title="Follow-up already submitted for this client today"
+                                                className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 py-2 rounded-xl text-[10px] sm:text-xs font-bold cursor-not-allowed">
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                Followed Up Today
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => { setSelectedCustomer(customer); setIsFollowUpModalOpen(true); }}
+                                                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all active:scale-95">
+                                                Follow Up
+                                            </button>
+                                        )}
                                         <button onClick={() => { setCustomerToEdit(customer); setIsCustomerModalOpen(true); }}
                                             className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors border border-slate-100 active:scale-90">
                                             <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
