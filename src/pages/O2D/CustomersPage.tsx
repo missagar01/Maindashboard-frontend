@@ -29,6 +29,9 @@ interface PageMessage {
     text: string;
 }
 
+const normalizeSearchValue = (value: unknown) =>
+    String(value ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 const CustomersPage: React.FC = () => {
     const { user } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -47,7 +50,10 @@ const CustomersPage: React.FC = () => {
     const fetchData = async () => {
         setLoading(true); setError('');
         try {
-            const [customersRes, marketingUsersRes] = await Promise.all([o2dAPI.getClients(), o2dAPI.getMarketingUsers()]);
+            const [customersRes, marketingUsersRes] = await Promise.all([
+                o2dAPI.getClients({ fresh: true }),
+                o2dAPI.getMarketingUsers()
+            ]);
             if (marketingUsersRes.data?.success) setMarketingUsers(marketingUsersRes.data.data || []);
             if (customersRes.data?.success) {
                 const data: Customer[] = (customersRes.data.data || []).map((c: any) => ({
@@ -72,20 +78,22 @@ const CustomersPage: React.FC = () => {
     }, [pageMessage]);
 
     const filteredCustomers = useMemo(() => {
-        const lower = search.toLowerCase();
+        const lower = normalizeSearchValue(search);
         let filtered = [...customers];
-        if (lower) filtered = filtered.filter(c =>
-            c["Client Name"]?.toLowerCase().includes(lower) ||
-            c["Contact Details"]?.toString().toLowerCase().includes(lower) ||
-            c["Contact Person"]?.toLowerCase().includes(lower) ||
-            c.sales_person?.toLowerCase().includes(lower)
-        );
+        if (lower) filtered = filtered.filter(c => ([
+            c["Client Name"],
+            c["Contact Details"],
+            c["Contact Person"],
+            c.sales_person,
+            c.City,
+            c["Client Type"],
+        ]).some(value => normalizeSearchValue(value).includes(lower)));
         if (salesPersonFilterId) {
             const selectedUser = marketingUsers.find(u => String(u.id) === salesPersonFilterId);
-            const selectedName = selectedUser?.user_name?.trim().toLowerCase();
+            const selectedName = normalizeSearchValue(selectedUser?.user_name);
             filtered = filtered.filter(c =>
                 String(c.sales_person_id) === salesPersonFilterId ||
-                (selectedName && c.sales_person?.trim().toLowerCase() === selectedName)
+                (selectedName && normalizeSearchValue(c.sales_person) === selectedName)
             );
         }
         return filtered;
