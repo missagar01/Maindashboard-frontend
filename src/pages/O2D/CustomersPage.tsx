@@ -34,9 +34,6 @@ interface PageMessage {
     text: string;
 }
 
-const normalizeSearchValue = (value: unknown) =>
-    String(value ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
-
 const CustomersPage: React.FC = () => {
     const { user } = useAuth();
     const isAdmin = isAdminRole(user?.role) || isAdminRole(user?.userType);
@@ -53,11 +50,13 @@ const CustomersPage: React.FC = () => {
     const [visibleCount, setVisibleCount] = useState(100);
     const [pageMessage, setPageMessage] = useState<PageMessage | null>(null);
 
-    const fetchData = async () => {
-        setLoading(true); setError('');
+    const fetchData = async (options: { fresh?: boolean; showLoading?: boolean } = {}) => {
+        const { fresh = false, showLoading = true } = options;
+        if (showLoading) setLoading(true);
+        setError('');
         try {
             const [customersRes, marketingUsersRes] = await Promise.all([
-                o2dAPI.getClients({ fresh: true }),
+                o2dAPI.getClients(fresh ? { fresh: true, cacheBust: Date.now() } : undefined),
                 o2dAPI.getMarketingUsers()
             ]);
             if (marketingUsersRes.data?.success) setMarketingUsers(marketingUsersRes.data.data || []);
@@ -73,7 +72,7 @@ const CustomersPage: React.FC = () => {
                 setCustomers(data);
             } else { setError('Failed to load data.'); }
         } catch { setError('Error fetching data.'); }
-        finally { setLoading(false); }
+        finally { if (showLoading) setLoading(false); }
     };
 
     useEffect(() => { fetchData(); }, []);
@@ -85,19 +84,8 @@ const CustomersPage: React.FC = () => {
     }, [pageMessage]);
 
     const filteredCustomers = useMemo(() => {
-        const lower = normalizeSearchValue(search);
+        const lower = search.toLowerCase();
         let filtered = [...customers];
-<<<<<<< HEAD
-        if (lower) filtered = filtered.filter(c => ([
-            c["Client Name"],
-            c["Contact Details"],
-            c["Contact Person"],
-            c.sales_person,
-            c.City,
-            c["Client Type"],
-        ]).some(value => normalizeSearchValue(value).includes(lower)));
-        if (salesPersonFilterId) {
-=======
 
         // Defense-in-depth: non-admins only see their assigned clients
         if (!isAdmin && user) {
@@ -117,12 +105,11 @@ const CustomersPage: React.FC = () => {
         );
 
         if (isAdmin && salesPersonFilterId) {
->>>>>>> 80e456b84ec0f6405015a724505067275ae68db5
             const selectedUser = marketingUsers.find(u => String(u.id) === salesPersonFilterId);
-            const selectedName = normalizeSearchValue(selectedUser?.user_name);
+            const selectedName = selectedUser?.user_name?.trim().toLowerCase();
             filtered = filtered.filter(c =>
                 String(c.sales_person_id) === salesPersonFilterId ||
-                (selectedName && normalizeSearchValue(c.sales_person) === selectedName)
+                (selectedName && c.sales_person?.trim().toLowerCase() === selectedName)
             );
         }
         return filtered;
@@ -142,7 +129,7 @@ const CustomersPage: React.FC = () => {
         setPageMessage(null);
         try {
             await o2dAPI.deleteClient(String(id));
-            await fetchData();
+            await fetchData({ fresh: true });
             setPageMessage({ type: 'success', text: 'Customer deleted successfully.' });
         } catch (error: any) {
             setPageMessage({
@@ -153,7 +140,7 @@ const CustomersPage: React.FC = () => {
     };
 
     const handleCustomerSuccess = async (message: string) => {
-        await fetchData();
+        await fetchData({ fresh: true });
         setPageMessage({ type: 'success', text: message });
     };
 
