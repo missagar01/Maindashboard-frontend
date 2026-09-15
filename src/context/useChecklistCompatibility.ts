@@ -25,6 +25,37 @@ const getResponseTotal = (response: any, fallbackLength = 0) => {
   return Number.isFinite(total) ? total : fallbackLength;
 };
 
+const normalizeTaskKeyPart = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const getQuickTaskUniqueKey = (task: any, type: string) => {
+  const id = task?.task_id ?? task?.id;
+  if (id !== undefined && id !== null && String(id).trim() !== "") {
+    return `${type}:id:${String(id).trim()}`;
+  }
+
+  return [
+    type,
+    normalizeTaskKeyPart(task?.name),
+    normalizeTaskKeyPart(task?.department),
+    normalizeTaskKeyPart(task?.task_description),
+    normalizeTaskKeyPart(task?.task_start_date),
+  ].join(":");
+};
+
+const uniqueQuickTasks = (tasks: any[], type: string) => {
+  const seen = new Set<string>();
+  return tasks.filter((task) => {
+    const key = getQuickTaskUniqueKey(task, type);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const getCountValue = (value: any) => {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : 0;
@@ -486,7 +517,10 @@ export const useChecklistCompatibility = () => {
       const total = Number(result?.total) || data.length;
 
       setQuickTaskState((previous) => {
-        const nextQuickTask = append ? [...previous.quickTask, ...data] : data;
+        const nextQuickTask = uniqueQuickTasks(
+          append ? [...previous.quickTask, ...data] : data,
+          "checklist"
+        );
         return {
           ...previous,
           quickTask: nextQuickTask,
@@ -522,7 +556,10 @@ export const useChecklistCompatibility = () => {
       const total = Number(result?.total) || data.length;
 
       setQuickTaskState((previous) => {
-        const nextDelegationTasks = append ? [...previous.delegationTasks, ...data] : data;
+        const nextDelegationTasks = uniqueQuickTasks(
+          append ? [...previous.delegationTasks, ...data] : data,
+          "delegation"
+        );
         return {
           ...previous,
           delegationTasks: nextDelegationTasks,
@@ -569,7 +606,10 @@ export const useChecklistCompatibility = () => {
       const total = Number(result?.total) || data.length;
 
       setQuickTaskState((previous) => {
-        const nextMaintenanceTasks = append ? [...previous.maintenanceTasks, ...data] : data;
+        const nextMaintenanceTasks = uniqueQuickTasks(
+          append ? [...previous.maintenanceTasks, ...data] : data,
+          "maintenance"
+        );
         return {
           ...previous,
           maintenanceTasks: nextMaintenanceTasks,
@@ -616,7 +656,10 @@ export const useChecklistCompatibility = () => {
       const total = Number(result?.total) || data.length;
 
       setQuickTaskState((previous) => {
-        const nextHousekeepingTasks = append ? [...previous.housekeepingTasks, ...data] : data;
+        const nextHousekeepingTasks = uniqueQuickTasks(
+          append ? [...previous.housekeepingTasks, ...data] : data,
+          "housekeeping"
+        );
         return {
           ...previous,
           housekeepingTasks: nextHousekeepingTasks,
