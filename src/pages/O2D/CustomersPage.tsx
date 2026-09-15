@@ -50,13 +50,13 @@ const CustomersPage: React.FC = () => {
     const [visibleCount, setVisibleCount] = useState(100);
     const [pageMessage, setPageMessage] = useState<PageMessage | null>(null);
 
-    const fetchData = async (options: { fresh?: boolean; showLoading?: boolean } = {}) => {
-        const { fresh = false, showLoading = true } = options;
+    const fetchData = async (options: { fresh?: boolean; showLoading?: boolean; search?: string } = {}) => {
+        const { fresh = true, showLoading = true, search: serverSearch = '' } = options;
         if (showLoading) setLoading(true);
         setError('');
         try {
             const [customersRes, marketingUsersRes] = await Promise.all([
-                o2dAPI.getClients(fresh ? { fresh: true, cacheBust: Date.now() } : undefined),
+                o2dAPI.getClients(fresh ? { fresh: true, cacheBust: Date.now(), search: serverSearch || undefined } : undefined),
                 o2dAPI.getMarketingUsers()
             ]);
             if (marketingUsersRes.data?.success) setMarketingUsers(marketingUsersRes.data.data || []);
@@ -76,6 +76,12 @@ const CustomersPage: React.FC = () => {
     };
 
     useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void fetchData({ fresh: true, showLoading: false, search: search.trim() });
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [search]);
     useEffect(() => { setVisibleCount(100); }, [search, salesPersonFilterId]);
     useEffect(() => {
         if (!pageMessage) return;

@@ -56,7 +56,7 @@ export const createEnquiry = (data: any) =>
 export const getAllEnquiries = () =>
   apiRequest('/api/o2d/size-master/enquiries/all');
 
-export const getClients = (params?: { excludeFollowedToday?: boolean; fresh?: boolean; cacheBust?: number }) =>
+export const getClients = (params?: { excludeFollowedToday?: boolean; fresh?: boolean; cacheBust?: number; search?: string }) =>
   apiRequest('/api/o2d/client', {
     params,
     headers: params?.fresh
