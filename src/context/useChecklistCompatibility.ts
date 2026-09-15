@@ -32,18 +32,22 @@ const normalizeTaskKeyPart = (value: unknown) =>
     .replace(/\s+/g, " ");
 
 const getQuickTaskUniqueKey = (task: any, type: string) => {
+  const semanticKey = [
+    type,
+    normalizeTaskKeyPart(task?.name),
+    normalizeTaskKeyPart(task?.task_description),
+  ].join(":");
+
+  if (normalizeTaskKeyPart(task?.name) || normalizeTaskKeyPart(task?.task_description)) {
+    return semanticKey;
+  }
+
   const id = task?.task_id ?? task?.id;
   if (id !== undefined && id !== null && String(id).trim() !== "") {
     return `${type}:id:${String(id).trim()}`;
   }
 
-  return [
-    type,
-    normalizeTaskKeyPart(task?.name),
-    normalizeTaskKeyPart(task?.department),
-    normalizeTaskKeyPart(task?.task_description),
-    normalizeTaskKeyPart(task?.task_start_date),
-  ].join(":");
+  return `${type}:unknown`;
 };
 
 const uniqueQuickTasks = (tasks: any[], type: string) => {
