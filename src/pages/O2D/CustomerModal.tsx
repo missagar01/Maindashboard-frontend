@@ -10,8 +10,14 @@ interface CustomerModalProps {
     onSuccess: (message: string) => void | Promise<void>;
 }
 
+// Admin-level roles see every sales person; anyone else is locked to themselves.
+const ADMIN_ROLES = ['admin', 'all access'];
+const isAdminRole = (role?: unknown) =>
+    ADMIN_ROLES.includes(String(role || '').trim().toLowerCase());
+
 const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customerToEdit, onSuccess }) => {
     const { user } = useAuth();
+    const isAdmin = isAdminRole(user?.role) || isAdminRole(user?.userType);
     const [loading, setLoading] = useState(false);
     const [marketingUsers, setMarketingUsers] = useState<any[]>([]);
     const [submitError, setSubmitError] = useState('');
@@ -37,7 +43,6 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
             } catch { }
         })();
 
-        const isSales = user?.role === 'Sales';
         if (customerToEdit) {
             setFormData({
                 "Client Name": customerToEdit["Client Name"] || '',
@@ -50,14 +55,34 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
                 "Status": customerToEdit["Status"] || 'Active'
             });
         } else {
+            // Non-admin: lock the sales person to the logged-in user.
             setFormData({
                 "Client Name": '', "City": '', "Contact Person": '', "Contact Details": '',
-                "Sales Person": isSales ? (user?.user_name || user?.username || '') : '',
-                "sales_person_id": isSales ? String(user?.id) : '',
+                "Sales Person": isAdmin ? '' : (user?.user_name || user?.username || ''),
+                "sales_person_id": isAdmin ? '' : String(user?.id ?? ''),
                 "Client Type": '', "Status": 'Active'
             });
         }
-    }, [isOpen, customerToEdit, user]);
+    }, [isOpen, customerToEdit, user, isAdmin]);
+
+    // Once the marketing users list loads, snap a non-admin's selection to their
+    // own marketing-user record (matched by id or name) for an accurate FK.
+    useEffect(() => {
+        if (!isOpen || isAdmin || customerToEdit || marketingUsers.length === 0) return;
+        const uid = String(user?.id ?? '');
+        const uname = String(user?.user_name || user?.username || '').trim().toLowerCase();
+        const self = marketingUsers.find(u =>
+            String(u.id) === uid ||
+            String(u.user_name || '').trim().toLowerCase() === uname
+        );
+        if (self) {
+            setFormData(prev => ({
+                ...prev,
+                "sales_person_id": String(self.id),
+                "Sales Person": self.user_name || prev["Sales Person"]
+            }));
+        }
+    }, [isOpen, isAdmin, customerToEdit, marketingUsers, user]);
 
     const handleChange = (key: string, value: string) => {
         setSubmitError('');
@@ -172,10 +197,18 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
                             <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <select
                                 value={formData.sales_person_id} onChange={handleSalesPersonChange} required
-                                disabled={user?.role === 'Sales'}
-                                className={`${iconInputCls()} appearance-none cursor-pointer ${user?.role === 'Sales' ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                                <option value="">Select Sales Person...</option>
-                                {marketingUsers.map(u => <option key={u.id} value={u.id}>{u.user_name}</option>)}
+                                disabled={!isAdmin}
+                                className={`${iconInputCls()} appearance-none cursor-pointer ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                                {isAdmin ? (
+                                    <>
+                                        <option value="">Select Sales Person...</option>
+                                        {marketingUsers.map(u => <option key={u.id} value={u.id}>{u.user_name}</option>)}
+                                    </>
+                                ) : (
+                                    <option value={formData.sales_person_id}>
+                                        {formData["Sales Person"] || user?.user_name || user?.username || 'You'}
+                                    </option>
+                                )}
                             </select>
                         </div>
                     </div>

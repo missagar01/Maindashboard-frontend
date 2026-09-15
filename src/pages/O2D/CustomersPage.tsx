@@ -25,6 +25,10 @@ interface MarketingUser {
 }
 
 
+const ADMIN_ROLES = ['admin', 'all access'];
+const isAdminRole = (role?: unknown) =>
+    ADMIN_ROLES.includes(String(role || '').trim().toLowerCase());
+
 interface PageMessage {
     type: 'success' | 'error';
     text: string;
@@ -35,6 +39,7 @@ const normalizeSearchValue = (value: unknown) =>
 
 const CustomersPage: React.FC = () => {
     const { user } = useAuth();
+    const isAdmin = isAdminRole(user?.role) || isAdminRole(user?.userType);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [marketingUsers, setMarketingUsers] = useState<MarketingUser[]>([]);
     const [salesPersonFilterId, setSalesPersonFilterId] = useState('');
@@ -82,6 +87,7 @@ const CustomersPage: React.FC = () => {
     const filteredCustomers = useMemo(() => {
         const lower = normalizeSearchValue(search);
         let filtered = [...customers];
+<<<<<<< HEAD
         if (lower) filtered = filtered.filter(c => ([
             c["Client Name"],
             c["Contact Details"],
@@ -91,6 +97,27 @@ const CustomersPage: React.FC = () => {
             c["Client Type"],
         ]).some(value => normalizeSearchValue(value).includes(lower)));
         if (salesPersonFilterId) {
+=======
+
+        // Defense-in-depth: non-admins only see their assigned clients
+        if (!isAdmin && user) {
+            const uid = String(user.id || '').trim();
+            const uname = (user.user_name || user.username || '').trim().toLowerCase();
+            filtered = filtered.filter(c =>
+                (uid && String(c.sales_person_id) === uid) ||
+                (uname && c.sales_person?.trim().toLowerCase() === uname)
+            );
+        }
+
+        if (lower) filtered = filtered.filter(c =>
+            c["Client Name"]?.toLowerCase().includes(lower) ||
+            c["Contact Details"]?.toString().toLowerCase().includes(lower) ||
+            c["Contact Person"]?.toLowerCase().includes(lower) ||
+            c.sales_person?.toLowerCase().includes(lower)
+        );
+
+        if (isAdmin && salesPersonFilterId) {
+>>>>>>> 80e456b84ec0f6405015a724505067275ae68db5
             const selectedUser = marketingUsers.find(u => String(u.id) === salesPersonFilterId);
             const selectedName = normalizeSearchValue(selectedUser?.user_name);
             filtered = filtered.filter(c =>
@@ -99,7 +126,7 @@ const CustomersPage: React.FC = () => {
             );
         }
         return filtered;
-    }, [search, salesPersonFilterId, customers, marketingUsers]);
+    }, [search, salesPersonFilterId, customers, marketingUsers, isAdmin, user]);
 
     const visibleCustomers = useMemo(() => filteredCustomers.slice(0, visibleCount), [filteredCustomers, visibleCount]);
 
@@ -166,14 +193,21 @@ const CustomersPage: React.FC = () => {
                             </button>
                         )}
                     </div>
-                    <select
-                        value={salesPersonFilterId}
-                        onChange={(e) => setSalesPersonFilterId(e.target.value)}
-                        className="w-32 sm:w-44 bg-slate-50 border border-slate-200 rounded-xl py-2 sm:py-2.5 px-2 sm:px-3 text-slate-700 text-[10px] sm:text-xs font-semibold outline-none focus:border-blue-500 transition-all cursor-pointer appearance-none"
-                    >
-                        <option value="">All Sales</option>
-                        {marketingUsers.map(u => <option key={u.id} value={String(u.id)}>{u.user_name}</option>)}
-                    </select>
+                    {isAdmin ? (
+                        <select
+                            value={salesPersonFilterId}
+                            onChange={(e) => setSalesPersonFilterId(e.target.value)}
+                            className="w-32 sm:w-44 bg-slate-50 border border-slate-200 rounded-xl py-2 sm:py-2.5 px-2 sm:px-3 text-slate-700 text-[10px] sm:text-xs font-semibold outline-none focus:border-blue-500 transition-all cursor-pointer appearance-none"
+                        >
+                            <option value="">All Sales</option>
+                            {marketingUsers.map(u => <option key={u.id} value={String(u.id)}>{u.user_name}</option>)}
+                        </select>
+                    ) : (
+                        <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-xl py-2 px-3 text-slate-700 text-[10px] sm:text-xs font-semibold whitespace-nowrap">
+                            <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                            <span>{user?.user_name || user?.username || "My Clients"}</span>
+                        </div>
+                    )}
                 </div>
 
                 {pageMessage && (
