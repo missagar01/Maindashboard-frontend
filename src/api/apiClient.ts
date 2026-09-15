@@ -9,8 +9,18 @@ const resolveApiBaseUrl = () => {
   }
 
   const normalizedEnvBase = normalizeBaseUrl(envBaseUrl);
+  const currentHostname =
+    typeof window !== 'undefined' ? window.location?.hostname || '' : '';
+  const isLocalPage =
+    currentHostname === 'localhost' ||
+    currentHostname === '127.0.0.1' ||
+    currentHostname === '[::1]';
 
   if (!normalizedEnvBase) {
+    return '';
+  }
+
+  if (!isLocalPage && /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(normalizedEnvBase)) {
     return '';
   }
 
