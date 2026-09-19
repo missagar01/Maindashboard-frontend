@@ -136,9 +136,10 @@ export const deletePipelineEnquiry = (id: number | string) =>
     method: 'DELETE',
   });
 
-export const completePipelineStage = (id: number | string, stage: string) =>
+export const completePipelineStage = (id: number | string, stage: string, data?: any) =>
   apiRequest(`/api/o2d/enquiry-pipeline/${id}/stage/${stage}/complete`, {
     method: 'PATCH',
+    body: data,
   });
 
 export const getPaymentFollowup = (fromDate?: string) =>
