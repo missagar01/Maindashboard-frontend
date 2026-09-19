@@ -383,7 +383,7 @@ const EnquiryPipeline = () => {
                             <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-white text-sm sm:text-lg font-bold tracking-tight leading-tight">Sales FMS</h1>
+                            <h1 className="text-white text-sm sm:text-lg font-bold tracking-tight leading-tight">Only For NBD</h1>
                             <p className="text-blue-200 text-[8px] sm:text-[10px] uppercase font-bold tracking-widest hidden sm:block">
                                 First Meeting &rarr; Proposal &rarr; Demonstration &rarr; Negotiation &rarr; Closer
                             </p>
@@ -405,7 +405,7 @@ const EnquiryPipeline = () => {
                             className="bg-white text-[#1e40af] hover:bg-blue-50 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all"
                         >
                             {showForm ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                            <span>{showForm ? "Close" : "New Enquiry"}</span>
+                            <span>{showForm ? "Close" : "New NBD"}</span>
                         </button>
                     </div>
                 </div>
