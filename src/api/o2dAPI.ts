@@ -13,8 +13,12 @@ export const getCrmUsers = () => apiRequest('/api/auth/crm-users');
 export const getDashboardSummary = (params?: any) =>
   apiRequest('/api/o2d/dashboard/summary', { params });
 
+export const getCustomerDispatchTiers = (params?: any) =>
+  apiRequest('/api/o2d/dashboard/dispatch-tiers', { params });
+
 export const getCustomerFeedback = (params?: any) =>
   apiRequest('/api/o2d/dashboard/customer-feedback', { params });
+
 
 export const getDeliveryStats = (params?: any) =>
   apiRequest('/api/o2d/delivery/stats', { params });

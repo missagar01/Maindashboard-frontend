@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent, Truck, Target, TrendingUp, ArrowUpRight, Activity, Quote, MessageSquare, Star } from "lucide-react"
+import { AlertCircle, Filter, Loader2, RefreshCw, X, Trophy, Database, User, Percent, Truck, Target, TrendingUp, ArrowUpRight, Activity, Quote, MessageSquare, Star, Shield, Award, Crown, Gem, Search, Download, Medal } from "lucide-react"
 import { format } from "date-fns"
+
 import { useAuth } from "../../context/AuthContext"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -81,6 +82,45 @@ type CachedFeedbackPayload = {
   feedbackStats: any[]
 }
 
+type DispatchTierCustomer = {
+  name: string
+  quantity: number
+  tier: "bronze" | "silver" | "gold" | "platinum" | "diamond"
+}
+
+type DispatchTierStat = {
+  label: string
+  range: string
+  count: number
+  quantity: number
+}
+
+type DispatchTiersPayload = {
+  tiers: {
+    bronze: DispatchTierCustomer[]
+    silver: DispatchTierCustomer[]
+    gold: DispatchTierCustomer[]
+    platinum: DispatchTierCustomer[]
+    diamond: DispatchTierCustomer[]
+  }
+  summary: {
+    totalCustomers: number
+    totalQuantity: number
+    tierStats: {
+      bronze: DispatchTierStat
+      silver: DispatchTierStat
+      gold: DispatchTierStat
+      platinum: DispatchTierStat
+      diamond: DispatchTierStat
+    }
+  }
+  filters: {
+    fromDate: string
+    toDate: string
+  }
+  lastUpdated?: string
+}
+
 type CachedAdditionalStatsPayload = {
   totalCustomers: number
   followupStats: { totalFollowUps: number; ordersBooked: number }
@@ -104,8 +144,10 @@ const DASHBOARD_CACHE_PREFIX = "o2d-dashboard:summary"
 const ADDITIONAL_STATS_CACHE_PREFIX = "o2d-dashboard:stats"
 const ENQUIRY_CACHE_PREFIX = "o2d-dashboard:enquiry"
 const FEEDBACK_CACHE_KEY = "o2d-dashboard:feedback"
+const DISPATCH_TIERS_CACHE_PREFIX = "o2d-dashboard:dispatch-tiers"
 const AUTO_REFRESH_INTERVAL_MS = 2 * 60 * 1000
 const AUTO_REFRESH_COOLDOWN_MS = 10 * 1000
+
 
 function buildCacheKey(prefix: string, values: Record<string, string | null | undefined>) {
   const params = new URLSearchParams()
@@ -300,6 +342,74 @@ function DatePicker({
   );
 }
 
+const DISPATCH_TIER_COLUMNS = [
+  {
+    key: "bronze" as const,
+    label: "1. Bronze",
+    range: "0 - 50 MT",
+    icon: Medal,
+    badgeBg: "bg-amber-100 text-amber-900 border-amber-300",
+    headerBg: "bg-gradient-to-r from-amber-700 to-amber-800 text-white",
+    cardBg: "bg-amber-50/50 hover:bg-amber-50/90 border-amber-200/90",
+    qtyBadge: "bg-amber-100 text-amber-900 border-amber-300",
+    accentColor: "text-amber-700",
+    summaryGradient: "from-amber-600 to-amber-800",
+    summaryBg: "bg-amber-50/70 border-amber-200",
+  },
+  {
+    key: "silver" as const,
+    label: "2. Silver",
+    range: "51 - 100 MT",
+    icon: Shield,
+    badgeBg: "bg-slate-200 text-slate-800 border-slate-400",
+    headerBg: "bg-gradient-to-r from-slate-600 to-slate-700 text-white",
+    cardBg: "bg-slate-50/60 hover:bg-slate-100/90 border-slate-200",
+    qtyBadge: "bg-slate-200 text-slate-800 border-slate-300",
+    accentColor: "text-slate-600",
+    summaryGradient: "from-slate-600 to-slate-800",
+    summaryBg: "bg-slate-50/70 border-slate-200",
+  },
+  {
+    key: "gold" as const,
+    label: "3. Gold",
+    range: "101 - 150 MT",
+    icon: Crown,
+    badgeBg: "bg-yellow-100 text-yellow-900 border-yellow-300",
+    headerBg: "bg-gradient-to-r from-amber-600 to-yellow-600 text-white",
+    cardBg: "bg-yellow-50/50 hover:bg-yellow-50/90 border-yellow-200/90",
+    qtyBadge: "bg-yellow-100 text-yellow-900 border-yellow-300",
+    accentColor: "text-yellow-700",
+    summaryGradient: "from-yellow-600 to-amber-700",
+    summaryBg: "bg-yellow-50/70 border-yellow-200",
+  },
+  {
+    key: "platinum" as const,
+    label: "4. Platinum",
+    range: "151 - 200 MT",
+    icon: Award,
+    badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300",
+    headerBg: "bg-gradient-to-r from-indigo-700 to-indigo-800 text-white",
+    cardBg: "bg-indigo-50/40 hover:bg-indigo-50/80 border-indigo-200/80",
+    qtyBadge: "bg-indigo-100 text-indigo-900 border-indigo-300",
+    accentColor: "text-indigo-700",
+    summaryGradient: "from-indigo-600 to-purple-800",
+    summaryBg: "bg-indigo-50/70 border-indigo-200",
+  },
+  {
+    key: "diamond" as const,
+    label: "5. Diamond",
+    range: "200+ MT",
+    icon: Gem,
+    badgeBg: "bg-cyan-100 text-cyan-900 border-cyan-300",
+    headerBg: "bg-gradient-to-r from-cyan-700 to-teal-800 text-white",
+    cardBg: "bg-cyan-50/40 hover:bg-cyan-50/80 border-cyan-200/80",
+    qtyBadge: "bg-cyan-100 text-cyan-900 border-cyan-300",
+    accentColor: "text-cyan-700",
+    summaryGradient: "from-cyan-600 to-teal-800",
+    summaryBg: "bg-cyan-50/70 border-cyan-200",
+  },
+];
+
 export function DashboardView() {
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = useState<DashboardResponse | null>(null)
@@ -330,6 +440,12 @@ export function DashboardView() {
   const [loadingFeedback, setLoadingFeedback] = useState(false)
   const [feedbackStats, setFeedbackStats] = useState<any[]>([])
 
+  // Customer Dispatch Tiers State
+  const [dispatchTiers, setDispatchTiers] = useState<DispatchTiersPayload | null>(null)
+  const [loadingDispatchTiers, setLoadingDispatchTiers] = useState(false)
+  const [dispatchSearchQuery, setDispatchSearchQuery] = useState("")
+
+
   const dashboardRef = useRef<HTMLDivElement | null>(null)
   const refreshInFlightRef = useRef(false)
   const lastRefreshAtRef = useRef(0)
@@ -349,6 +465,86 @@ export function DashboardView() {
     () => getPerformanceSummary(dailySalesPerformance),
     [dailySalesPerformance]
   )
+
+  const dispatchQuery = dispatchSearchQuery.trim().toLowerCase()
+
+  const filteredDispatchTiers = useMemo(() => {
+    if (!dispatchTiers) {
+      return {
+        bronze: [] as DispatchTierCustomer[],
+        silver: [] as DispatchTierCustomer[],
+        gold: [] as DispatchTierCustomer[],
+        platinum: [] as DispatchTierCustomer[],
+        diamond: [] as DispatchTierCustomer[],
+      }
+    }
+
+    if (!dispatchQuery) {
+      return dispatchTiers.tiers
+    }
+
+    return {
+      bronze: dispatchTiers.tiers.bronze.filter((c) => c.name.toLowerCase().includes(dispatchQuery)),
+      silver: dispatchTiers.tiers.silver.filter((c) => c.name.toLowerCase().includes(dispatchQuery)),
+      gold: dispatchTiers.tiers.gold.filter((c) => c.name.toLowerCase().includes(dispatchQuery)),
+      platinum: dispatchTiers.tiers.platinum.filter((c) => c.name.toLowerCase().includes(dispatchQuery)),
+      diamond: dispatchTiers.tiers.diamond.filter((c) => c.name.toLowerCase().includes(dispatchQuery)),
+    }
+  }, [dispatchTiers, dispatchQuery])
+
+  const maxDispatchTierRows = useMemo(() => {
+    return Math.max(
+      filteredDispatchTiers.bronze.length,
+      filteredDispatchTiers.silver.length,
+      filteredDispatchTiers.gold.length,
+      filteredDispatchTiers.platinum.length,
+      filteredDispatchTiers.diamond.length,
+      0
+    )
+  }, [filteredDispatchTiers])
+
+  const totalFilteredCustomers = useMemo(() => {
+    return (
+      filteredDispatchTiers.bronze.length +
+      filteredDispatchTiers.silver.length +
+      filteredDispatchTiers.gold.length +
+      filteredDispatchTiers.platinum.length +
+      filteredDispatchTiers.diamond.length
+    )
+  }, [filteredDispatchTiers])
+
+  const handleExportDispatchCSV = useCallback(() => {
+    if (!dispatchTiers) return
+    const rows: string[] = [
+      ["Customer Name", "Quantity (MT)", "Tier", "Tier Range"].join(",")
+    ]
+
+    const tierOrder: Array<keyof DispatchTiersPayload["tiers"]> = [
+      "bronze",
+      "silver",
+      "gold",
+      "platinum",
+      "diamond",
+    ]
+
+    tierOrder.forEach((tierKey) => {
+      const tierInfo = dispatchTiers.summary.tierStats[tierKey]
+      const customers = dispatchTiers.tiers[tierKey] || []
+      customers.forEach((c) => {
+        const escapedName = `"${c.name.replace(/"/g, '""')}"`
+        rows.push([escapedName, c.quantity.toFixed(2), tierInfo.label, `"${tierInfo.range}"`].join(","))
+      })
+    })
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `customer_dispatch_tiers_${selectedMonth || "current"}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [dispatchTiers, selectedMonth])
+
 
   const applyAdditionalStats = useCallback((payload: CachedAdditionalStatsPayload) => {
     setTotalCustomers(payload.totalCustomers ?? 0)
@@ -563,6 +759,38 @@ export function DashboardView() {
     }
   }, [getFeedbackTimestampMs])
 
+  const fetchDispatchTiers = useCallback(async () => {
+    let params: Record<string, string> = {}
+    if (selectedMonth === "All Months" || selectedMonth === "Custom Range") {
+      if (startDate) params.fromDate = startDate
+      if (endDate) params.toDate = endDate
+    } else {
+      params = getSelectedMonthDateRange(selectedMonth)
+    }
+
+    const cacheKey = buildCacheKey(DISPATCH_TIERS_CACHE_PREFIX, params)
+    const cached = readCachedValue<DispatchTiersPayload>(cacheKey, SECONDARY_CACHE_TTL_MS, true)
+    if (cached) {
+      setDispatchTiers(cached)
+      setLoadingDispatchTiers(false)
+    } else {
+      setLoadingDispatchTiers(true)
+    }
+
+    try {
+      const response = await o2dAPI.getCustomerDispatchTiers(params)
+      if (response.data?.success && response.data?.data) {
+        setDispatchTiers(response.data.data)
+        writeCachedValue(cacheKey, response.data.data)
+      }
+    } catch (err) {
+      console.error("Error fetching customer dispatch tiers:", err)
+    } finally {
+      setLoadingDispatchTiers(false)
+    }
+  }, [endDate, selectedMonth, startDate])
+
+
   const fetchAdditionalStats = useCallback(async () => {
     const additionalStatsCacheKey = buildCacheKey(ADDITIONAL_STATS_CACHE_PREFIX, {
       startDate,
@@ -708,6 +936,7 @@ export function DashboardView() {
     window.setTimeout(() => {
       void fetchEnquiryReport()
       void fetchCustomerFeedback()
+      void fetchDispatchTiers()
     }, 0)
 
     try {
@@ -732,6 +961,7 @@ export function DashboardView() {
   }, [
     endDate,
     fetchCustomerFeedback,
+    fetchDispatchTiers,
     fetchEnquiryReport,
     selectedItem,
     selectedMonth,
@@ -759,12 +989,14 @@ export function DashboardView() {
       await Promise.all([
         fetchDashboard(),
         fetchAdditionalStats(),
+        fetchDispatchTiers(),
       ])
     } finally {
       refreshInFlightRef.current = false
       lastRefreshAtRef.current = Date.now()
     }
-  }, [fetchAdditionalStats, fetchDashboard])
+  }, [fetchAdditionalStats, fetchDashboard, fetchDispatchTiers])
+
 
   useEffect(() => {
     if (authLoading) {
@@ -2570,8 +2802,290 @@ export function DashboardView() {
           </div>
         </div>
 
+        {/* Customer Dispatch Tiers Section - 5 Columns Table */}
+        <div className="mt-6 sm:mt-10 space-y-3 sm:space-y-4 font-sans">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 px-1">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-md sm:shadow-lg shadow-orange-100">
+                <Crown className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xs sm:text-2xl font-black text-slate-800 tracking-tight flex flex-wrap items-center gap-1.5 sm:gap-3">
+                  CUSTOMER DISPATCH TIERS
+                  <Badge className="bg-amber-100 text-amber-800 border border-amber-300/80 font-black text-[10px] sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 uppercase rounded-full">
+                    {dispatchTiers?.summary?.totalCustomers || 0} PARTIES
+                  </Badge>
+                  <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300/80 font-black text-[10px] sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 uppercase rounded-full">
+                    {dispatchTiers?.summary?.totalQuantity
+                      ? dispatchTiers.summary.totalQuantity.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "0.00"}{" "}
+                    MT
+                  </Badge>
+                </h2>
+                <div className="flex items-center gap-1 sm:gap-2 mt-0.5">
+                  <span className="flex w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <p className="text-[10px] sm:text-sm text-slate-400 font-bold uppercase tracking-wider">
+                    Oracle ERP Dispatch Volume Matrix • 5 Classification Tiers
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions: Search, Export, Sync */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
+              <div className="relative flex-1 sm:flex-none">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  value={dispatchSearchQuery}
+                  onChange={(e) => setDispatchSearchQuery(e.target.value)}
+                  placeholder="Search customer..."
+                  className="pl-8 h-8 sm:h-9 text-xs sm:text-sm w-full sm:w-56 bg-white border-slate-200"
+                />
+                {dispatchSearchQuery && (
+                  <button
+                    onClick={() => setDispatchSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <Button
+                onClick={handleExportDispatchCSV}
+                disabled={!dispatchTiers || (dispatchTiers.summary.totalCustomers || 0) === 0}
+                variant="outline"
+                className="h-8 sm:h-9 px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 rounded-lg shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export</span> CSV
+              </Button>
+
+              <Button
+                onClick={() => fetchDispatchTiers()}
+                variant="outline"
+                className="h-8 sm:h-9 px-2.5 sm:px-4 text-[11px] sm:text-xs font-bold border-slate-200 text-slate-700 hover:bg-orange-50/30 hover:border-orange-200 flex items-center gap-1.5 rounded-lg shadow-sm active:scale-95"
+              >
+                <RefreshCw
+                  className={cn(
+                    "w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-500",
+                    loadingDispatchTiers && "animate-spin"
+                  )}
+                />
+                Sync Live
+              </Button>
+            </div>
+          </div>
+
+          {/* 5 Tier KPI Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            {DISPATCH_TIER_COLUMNS.map((col) => {
+              const stat = dispatchTiers?.summary?.tierStats?.[col.key];
+              const Icon = col.icon;
+              const count = stat?.count ?? 0;
+              const qty = stat?.quantity ?? 0;
+              const totalQty = dispatchTiers?.summary?.totalQuantity || 1;
+              const percentage = ((qty / totalQty) * 100).toFixed(1);
+
+              return (
+                <div
+                  key={`tier-kpi-${col.key}`}
+                  className={cn(
+                    "relative overflow-hidden rounded-xl border p-2.5 sm:p-3 shadow-sm transition-all hover:shadow-md",
+                    col.summaryBg
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className={cn("text-[10px] sm:text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full", col.badgeBg)}>
+                      {col.label.replace(/^\d+\.\s*/, "")}
+                    </span>
+                    <Icon className={cn("w-4 h-4", col.accentColor)} />
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">{col.range}</p>
+                    <div className="flex items-baseline justify-between mt-0.5">
+                      <p className="text-lg sm:text-2xl font-black text-slate-800 leading-tight">
+                        {count.toLocaleString()}
+                        <span className="text-[11px] font-bold text-slate-400 ml-1">parties</span>
+                      </p>
+                      <span className="text-[10px] font-black text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200/60">
+                        {percentage}%
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-black text-slate-700 mt-1">
+                      {qty.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                      <span className="text-[10px] font-bold text-slate-400">MT</span>
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 5 Columns Matrix Table */}
+          <div className="relative rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {loadingDispatchTiers && !dispatchTiers ? (
+              <div className="h-64 flex flex-col items-center justify-center gap-2 text-slate-500">
+                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                <p className="text-xs font-bold">Loading customer dispatch tiers from Oracle ERP...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[640px] overflow-y-auto">
+                <table className="w-full text-left border-collapse min-w-[900px]">
+                  {/* Sticky Column Headers */}
+                  <thead className="sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.06)]">
+                    <tr>
+                      {DISPATCH_TIER_COLUMNS.map((col) => {
+                        const Icon = col.icon;
+                        const tierList = filteredDispatchTiers[col.key] || [];
+                        const totalMt = tierList.reduce((sum, item) => sum + item.quantity, 0);
+
+                        return (
+                          <th
+                            key={`th-dispatch-${col.key}`}
+                            className={cn(
+                              "p-2.5 sm:p-3 text-left border-r last:border-r-0 border-white/20 select-none",
+                              col.headerBg
+                            )}
+                            style={{ width: "20%" }}
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Icon className="w-4 h-4 text-white drop-shadow-sm" />
+                                <span className="text-xs sm:text-sm font-black tracking-wide uppercase">
+                                  {col.label}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full border border-white/30 backdrop-blur-xs">
+                                {col.range}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] font-bold text-white/90 mt-1.5 pt-1.5 border-t border-white/15">
+                              <span>{tierList.length} Customers</span>
+                              <span className="font-black">
+                                {totalMt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MT
+                              </span>
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+
+                  {/* Table Body - Rows across the 5 Tiers */}
+                  <tbody className="divide-y divide-slate-100 text-slate-700 font-sans">
+                    {maxDispatchTierRows === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-slate-400">
+                          <Crown className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                          <p className="text-sm font-bold text-slate-600">
+                            {dispatchSearchQuery ? `No customers match "${dispatchSearchQuery}"` : "No dispatch records available for this period"}
+                          </p>
+                          {dispatchSearchQuery && (
+                            <Button
+                              onClick={() => setDispatchSearchQuery("")}
+                              variant="link"
+                              className="text-xs text-orange-600 font-bold mt-1"
+                            >
+                              Clear search filter
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      Array.from({ length: maxDispatchTierRows }).map((_, rowIndex) => {
+                        return (
+                          <tr
+                            key={`dispatch-row-${rowIndex}`}
+                            className="even:bg-slate-50/40 hover:bg-orange-50/20 transition-colors"
+                          >
+                            {DISPATCH_TIER_COLUMNS.map((col) => {
+                              const customer = filteredDispatchTiers[col.key]?.[rowIndex];
+
+                              return (
+                                <td
+                                  key={`td-${col.key}-${rowIndex}`}
+                                  className="p-1.5 sm:p-2 align-top border-r last:border-r-0 border-slate-100"
+                                >
+                                  {customer ? (
+                                    <div
+                                      className={cn(
+                                        "group rounded-lg p-2 border transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)]",
+                                        col.cardBg
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="text-[10px] font-black text-slate-400">
+                                          #{rowIndex + 1}
+                                        </span>
+                                        <Badge
+                                          className={cn(
+                                            "font-black text-[10px] sm:text-[11px] px-1.5 py-0.2 shadow-none",
+                                            col.qtyBadge
+                                          )}
+                                        >
+                                          {customer.quantity.toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}{" "}
+                                          MT
+                                        </Badge>
+                                      </div>
+                                      <p
+                                        className="mt-1 text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words"
+                                        title={customer.name}
+                                      >
+                                        {customer.name}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="h-10 flex items-center justify-center text-slate-200 text-xs select-none">
+                                      —
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Table Footer */}
+            {dispatchTiers && (
+              <div className="px-3 sm:px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] font-semibold text-slate-500">
+                <span>
+                  Showing {totalFilteredCustomers} of {dispatchTiers.summary?.totalCustomers || 0} parties
+                  {dispatchSearchQuery && ` (filtered by "${dispatchSearchQuery}")`}
+                </span>
+                <span>
+                  Total Volume:{" "}
+                  <strong className="text-slate-700">
+                    {dispatchTiers.summary?.totalQuantity
+                      ? dispatchTiers.summary.totalQuantity.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "0.00"}{" "}
+                    MT
+                  </strong>
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Customer Feedback Section - Tabular Format */}
         <div className="mt-6 sm:mt-10 space-y-2 sm:space-y-4 font-sans">
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 px-1">
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center shadow-md sm:shadow-lg shadow-orange-100">
